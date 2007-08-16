@@ -1,0 +1,168 @@
+; Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+;
+; This file is part of Threading Building Blocks.
+;
+; Threading Building Blocks is free software; you can redistribute it
+; and/or modify it under the terms of the GNU General Public License
+; version 2 as published by the Free Software Foundation.
+;
+; Threading Building Blocks is distributed in the hope that it will be
+; useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+; of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+; GNU General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with Threading Building Blocks; if not, write to the Free Software
+; Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+;
+; As a special exception, you may use this file as part of a free software
+; library without restriction.  Specifically, if other files instantiate
+; templates or use macros or inline functions from this file, or you compile
+; this file and link it with other files to produce an executable, this
+; file does not by itself cause the resulting executable to be covered by
+; the GNU General Public License.  This exception does not however
+; invalidate any other reasons why the executable file might be covered by
+; the GNU General Public License.
+
+; This file is organized with a section for each .cpp file.
+; Each of these sections is in alphabetical order.
+
+EXPORTS
+
+; Assembly-language support that is called directly by clients
+__TBB_CompareAndSwap1acquire
+__TBB_CompareAndSwap1__TBB_full_fence
+__TBB_CompareAndSwap1release
+__TBB_CompareAndSwap2acquire
+__TBB_CompareAndSwap2__TBB_full_fence
+__TBB_CompareAndSwap2release
+__TBB_CompareAndSwap4acquire
+__TBB_CompareAndSwap4__TBB_full_fence
+__TBB_CompareAndSwap4release
+__TBB_CompareAndSwap8acquire
+__TBB_CompareAndSwap8__TBB_full_fence
+__TBB_CompareAndSwap8release
+__TBB_FetchAndAdd1acquire
+__TBB_FetchAndAdd1__TBB_full_fence
+__TBB_FetchAndAdd1release
+__TBB_FetchAndAdd2acquire
+__TBB_FetchAndAdd2__TBB_full_fence
+__TBB_FetchAndAdd2release
+__TBB_FetchAndAdd4acquire
+__TBB_FetchAndAdd4__TBB_full_fence
+__TBB_FetchAndAdd4release
+__TBB_FetchAndAdd8acquire
+__TBB_FetchAndAdd8__TBB_full_fence
+__TBB_FetchAndAdd8release
+__TBB_FetchAndStore1acquire
+__TBB_FetchAndStore1__TBB_full_fence
+__TBB_FetchAndStore1release
+__TBB_FetchAndStore2acquire
+__TBB_FetchAndStore2__TBB_full_fence
+__TBB_FetchAndStore2release
+__TBB_FetchAndStore4acquire
+__TBB_FetchAndStore4__TBB_full_fence
+__TBB_FetchAndStore4release
+__TBB_FetchAndStore8acquire
+__TBB_FetchAndStore8__TBB_full_fence
+__TBB_FetchAndStore8release
+__TBB_LockByte
+__TBB_TryLockByte
+__TBB_Log2
+__TBB_Pause
+;__TBB_TaggedCompareAndSwap
+;__TBB_CheckAcquire
+
+; NFS_Allocator.cpp
+?NFS_Allocate@internal@tbb@@YAPEAX_K0PEAX@Z
+?NFS_GetLineSize@internal@tbb@@YA_KXZ
+?NFS_Free@internal@tbb@@YAXPEAX@Z
+
+; task.cpp
+?allocate@allocate_additional_child_of_proxy@internal@tbb@@QEBAAEAVtask@3@_K@Z
+?allocate@allocate_child_proxy@internal@tbb@@QEBAAEAVtask@3@_K@Z
+?allocate@allocate_continuation_proxy@internal@tbb@@QEBAAEAVtask@3@_K@Z
+?allocate@allocate_root_proxy@internal@tbb@@SAAEAVtask@3@_K@Z
+?destroy@task@tbb@@QEAAXAEAV12@@Z
+?free@allocate_additional_child_of_proxy@internal@tbb@@QEBAXAEAVtask@3@@Z
+?free@allocate_child_proxy@internal@tbb@@QEBAXAEAVtask@3@@Z
+?free@allocate_continuation_proxy@internal@tbb@@QEBAXAEAVtask@3@@Z
+?free@allocate_root_proxy@internal@tbb@@SAXAEAVtask@3@@Z
+?initialize@task_scheduler_init@tbb@@QEAAXH@Z
+?internal_set_ref_count@task@tbb@@AEAAXH@Z
+?self@task@tbb@@SAAEAV12@XZ
+?spawn_and_wait_for_all@task@tbb@@QEAAXAEAVtask_list@2@@Z
+?terminate@task_scheduler_init@tbb@@QEAAXXZ
+
+; tbb_misc.cpp
+?assertion_failure@tbb@@YAXPEBDH00@Z
+
+; pipeline.cpp
+??_7pipeline@tbb@@6B@
+??0pipeline@tbb@@QEAA@XZ
+??1filter@tbb@@UEAA@XZ
+??1pipeline@tbb@@UEAA@XZ
+?add_filter@pipeline@tbb@@QEAAXAEAVfilter@2@@Z
+?clear@pipeline@tbb@@QEAAXXZ
+?inject_token@pipeline@tbb@@AEAAXAEAVtask@2@@Z
+?run@pipeline@tbb@@QEAAX_K@Z
+
+; queuing_rw_mutex.cpp
+?acquire@scoped_lock@queuing_rw_mutex@tbb@@QEAAXAEAV23@_N@Z
+?downgrade_to_reader@scoped_lock@queuing_rw_mutex@tbb@@QEAA_NXZ
+?release@scoped_lock@queuing_rw_mutex@tbb@@QEAAXXZ
+?upgrade_to_writer@scoped_lock@queuing_rw_mutex@tbb@@QEAA_NXZ
+?try_acquire@scoped_lock@queuing_rw_mutex@tbb@@QEAA_NAEAV23@_N@Z
+
+; spin_rw_mutex.cpp
+?internal_acquire_writer@spin_rw_mutex@tbb@@AEAA_NXZ
+?internal_acquire_reader@spin_rw_mutex@tbb@@AEAAXXZ
+?internal_upgrade@spin_rw_mutex@tbb@@AEAA_NXZ
+?internal_downgrade@spin_rw_mutex@tbb@@AEAAXXZ
+?internal_itt_releasing@spin_rw_mutex@tbb@@AEAAXXZ
+?internal_release_reader@spin_rw_mutex@tbb@@AEAAXXZ
+?internal_release_writer@spin_rw_mutex@tbb@@AEAAXXZ
+?internal_try_acquire_writer@spin_rw_mutex@tbb@@AEAA_NXZ
+?internal_try_acquire_reader@spin_rw_mutex@tbb@@AEAA_NXZ
+
+; spin_mutex.cpp
+?internal_acquire@scoped_lock@spin_mutex@tbb@@AEAAXAEAV23@@Z
+?internal_release@scoped_lock@spin_mutex@tbb@@AEAAXXZ
+?internal_try_acquire@scoped_lock@spin_mutex@tbb@@AEAA_NAEAV23@@Z
+
+; mutex.cpp
+?internal_acquire@scoped_lock@mutex@tbb@@AEAAXAEAV23@@Z
+?internal_release@scoped_lock@mutex@tbb@@AEAAXXZ
+?internal_try_acquire@scoped_lock@mutex@tbb@@AEAA_NAEAV23@@Z
+?internal_construct@mutex@tbb@@AEAAXXZ
+?internal_destroy@mutex@tbb@@AEAAXXZ
+
+; queuing_mutex.cpp
+?acquire@scoped_lock@queuing_mutex@tbb@@QEAAXAEAV23@@Z
+?release@scoped_lock@queuing_mutex@tbb@@QEAAXXZ
+?try_acquire@scoped_lock@queuing_mutex@tbb@@QEAA_NAEAV23@@Z
+
+; ConcurrentQueue.cpp
+??0concurrent_queue_base@internal@tbb@@IEAA@_K@Z
+??0concurrent_queue_iterator_base@internal@tbb@@IEAA@AEBVconcurrent_queue_base@12@@Z
+??1concurrent_queue_base@internal@tbb@@IEAA@XZ
+??1concurrent_queue_iterator_base@internal@tbb@@IEAA@XZ
+?advance@concurrent_queue_iterator_base@internal@tbb@@IEAAXXZ
+?assign@concurrent_queue_iterator_base@internal@tbb@@IEAAXAEBV123@@Z
+?internal_pop@concurrent_queue_base@internal@tbb@@IEAAXPEAX@Z
+?internal_pop_if_present@concurrent_queue_base@internal@tbb@@IEAA_NPEAX@Z
+?internal_push@concurrent_queue_base@internal@tbb@@IEAAXPEBX@Z
+?internal_push_if_not_full@concurrent_queue_base@internal@tbb@@IEAA_NPEBX@Z
+?internal_set_capacity@concurrent_queue_base@internal@tbb@@IEAAX_J_K@Z
+?internal_size@concurrent_queue_base@internal@tbb@@IEBA_JXZ
+
+; ConcurrentVector.cpp
+?internal_assign@concurrent_vector_base@internal@tbb@@IEAAXAEBV123@_KP6AXPEAX1@ZP6AX2PEBX1@Z5@Z
+?internal_capacity@concurrent_vector_base@internal@tbb@@IEBA_KXZ
+?internal_clear@concurrent_vector_base@internal@tbb@@IEAAXP6AXPEAX_K@Z_N@Z
+?internal_copy@concurrent_vector_base@internal@tbb@@IEAAXAEBV123@_KP6AXPEAXPEBX1@Z@Z
+?internal_grow_by@concurrent_vector_base@internal@tbb@@IEAA_K_K0P6AXPEAX0@Z@Z
+?internal_grow_to_at_least@concurrent_vector_base@internal@tbb@@IEAAX_K0P6AXPEAX0@Z@Z
+?internal_push_back@concurrent_vector_base@internal@tbb@@IEAAPEAX_KAEA_K@Z
+?internal_reserve@concurrent_vector_base@internal@tbb@@IEAAX_K00@Z
+

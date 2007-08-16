@@ -1,0 +1,101 @@
+# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+#
+# This file is part of Threading Building Blocks.
+#
+# Threading Building Blocks is free software; you can redistribute it
+# and/or modify it under the terms of the GNU General Public License
+# version 2 as published by the Free Software Foundation.
+#
+# Threading Building Blocks is distributed in the hope that it will be
+# useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Threading Building Blocks; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+#
+# As a special exception, you may use this file as part of a free software
+# library without restriction.  Specifically, if other files instantiate
+# templates or use macros or inline functions from this file, or you compile
+# this file and link it with other files to produce an executable, this
+# file does not by itself cause the resulting executable to be covered by
+# the GNU General Public License.  This exception does not however
+# invalidate any other reasons why the executable file might be covered by
+# the GNU General Public License.
+
+#------------------------------------------------------
+# Define rules for making the TBBMalloc shared library.
+#------------------------------------------------------
+
+default_malloc: malloc malloc_test
+
+tbb_root ?= $(TBB20_INSTALL_DIR)
+BUILDING_PHASE=1
+include $(tbb_root)/build/common.inc
+
+MALLOC_ROOT ?= $(tbb_root)/src/tbbmalloc
+MALLOC_SOURCE_ROOT ?= $(MALLOC_ROOT)
+
+VPATH = $(tbb_root)/src/tbb/$(ASSEMBLY_SOURCE) $(tbb_root)/src/tbb $(tbb_root)/src/test
+VPATH += $(MALLOC_ROOT) $(MALLOC_SOURCE_ROOT)
+
+# the test lists defined here because they are first used right after
+MALLOC_MAIN_TESTS = test_ScalableAllocator.exe test_ScalableAllocator_STL.exe test_malloc_compliance.exe
+MALLOC_C_TESTS = test_malloc_pure_c.exe
+
+$(MALLOC_MAIN_TESTS) $(MALLOC_C_TESTS): CPLUS_FLAGS += $(WARNING_KEY)
+
+KNOWN_NOSTRICT = test_malloc_compliance.$(OBJ) test_ScalableAllocator_STL.$(OBJ)
+
+include $(tbb_root)/build/common_rules.inc
+
+# Object files that gmake up TBBMalloc
+MALLOC_CPLUS.OBJ = tbbmalloc.$(OBJ)
+MALLOC_CUSTOM.OBJ += tbb_misc_malloc.$(OBJ)
+MALLOC_ASM.OBJ = $(TBB_ASM.OBJ)
+
+# MALLOC_CPLUS.OBJ is built in two steps due to Intel Compiler Tracker # C69574
+MALLOC.OBJ := $(MALLOC_CPLUS.OBJ) $(MALLOC_ASM.OBJ) $(MALLOC_CUSTOM.OBJ) MemoryAllocator.$(OBJ)
+MALLOC_CPLUS.OBJ += MemoryAllocator.$(OBJ)
+
+
+$(MALLOC_CPLUS.OBJ): %.$(OBJ): %.cpp
+	$(CPLUS) $(COMPILE_ONLY) $(M_CPLUS_FLAGS) $(PIC_KEY) $(M_INCLUDES) $<
+
+tbb_misc_malloc.$(OBJ): tbb_misc.cpp version_string.tmp
+	$(CPLUS) $(COMPILE_ONLY) $(subst -strict_ansi,-ansi,$(M_CPLUS_FLAGS)) $(PIC_KEY) $(OUTPUTOBJ_KEY)$@ $(INCLUDE_KEY). $(INCLUDES) $<
+
+
+$(MALLOC.DLL): TBB.DEF=$(MALLOC.DEF)
+$(MALLOC.DLL): $(MALLOC.OBJ) $(MALLOC.DEF) $(TBBMALLOC.RES)
+	$(CPLUS) $(MALLOC.OBJ) $(TBBMALLOC.RES) $(LIBS) $(PIC_KEY) $(OUTPUT_KEY)$(MALLOC.DLL) $(LIB_LINK_FLAGS)
+
+malloc: $(MALLOC.DLL)
+
+#------------------------------------------------------
+# End of rules for making the TBBMalloc shared library
+#------------------------------------------------------
+
+#------------------------------------------------------
+# Define rules for making the TBBMalloc unit tests
+#------------------------------------------------------
+
+MALLOC_MAIN_TESTS = test_ScalableAllocator.exe test_ScalableAllocator_STL.exe test_malloc_compliance.exe
+MALLOC_C_TESTS = test_malloc_pure_c.exe
+
+$(MALLOC_MAIN_TESTS): %.exe: %.$(OBJ) $(TBB.LIB) $(MALLOC.LIB)
+	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $^ $(LIBS) $(LINK_FLAGS)
+$(MALLOC_C_TESTS): %.exe: %.$(OBJ) $(MALLOC.LIB)
+	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $(INCLUDES) $^ $(LIBS) $(LINK_FLAGS)
+
+malloc_test: $(TBB.DLL) $(MALLOC.DLL) $(MALLOC_MAIN_TESTS) $(MALLOC_C_TESTS)
+	./test_malloc_compliance.exe
+	./test_ScalableAllocator.exe
+	./test_ScalableAllocator_STL.exe
+	./test_malloc_pure_c.exe
+
+#------------------------------------------------------
+# End of rules for making the TBBMalloc unit tests
+#------------------------------------------------------
+
