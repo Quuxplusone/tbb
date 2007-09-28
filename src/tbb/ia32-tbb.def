@@ -60,6 +60,7 @@ __TBB_machine_trylockbyte
 ?free@allocate_root_proxy@internal@tbb@@SAXAAVtask@3@@Z
 ?initialize@task_scheduler_init@tbb@@QAEXH@Z
 ?internal_set_ref_count@task@tbb@@AAEXH@Z
+?is_owned_by_current_thread@task@tbb@@QBE_NXZ
 ?self@task@tbb@@SAAAV12@XZ
 ?spawn_and_wait_for_all@task@tbb@@QAEXAAVtask_list@2@@Z
 ?terminate@task_scheduler_init@tbb@@QAEXXZ
@@ -68,6 +69,7 @@ __TBB_machine_trylockbyte
 ?assertion_failure@tbb@@YAXPBDH00@Z
 ?get_initial_auto_partitioner_divisor@internal@tbb@@YAIXZ
 ?handle_perror@internal@tbb@@YAXHPBD@Z
+?set_assertion_handler@tbb@@YAP6AXPBDH00@ZP6AX0H00@Z@Z
 
 ; pipeline.cpp
 ??0pipeline@tbb@@QAE@XZ
@@ -137,8 +139,10 @@ __TBB_machine_trylockbyte
 ?internal_capacity@concurrent_vector_base@internal@tbb@@IBEIXZ
 ?internal_clear@concurrent_vector_base@internal@tbb@@IAEIP6AXPAXI@Z@Z
 ?internal_copy@concurrent_vector_base@internal@tbb@@IAEXABV123@IP6AXPAXPBXI@Z@Z
-?internal_grow_by@concurrent_vector_base@internal@tbb@@IAEIIIP6AXPAXI@Z@Z
-?internal_grow_to_at_least@concurrent_vector_base@internal@tbb@@IAEXIIP6AXPAXI@Z@Z
+?internal_grow_by@concurrent_vector_base@internal@tbb@@IAEIIIP6AXPAXPBXI@Z1@Z
+?internal_grow_to_at_least@concurrent_vector_base@internal@tbb@@IAEXIIP6AXPAXPBXI@Z1@Z
 ?internal_push_back@concurrent_vector_base@internal@tbb@@IAEPAXIAAI@Z
 ?internal_reserve@concurrent_vector_base@internal@tbb@@IAEXIII@Z
-
+?internal_compact@concurrent_vector_base@internal@tbb@@IAEPAUsegment_t@123@IPAXP6AX0I@ZP6AX0PBXI@Z@Z
+?internal_swap@concurrent_vector_base@internal@tbb@@IAEXAAV123@@Z
+?internal_throw_exception@concurrent_vector_base@internal@tbb@@IBEXI@Z

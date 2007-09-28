@@ -45,7 +45,7 @@ namespace tbb {
         }
 #else
         int error_code = pthread_mutex_lock(&m.impl);
-        __TBB_ASSERT(!error_code,"mutex::scoped_lock: pthread_mutex_lock failed");
+        __TBB_ASSERT_EX(!error_code,"mutex::scoped_lock: pthread_mutex_lock failed");
 #endif /* _WIN32||_WIN64 */
         my_mutex = &m;
     }
@@ -66,7 +66,7 @@ void mutex::scoped_lock::internal_release() {
     }
 #else
      int error_code = pthread_mutex_unlock(&my_mutex->impl);
-     __TBB_ASSERT(!error_code, "mutex::scoped_lock: pthread_mutex_unlock failed");
+     __TBB_ASSERT_EX(!error_code, "mutex::scoped_lock: pthread_mutex_unlock failed");
 #endif /* _WIN32||_WIN64 */
      my_mutex = NULL;
 }
@@ -121,7 +121,7 @@ void mutex::internal_destroy() {
     state = DESTROYED;
 #else
     int error_code = pthread_mutex_destroy(&impl); 
-    __TBB_ASSERT(!error_code,"mutex: pthread_mutex_destroy failed");
+    __TBB_ASSERT_EX(!error_code,"mutex: pthread_mutex_destroy failed");
 #endif /* _WIN32||_WIN64 */
 }
 

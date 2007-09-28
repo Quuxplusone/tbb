@@ -31,10 +31,10 @@ BUILDING_PHASE:=0
 include ../build/common.inc
 
 ifneq ($(firstword is_abs_path$(subst /, ,$(tbb_root))),is_abs_path)
+    # also changes related variables like work_dir
     override tbb_root := $(CWD)$(SLASH)..
     export TBB20_INSTALL_DIR := $(tbb_root)
 endif
-work_dir := $(tbb_build_dir)$(SLASH)$(tbb_build_prefix)
 
 ifeq ($(tbb_os),windows)
     EXAMPLE_MAKEFILE = Makefile.windows
@@ -59,9 +59,19 @@ else
         ifeq ($(arch),ia32)
             export CXXFLAGS += -m32
         endif
+        ifeq ($(arch),ppc64)
+            export CXXFLAGS += -m64
+        endif
+        ifeq ($(arch),ppc32)
+            export CXXFLAGS += -m32
+        endif
     endif
     ifeq ($(tbb_os),macos)
         ifeq ($(arch),em64t)
+            # making GUI examples work in text console due to incompatible arch
+            export UI=con
+        endif
+        ifeq ($(arch),ppc64)
             # making GUI examples work in text console due to incompatible arch
             export UI=con
         endif

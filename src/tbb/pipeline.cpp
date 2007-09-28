@@ -38,13 +38,15 @@ namespace internal {
 //! A buffer of ordered items.
 /** Each item is a task, inserted into a position in the buffer corrsponding to a Token. */
 class ordered_buffer {
+    typedef  Token  size_type;
+
     //! Array of deferred tasks that cannot yet start executing. 
     /** Element is NULL if unused. */
     task** array;
 
     //! Size of array
     /** Always 0 or a power of 2 */
-    long array_size;
+    size_type array_size;
 
     //! Lowest token that can start executing.
     /** All prior Token have already been seen. */
@@ -55,11 +57,11 @@ class ordered_buffer {
 
     //! Resize "array".
     /** Caller is responsible to acquiring a lock on "array_mutex". */
-    void grow( long minimum_size );
+    void grow( size_type minimum_size );
 
     //! Initial size for "array"
     /** Must be a power of 2 */
-    static const size_t initial_buffer_size = 4;
+    static const size_type initial_buffer_size = 4;
 public:
     //! Construct empty buffer.
     ordered_buffer() : array(NULL), array_size(0), low_token(0) {
@@ -86,7 +88,8 @@ public:
                 // Trying to put token that is beyond low_token.
                 // Need to wait until low_token catches up before dispatching.
                 result = NULL;
-                if( token-low_token>=(Token)array_size ) 
+                __TBB_ASSERT( token>low_token, NULL );
+                if( token-low_token>=array_size ) 
                     grow( token-low_token+1 );
                 ITT_NOTIFY( sync_releasing, this );
                 array[token&array_size-1] = &putter;
@@ -97,11 +100,11 @@ public:
 
     //! Note that processing of a token is finished.
     /** Fires up processing of the next token, if processing was deferred. */
-    void note_done( long token, task& spawner ) {
+    void note_done( Token token, task& spawner ) {
         task* wakee=NULL;
         {
             spin_mutex::scoped_lock lock( array_mutex );
-            if( (Token)token==low_token ) {
+            if( token==low_token ) {
                 // Wake the next task
                 task*& item = array[++low_token & array_size-1];
                 ITT_NOTIFY( sync_acquired, this );
@@ -115,17 +118,17 @@ public:
     }
 };
 
-void ordered_buffer::grow( long minimum_size ) {
-    long old_size = array_size;
-    long new_size = old_size ? 2*old_size : initial_buffer_size;
+void ordered_buffer::grow( size_type minimum_size ) {
+    size_type old_size = array_size;
+    size_type new_size = old_size ? 2*old_size : initial_buffer_size;
     while( new_size<minimum_size ) 
         new_size*=2;
     task** new_array = cache_aligned_allocator<task*>().allocate(new_size);
     task** old_array = array;
-    for( long i=0; i<new_size; ++i )
+    for( size_type i=0; i<new_size; ++i )
         new_array[i] = NULL;
     long t=low_token;
-    for( long i=0; i<old_size; ++i, ++t )
+    for( size_type i=0; i<old_size; ++i, ++t )
         new_array[t&new_size-1] = old_array[t&old_size-1];
     array = new_array;
     array_size = new_size;
@@ -181,43 +184,42 @@ task* stage_task::execute() {
 } // namespace internal
 
 void pipeline::inject_token( task& self ) {
-    internal::Token token;
     void* o = NULL;
     filter* f = filter_list;
-    {
-        spin_mutex::scoped_lock lock( input_mutex );
-        if( !end_of_input ) {
-            ITT_NOTIFY(sync_acquired, this );
-            o = (*f)(NULL);
-            ITT_NOTIFY(sync_releasing, this );
-            if( o ) 
-                token = token_counter++;
-            else 
-                end_of_input = true;
-        }
-    }
-    if( o ) {
-        f = f->next_filter_in_pipeline;
-        // Successfully fetched another input object.  
-        // Create a stage_task to process it.
-        internal::stage_task* s = new( self.allocate_additional_child_of(*end_counter) ) internal::stage_task( *this, token, f );
-        s->my_object = o;
-        if( internal::ordered_buffer* input_buffer = f->input_buffer ) {
-            // The next filter must execute tokens in order.
-            s = static_cast<internal::stage_task*>(input_buffer->put_token(*s,token));
+    spin_mutex::scoped_lock lock( input_mutex );
+    if( !end_of_input ) {
+        ITT_NOTIFY(sync_acquired, this );
+        o = (*f)(NULL);
+        ITT_NOTIFY(sync_releasing, this );
+        if( o ) {
+            internal::Token token = token_counter++;
+            lock.release(); // release the lock as soon as finished updating shared fields
+
+            f = f->next_filter_in_pipeline;
+            // Successfully fetched another input object.  
+            // Create a stage_task to process it.
+            internal::stage_task* s = new( self.allocate_additional_child_of(*end_counter) ) internal::stage_task( *this, token, f );
+            s->my_object = o;
+            if( internal::ordered_buffer* input_buffer = f->input_buffer ) {
+                // The next filter must execute tokens in order.
+                s = static_cast<internal::stage_task*>(input_buffer->put_token(*s,token));
+            } 
+            if( s ) {
+                self.spawn(*s);
+            }
         } 
-        if( s ) {
-            self.spawn(*s);
-        }
-    } 
+        else 
+            end_of_input = true;
+    }
 }
 
 pipeline::pipeline() : 
     filter_list(NULL),
     filter_end(&filter_list),
-    end_counter(NULL)
+    end_counter(NULL),
+    token_counter(0),
+    end_of_input(false)
 {
-    token_counter = 0;
 }
 
 pipeline::~pipeline() {

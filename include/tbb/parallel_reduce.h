@@ -26,6 +26,9 @@
     the GNU General Public License.
 */
 
+#ifndef __TBB_parallel_reduce_H
+#define __TBB_parallel_reduce_H
+
 #include "task.h"
 #include "aligned_space.h"
 #include "partitioner.h"
@@ -82,7 +85,8 @@ namespace internal {
     };
 
     template<typename Range, typename Body, typename Partitioner>
-    task* start_reduce<Range,Body,Partitioner>::execute() {
+    task* start_reduce<Range,Body,Partitioner>::execute()
+    {
         Body* body = my_body;
         if( is_stolen_task() ) {
             finish_reduce<Body>* p = static_cast<finish_type*>(parent() );
@@ -105,15 +109,13 @@ namespace internal {
 } // namespace internal
 //! @endcond
 
-
 //! Parallel iteration with reduction
-/** 
-  * Type Body must have the following signatures: \n
-  *     operator()( const Range& r ); \n
-  *     Body( Body& b, split );  (be aware that b may have concurrent accesses) \n
-  *     void join( Body& ); \n
-  *     ~Body
-  * @ingroup algorithms
+/** Type Body must have the following signatures: \n
+        operator()( const Range& r ); \n
+        Body( Body& b, split );  (be aware that b may have concurrent accesses) \n
+        void join( Body& ); \n
+        ~Body
+       @ingroup algorithms
   */
 template<typename Range, typename Body>
 void parallel_reduce( const Range& range, Body& body ) {
@@ -125,16 +127,15 @@ void parallel_reduce( const Range& range, Body& body ) {
 }
 
 //! Parallel iteration with reduction using a partitioner.
-/** 
-  * Type Body must have the following signatures: \n
-  *     operator()( const Range& r ); \n
-  *     Body( Body& b, split );  (be aware that b may have concurrent accesses) \n
-  *     void join( Body& ); \n
-  *     ~Body
-  * The partitioner p must define: \n
-  *     p.should_execute_range(r,t)   True if r should be executed to completion without further splits. \n
-  *     P p2(p,split())               Split the partitioner into p2 and p.      \n
-  * @ingroup algorithms
+/** Type Body must have the following signatures: \n
+        operator()( const Range& r ); \n
+        Body( Body& b, split );  (be aware that b may have concurrent accesses) \n
+        void join( Body& ); \n
+        ~Body
+    The partitioner p must define: \n
+        p.should_execute_range(r,t)   True if r should be executed to completion without further splits. \n
+        P p2(p,split())               Split the partitioner into p2 and p.      \n
+    @ingroup algorithms
   */
 template<typename Range, typename Body, typename Partitioner>
 void parallel_reduce( const Range& range, Body& body, const Partitioner &partitioner ) {
@@ -147,3 +148,6 @@ void parallel_reduce( const Range& range, Body& body, const Partitioner &partiti
 
 
 } // namespace tbb
+
+#endif /* __TBB_parallel_reduce_H */
+

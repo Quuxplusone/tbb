@@ -82,6 +82,11 @@
 #undef __TBB_tbb_windef_H
 #endif /* _WIN32||_WIN64 */
 
+namespace tbb {
+    //! Type for an assertion handler
+    typedef void(*assertion_handler_type)( const char* filename, int line, const char* expression, const char * comment );
+}
+
 #if TBB_DO_ASSERT
 
 //! Assert that x is true.
@@ -89,17 +94,25 @@
     If the comment argument is not NULL, it is printed as part of the failure message.  
     The comment argument has no other effect. */
 #define __TBB_ASSERT(predicate,message) ((predicate)?((void)0):tbb::assertion_failure(__FILE__,__LINE__,#predicate,message))
+#define __TBB_ASSERT_EX __TBB_ASSERT
 
 namespace tbb {
-    //! Print message for assertion failure and abort.
-    /** Normally called from __TBB_ASSERT macro. */
-    void assertion_failure( const char * filename, int line, const char * expression, const char * comment );
+    //! Set assertion handler and return previous value of it.
+    assertion_handler_type set_assertion_handler( assertion_handler_type new_handler ); 
+
+    //! Process an assertion failure.
+    /** Normally called from __TBB_ASSERT macro.
+        If assertion handler is null, print message for assertion failure and abort.
+        Otherwise call the assertion handler. */
+    void assertion_failure( const char* filename, int line, const char* expression, const char* comment );
 } // namespace tbb
 
 #else
 
 //! No-op version of __TBB_ASSERT.
 #define __TBB_ASSERT(predicate,comment) ((void)0)
+//! "Extended" version is useful to suppress warnings if a variable is only used with an assert
+#define __TBB_ASSERT_EX(predicate,comment) ((void)(1 && (predicate)))
 
 #endif /* TBB_DO_ASSERT */
 

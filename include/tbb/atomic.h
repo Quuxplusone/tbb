@@ -34,10 +34,6 @@
 
 #if _MSC_VER 
 #define __TBB_LONG_LONG __int64
-#ifndef __INTEL_COMPILER 
-// unary minus operator applied to unsigned type, result still unsigned
-#pragma warning(disable: 4146)
-#endif /* __INTEL_COMPILER */
 #else
 #define __TBB_LONG_LONG long long
 #endif /* _MSC_VER */
@@ -163,6 +159,11 @@ __TBB_DECL_ATOMIC_PRIMITIVES(4)
 __TBB_DECL_ATOMIC_PRIMITIVES(8)
 #endif
 
+//! Additive inverse of 1 for type T.
+/** Various compilers issue various warnings if -1 is used with various integer types.
+    The baroque expression below avoids all the warnings (we hope). */
+#define __TBB_MINUS_ONE(T) (T(T(0)-T(1)))
+
 template<typename I, typename D, size_t Step>
 struct atomic_impl: private atomic_base<I> {
 private:
@@ -190,11 +191,11 @@ public:
 
     template<memory_semantics M>
     value_type fetch_and_decrement() {
-        return fetch_and_add<M>(D(-D(1)));  // extra casts avoid compiler warnings
+        return fetch_and_add<M>(__TBB_MINUS_ONE(D));
     }
 
     value_type fetch_and_decrement() {
-        return fetch_and_add(D(-D(1)));     // extra casts avoid compiler warnings
+        return fetch_and_add(__TBB_MINUS_ONE(D));
     }
 
     template<memory_semantics M>
@@ -235,7 +236,9 @@ public:
     }
 
     value_type operator-=( D addend ) {
-        return operator+=(-addend);
+        // Additive inverse of addend computed using binary minus,
+        // instead of unary minus, for sake of avoiding compiler warnings.
+        return operator+=(D(0)-addend);    
     }
 
     value_type operator++() {
@@ -243,7 +246,7 @@ public:
     }
 
     value_type operator--() {
-        return fetch_and_add(D(-D(1)))-1;   // extra casts avoid compiler warnings
+        return fetch_and_add(__TBB_MINUS_ONE(D))-1;
     }
 
     value_type operator++(int) {
@@ -251,7 +254,7 @@ public:
     }
 
     value_type operator--(int) {
-        return fetch_and_add(D(-D(1)));     // extra casts avoid compiler warnings
+        return fetch_and_add(__TBB_MINUS_ONE(D));
     }
 };
 
@@ -322,6 +325,9 @@ template<typename T> struct atomic<T*>: internal::atomic_impl<T*,ptrdiff_t,sizeo
     T* operator=( T* rhs ) {
         // "this" required here in strict ISO C++ because store_with_release is a dependent name
         return this->store_with_release(rhs);
+    }
+    T* operator->() const {
+        return (*this);
     }
 };
 

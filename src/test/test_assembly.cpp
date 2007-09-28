@@ -63,7 +63,9 @@ void GenericScheduler::test_assembly_routines() {
     long steal_count = 0;
     long get_count = 0;
     const depth_type n = 5;
-    ASSERT( array_size>=n, NULL );
+    const depth_type array_size_proxy = array_size; // using proxy to reduce compilation warnings
+    ASSERT( array_size-array_size_proxy==0, NULL ); // check validity of the replacement
+    ASSERT( array_size_proxy>=n, NULL );
     // Loop over insertion levels
     for( depth_type i=0; i<n; ++i ) 
         // Loop over values for "deepest"
@@ -78,7 +80,7 @@ void GenericScheduler::test_assembly_routines() {
                         for( int steal=0; steal<2; ++steal ) {
                             ASSERT( assert_okay(), NULL );
                             task** array = dummy_slot.task_pool->array;  
-                            for( depth_type k=0; k<array_size; ++k )
+                            for( depth_type k=0; k<array_size_proxy; ++k )
                                 array[k] = NULL;
                             dummy_slot.task_pool->prefix().steal_begin = s;
                             ASSERT( assert_okay(), NULL );
@@ -86,7 +88,7 @@ void GenericScheduler::test_assembly_routines() {
                             TestTask& w = *new( task::allocate_root() ) TestTask("w");
                             ASSERT( assert_okay(), NULL );
                             if( d>=0 ) {
-                                w.prefix().depth = d;
+                                w.prefix().depth = int(d);
                                 w.prefix().next = NULL;
                                 w.prefix().state = task::ready;
                                 dummy_slot.task_pool->array[d] = &w;
@@ -104,7 +106,7 @@ void GenericScheduler::test_assembly_routines() {
                             z.prefix().next = NULL;
                             ASSERT( x.prefix().next==&y, NULL );
                             for( task* p=&x; p; p=p->prefix().next ) 
-                                p->prefix().depth = i;
+                                p->prefix().depth = int(i);
                             ASSERT( assert_okay(), NULL );
                             z.prefix().next = (task*)(void*)-1;
                             if( insert ) {
@@ -119,9 +121,9 @@ void GenericScheduler::test_assembly_routines() {
                             } 
                             if( steal ) {
                                 task* expected_task = NULL;
-                                int shallowest = dummy_slot.task_pool->prefix().steal_begin;
+                                depth_type shallowest = dummy_slot.task_pool->prefix().steal_begin;
                                 depth_type expected_shallowest = shallowest;
-                                for( depth_type k=shallowest; k<array_size; ++k ) {
+                                for( depth_type k=shallowest; k<array_size_proxy; ++k ) {
                                     if( k>=limit && array[k] ) {
                                         expected_task = array[k];
                                         if( shallowest>=limit )
@@ -139,7 +141,7 @@ void GenericScheduler::test_assembly_routines() {
                                 ++steal_count;
                             } else {
                                 task* expected_task = NULL;
-                                for( depth_type k=array_size-1; k>=limit; --k ) {
+                                for( depth_type k=array_size_proxy-1; k>=limit; --k ) {
                                     if( array[k] ) {
                                         expected_task = array[k];
                                         ASSERT( deepest==k, NULL ); 
@@ -154,15 +156,16 @@ void GenericScheduler::test_assembly_routines() {
                                 ++get_count;
                             }
                         }
+    ASSERT( array_size-array_size_proxy==0, NULL ); // check for any side effects affecting array_size
     if( Verbose )
         printf("%ld successful gets and %ld successful steals\n", get_count, steal_count );
 }
 
-//! Test __TBB_CompareExchange
+//! Test __TBB_CompareAndSwapW
 static void TestCompareExchange() {
     ASSERT( intptr(-10)<10, "intptr not a signed integral type?" ); 
     if( Verbose ) 
-        printf("testing __TBB_CompareExchange\n");
+        printf("testing __TBB_CompareAndSwapW\n");
     for( intptr a=-10; a<10; ++a )
         for( intptr b=-10; b<10; ++b )
             for( intptr c=-10; c<10; ++c ) {
@@ -179,17 +182,17 @@ static void TestCompareExchange() {
 //! Test __TBB___TBB_FetchAndIncrement and __TBB___TBB_FetchAndDecrement
 static void TestAtomicCounter() {
     // "canary" is a value used to detect illegal overwrites.
-    const ReferenceCount canary = ~(internal::uintptr)0/3;
+    const internal::reference_count canary = ~(internal::uintptr)0/3;
     if( Verbose ) 
         printf("testing __TBB_FetchAndIncrement\n");
     struct {
-        ReferenceCount prefix, i, suffix;
+        internal::reference_count prefix, i, suffix;
     } x;
     x.prefix = canary;
     x.i = 0;
     x.suffix = canary;
     for( int k=0; k<10; ++k ) {
-        ReferenceCount j = __TBB_FetchAndIncrementWacquire((volatile void *)&x.i);
+        internal::reference_count j = __TBB_FetchAndIncrementWacquire((volatile void *)&x.i);
         ASSERT( x.prefix==canary, NULL );
         ASSERT( x.suffix==canary, NULL );
         ASSERT( x.i==k+1, NULL );
@@ -199,7 +202,7 @@ static void TestAtomicCounter() {
         printf("testing __TBB_FetchAndDecrement\n");
     x.i = 10;
     for( int k=10; k>0; --k ) {
-        ReferenceCount j = __TBB_FetchAndDecrementWrelease((volatile void *)&x.i);
+        internal::reference_count j = __TBB_FetchAndDecrementWrelease((volatile void *)&x.i);
         ASSERT( j==k, NULL );
         ASSERT( x.i==k-1, NULL );
         ASSERT( x.prefix==canary, NULL );
@@ -222,12 +225,13 @@ static void TestTinyLock() {
 static void TestLog2() {
     if( Verbose ) 
         printf("testing __TBB_Log2\n");
-    for( unsigned long i=1; i; i<<=1 ) {
-        for( unsigned long j=1; j<1<<16; ++j ) {
-            if( unsigned long k = i*j ) {
-                unsigned long actual = __TBB_Log2(k);
-                ASSERT( k >= 1UL<<actual, NULL );          
-                ASSERT( k>>1 < 1UL<<actual, NULL );        
+    for( uintptr_t i=1; i; i<<=1 ) {
+        for( uintptr_t j=1; j<1<<16; ++j ) {
+            if( uintptr_t k = i*j ) {
+                uintptr_t actual = __TBB_Log2(k);
+                const uintptr_t ONE = 1; // warning suppression again
+                ASSERT( k >= ONE<<actual, NULL );          
+                ASSERT( k>>1 < ONE<<actual, NULL );        
             }
         }
     }
@@ -265,13 +269,11 @@ int main( int argc, char* argv[] ) {
         TestAtomicCounter();
         TestPause();
 
-        task_scheduler_init init(1); 
+        task_scheduler_init init(1);
 
         if( Verbose ) 
             printf("testing __TBB_(scheduler assists)\n");
-        // Work around C++ access protection
-        GenericScheduler* scheduler;
-        memcpy( &scheduler, &init, sizeof(class scheduler*) );
+        GenericScheduler* scheduler = GetThreadSpecific();
         scheduler->test_assembly_routines();
 
     } catch(...) {

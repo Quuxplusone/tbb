@@ -31,7 +31,8 @@ DEFINE_KEY = -D
 OUTPUT_KEY = -o #
 OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
-WARNING_KEY = -w1 -Werror
+WARNING_AS_ERROR_KEY = -Werror
+WARNING_KEY = -w1
 DYLIB_KEY = -shared
 LIBDL = -ldl
 export COMPILER_VERSION := ICC: $(shell icc -V </dev/null 2>&1 | grep 'Version')
@@ -62,9 +63,8 @@ ASM_FLAGS=
 TBB_ASM.OBJ=
 
 ifeq (itanium,$(arch))
-# Position-independent code (PIC) is a must for IA-64
+# Position-independent code (PIC) is a must on IA-64, even for regular (not shared) executables
     CPLUS_FLAGS += $(PIC_KEY)
-    $(PIC_KEY) = 
 endif 
 
 #------------------------------------------------------------------------------

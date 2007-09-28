@@ -45,7 +45,7 @@ ifndef tbb_os
  $(error "$(OS) is not supported")
 else
  ifeq ($(wildcard $(tbb_root)/build/$(tbb_os).inc),)
-   $(error "$(tbb_os)" is not supported; add build/$(tbb_os).inc file with os-specific settings )
+   $(error "$(tbb_os)" is not supported. Add build/$(tbb_os).inc file with os-specific settings )
  endif
  
  # detect arch and runtime versions, provide common os-specific definitions
@@ -58,7 +58,7 @@ else
   $(error Runtime version not detected)
  endif
  ifeq ($(wildcard $(tbb_root)/build/$(tbb_os).$(compiler).inc),)
-   $(error Compiler "$(compiler)" is not supported on $(tbb_os); add build/$(tbb_os).$(compiler).inc file with compiler-specific settings )
+   $(error Compiler "$(compiler)" is not supported on $(tbb_os). Add build/$(tbb_os).$(compiler).inc file with compiler-specific settings )
  endif
 
  ifdef BUILDING_PHASE
@@ -72,15 +72,18 @@ else
   origin_build_dir:=$(origin tbb_build_dir)
   tbb_build_dir?=$(tbb_root)$(SLASH)build
   tbb_build_prefix?=$(tbb_os)_$(arch)_$(compiler)_$(runtime)
-  work_dir:=$(tbb_build_dir)$(SLASH)$(tbb_build_prefix)
-  # assign new value for tbb_root
-  ifneq ($(firstword is_abs_path$(subst /, ,$(tbb_root))),is_abs_path)
-   ifeq ($(origin_build_dir),undefined)
-    override tbb_root:=../..
-   else
-    override tbb_root:=$(CWD)/$(tbb_root)
+  work_dir=$(tbb_build_dir)$(SLASH)$(tbb_build_prefix)
+  ifneq ($(BUILDING_PHASE),0)
+   work_dir:=$(work_dir)
+   # assign new value for tbb_root
+   ifneq ($(firstword is_abs_path$(subst /, ,$(tbb_root))),is_abs_path)
+    ifeq ($(origin_build_dir),undefined)
+     override tbb_root:=../..
+    else
+     override tbb_root:=$(CWD)/$(tbb_root)
+    endif
    endif
-  endif
-  export tbb_root
- endif
+   export tbb_root
+  endif # BUILDING_PHASE != 0
+ endif  # BUILDING_PHASE != 1
 endif

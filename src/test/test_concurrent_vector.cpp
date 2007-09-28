@@ -30,6 +30,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include "harness_assert.h"
+#include "harness_allocator.h"
 
 tbb::atomic<long> FooCount;
 
@@ -69,6 +70,8 @@ public:
         my_bar = ~initial_value_of_bar;
         --FooCount;
     }
+    bool operator==(const Foo &f) const { return my_bar == f.my_bar; }
+    bool operator<(const Foo &f) const { return my_bar < f.my_bar; }
     bool is_const() const {return true;}
     bool is_const() {return false;}
 };
@@ -82,12 +85,29 @@ public:
     } 
 };
 
+class FooIterator: public std::iterator<std::input_iterator_tag,FooWithAssign> {
+    int x_bar;
+public:
+    FooIterator(int x) {
+        x_bar = x;
+    }
+    FooIterator &operator++() {
+        x_bar++; return *this;
+    }
+    FooWithAssign operator*() {
+        FooWithAssign foo; foo.bar() = x_bar*x_bar;
+        return foo;
+    }
+    bool operator!=(const FooIterator &i) { return x_bar != i.x_bar; }
+};
+
 inline void NextSize( int& s ) {
     if( s<=32 ) ++s;
-    else s += s/10;     
+    else s += s/10;
 }
 
-static void CheckVector( const tbb::concurrent_vector<Foo>& cv, size_t expected_size, size_t old_size ) {
+template<typename vector_t>
+static void CheckVector( const vector_t& cv, size_t expected_size, size_t old_size ) {
     ASSERT( cv.size()==expected_size, NULL );
     ASSERT( cv.empty()==(expected_size==0), NULL );
     for( int j=0; j<int(expected_size); ++j ) {
@@ -97,16 +117,19 @@ static void CheckVector( const tbb::concurrent_vector<Foo>& cv, size_t expected_
 }
 
 void TestResizeAndCopy() {
-    typedef tbb::concurrent_vector<Foo> vector_t;
+    typedef static_counting_allocator<std::allocator<Foo>, size_t> allocator_t;
+    typedef tbb::concurrent_vector<Foo, allocator_t> vector_t;
+    allocator_t::init_counters();
     for( int old_size=0; old_size<=128; NextSize( old_size ) ) {
-        for( int new_size=old_size; new_size<=128; NextSize( new_size ) ) {
+        for( int new_size=old_size; new_size<=1280; NextSize( new_size ) ) {
             long count = FooCount;
             vector_t v;
             ASSERT( count==FooCount, NULL );
-            v.grow_by(old_size);
-            ASSERT( count+old_size==FooCount, NULL );
-            for( int j=0; j<old_size; ++j )
-                v[j].bar() = j*j;
+            v.assign(old_size/2, Foo() );
+            ASSERT( count+old_size/2==FooCount, NULL );
+            for( int j=0; j<old_size/2; ++j )
+                ASSERT( v[j].state == Foo::CopyInitialized, NULL);
+            v.assign(FooIterator(0), FooIterator(old_size));
             v.grow_to_at_least(new_size);
             ASSERT( count+new_size==FooCount, NULL );
             for( int j=0; j<new_size; ++j ) {
@@ -118,29 +141,38 @@ void TestResizeAndCopy() {
             for( int j=0; j<new_size; ++j ) {
                 v[j].bar() = ~j;
             }
+            v.compact();
+            CheckVector(v,new_size,old_size);
             const vector_t& cv = v;
             // Try copy constructor
             vector_t copy_of_v(cv);
             CheckVector(cv,new_size,old_size);
+            ASSERT( !(v != copy_of_v), NULL );
             v.clear();
             ASSERT( v.empty(), NULL );
-            CheckVector(copy_of_v,new_size,old_size);
+            swap(v, copy_of_v);
+            ASSERT( copy_of_v.empty(), NULL );
+            CheckVector(v,new_size,old_size);
         }
     }
+    ASSERT( allocator_t::items_allocated == allocator_t::items_freed, NULL);
+    ASSERT( allocator_t::allocations == allocator_t::frees, NULL);
 }
 
 void TestCapacity() {
+    typedef static_counting_allocator<tbb::cache_aligned_allocator<Foo>, size_t> allocator_t;
+    typedef tbb::concurrent_vector<Foo, allocator_t> vector_t;
+    allocator_t::init_counters();
     for( size_t old_size=0; old_size<=10000; old_size=(old_size<5 ? old_size+1 : 3*old_size) ) {
         for( size_t new_size=0; new_size<=10000; new_size=(new_size<5 ? new_size+1 : 3*new_size) ) {
             long count = FooCount; 
             {
-                typedef tbb::concurrent_vector<Foo> vector_t;
-                vector_t v;
-                v.reserve( old_size );
+                vector_t v; v.reserve(old_size);
                 ASSERT( v.capacity()>=old_size, NULL );
                 v.reserve( new_size );
                 ASSERT( v.capacity()>=old_size, NULL );
                 ASSERT( v.capacity()>=new_size, NULL );
+                ASSERT( v.empty(), NULL );
                 for( size_t i=0; i<2*new_size; ++i ) {
                     ASSERT( size_t(FooCount)==count+i, NULL );
                     size_t j = v.grow_by(1);
@@ -150,6 +182,8 @@ void TestCapacity() {
             ASSERT( FooCount==count, NULL );
         }
     } 
+    ASSERT( allocator_t::items_allocated == allocator_t::items_freed, NULL);
+    ASSERT( allocator_t::allocations == allocator_t::frees, NULL);
 }
 
 struct AssignElement {
@@ -186,14 +220,14 @@ void TestParallelFor( int nthread ) {
     v.grow_to_at_least(N);  
     tbb::tick_count t0 = tbb::tick_count::now();
     if( Verbose )
-        printf("Calling parallel_for.h with %ld threads\n",long(nthread));
+        printf("Calling parallel_for with %ld threads\n",long(nthread));
     tbb::parallel_for( v.range(10000), AssignElement(v.begin()) );
     tbb::tick_count t1 = tbb::tick_count::now();
     const vector_t& u = v;      
     tbb::parallel_for( u.range(10000), CheckElement(u.begin()) );
     tbb::tick_count t2 = tbb::tick_count::now();
     if( Verbose )
-        printf("Time for parallel_for.h: assign time = %8.5f, check time = %8.5f\n",
+        printf("Time for parallel_for: assign time = %8.5f, check time = %8.5f\n",
                (t1-t0).seconds(),(t2-t1).seconds());
     for( long i=0; size_t(i)<v.size(); ++i )
         if( v[i]!=i )
@@ -256,8 +290,9 @@ void CheckIteratorComparison( V& u ) {
 
 //! Test sequential iterators for vector type V.
 /** Also does timing. */
-template<typename V>
+template<typename T>
 void TestSequentialFor() {
+    typedef tbb::concurrent_vector<Foo> V;
     V v;
     v.grow_by(N);
 
@@ -278,10 +313,11 @@ void TestSequentialFor() {
     tbb::tick_count t1 = tbb::tick_count::now();
     
     // Check const_iterator going forwards
-    const V& u = v;     
+    const V& u = v;
     typename V::const_iterator cp = u.begin();
     ASSERT( (*cp).is_const(), NULL );
     ASSERT( cp->is_const(), NULL );
+    ASSERT( *cp == v.front(), NULL);
     for( int i=0; size_t(i)<u.size(); ++i, ++cp ) {
         CheckConstIterator(u,i,cp);
     }
@@ -306,9 +342,18 @@ void TestSequentialFor() {
         CheckConstIterator(u,i,cp);
     }
 
+    // check at()
+    ptrdiff_t j = -1;
+    try {
+        u.at( u.size() );
+    }
+    catch (...) {
+        j = 0;
+    }
+    ASSERT( j == 0, "at( size() ) doesn't throw an exception");
+
     // Now go forwards and backwards
     cp = u.begin();
-    ptrdiff_t j = 0;
     for( size_t i=0; i<u.size(); ++i ) {
         CheckConstIterator(u,int(j),cp);
         typename V::difference_type delta = i*3 % u.size();
@@ -354,6 +399,7 @@ void TestSequentialFor() {
     
     // Check const_reverse_iterator 
     typename V::const_reverse_iterator crp = u.rbegin();
+    ASSERT( *crp == v.back(), NULL);
     for( size_t i=v.size(); i>0; --i, ++crp ) {
         typename V::const_reference cpref = *crp;
         ASSERT( size_t(cpref.bar())==i-1, NULL );
@@ -363,11 +409,25 @@ void TestSequentialFor() {
 
     TestIteratorAssignment<typename V::const_reverse_iterator>( u.rbegin() );
     TestIteratorAssignment<typename V::reverse_iterator>( v.rbegin() );
+
+    // cross-allocator tests
+#if !defined(_WIN64) || defined(_CPPLIB_VER)
+    typedef local_counting_allocator<std::allocator<int>, size_t> allocator1_t;
+    typedef tbb::cache_aligned_allocator<void> allocator2_t;
+    typedef tbb::concurrent_vector<Foo, allocator1_t> V1;
+    typedef tbb::concurrent_vector<Foo, allocator2_t> V2;
+    V1 v1( v ); // checking cross-allocator copying
+    V2 v2( 10 ); v2 = v1; // checking cross-allocator assignment
+    ASSERT( (v1 == v) && !(v2 != v), NULL);
+    ASSERT( !(v1 < v) && !(v2 > v), NULL);
+    ASSERT( (v1 <= v) && (v2 >= v), NULL);
+#endif
 }
 
 static const size_t Modulus = 7;
 
-typedef tbb::concurrent_vector<Foo> MyVector;
+typedef static_counting_allocator<tbb::cache_aligned_allocator<Foo> > MyAllocator;
+typedef tbb::concurrent_vector<Foo, MyAllocator> MyVector;
 
 class GrowToAtLeast {
     MyVector& my_vector;
@@ -375,7 +435,7 @@ public:
     void operator()( const tbb::blocked_range<size_t>& range ) const {
         for( size_t i=range.begin(); i!=range.end(); ++i ) {
             size_t n = my_vector.size();
-            size_t k = n==0 ? 0 : i % (2*n+1);
+            size_t k = i % (2*n+1);
             my_vector.grow_to_at_least(k+1);
             ASSERT( my_vector.size()>=k+1, NULL );
         }
@@ -384,10 +444,15 @@ public:
 };
 
 void TestConcurrentGrowToAtLeast() {
-    MyVector v;
+    MyAllocator::init_counters();
+    MyVector v(2, Foo(), MyAllocator());
     for( size_t s=1; s<1000; s*=10 ) {
-        tbb::parallel_for( tbb::blocked_range<size_t>(0,1000000,100), GrowToAtLeast(v) );
+        tbb::parallel_for( tbb::blocked_range<size_t>(0,10000*s,s), GrowToAtLeast(v) );
     }
+    v.clear();
+    size_t items_allocated = v.get_allocator().items_allocated, items_freed = v.get_allocator().items_freed;
+    size_t allocations = v.get_allocator().allocations, frees = v.get_allocator().frees;
+    ASSERT( items_allocated == items_freed, NULL); ASSERT( allocations == frees, NULL);
 }
 
 //! Test concurrent invocations of method concurrent_vector::grow_by
@@ -396,13 +461,17 @@ class GrowBy {
 public:
     void operator()( const tbb::blocked_range<int>& range ) const {
         for( int i=range.begin(); i!=range.end(); ++i ) {
-            if( i%3 ) {
+            if( i&1 ) {
                 Foo& element = my_vector[my_vector.grow_by(1)]; 
                 element.bar() = i;
             } else {
                 Foo f;
                 f.bar() = i;
-                size_t k = my_vector.push_back( f );
+                size_t k;
+                if( i&2 )
+                    k = my_vector.push_back( f );
+                else
+                    k = my_vector.grow_by(1, f);
                 ASSERT( my_vector[k].bar()==i, NULL );
             }
         }
@@ -412,52 +481,91 @@ public:
 
 //! Test concurrent invocations of method concurrent_vector::grow_by
 void TestConcurrentGrowBy( int nthread ) {
-    int m = 100000;
-    MyVector v;
-    tbb::parallel_for( tbb::blocked_range<int>(0,m,1000), GrowBy(v) );
-    ASSERT( v.size()==size_t(m), NULL );
+    MyAllocator::init_counters();
+    {
+        int m = 100000; MyAllocator a;
+        MyVector v( a );
+        tbb::parallel_for( tbb::blocked_range<int>(0,m,1000), GrowBy(v) );
+        ASSERT( v.size()==size_t(m), NULL );
 
-    // Verify that v is a permutation of 0..m
-    int inversions = 0;
-    bool* found = new bool[m];
-    memset( found, 0, m );
-    for( int i=0; i<m; ++i ) {
-        int index = v[i].bar();
-        ASSERT( !found[index], NULL );
-        found[index] = true;
-        if( i>0 )
-            inversions += v[i].bar()<v[i-1].bar();
+        // Verify that v is a permutation of 0..m
+        int inversions = 0;
+        bool* found = new bool[m];
+        memset( found, 0, m );
+        for( int i=0; i<m; ++i ) {
+            int index = v[i].bar();
+            ASSERT( v[i].state == (index&1 ? Foo::DefaultInitialized : Foo::CopyInitialized), NULL);
+            ASSERT( !found[index], NULL );
+            found[index] = true;
+            if( i>0 )
+                inversions += v[i].bar()<v[i-1].bar();
+        }
+        for( int i=0; i<m; ++i ) {
+            ASSERT( found[i], NULL );
+            ASSERT( nthread>1 || v[i].bar()==i, "sequential execution is wrong" );
+        }
+        delete[] found;
+        if( nthread>1 && inversions<m/10 )
+            printf("WARNING: not much concurrency in TestConcurrentGrowBy\n");
     }
-    for( int i=0; i<m; ++i ) {
-        ASSERT( found[i], NULL );
-        ASSERT( nthread>1 || v[i].bar()==i, "sequential execution is wrong" );
-    }
-    delete[] found;
-    if( nthread>1 && inversions<m/10 )
-        printf("WARNING: not much concurrency in TestConcurrentGrowBy\n");
+    size_t items_allocated = MyAllocator::items_allocated, items_freed = MyAllocator::items_freed;
+    size_t allocations = MyAllocator::allocations, frees = MyAllocator::frees;
+    ASSERT( items_allocated == items_freed, NULL); ASSERT( allocations == frees, NULL);
 }
 
 //! Test the assignment operator
 void TestAssign() {
-    typedef tbb::concurrent_vector<FooWithAssign> vector_t;
+    typedef tbb::concurrent_vector<FooWithAssign, local_counting_allocator<std::allocator<FooWithAssign>, size_t > > vector_t;
+    local_counting_allocator<std::allocator<FooWithAssign>, size_t > init_alloc;
+    init_alloc.allocations = 100;
     for( int dst_size=1; dst_size<=128; NextSize( dst_size ) ) {
         for( int src_size=2; src_size<=128; NextSize( src_size ) ) {
-            vector_t u;
-            u.grow_to_at_least(src_size);
-            for( int i=0; i<src_size; ++i )
-                u[i].bar() = i*i;
-            vector_t v;
-            v.grow_to_at_least(dst_size);
-            for( int i=0; i<dst_size; ++i )
+            vector_t u(FooIterator(0), FooIterator(src_size), init_alloc);
+            for( int i=0; i<src_size; ++i ) {
+                ASSERT( u[i].bar() == i*i, NULL );
+            }
+            vector_t v(dst_size, FooWithAssign(), init_alloc);
+            for( int i=0; i<dst_size; ++i ) {
+                ASSERT( v[i].state==Foo::CopyInitialized, NULL );
                 v[i].bar() = -i;
+            }
+            ASSERT( v != u, NULL);
+            // using assignment
             v = u;
+            ASSERT( v == u, NULL);
             u.clear();
             ASSERT( u.size()==0, NULL );
             ASSERT( v.size()==size_t(src_size), NULL );
             for( int i=0; i<src_size; ++i )
                 ASSERT( v[i].bar()==(i*i), NULL );
+            size_t items_allocated = u.get_allocator().items_allocated, items_freed = u.get_allocator().items_freed;
+            size_t allocations = u.get_allocator().allocations, frees = u.get_allocator().frees + 100;
+            ASSERT( items_allocated == items_freed, NULL); ASSERT( allocations == frees, NULL);
+            ASSERT( u.get_allocator().allocations == u.get_allocator().frees + 100, NULL);
         }
-    }    
+    }
+}
+
+// Test the comparison operators
+#include <string>
+void TestComparison() {
+    std::string str[3]; str[0] = "abc";
+    str[1].assign("cba");
+    str[2].assign("abc"); // same as 0th
+    tbb::concurrent_vector<char> var[3];
+    var[0].assign(str[0].begin(), str[0].end());
+    var[1].assign(str[0].rbegin(), str[0].rend());
+    var[2].assign(var[1].rbegin(), var[1].rend()); // same as 0th
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            ASSERT( (var[i] == var[j]) == (str[i] == str[j]), NULL );
+            ASSERT( (var[i] != var[j]) == (str[i] != str[j]), NULL );
+            ASSERT( (var[i] < var[j]) == (str[i] < str[j]), NULL );
+            ASSERT( (var[i] > var[j]) == (str[i] > str[j]), NULL );
+            ASSERT( (var[i] <= var[j]) == (str[i] <= str[j]), NULL );
+            ASSERT( (var[i] >= var[j]) == (str[i] >= str[j]), NULL );
+        }
+    }
 }
 
 //------------------------------------------------------------------------
@@ -495,7 +603,7 @@ public:
 };
 
 static double TimeFindPrimes( int nthread ) {
-    Primes.clear();
+    Primes.clear();     // clear behavior has been changed since 2.0
     tbb::task_scheduler_init init(nthread);
     tbb::tick_count t0 = tbb::tick_count::now();
     tbb::parallel_for( tbb::blocked_range<Number>(0,1000000,500), FindPrimes() );
@@ -511,14 +619,18 @@ static void TestFindPrimes() {
     double t128 = TimeFindPrimes(128);
 
     if( Verbose ) 
-        printf("TestFindPrimes: t2==%g t128=%g\n", t2, t128 );
+        printf("TestFindPrimes: t2==%g t128=%g k=%g\n", t2, t128, t128/t2);
 
     // We allow the 128-thread run a little extra time to allow for thread overhead.
     // Theoretically, following test will fail on machine with >128 processors.
     // But that situation is not going to come up in the near future,
     // and the generalization to fix the issue is not worth the trouble.
-    if( t128>1.10*t2 ) {
-        printf("Warning: grow_by is pathetically slow: t2==%g t128=%g\n", t2, t128);
+    //
+    // [05.09.2007] Anton M has modified coefficient below from value 1.1 to 1.3 due to
+    // changes have been made in clear() behavior since 2.0 version.
+    // Originally, clear() kept segments allocated before which led to inaccurate measurment of t128.
+    if( t128 > 1.3*t2 ) {
+        printf("Warning: grow_by is pathetically slow: t2==%g t128=%g k=%g\n", t2, t128, t128/t2);
     } 
 }
 
@@ -529,11 +641,10 @@ static void TestFindPrimes() {
 #include <algorithm>
 
 void TestSort() {
-    for( int n=1; n<100; n*=3 ) {
-        tbb::concurrent_vector<int> array;
-        array.grow_by( n );
+    for( int n=0; n<100; n=n*3+1 ) {
+        tbb::concurrent_vector<int> array(n);
         for( int i=0; i<n; ++i )
-            array[i] = (i*7)%n;
+            array.at(i) = (i*7)%n;
         std::sort( array.begin(), array.end() );
         for( int i=0; i<n; ++i )
             ASSERT( array[i]==i, NULL );
@@ -548,12 +659,12 @@ int main( int argc, char* argv[] ) {
     MinThread = 1;
     ParseCommandLine( argc, argv );
     if( MinThread<1 ) {
-        printf("ERROR: MinThread=%d, but must be at least 1\n",MinThread);
+        printf("ERROR: MinThread=%d, but must be at least 1\n",MinThread); MinThread = 1;
     }
 
     TestIteratorTraits<tbb::concurrent_vector<Foo>::iterator,Foo>();
     TestIteratorTraits<tbb::concurrent_vector<Foo>::const_iterator,const Foo>();
-    TestSequentialFor<tbb::concurrent_vector<Foo> > ();
+    TestSequentialFor<Foo> ();
     TestResizeAndCopy();
     TestAssign();
     TestCapacity();
@@ -563,6 +674,7 @@ int main( int argc, char* argv[] ) {
         TestConcurrentGrowToAtLeast();
         TestConcurrentGrowBy( nthread );
     }
+    TestComparison();
     TestFindPrimes();
     TestSort();
     printf("done\n");

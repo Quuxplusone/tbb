@@ -471,7 +471,7 @@ void DumpCurrent (AGLDrawable* paglDraw, AGLContext* paglContext, pstructGLInfo 
     }
     pcontextInfo->fmt = 0;
 
-    if (*paglDraw) // do not destory a window on DSp if in Mac OS since there is no window built in X
+    if (*paglDraw) // do not destory a window on DSp since there is no window built in X
         DisposeWindow (GetWindowFromPort (*paglDraw));
     *paglDraw = NULL;
 }
@@ -804,7 +804,7 @@ OSStatus BuildGLForWindow (WindowRef window)
         pWindowInfo->glInfo.aglAttributes [i++] = AGL_RGBA; // RGB + Alpha pixels
         pWindowInfo->glInfo.aglAttributes [i++] = AGL_DOUBLEBUFFER; // doble buffered context
         pWindowInfo->glInfo.aglAttributes [i++] = AGL_ACCELERATED; // require hardware acceleration
-        pWindowInfo->glInfo.aglAttributes [i++] = AGL_NO_RECOVERY; // Mac OS 10.0.4 has problems with the GL (disregards UNPACK_ROW_LENGTH) resulting from using no recovery
+        pWindowInfo->glInfo.aglAttributes [i++] = AGL_NO_RECOVERY; // 10.0.4 has problems with the GL (disregards UNPACK_ROW_LENGTH) resulting from using no recovery
                                                                    // normally we would use no recovery to ensure the minimum pixel size textures are stored by GL.
         pWindowInfo->glInfo.aglAttributes [i++] = AGL_NONE; // end parameter list
         BuildGLonWindow (window, &(pWindowInfo->aglContext), &(pWindowInfo->glInfo), NULL); // build opengl context for our window

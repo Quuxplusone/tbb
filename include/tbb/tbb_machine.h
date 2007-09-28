@@ -84,7 +84,6 @@ typedef unsigned __int64 uint64_t;
 #endif
 
 #if defined(TBB_DO_ASSERT)
-#define OFFSET_OF_NEXT __TBB_OFFSET_OF_NEXT 
 #define WORDSIZE __TBB_WORDSIZE
 #endif
 

@@ -713,7 +713,7 @@ void CMemTest::RunAllTests()
   InvariantDataRealloc();
   ReallocParam();
 #if __APPLE__
-  printf("Warning: skipping some tests (known issue on Mac OS)\n");
+  printf("Warning: skipping some tests (known issue on Mac OS* X)\n");
   return;
 #else
   UniquePointer();

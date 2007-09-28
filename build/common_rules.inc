@@ -24,7 +24,18 @@
 # invalidate any other reasons why the executable file might be covered by
 # the GNU General Public License.
 
-.PRECIOUS: %.$(OBJ) %.$(DLL).$(OBJ)
+.PRECIOUS: %.$(OBJ) %.$(DLL).$(OBJ) %.exe
+
+#if INTEL_PRIVATE
+tbb_strict ?= 1
+#endif
+ifeq ($(tbb_strict),1)
+  ifeq ($(WARNING_AS_ERROR_KEY),)
+    $(error WARNING_AS_ERROR_KEY is empty)
+  endif
+  # Do not remove line below!
+  WARNING_KEY += $(WARNING_AS_ERROR_KEY)
+endif
 
 CPLUS_FLAGS_NOSTRICT:=$(subst -strict_ansi,-ansi,$(CPLUS_FLAGS))
 
@@ -68,8 +79,28 @@ $(KNOWN_NOSTRICT): %.o: %.cpp
 
 endif
 
+$(KNOWN_WARNINGS): %.$(OBJ): %.cpp
+#if INTEL_PRIVATE
+	@echo TODO: Fix warnings for $<
+	$(CPLUS) $(COMPILE_ONLY) $(subst $(WARNING_AS_ERROR_KEY),,$(CPLUS_FLAGS_NOSTRICT)) $(INCLUDES) $<
+#else
+	$(CPLUS) $(COMPILE_ONLY) $(subst $(WARNING_KEY),,$(CPLUS_FLAGS_NOSTRICT)) $(INCLUDES) $<
+#endif
+
 version_string.tmp: 
 	$(MAKE_VERSIONS)
 
 tbbvars:
 	$(MAKE_TBBVARS)
+
+#if INTEL_PRIVATE
+# Sanity check
+ifeq ($(WARNING_AS_ERROR_KEY),)
+  $(error WARNING_AS_ERROR_KEY is empty)
+endif
+ifeq ($(findstring $(WARNING_AS_ERROR_KEY),$(CPLUS_FLAGS)),)
+  $(warning )
+  $(warning ----====!!!!! $(WARNING_AS_ERROR_KEY) is not set in CPLUS_FLAGS for $(MAKECMDGOALS). [Use tbb_strict=1] !!!!!====----)
+  $(warning )
+endif
+#endif

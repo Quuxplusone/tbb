@@ -26,6 +26,9 @@
     the GNU General Public License.
 */
 
+#ifndef __TBB_parallel_scan_H
+#define __TBB_parallel_scan_H
+
 #include "task.h"
 #include "aligned_space.h"
 #include <new>
@@ -332,3 +335,6 @@ inline void parallel_scan( const Range& range, Body& body ) {
 }
 
 } // namespace tbb
+
+#endif /* __TBB_parallel_scan_H */
+

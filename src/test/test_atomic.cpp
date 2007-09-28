@@ -209,6 +209,12 @@ struct AlignmentChecker {
 
 #include "harness.h"
 
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+#pragma warning( push )
+// unary minus operator applied to unsigned type, result still unsigned
+#pragma warning( disable: 4146 )
+#endif /* _MSC_VER && !defined(__INTEL_COMPILER) */
+
 /** T is an integral type. */
 template<typename T>
 void TestAtomicInteger( const char* name ) {
@@ -230,12 +236,44 @@ void TestAtomicInteger( const char* name ) {
     }
     TestLoadAndStoreFences<T>( name );
 }
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+#pragma warning( pop )
+#endif /* _MSC_VER && !defined(__INTEL_COMPILER) */
+
+
+template<typename T>
+struct Foo {
+    T x, y, z;
+};
+
+
+template<typename T>
+void TestIndirection() {
+    Foo<T> item;
+    tbb::atomic<Foo<T>*> pointer;
+    pointer = &item;
+    for( int k=-10; k<=10; ++k ) {
+        // Test various syntaxes for indirection to fields with non-zero offset.   
+        T value1, value2;
+        for( size_t j=0; j<sizeof(T); ++j ) {
+            *(char*)&value1 = char(k^j);
+            *(char*)&value2 = char(k^j*j);
+        }
+        pointer->y = value1;
+        (*pointer).z = value2;
+        T result1 = (*pointer).y;
+        T result2 = pointer->z;
+        ASSERT( memcmp(&value1,&result1,sizeof(T))==0, NULL );
+        ASSERT( memcmp(&value2,&result2,sizeof(T))==0, NULL );
+    }
+}
 
 template<typename T>
 void TestAtomicPointer() {
     T array[1000];
     TestOperations<T*>(&array[500],&array[250],&array[750]);
     TestOperations<void*>(&array[500],&array[250],&array[750]);
+    TestIndirection<T>();
     TestLoadAndStoreFences<T*>( "pointer" );
 }
 

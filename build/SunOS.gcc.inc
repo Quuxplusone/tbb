@@ -31,6 +31,8 @@ DEFINE_KEY = -D
 OUTPUT_KEY = -o #
 OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
+WARNING_AS_ERROR_KEY = -Werror
+WARNING_KEY =
 DYLIB_KEY = -shared
 LIBDL = -ldl
 
@@ -57,7 +59,6 @@ TBB_ASM.OBJ=
 ifeq (itanium,$(arch))
 # Position-independent code (PIC) is a must for IA-64
     CPLUS_FLAGS += $(PIC_KEY)
-    $(PIC_KEY) = 
 endif 
 
 ifeq (em64t,$(arch))

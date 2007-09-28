@@ -128,14 +128,20 @@ public:
     char pad2[NFS_MaxLineSize-sizeof(ticket)];
     micro_queue array[n_queue];    
 
-    micro_queue& choose( size_t k ) {
+    micro_queue& choose( ticket k ) {
         // The formula here approximates LRU in a cache-oblivious way.
         return array[index(k)];
     }
 
     //! Value for effective_capacity that denotes unbounded queue.
-    static const size_t infinite_capacity = ~size_t(0)/2;
+    static const ptrdiff_t infinite_capacity = ptrdiff_t(~size_t(0)/2);
 };
+
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+#pragma warning( push )
+// unary minus operator applied to unsigned type, result still unsigned
+#pragma warning( disable: 4146 )
+#endif /* _MSC_VER && !defined(__INTEL_COMPILER) */
 
 //------------------------------------------------------------------------
 // micro_queue
@@ -143,7 +149,7 @@ public:
 void micro_queue::push( const void* item, ticket k, concurrent_queue_base& base ) {
     k &= -concurrent_queue_rep::n_queue;
     page* p = NULL;
-    unsigned index = (k/concurrent_queue_rep::n_queue & base.items_per_page-1);
+    size_t index = (k/concurrent_queue_rep::n_queue & base.items_per_page-1);
     if( !index ) {
         size_t n = sizeof(page) + base.items_per_page*base.item_size;
         p = static_cast<page*>(operator new( n ));
@@ -175,7 +181,7 @@ bool micro_queue::pop( void* dst, ticket k, concurrent_queue_base& base ) {
     SpinwaitWhileEq( tail_counter, k );
     page& p = *head_page;
     __TBB_ASSERT( &p, NULL );
-    unsigned index = (k/concurrent_queue_rep::n_queue & base.items_per_page-1);
+    size_t index = (k/concurrent_queue_rep::n_queue & base.items_per_page-1);
     bool success = false; 
     {
         pop_finalizer finalizer( *this, k+concurrent_queue_rep::n_queue, index==base.items_per_page-1 ? &p : NULL ); 
@@ -186,6 +192,10 @@ bool micro_queue::pop( void* dst, ticket k, concurrent_queue_base& base ) {
     }
     return success;
 }
+
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+#pragma warning( pop )
+#endif /* _MSC_VER && !defined(__INTEL_COMPILER) */
 
 //------------------------------------------------------------------------
 // concurrent_queue_base
@@ -198,25 +208,24 @@ concurrent_queue_base::concurrent_queue_base( size_t item_size ) {
                      item_size<=128 ? 2 :
                      1;
     my_capacity = size_t(-1)/(item_size>1 ? item_size : 2); 
-    rep = cache_aligned_allocator<concurrent_queue_rep>().allocate(1);
-    __TBB_ASSERT( (size_t)rep % NFS_GetLineSize()==0, "alignment error" );
-    __TBB_ASSERT( (size_t)&rep->head_counter % NFS_GetLineSize()==0, "alignment error" );
-    __TBB_ASSERT( (size_t)&rep->tail_counter % NFS_GetLineSize()==0, "alignment error" );
-    __TBB_ASSERT( (size_t)&rep->array % NFS_GetLineSize()==0, "alignment error" );
-    memset(rep,0,sizeof(concurrent_queue_rep));
+    my_rep = cache_aligned_allocator<concurrent_queue_rep>().allocate(1);
+    __TBB_ASSERT( (size_t)my_rep % NFS_GetLineSize()==0, "alignment error" );
+    __TBB_ASSERT( (size_t)&my_rep->head_counter % NFS_GetLineSize()==0, "alignment error" );
+    __TBB_ASSERT( (size_t)&my_rep->tail_counter % NFS_GetLineSize()==0, "alignment error" );
+    __TBB_ASSERT( (size_t)&my_rep->array % NFS_GetLineSize()==0, "alignment error" );
+    memset(my_rep,0,sizeof(concurrent_queue_rep));
     this->item_size = item_size;
 }
 
 concurrent_queue_base::~concurrent_queue_base() {
-    concurrent_queue_rep* r = (concurrent_queue_rep*)rep;
-    cache_aligned_allocator<concurrent_queue_rep>().deallocate(r,1);
+    cache_aligned_allocator<concurrent_queue_rep>().deallocate(my_rep,1);
 }
 
 void concurrent_queue_base::internal_push( const void* src ) {
-    concurrent_queue_rep& r = *(concurrent_queue_rep*)rep;
+    concurrent_queue_rep& r = *my_rep;
     concurrent_queue_rep::ticket k  = r.tail_counter++;
     ptrdiff_t e = my_capacity;
-    if( e<(ptrdiff_t)concurrent_queue_rep::infinite_capacity ) {
+    if( e<concurrent_queue_rep::infinite_capacity ) {
         ExponentialBackoff backoff;
         for(;;) {
             if( (ptrdiff_t)(k-r.head_counter)<e ) break;
@@ -228,7 +237,7 @@ void concurrent_queue_base::internal_push( const void* src ) {
 }
 
 void concurrent_queue_base::internal_pop( void* dst ) {
-    concurrent_queue_rep& r = *(concurrent_queue_rep*)rep;
+    concurrent_queue_rep& r = *my_rep;
     concurrent_queue_rep::ticket k;
     do {
         k = r.head_counter++;
@@ -236,13 +245,13 @@ void concurrent_queue_base::internal_pop( void* dst ) {
 }
 
 bool concurrent_queue_base::internal_pop_if_present( void* dst ) {
-    concurrent_queue_rep& r = *(concurrent_queue_rep*)rep;
+    concurrent_queue_rep& r = *my_rep;
     concurrent_queue_rep::ticket k;
     do {
         ExponentialBackoff backoff;
         for(;;) {
             k = r.head_counter;
-            if( (ptrdiff_t)(r.tail_counter-k)<=0 ) {
+            if( r.tail_counter<=k ) {
                 // Queue is empty 
                 return false;
             }
@@ -258,7 +267,7 @@ bool concurrent_queue_base::internal_pop_if_present( void* dst ) {
 }
 
 bool concurrent_queue_base::internal_push_if_not_full( const void* src ) {
-    concurrent_queue_rep& r = *(concurrent_queue_rep*)rep;
+    concurrent_queue_rep& r = *my_rep;
     ExponentialBackoff backoff;
     concurrent_queue_rep::ticket k;
     for(;;) {
@@ -278,9 +287,8 @@ bool concurrent_queue_base::internal_push_if_not_full( const void* src ) {
 }
 
 ptrdiff_t concurrent_queue_base::internal_size() const {
-    concurrent_queue_rep& r = *(concurrent_queue_rep*)rep;
     __TBB_ASSERT( sizeof(ptrdiff_t)<=sizeof(size_t), NULL );
-    return ptrdiff_t(r.tail_counter-r.head_counter);
+    return ptrdiff_t(my_rep->tail_counter-my_rep->head_counter);
 }
 
 void concurrent_queue_base::internal_set_capacity( ptrdiff_t capacity, size_t item_size ) {
@@ -290,22 +298,23 @@ void concurrent_queue_base::internal_set_capacity( ptrdiff_t capacity, size_t it
 //------------------------------------------------------------------------
 // concurrent_queue_iterator_rep
 //------------------------------------------------------------------------
-struct concurrent_queue_iterator_rep {
+class  concurrent_queue_iterator_rep {
+public:
     typedef concurrent_queue_rep::ticket ticket;
     ticket head_counter;   
     const concurrent_queue_base& my_queue;
     concurrent_queue_base::page* array[concurrent_queue_rep::n_queue];
     concurrent_queue_iterator_rep( const concurrent_queue_base& queue ) : 
-        head_counter(queue.rep->head_counter),
+        head_counter(queue.my_rep->head_counter),
         my_queue(queue)
     {
-        const concurrent_queue_rep& rep = *queue.rep;
+        const concurrent_queue_rep& rep = *queue.my_rep;
         for( size_t k=0; k<concurrent_queue_rep::n_queue; ++k )
             array[k] = rep.array[k].head_page;
     }
     //! Get pointer to kth element
     void* choose( size_t k ) {
-        if( k==my_queue.rep->tail_counter )
+        if( k==my_queue.my_rep->tail_counter )
             return NULL;
         else {
             concurrent_queue_base::page* p = array[concurrent_queue_rep::index(k)];
@@ -320,40 +329,40 @@ struct concurrent_queue_iterator_rep {
 // concurrent_queue_iterator_base
 //------------------------------------------------------------------------
 concurrent_queue_iterator_base::concurrent_queue_iterator_base( const concurrent_queue_base& queue ) {
-    rep = new concurrent_queue_iterator_rep(queue);
-    item = rep->choose(rep->head_counter);
+    my_rep = new concurrent_queue_iterator_rep(queue);
+    my_item = my_rep->choose(my_rep->head_counter);
 }
 
 void concurrent_queue_iterator_base::assign( const concurrent_queue_iterator_base& other ) {
-    if( rep!=other.rep ) {
-        if( rep ) {
-            delete rep;
-            rep = NULL;
+    if( my_rep!=other.my_rep ) {
+        if( my_rep ) {
+            delete my_rep;
+            my_rep = NULL;
         }
-        if( other.rep ) {
-            rep = new concurrent_queue_iterator_rep( *other.rep );
+        if( other.my_rep ) {
+            my_rep = new concurrent_queue_iterator_rep( *other.my_rep );
         }
     }
-    item = other.item;
+    my_item = other.my_item;
 }
 
 void concurrent_queue_iterator_base::advance() {
-    __TBB_ASSERT( item, "attempt to increment iterator past end of queue" );  
-    size_t k = rep->head_counter;
-    const concurrent_queue_base& queue = rep->my_queue;
-    __TBB_ASSERT( item==rep->choose(k), NULL );
+    __TBB_ASSERT( my_item, "attempt to increment iterator past end of queue" );  
+    size_t k = my_rep->head_counter;
+    const concurrent_queue_base& queue = my_rep->my_queue;
+    __TBB_ASSERT( my_item==my_rep->choose(k), NULL );
     size_t i = k/concurrent_queue_rep::n_queue & queue.items_per_page-1;
     if( i==queue.items_per_page-1 ) {
-        concurrent_queue_base::page*& root = rep->array[concurrent_queue_rep::index(k)];
+        concurrent_queue_base::page*& root = my_rep->array[concurrent_queue_rep::index(k)];
         root = root->next;
     }
-    rep->head_counter = k+1;
-    item = rep->choose(k+1);
+    my_rep->head_counter = k+1;
+    my_item = my_rep->choose(k+1);
 }
 
 concurrent_queue_iterator_base::~concurrent_queue_iterator_base() {
-    delete rep;
-    rep = NULL;
+    delete my_rep;
+    my_rep = NULL;
 }
 
 } // namespace internal

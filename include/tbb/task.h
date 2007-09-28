@@ -84,7 +84,6 @@ namespace internal {
         void free( task& ) const;
     };
 
-
     //! Memory prefix to a task object.
     /** This class is internal to the library.
         Do not reference it directly, except within the library itself.
@@ -99,6 +98,14 @@ namespace internal {
         friend class internal::allocate_continuation_proxy;
         friend class internal::allocate_additional_child_of_proxy;
 
+
+        //! The scheduler that allocated the task, or NULL if task is big.
+        /** Small tasks are pooled by the scheduler that allocated the task.
+            If a scheduler needs to free a small task allocated by another scheduler,
+            it returns the task to that other scheduler.  This policy avoids
+            memory space blowup issues for memory allocators that allocate from 
+            thread-specific pools. */
+        scheduler* origin;
 
         //! scheduler that owns the task.
         scheduler* owner;
@@ -122,8 +129,8 @@ namespace internal {
         //! A task::state_type, stored as a byte for compactness.
         unsigned char state;
 
-        //! If non-zero, this task is a "big" task.
-        unsigned char is_big;
+        //! Reserved for future use
+        unsigned char reserved2;
 
 #if TBB_DO_ASSERT
         //! Used for internal debugging.
@@ -148,7 +155,6 @@ namespace internal {
 
 } // namespace internal
 //! @endcond
-
 
 //! Base class for user-defined tasks.
 /** @ingroup task_scheduling */
@@ -222,8 +228,12 @@ public:
     //------------------------------------------------------------------------
 
     //! Change this to be a continuation of its former self.
-    /** Not recommended to use due to possibility to cause a crash in some scenario.
-        Can be deprecated later */
+    /** The caller must guarantee that the task's refcount does not become zero until
+        after the method execute() returns.  Typically, this is done by having
+        method execute() return a pointer to a child of the task.  If the guarantee
+        cannot be made, use method recycle_as_safe_continuation instead. 
+       
+        Because of the hazard, this method may be deprecated in the future. */
     void recycle_as_continuation() {
         __TBB_ASSERT( prefix().state==executing, "execute not running?" );
         prefix().state = allocated;
@@ -268,7 +278,8 @@ public:
     /** The depth must be non-negative */
     void set_depth( depth_type new_depth ) {
         __TBB_ASSERT( state()!=ready, "cannot change depth of ready task" );
-        __TBB_ASSERT( new_depth>=0, NULL );
+        __TBB_ASSERT( new_depth>=0, "depth cannot be negative" );
+        __TBB_ASSERT( new_depth==int(new_depth), "integer overflow error");
         prefix().depth = int(new_depth);
     }
 
@@ -276,7 +287,7 @@ public:
     /** The resulting depth must be non-negative. */
     void add_to_depth( int delta ) {
         __TBB_ASSERT( state()!=ready, "cannot change depth of ready task" );
-        __TBB_ASSERT( prefix().depth>=-delta, NULL );
+        __TBB_ASSERT( prefix().depth>=-delta, "depth cannot be negative" );
         prefix().depth+=delta;
     }
 
@@ -297,16 +308,21 @@ public:
     /** After all children spawned so far finish their method task::execute,
         their parent's method task::execute may start running.  Therefore, it
         is important to ensure that at least one child has not completed until
-        the parent is ready to run.  Use add_guard_reference and remove_guard_reference_and_wait_for_all
-        if necessary to make the parent wait. */
-    void spawn( task& child ) {prefix().owner->spawn( child, child.prefix().next );}
+        the parent is ready to run. */
+    void spawn( task& child ) {
+        __TBB_ASSERT( is_owned_by_current_thread(), "'this' not owned by current thread" );
+        prefix().owner->spawn( child, child.prefix().next );
+    }
 
     //! Spawn multiple tasks and clear list.
     /** All of the tasks must be at the same depth. */
     void spawn( task_list& list );
 
     //! Similar to spawn followed by wait_for_all, but more efficient.
-    void spawn_and_wait_for_all( task& child ) {prefix().owner->wait_for_all( *this, &child );}
+    void spawn_and_wait_for_all( task& child ) {
+        __TBB_ASSERT( is_owned_by_current_thread(), "'this' not owned by current thread" );
+        prefix().owner->wait_for_all( *this, &child );
+    }
 
     //! Similar to spawn followed by wait_for_all, but more efficient.
     void spawn_and_wait_for_all( task_list& list );
@@ -314,7 +330,10 @@ public:
     //! Spawn task allocated by allocate_root, wait for it to complete, and deallocate it.
     /** The thread that calls spawn_root_and_wait must be the same thread
         that allocated the task. */
-    static void spawn_root_and_wait( task& root ) {root.prefix().owner->spawn_root_and_wait( root, root.prefix().next );}
+    static void spawn_root_and_wait( task& root ) {
+        __TBB_ASSERT( root.is_owned_by_current_thread(), "root not owned by current thread" );
+        root.prefix().owner->spawn_root_and_wait( root, root.prefix().next );
+    }
 
     //! Spawn root tasks on list and wait for all of them to finish.
     /** If there are more tasks than worker threads, the tasks are spawned in
@@ -323,7 +342,10 @@ public:
 
     //! Wait for reference count to become one, and set reference count to zero.
     /** Works on tasks while waiting. */
-    void wait_for_all() {prefix().owner->wait_for_all( *this, NULL );}
+    void wait_for_all() {
+        __TBB_ASSERT( is_owned_by_current_thread(), "'this' not owned by current thread" );
+        prefix().owner->wait_for_all( *this, NULL );
+    }
 
     //! The task() current being run by this thread.
     static task& self();
@@ -347,7 +369,16 @@ public:
     state_type state() const {return state_type(prefix().state);}
 
     //! The internal reference count.
-    int ref_count() const {return int(prefix().ref_count);}
+    int ref_count() const {
+#if TBB_DO_ASSERT
+        internal::reference_count ref_count = prefix().ref_count;
+        __TBB_ASSERT( ref_count==int(ref_count), "integer overflow error");
+#endif
+        return int(prefix().ref_count);
+    }
+
+    //! True if this task is owned by the calling thread; false otherwise.
+    bool is_owned_by_current_thread() const;
 
 private:
     friend class task_list;
@@ -412,6 +443,7 @@ public:
 };
 
 inline void task::spawn( task_list& list ) {
+    __TBB_ASSERT( is_owned_by_current_thread(), "'this' not owned by current thread" );
     if( task* t = list.first ) {
         prefix().owner->spawn( *t, *list.next_ptr );
         list.clear();
@@ -420,10 +452,12 @@ inline void task::spawn( task_list& list ) {
 
 inline void task::spawn_root_and_wait( task_list& root_list ) {
     if( task* t = root_list.first ) {
+        __TBB_ASSERT( t->is_owned_by_current_thread(), "'this' not owned by current thread" );
         t->prefix().owner->spawn_root_and_wait( *t, *root_list.next_ptr );
         root_list.clear();
     }
 }
+
 
 } // namespace tbb
 

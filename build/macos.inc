@@ -26,10 +26,18 @@
 
 ####### Detections and Commands ###############################################
 ifndef arch
- ifeq ($(shell /usr/sbin/sysctl -n hw.optional.x86_64 2>/dev/null),1)
-  export arch:=em64t
+ ifeq ($(shell /usr/sbin/sysctl -n hw.machine),Power Macintosh)
+   ifeq ($(shell /usr/sbin/sysctl -n hw.optional.64bitops),1)
+     export arch:=ppc64
+   else
+     export arch:=ppc32
+   endif
  else
-  export arch:=ia32
+   ifeq ($(shell /usr/sbin/sysctl -n hw.optional.x86_64 2>/dev/null),1)
+     export arch:=em64t
+   else
+     export arch:=ia32
+   endif
  endif
 endif
 

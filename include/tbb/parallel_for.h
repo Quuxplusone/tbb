@@ -47,8 +47,7 @@ namespace internal {
         Partitioner my_partitioner;
         /*override*/ task* execute();
     public:
-
-        start_for( const Range& range, const Body& body, const Partitioner &partitioner ) :
+        start_for( const Range& range, const Body& body, const Partitioner& partitioner ) :
             my_range(range),    
             my_body(body),
             my_partitioner(partitioner)
@@ -57,7 +56,8 @@ namespace internal {
     };
 
     template<typename Range, typename Body, typename Partitioner>
-    task* start_for<Range,Body,Partitioner>::execute() {
+    task* start_for<Range,Body,Partitioner>::execute()
+    {
         if( my_partitioner.should_execute_range(my_range, *this) ) {
             my_body( my_range );
             return NULL;
@@ -73,7 +73,6 @@ namespace internal {
 
 } // namespace internal
 //! @endcond
-
 
 //! Parallel iteration over range.
 /** The body b must allow:                                      \n
@@ -104,7 +103,7 @@ void parallel_for( const Range& range, const Body& body ) {
         P p2(p,split())               Split the partitioner into p2 and p.      \n
     @ingroup algorithms */
 template<typename Range, typename Body, typename Partitioner>
-void parallel_for( const Range& range, const Body& body, const Partitioner &partitioner ) {
+void parallel_for( const Range& range, const Body& body, const Partitioner& partitioner ) {
     if( !range.empty() ) {
         typedef typename internal::start_for<Range,Body,Partitioner> start_type;
         start_type& a = *new(task::allocate_root()) start_type(range,body,partitioner);

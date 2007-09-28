@@ -45,22 +45,34 @@
 
 #include "tbb/tbb_machine.h"
 
+static tbb::assertion_handler_type assertion_handler;
+
 namespace tbb {
 
+assertion_handler_type set_assertion_handler( assertion_handler_type new_handler ) {
+    assertion_handler_type old_handler = assertion_handler;
+    assertion_handler = new_handler;
+    return old_handler;
+}
+    
 void assertion_failure( const char * filename, int line, const char * expression, const char * comment ) {
-    static bool already_failed;
-    if( !already_failed ) {
-        already_failed = true;
-        fprintf( stderr, "Assertion %s failed on line %d of file %s\n",
-                 expression, line, filename );
-        if( comment )
-            fprintf( stderr, "Detailed description: %s\n", comment );
+    if( assertion_handler_type a = assertion_handler ) {
+        (*a)(filename,line,expression,comment);
+    } else {
+        static bool already_failed;
+        if( !already_failed ) {
+            already_failed = true;
+            fprintf( stderr, "Assertion %s failed on line %d of file %s\n",
+                     expression, line, filename );
+            if( comment )
+                fprintf( stderr, "Detailed description: %s\n", comment );
 #if (_WIN32||_WIN64) && defined(_DEBUG)
-        if(1 == _CrtDbgReport(_CRT_ASSERT, filename, line, "tbb_debug.dll", "%s\r\n%s", expression, comment?comment:""))
-        	_CrtDbgBreak();
+            if(1 == _CrtDbgReport(_CRT_ASSERT, filename, line, "tbb_debug.dll", "%s\r\n%s", expression, comment?comment:""))
+                    _CrtDbgBreak();
 #else
-        abort();
+            abort();
 #endif
+        }
     }
 }
 
@@ -89,7 +101,7 @@ void handle_perror( int error_code, const char* what ) {
 
 bool GetBoolEnvironmentVariable( const char * name ) {
     if( const char* s = getenv(name) )
-        return strcmp(s,"0");
+        return strcmp(s,"0") != 0;
     return false;
 }
 
@@ -144,3 +156,14 @@ void PrintExtraVersionInfo( const char* category, const char* description ) {
  
 } // namespace tbb
 
+#if __TBB_ipf
+extern "C" intptr_t __TBB_machine_lockbyte( volatile unsigned char& flag ) {
+    if ( !__TBB_TryLockByte(flag) ) {
+        tbb::internal::AtomicBackoff b;
+        do {
+            b.pause();
+        } while ( !__TBB_TryLockByte(flag) );
+    }
+    return 0;
+}
+#endif

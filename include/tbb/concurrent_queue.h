@@ -49,7 +49,7 @@ template<typename Container, typename Value> class concurrent_queue_iterator;
     @ingroup containers */
 class concurrent_queue_base: no_copy {
     //! Internal representation
-    concurrent_queue_rep* rep;
+    concurrent_queue_rep* my_rep;
 
     friend class concurrent_queue_rep;
     friend struct micro_queue;
@@ -101,7 +101,7 @@ protected:
 class concurrent_queue_iterator_base {
     //! Concurrentconcurrent_queue over which we are iterating.
     /** NULL if one past last element in queue. */
-    concurrent_queue_iterator_rep* rep;
+    concurrent_queue_iterator_rep* my_rep;
 
     template<typename C, typename T, typename U>
     friend bool operator==( const concurrent_queue_iterator<C,T>& i, const concurrent_queue_iterator<C,U>& j );
@@ -110,13 +110,13 @@ class concurrent_queue_iterator_base {
     friend bool operator!=( const concurrent_queue_iterator<C,T>& i, const concurrent_queue_iterator<C,U>& j );
 protected:
     //! Pointer to current item
-    mutable void* item;
+    mutable void* my_item;
 
     //! Default constructor
-    concurrent_queue_iterator_base() : rep(NULL), item(NULL) {}
+    concurrent_queue_iterator_base() : my_rep(NULL), my_item(NULL) {}
 
     //! Copy constructor
-    concurrent_queue_iterator_base( const concurrent_queue_iterator_base& i ) : rep(NULL), item(NULL) {
+    concurrent_queue_iterator_base( const concurrent_queue_iterator_base& i ) : my_rep(NULL), my_item(NULL) {
         assign(i);
     }
 
@@ -166,7 +166,7 @@ public:
 
     //! Reference to current item 
     Value& operator*() const {
-        return *static_cast<Value*>(item);
+        return *static_cast<Value*>(my_item);
     }
 
     Value* operator->() const {return &operator*();}
@@ -187,12 +187,12 @@ public:
 
 template<typename C, typename T, typename U>
 bool operator==( const concurrent_queue_iterator<C,T>& i, const concurrent_queue_iterator<C,U>& j ) {
-    return i.item==j.item;
+    return i.my_item==j.my_item;
 }
 
 template<typename C, typename T, typename U>
 bool operator!=( const concurrent_queue_iterator<C,T>& i, const concurrent_queue_iterator<C,U>& j ) {
-    return i.item!=j.item;
+    return i.my_item!=j.my_item;
 }
 
 } // namespace internal;

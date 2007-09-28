@@ -30,7 +30,7 @@ The files here are not intended to be used directly.  See below for usage.
 <DT>&lt;os&gt;_&lt;compiler&gt;.inc
 <DD>Compiler-specific Makefile for a particular &lt;os&gt; / &lt;compiler&gt; combination.
 <DT>*.sh
-<DD>Infrastructure utilities for Linux*, Mac OS*, and related systems.
+<DD>Infrastructure utilities for Linux*, Mac OS* X, and related systems.
 <DT>*.js, *.bat
 <DD>Infrastructure utilities for Windows* systems.
 </DL>
@@ -53,7 +53,7 @@ To port TBB to a new platform, operating system or architecture, see the <A HREF
 TBB libraries can be built by performing the following steps.
 On systems that support only one ABI (e.g., 32-bit), these steps build the libraries for that ABI.
 On systems that support both 64-bit and 32-bit libraries, these steps build the 64-bit libraries
-(Linux*, Mac OS*, and related systems) or whichever ABI is selected in the development environment (Windows* systems).
+(Linux*, Mac OS* X, and related systems) or whichever ABI is selected in the development environment (Windows* systems).
 </P>
 <OL>
 <LI>Change to the <A HREF=../index.html>top-level directory</A> of the installed software.
@@ -63,7 +63,7 @@ On systems that support both 64-bit and 32-bit libraries, these steps build the 
 </OL>
 
 <P>
-To build TBB libraries for other than the default ABI (e.g., to build 32-bit libraries on Linux*, Mac OS*,
+To build TBB libraries for other than the default ABI (e.g., to build 32-bit libraries on Linux*, Mac OS* X,
 or related systems that support both 64-bit and 32-bit libraries), perform the following steps.
 </P>
 <OL>
@@ -115,7 +115,7 @@ To perform different build and/or test operations, perform the following steps.
 	<A HREF=../examples/Makefile>examples Makefile</A>.
     <DT><TT>make compiler=<B>{</B>icl, icc<B>}</B> <B>[</B>(above options or targets)<B>]</B></TT>
     <DD>Build and run as above, but use Intel&reg; compilers instead of default, native compilers
-	(e.g., icl instead of cl.exe on Windows* systems, or icc instead of g++ on Linux* or Mac OS* systems).
+	(e.g., icl instead of cl.exe on Windows* systems, or icc instead of g++ on Linux* or Mac OS* X systems).
     <DT><TT>make arch=<B>{</B>ia32, em64t, itanium<B>}</B> <B>[</B>(above options or targets)<B>]</B></TT>
     <DD>Build and run as above, but build libraries for the selected ABI.
     <DT><TT>make tbb_root=<B>{</B>(TBB directory)<B>}</B> <B>[</B>(above options or targets)<B>]</B></TT>
@@ -123,7 +123,8 @@ To perform different build and/or test operations, perform the following steps.
 	the <A HREF=../index.html>top-level directory</A>.
     <DT><TT>make tbb_build_dir=<B>{</B>(build directory)<B>}</B> <B>[</B>(above options or targets)<B>]</B></TT>
     <DD>Build and run as above, but place the built libraries in the specified directory, rather than in the default
-	sub-directory within the build/ directory.
+	sub-directory within the build/ directory. This command might have troubles with the build in case the sources 
+	installed to the directory with spaces in the path.
     <DT><TT>make tbb_build_prefix=<B>{</B>(build sub-directory)<B>}</B> <B>[</B>(above options or targets)<B>]</B></TT>
     <DD>Build and run as above, but place the built libraries in the specified sub-directory within the build/ directory,
 	rather than using the default sub-directory name.

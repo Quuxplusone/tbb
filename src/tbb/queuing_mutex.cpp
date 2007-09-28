@@ -61,8 +61,7 @@ void queuing_mutex::scoped_lock::acquire( queuing_mutex& m )
 
     // Force acquire so that user's critical section receives correct values
     // from processor that was previously in the user's critical section.
-    unsigned dummy = __TBB_load_with_acquire(going);
-	(void)dummy;	// suppress "unused variable" warning"
+    __TBB_load_with_acquire(going);
 }
 
 //! A method to acquire queuing_mutex if it is free
@@ -83,8 +82,7 @@ bool queuing_mutex::scoped_lock::try_acquire( queuing_mutex& m )
     // Force acquire so that user's critical section receives correct values
     // from processor that was previously in the user's critical section.
     // try_acquire should always have acquire semantic, even if failed.
-    unsigned dummy = __TBB_load_with_acquire(going);
-	(void)dummy;	// suppress "unused variable" warning"
+    __TBB_load_with_acquire(going);
     if( !pred ) {
         mutex = &m;
         ITT_NOTIFY(sync_acquired, mutex);

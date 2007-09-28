@@ -44,9 +44,10 @@ VPATH += $(MALLOC_ROOT) $(MALLOC_SOURCE_ROOT)
 MALLOC_MAIN_TESTS = test_ScalableAllocator.exe test_ScalableAllocator_STL.exe test_malloc_compliance.exe
 MALLOC_C_TESTS = test_malloc_pure_c.exe
 
-$(MALLOC_MAIN_TESTS) $(MALLOC_C_TESTS): CPLUS_FLAGS += $(WARNING_KEY)
+CPLUS_FLAGS += $(WARNING_KEY)
 
-KNOWN_NOSTRICT = test_malloc_compliance.$(OBJ) test_ScalableAllocator_STL.$(OBJ)
+KNOWN_NOSTRICT = test_ScalableAllocator_STL.$(OBJ) #test_malloc_compliance.$(OBJ)
+KNOWN_WARNINGS = test_malloc_compliance.$(OBJ)
 
 include $(tbb_root)/build/common_rules.inc
 
@@ -58,7 +59,7 @@ MALLOC_ASM.OBJ = $(TBB_ASM.OBJ)
 # MALLOC_CPLUS.OBJ is built in two steps due to Intel Compiler Tracker # C69574
 MALLOC.OBJ := $(MALLOC_CPLUS.OBJ) $(MALLOC_ASM.OBJ) $(MALLOC_CUSTOM.OBJ) MemoryAllocator.$(OBJ)
 MALLOC_CPLUS.OBJ += MemoryAllocator.$(OBJ)
-
+M_CPLUS_FLAGS := $(subst $(WARNING_KEY),,$(M_CPLUS_FLAGS))
 
 $(MALLOC_CPLUS.OBJ): %.$(OBJ): %.cpp
 	$(CPLUS) $(COMPILE_ONLY) $(M_CPLUS_FLAGS) $(PIC_KEY) $(M_INCLUDES) $<
@@ -99,3 +100,5 @@ malloc_test: $(TBB.DLL) $(MALLOC.DLL) $(MALLOC_MAIN_TESTS) $(MALLOC_C_TESTS)
 # End of rules for making the TBBMalloc unit tests
 #------------------------------------------------------
 
+# Include automatically generated dependences
+-include *.d

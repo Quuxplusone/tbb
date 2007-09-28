@@ -540,7 +540,7 @@ public:
     bool empty() const;
 
     //! Upper bound on size.
-    size_type max_size() const {return (-size_type(1))/sizeof(bucket);}
+    size_type max_size() const {return (~size_type(0))/sizeof(bucket);}
 };
 
 template<typename Key, typename T, typename HashCompare>

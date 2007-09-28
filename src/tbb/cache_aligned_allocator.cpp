@@ -54,8 +54,8 @@ static void (*FreeHandler)( void* pointer ) = &DummyFree;
 
 //! Table describing the how to link the handlers.
 static const DynamicLinkDescriptor MallocLinkTable[] = {
-    {"scalable_malloc",(PointerToHandler*)&MallocHandler},
-    {"scalable_free",(PointerToHandler*)&FreeHandler}
+    {"scalable_malloc",ADDRESS_OF_HANDLER(&MallocHandler)},
+    {"scalable_free",ADDRESS_OF_HANDLER(&FreeHandler)}
 };
 
 #if TBB_DO_ASSERT
@@ -119,6 +119,12 @@ size_t NFS_GetLineSize() {
 //! Requests for blocks this size and higher are handled via malloc/free,
 const size_t BigSize = 4096;
 
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+#pragma warning( push )
+// unary minus operator applied to unsigned type, result still unsigned
+#pragma warning( disable: 4146 )
+#endif /* _MSC_VER && !defined(__INTEL_COMPILER) */
+
 void* NFS_Allocate( size_t n, size_t element_size, void* hint ) {
     using namespace internal;
     size_t m = NFS_LineSize;
@@ -153,6 +159,10 @@ void NFS_Free( void* p ) {
         }
     }
 }
+
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+#pragma warning( pop )
+#endif /* _MSC_VER && !defined(__INTEL_COMPILER) */
 
 } // namespace internal
 

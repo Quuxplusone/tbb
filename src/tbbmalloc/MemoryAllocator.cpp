@@ -315,7 +315,7 @@ static LifoQueue* globalSizeBins = (LifoQueue*)globalBinSpace;
  * Moreover, on IPF, for sake of simplicity and performance, it is narrowed to only serve for 64 to 1023.
  * This is enough for current algorithm of distribution of sizes among bins.
  */
-#if _WIN64 && _MSC_VER>=1400
+#if _WIN64 && _MSC_VER>=1400 && !__INTEL_COMPILER
 extern "C" unsigned char _BitScanReverse( unsigned long* i, unsigned long w );
 #pragma intrinsic(_BitScanReverse)
 #endif

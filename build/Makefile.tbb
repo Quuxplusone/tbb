@@ -43,7 +43,7 @@ default_tbb: $(TBB.DLL)
 
 VPATH = $(tbb_root)/src/tbb/$(ASSEMBLY_SOURCE) $(tbb_root)/src/tbb
 
-CPLUS_FLAGS += $(PIC_KEY)
+CPLUS_FLAGS += $(PIC_KEY) $(WARNING_KEY)
 
 ifeq (1,$(TBB_NOSTRICT))
 # GNU 3.2.3 headers have a ISO syntax that is rejected by Intel compiler in -strict_ansi mode.

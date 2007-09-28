@@ -73,7 +73,7 @@ inline void queuing_rw_mutex::scoped_lock::wait_for_release_of_internal_lock()
     SpinwaitUntilEq(internal_lock, RELEASED);
 }
 
-inline void queuing_rw_mutex::scoped_lock::unblock_or_wait_on_internal_lock( bool flag ) {
+inline void queuing_rw_mutex::scoped_lock::unblock_or_wait_on_internal_lock( uintptr_t flag ) {
     if( flag )
         wait_for_release_of_internal_lock();
     else
@@ -114,6 +114,12 @@ typedef tricky_atomic_pointer<queuing_rw_mutex::scoped_lock> tricky_pointer;
 
 //! Mask for low order bit of a pointer.
 static const tricky_pointer::word FLAG = 0x1;
+
+inline
+uintptr get_flag( queuing_rw_mutex::scoped_lock* ptr ) { 
+    return uintptr(tricky_pointer(ptr)&FLAG);
+}
+
 
 //! Methods of queuing_rw_mutex::scoped_lock
 /** ----------------------------------------- **/
@@ -186,8 +192,7 @@ void queuing_rw_mutex::scoped_lock::acquire( queuing_rw_mutex& m, bool write )
 
     // Force acquire so that user's critical section receives correct values
     // from processor that was previously in the user's critical section.
-    unsigned dummy = __TBB_load_with_acquire(going);
-	(void)dummy;	// suppress "unused variable" warning"
+    __TBB_load_with_acquire(going);
 }
 
 //! A method to try-acquire queuing_rw_mutex lock
@@ -211,8 +216,7 @@ bool queuing_rw_mutex::scoped_lock::try_acquire( queuing_rw_mutex& m, bool write
     // Force acquire so that user's critical section receives correct values
     // from processor that was previously in the user's critical section.
     // try_acquire should always have acquire semantic, even if failed.
-    unsigned dummy = __TBB_load_with_acquire(going);
-	(void)dummy;	// suppress "unused variable" warning"
+    __TBB_load_with_acquire(going);
 
     if( !pred ) {
         mutex = &m;
@@ -253,7 +257,7 @@ void queuing_rw_mutex::scoped_lock::release( )
             // so that the user's critical section sends the correct values to the next
             // process that acquires the critical section.
             __TBB_store_with_release(n->going,1);
-            unblock_or_wait_on_internal_lock(tricky_pointer(tmp)&FLAG);
+            unblock_or_wait_on_internal_lock(get_flag(tmp));
         } else {
             __TBB_ASSERT( state & (STATE_COMBINED_WAITINGREADER | STATE_WRITER), "unexpected state" );
             __TBB_ASSERT( !( tricky_pointer(n->prev) & FLAG ), "use of corrupted pointer!" );
@@ -295,7 +299,7 @@ retry:
             if( !next && this != mutex->q_tail.compare_and_swap<tbb::release>(pred, this) ) {
                 SpinwaitWhileEq( next, (void*)NULL );
             }
-            __TBB_ASSERT( !(tricky_pointer(next)&FLAG), "use of corrupted pointer" );
+            __TBB_ASSERT( !get_flag(next), "use of corrupted pointer" );
 
             // ensure acquire semantics of reading 'next'
             if( __TBB_load_with_acquire(next) ) { // I->next != nil
@@ -326,7 +330,7 @@ retry:
             __TBB_store_with_release(n->going,1);
         }
 unlock_self:
-        unblock_or_wait_on_internal_lock(tricky_pointer(tmp)&FLAG);
+        unblock_or_wait_on_internal_lock(get_flag(tmp));
     }
 done:
     SpinwaitWhileEq( going, 2 );
@@ -391,7 +395,7 @@ requested:
         if( n_state & STATE_COMBINED_WAITINGREADER )
             __TBB_store_with_release(n->going,1);
         tmp = tricky_pointer::fetch_and_store<tbb::release>(&(n->prev), this);
-        unblock_or_wait_on_internal_lock(tricky_pointer(tmp)&FLAG);
+        unblock_or_wait_on_internal_lock(get_flag(tmp));
         if( n_state & (STATE_COMBINED_READER | STATE_UPGRADE_REQUESTED) ) {
             // save n|FLAG for simplicity of following comparisons
             tmp = tricky_pointer(n)|FLAG;
@@ -428,7 +432,7 @@ waiting:
     pred = tricky_pointer::fetch_and_add<tbb::acquire>(&(this->prev), FLAG);
     if( pred ) {
         bool success = pred->try_acquire_internal_lock();
-        //unsigned short pred_state = 
+        //unsigned short pred_state = // keep the variable in code just in case
 		pred->state.compare_and_swap<tbb::release>(STATE_UPGRADE_WAITING, STATE_UPGRADE_REQUESTED);
         if( !success ) {
             tmp = tricky_pointer::compare_and_swap<tbb::release>(&(this->prev), pred, tricky_pointer(pred)|FLAG );

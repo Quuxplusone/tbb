@@ -43,27 +43,20 @@ namespace tbb {
 namespace internal {
 
 #if DO_ITT_NOTIFY
-struct ITT_HandlerDescription {
-    //! Name of the handler
-    const char* name;
-    //! Pointer to the handler
-    PointerToITT_Handler* handler;
-};
-
 //! Table describing the __itt_notify handlers.
 static const DynamicLinkDescriptor ITT_HandlerTable[] = {
-    {"__itt_notify_sync_prepare",(PointerToHandler*)&ITT_Handler_sync_prepare},
-    {"__itt_notify_sync_acquired",(PointerToHandler*)&ITT_Handler_sync_acquired},
-    {"__itt_notify_sync_releasing",(PointerToHandler*)&ITT_Handler_sync_releasing},
-    {"__itt_notify_sync_cancel",(PointerToHandler*)&ITT_Handler_sync_cancel},
+    {"__itt_notify_sync_prepare",ADDRESS_OF_HANDLER(&ITT_Handler_sync_prepare)},
+    {"__itt_notify_sync_acquired",ADDRESS_OF_HANDLER(&ITT_Handler_sync_acquired)},
+    {"__itt_notify_sync_releasing",ADDRESS_OF_HANDLER(&ITT_Handler_sync_releasing)},
+    {"__itt_notify_sync_cancel",ADDRESS_OF_HANDLER(&ITT_Handler_sync_cancel)},
 # if _WIN32||_WIN64
 #  ifdef UNICODE
-    {"__itt_thr_name_setW",(PointerToHandler*)&ITT_Handler_thr_name_set},
+    {"__itt_thr_name_setW",ADDRESS_OF_HANDLER(&ITT_Handler_thr_name_set)},
 #  else
-    {"__itt_thr_name_setA",(PointerToHandler*)&ITT_Handler_thr_name_set},
+    {"__itt_thr_name_setA",ADDRESS_OF_HANDLER(&ITT_Handler_thr_name_set)},
 #  endif
 # else
-    {"__itt_thr_name_set",(PointerToHandler*)&ITT_Handler_thr_name_set},
+    {"__itt_thr_name_set",ADDRESS_OF_HANDLER(&ITT_Handler_thr_name_set)},
 # endif
 };
 

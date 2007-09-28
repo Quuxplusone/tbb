@@ -36,7 +36,7 @@ void* MapMemory (size_t bytes)
 {
     void* result = 0;
 #ifndef MAP_ANONYMOUS
-// Mac OS defines MAP_ANON, which is deprecated in Linux.
+// Mac OS* X defines MAP_ANON, which is deprecated in Linux.
 #define MAP_ANONYMOUS MAP_ANON
 #endif /* MAP_ANONYMOUS */
     result = mmap(result, bytes, (PROT_READ | PROT_WRITE), MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);

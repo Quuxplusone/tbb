@@ -71,13 +71,16 @@ if ( WScript.Arguments.Count() > 0 ) {
 			map.Close();
 			
 			//detect runtime
-			var vc7=/MSVCR71\.DLL/mgi;
-			var vc8=/MSVCR80\.DLL/mgi;
+			var vc71=/MSVCR71\.DLL/mgi;
+			var vc80=/MSVCR80\.DLL/mgi;
+			var vc90=/MSVCR90\.DLL/mgi;
 			var psdk=/MSVCRT\.DLL/mgi;
-			if ( mapContext.match(vc7) ) {
+			if ( mapContext.match(vc71) ) {
 				WScript.Echo( "vc7.1" );
-			} else if ( mapContext.match(vc8) ) {
+			} else if ( mapContext.match(vc80) ) {
 				WScript.Echo( "vc8" );
+			} else if ( mapContext.match(vc90) ) {
+				WScript.Echo( "vc9" );
 			} else if ( mapContext.match(psdk) ) {
 				// Our current naming convention assumes vc7.1 for 64-bit Windows PSDK
 				WScript.Echo( "vc7.1" ); 

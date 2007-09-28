@@ -29,7 +29,7 @@
 #------------------------------------------------------------------------------
 .PHONY: default test_tbb_plain clean
 
-tbb_root ?= "$(TBB20_INSTALL_DIR)"
+tbb_root ?= $(TBB20_INSTALL_DIR)
 BUILDING_PHASE=1
 include $(tbb_root)/build/common.inc
 
@@ -59,12 +59,10 @@ KNOWN_NOSTRICT += \
 
 endif
 
+# KNOWN_WARNINGS is empty now! Kept here as a placeholder
+# KNOWN_WARNINGS = 
+
 include $(tbb_root)/build/common_rules.inc
-
-KNOWN_WARNINGS += test_assembly.$(OBJ) test_task_leaks.$(OBJ)
-
-$(KNOWN_WARNINGS): %.$(OBJ): %.cpp
-	$(CPLUS) $(COMPILE_ONLY) $(subst $(WARNING_KEY),,$(CPLUS_FLAGS)) $(INCLUDES) $<
 
 # Rule for generating executable test
 %.exe: %.$(OBJ) $(TBB.LIB)
@@ -85,10 +83,10 @@ test_model_plugin.exe: test_model_plugin.$(OBJ) test_model_plugin.$(DLL)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $< $(LIBS) $(LINK_FLAGS) $(LIBDL)
 
 test_assembly.exe: test_assembly.$(OBJ) $(TBB_ASM.OBJ) cache_aligned_allocator.$(OBJ) tbb_misc.$(OBJ) itt_notify.$(OBJ) spin_mutex.$(OBJ) mutex.$(OBJ) 
-	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $^ $(LIBS) $(TBB.LIB)
+	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $^ $(LIBS)
 
 test_task_leaks.exe: test_task_leaks.$(OBJ) $(TBB_ASM.OBJ) cache_aligned_allocator.$(OBJ) tbb_misc.$(OBJ) itt_notify.$(OBJ) mutex.$(OBJ) 
-	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $^ $(LIBS) $(TBB.LIB)
+	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $^ $(LIBS)
 
 test_handle_perror.exe: test_handle_perror.$(OBJ) tbb_misc.$(OBJ) $(TBB_ASM.OBJ)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $^ $(LIBS) $(TBB.LIB)
@@ -105,6 +103,7 @@ TEST_TBB_PLAIN.EXE = test_assembly.exe 	\
 	test_atomic.exe 		\
 	test_blocked_range.exe 		\
 	test_blocked_range2d.exe 	\
+	test_blocked_range3d.exe 	\
 	test_concurrent_queue.exe	\
 	test_concurrent_vector.exe	\
 	test_concurrent_hash_map.exe	\
@@ -156,6 +155,7 @@ test_tbb_plain: $(TEST_TBB_PLAIN.EXE)
 	./test_cache_aligned_allocator_STL.exe
 	./test_blocked_range.exe 1:4
 	./test_blocked_range2d.exe 1:4
+	./test_blocked_range3d.exe 1:4
 	./test_parallel_for.exe 1:4
 	./test_parallel_sort.exe 1:4
 	./test_aligned_space.exe 
@@ -184,7 +184,10 @@ ifeq (true,$(codecov))
 endif
 
 debug_%: test_%.exe
-	$(debugger) ./$^ $(debug_args)
+	$(debugger) ./$^ $(args)
+
+test_%: test_%.exe
+	./$^ $(args)
 
 clean_%: 
 	$(RM) test_$*.$(OBJ) test_$*.exe test_$*.$(DLL) test_$*.$(LIBEXT) test_$*.res test_$*.map test_$*.ilk test_$*.pdb test_$*.exp test_$*.*manifest test_$*.tmp test_$*.d

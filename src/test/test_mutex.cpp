@@ -105,8 +105,10 @@ void Test( const char * name ) {
     tbb::tick_count t0 = tbb::tick_count::now();
     tbb::parallel_for(tbb::blocked_range<size_t>(0,n,10000),AddOne<Counter<M> >(counter));
     tbb::tick_count t1 = tbb::tick_count::now();
-    if( Verbose )
+    if( Verbose ) {
         printf("%g usec\n",(t1-t0).seconds());
+        fflush(stdout);
+    }
     if( counter.value!=n )
         STD::printf("ERROR for %s: counter.value=%ld\n",name,counter.value);
 }
@@ -132,10 +134,8 @@ struct Invariant {
     bool value_is( long expected_value ) const {
         long tmp;
         for( size_t k=0; k<N; ++k )
-//            if( value[k]!=expected_value )
-//                return false;
             if( (tmp=value[k])!=expected_value ) {
-                printf("ATTN! %ld!=%ld\n", tmp, expected_value);
+                printf("ERROR: %ld!=%ld\n", tmp, expected_value);
                 return false;
             }
         return true;
@@ -231,8 +231,10 @@ void TestReaderWriterLock( const char * mutex_name ) {
     long expected_value = n/4;
     if( !invariant.value_is(expected_value) )
         STD::printf("ERROR for %s: final invariant value is wrong\n",mutex_name);
-    if( Verbose )
+    if( Verbose ) {
         printf("%g usec\n",(t1-t0).seconds());
+        fflush(stdout);
+    }
 }
 
 /** Test try_acquire functionality of a non-reenterable mutex */
@@ -261,18 +263,18 @@ int main( int argc, char * argv[] ) {
     ParseCommandLine( argc, argv );
     for( int p=MinThread; p<=MaxThread; ++p ) {
         tbb::task_scheduler_init init( p );
-	if( Verbose )
-	    printf( "testing with %d workers\n", static_cast<int>(p) );
-	// Run each test 3 times.
-	for( int i=0; i<3; ++i ) {
-	    Test<tbb::spin_mutex>( "Spin Mutex" );
+        if( Verbose )
+            printf( "testing with %d workers\n", static_cast<int>(p) );
+        // Run each test 3 times.
+        for( int i=0; i<3; ++i ) {
+            Test<tbb::spin_mutex>( "Spin Mutex" );
 #if _OPENMP
-	    Test<OpenMP_Mutex>( "OpenMP_Mutex" );
+            Test<OpenMP_Mutex>( "OpenMP_Mutex" );
 #endif /* _OPENMP */
-	    Test<tbb::queuing_mutex>( "Queuing Mutex" );
-	    Test<tbb::mutex>( "Wrapper Mutex" );
-	    Test<tbb::queuing_rw_mutex>( "Queuing RW Mutex" );
-	    Test<tbb::spin_rw_mutex>( "Spin RW Mutex" );
+            Test<tbb::queuing_mutex>( "Queuing Mutex" );
+            Test<tbb::mutex>( "Wrapper Mutex" );
+            Test<tbb::queuing_rw_mutex>( "Queuing RW Mutex" );
+            Test<tbb::spin_rw_mutex>( "Spin RW Mutex" );
             
             TestTryAcquire_OneThread<tbb::spin_mutex>("Spin Mutex");
             TestTryAcquire_OneThread<tbb::queuing_mutex>("Queuing Mutex");
@@ -283,11 +285,11 @@ int main( int argc, char * argv[] ) {
             TestTryAcquire_OneThread<tbb::spin_rw_mutex>("Spin RW Mutex"); // only tests try_acquire for writers
             TestTryAcquire_OneThread<tbb::queuing_rw_mutex>("Queuing RW Mutex"); // only tests try_acquire for writers
 
-	    TestReaderWriterLock<tbb::queuing_rw_mutex>( "Queuing RW Mutex" );
-	    TestReaderWriterLock<tbb::spin_rw_mutex>( "Spin RW Mutex" );
-	if( Verbose )
-	    printf( "calling destructor for task_scheduler_init\n" );
-	}
+            TestReaderWriterLock<tbb::queuing_rw_mutex>( "Queuing RW Mutex" );
+            TestReaderWriterLock<tbb::spin_rw_mutex>( "Spin RW Mutex" );
+        if( Verbose )
+            printf( "calling destructor for task_scheduler_init\n" );
+        }
     }
     STD::printf("done\n");
     return 0;

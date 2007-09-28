@@ -150,7 +150,7 @@ public:
         void wait_for_release_of_internal_lock();
 
         //! A helper function
-        void unblock_or_wait_on_internal_lock( bool );
+        void unblock_or_wait_on_internal_lock( uintptr_t );
     };
 
 private:

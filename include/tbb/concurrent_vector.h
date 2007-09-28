@@ -30,6 +30,7 @@
 #define __TBB_concurrent_vector_H
 
 #include "tbb_stddef.h"
+#include <algorithm>
 #include <iterator>
 #include <memory>
 #include <new>
@@ -38,6 +39,7 @@
 #include "blocked_range.h"
 
 #include "tbb_machine.h"
+
 
 namespace tbb {
 
@@ -51,28 +53,21 @@ namespace internal {
     /** @ingroup containers */
     class concurrent_vector_base {
     protected:
+
+        // Basic types declarations
         typedef size_t segment_index_t;
         typedef size_t size_type;
 
-        //! Number of slots for segment's pointers inside the class
+        // Using enumerations due to Mac linking problems of static const variables
         enum {
-            //! Log2 of "min_segment_size".  
-            lg_min_segment_size = 4,
-            min_segment_size = 1<<lg_min_segment_size,
-            pointers_per_short_segment = 4,
-            pointers_per_long_segment = sizeof(void*)==4 ? 32 : 64
+            // Size constants
+            default_initial_segments = 1, // 2 initial items
+            //! Number of slots for segment's pointers inside the class
+            pointers_per_short_table = 4, // to fit into 8 words of entire structure
+            pointers_per_long_table = sizeof(segment_index_t) * 8, // one segment per bit
         };
 
-        //! allocator type: for segments and segments pointers table
-        typedef void* (*allocate_f)(concurrent_vector_base &, size_t);
-
-        //! allocator function pointer
-        allocate_f vector_allocator_ptr;
-
-        //! Requested size of vector
-        atomic<size_type> my_early_size;
-
-        /** Can be zero-initialized. */
+        // Segment pointer. Can be zero-initialized
         struct segment_t {
             /** Declared volatile because in weak memory model, must have ld.acq/st.rel  */
             void* volatile array;
@@ -83,33 +78,87 @@ namespace internal {
 #endif /* TBB_DO_ASSERT */
         };
  
+        // Data fields
+
+        //! allocator function pointer
+        void* (*vector_allocator_ptr)(concurrent_vector_base &, size_t);
+
+        //! count of segments in the first block
+        atomic<size_type> my_first_block;
+
+        //! Requested size of vector
+        atomic<size_type> my_early_size;
+
+        //! Pointer to the segments table
         atomic<segment_t*> my_segment;
 
         //! embedded storage of segment pointers
-        segment_t my_storage[pointers_per_short_segment];
+        segment_t my_storage[pointers_per_short_table];
+
+        // Methods
 
         concurrent_vector_base() {
             my_early_size = 0;
-            for( int i = 0; i < pointers_per_short_segment; i++)
+#if !TBB_VECTOR_NO_SOLID
+            my_first_block = 0; // here is not default_initial_segments
+#else
+            my_first_block = default_initial_segments;
+#endif
+            for( segment_index_t i = 0; i < pointers_per_short_table; i++)
                 my_storage[i].array = NULL;
             my_segment = my_storage;
         }
         ~concurrent_vector_base();
 
-        static segment_index_t segment_index_of( size_t index ) { 
-            uintptr i = index|1<<(lg_min_segment_size-1);
-            uintptr j = __TBB_Log2(i); 
-            return segment_index_t(j-(lg_min_segment_size-1)); 
+#ifdef TBB_VECTOR_SECTIONS
+        static const segment_index_t lg_segments_per_section = 5; //can't be bigger then 4.. at least on ia32
+        static const segment_index_t segments_per_section = segment_index_t(1)<<lg_segments_per_section;
+        static const segment_index_t items_per_section = segment_index_t(1)<<segments_per_section;
+#endif//TBB_VECTOR_SECTIONS
+
+        static segment_index_t segment_index_of( size_type index ) {
+#ifdef TBB_VECTOR_SECTIONS
+            const segment_index_t section = index >> segments_per_section;
+            index &= items_per_section-1;
+            const segment_index_t segment_base = section * segments_per_section;
+            return segment_index_t( __TBB_Log2( index|1 ) + segment_base);
+#else//TBB_VECTOR_SECTIONS
+            return segment_index_t( __TBB_Log2( index|1 ) );
+#endif//TBB_VECTOR_SECTIONS
         }
 
-        static segment_index_t segment_base( segment_index_t k ) { 
-            return min_segment_size>>1<<k & -min_segment_size;
+        static segment_index_t segment_base( segment_index_t k ) {
+#ifdef TBB_VECTOR_SECTIONS
+            const segment_index_t section = k / segments_per_section;
+            k %= segments_per_section;
+            const segment_index_t items_base = section << segments_per_section;
+            return (segment_index_t(1)<<k & ~segment_index_t(1)) + items_base;
+#else//TBB_VECTOR_SECTIONS
+            return (segment_index_t(1)<<k & ~segment_index_t(1));
+#endif//TBB_VECTOR_SECTIONS
         }
 
-        static segment_index_t segment_size( segment_index_t k ) {
-            segment_index_t result = k==0 ? min_segment_size : min_segment_size/2<<k;
-            __TBB_ASSERT( result==segment_base(k+1)-segment_base(k), NULL );
-            return result;
+        static inline segment_index_t segment_base_index_of( segment_index_t &index ) {
+#ifdef TBB_VECTOR_SECTIONS
+            const segment_index_t section = index >> segments_per_section;
+            index &= items_per_section-1;
+            const segment_index_t segment_base = section * segments_per_section; // believe that compiler can optimize it
+            segment_index_t k = segment_index_t( __TBB_Log2( index|1 ) );
+            index -= segment_index_t(1) << k & ~segment_index_t(1);
+            return k + segment_base;
+#else//TBB_VECTOR_SECTIONS
+            segment_index_t k = segment_index_of( index );
+            index -= segment_base(k);
+            return k;
+#endif//TBB_VECTOR_SECTIONS
+        }
+
+        static size_type segment_size( segment_index_t k ) {
+#ifdef TBB_VECTOR_SECTIONS
+            k %= segments_per_section; // believe that compiler can optimize it
+            if(!k) return segment_index_t(2);
+#endif//TBB_VECTOR_SECTIONS
+            return segment_index_t(1)<<k; // fake value for k==0
         }
 
         //! An operation on an n-element array starting at begin.
@@ -120,21 +169,25 @@ namespace internal {
 
         void internal_reserve( size_type n, size_type element_size, size_type max_size );
         size_type internal_capacity() const;
-        void internal_grow_to_at_least( size_type new_size, size_type element_size, internal_array_op1 init );
-        void internal_grow( size_type start, size_type finish, size_type element_size, internal_array_op1 init );
-        size_type internal_grow_by( size_type delta, size_type element_size, internal_array_op1 init );
-        void* internal_push_back( size_type element_size, size_type& index ); 
-        size_type internal_clear( internal_array_op1 destroy );
+        void internal_grow_to_at_least( size_type new_size, size_type element_size, internal_array_op2 init, const void *src );
+        void internal_grow( size_type start, size_type finish, size_type element_size, internal_array_op2 init, const void *src );
+        size_type internal_grow_by( size_type delta, size_type element_size, internal_array_op2 init, const void *src );
+        void* internal_push_back( size_type element_size, size_type& index );
+        segment_index_t internal_clear( internal_array_op1 destroy );
+        segment_t *internal_compact( size_type element_size, void *table, internal_array_op1 destroy, internal_array_op2 copy );
         void internal_copy( const concurrent_vector_base& src, size_type element_size, internal_array_op2 copy );
-        void internal_assign( const concurrent_vector_base& src, size_type element_size, 
+        void internal_assign( const concurrent_vector_base& src, size_type element_size,
                               internal_array_op1 destroy, internal_array_op2 assign, internal_array_op2 copy );
+        void internal_throw_exception(size_type) const;
+        void internal_swap(concurrent_vector_base& v);
+
 private:
         //! Private functionality
         class helper;
-
         friend class helper;
     };
 
+    //TODO: deal with _Range_checked_iterator_tag of MSVC
     //! Meets requirements of a forward iterator for STL and a Value for a blocked_range.*/
     /** Value is either the T or const T type of the container.
         @ingroup containers */
@@ -226,10 +279,9 @@ public: // workaround for MSVC
         vector_iterator& operator++() {
             size_t k = ++my_index;
             if( my_item ) {
-                // Following test uses 2's-complement wizardry and fact that
-                // min_segment_size is a power of 2.
-                if( (k& k-concurrent_vector<Container>::min_segment_size)==0 ) {
-                    // k is a power of two that is at least k-min_segment_size  
+                // Following test uses 2's-complement wizardry
+                if( (k& k-2)==0 ) {
+                    // k is a power of two that is at least k-2
                     my_item= NULL;
                 } else {
                     ++my_item;
@@ -243,10 +295,9 @@ public: // workaround for MSVC
             __TBB_ASSERT( my_index>0, "operator--() applied to iterator already at beginning of concurrent_vector" ); 
             size_t k = my_index--;
             if( my_item ) {
-                // Following test uses 2's-complement wizardry and fact that
-                // min_segment_size is a power of 2.
-                if( (k& k-concurrent_vector<Container>::min_segment_size)==0 ) {
-                    // k is a power of two that is at least k-min_segment_size  
+                // Following test uses 2's-complement wizardry
+                if( (k& k-2)==0 ) {
+                    // k is a power of two that is at least k-2  
                     my_item= NULL;
                 } else {
                     --my_item;
@@ -313,14 +364,22 @@ public: // workaround for MSVC
         return ptrdiff_t(i.my_index)-ptrdiff_t(j.my_index);
     }
 
+#if defined(_WIN64) && !defined(_CPPLIB_VER)
+#pragma message ("Workaround for MS PSDK for Win64: allocator::rebind doesn't work")
+#endif
+
     template<typename T, class A>
     class allocator_base {
     public:
+#if defined(_WIN64) && !defined(_CPPLIB_VER)
+        typedef A allocator_type;
+#else
         typedef typename A::template
             rebind<T>::other allocator_type;
+#endif
         allocator_type allocator;
 
-        allocator_base(const allocator_type &a = A()) : allocator(a) {}
+        allocator_base(const allocator_type &a = allocator_type() ) : allocator(a) {}
     };
 
 } // namespace internal
@@ -329,7 +388,7 @@ public: // workaround for MSVC
 //! Concurrent vector
 /** @ingroup containers */
 template<typename T, class A>
-class concurrent_vector: private internal::allocator_base<T, A>,
+class concurrent_vector: protected internal::allocator_base<T, A>,
                          private internal::concurrent_vector_base {
 private:
     template<typename I>
@@ -340,7 +399,7 @@ private:
         typedef const T& const_reference;
         typedef I iterator;
         typedef ptrdiff_t difference_type;
-        generic_range_type( I begin_, I end_, size_t grainsize ) : blocked_range<I>(begin_,end_,grainsize) {} 
+        generic_range_type( I begin_, I end_, size_t grainsize = 1) : blocked_range<I>(begin_,end_,grainsize) {} 
         generic_range_type( generic_range_type& r, split ) : blocked_range<I>(r,split()) {}
     };
 
@@ -348,7 +407,7 @@ private:
     friend class internal::vector_iterator;
 public:
     //------------------------------------------------------------------------
-    // STL-like types
+    // STL compatible types
     //------------------------------------------------------------------------
     typedef internal::concurrent_vector_base::size_type size_type;
     typedef typename internal::allocator_base<T, A>::allocator_type allocator_type;
@@ -357,8 +416,8 @@ public:
     typedef ptrdiff_t difference_type;
     typedef T& reference;
     typedef const T& const_reference;
-	typedef T *pointer;
-	typedef const T *const_pointer;
+    typedef T *pointer;
+    typedef const T *const_pointer;
 
     typedef internal::vector_iterator<concurrent_vector,T> iterator;
     typedef internal::vector_iterator<concurrent_vector,const T> const_iterator;
@@ -373,76 +432,80 @@ public:
     typedef std::reverse_iterator<const_iterator,T,const T&,const T*> const_reverse_iterator;
 #endif /* defined(_MSC_VER) && (_MSC_VER<1300) */
 
+    //------------------------------------------------------------------------
+    // Parallel algorithm support
+    //------------------------------------------------------------------------
     typedef generic_range_type<iterator> range_type;
     typedef generic_range_type<const_iterator> const_range_type;
 
     //------------------------------------------------------------------------
-    // STL-like constructors & destructors
+    // STL compatible constructors & destructors
     //------------------------------------------------------------------------
 
     //! Construct empty vector.
-    concurrent_vector() { vector_allocator_ptr = &internal_allocator; }
+    concurrent_vector(const allocator_type &a = allocator_type())
+        : internal::allocator_base<T, A>(a)
+    {
+        vector_allocator_ptr = &internal_allocator;
+    }
 
-    //! Copy a vector.
+    //! Copying constructor
     concurrent_vector( const concurrent_vector& vector ) {
         vector_allocator_ptr = &internal_allocator;
         internal_copy(vector, sizeof(T), &copy_array);
     }
 
-    explicit concurrent_vector(const A& a)
+    //! Copying constructor for vector with different allocator type
+    template<class M>
+    concurrent_vector( const concurrent_vector<T, M>& vector ) {
+        vector_allocator_ptr = &internal_allocator;
+        internal_copy(vector.internal_vector_base(), sizeof(T), &copy_array);
+    }
+
+    //! Construction with initial size specified by argument n
+    explicit concurrent_vector(size_type n)
+    {
+        vector_allocator_ptr = &internal_allocator;
+#ifdef TBB_VECTOR_NO_SOLID
+        grow_by( n );
+#else
+        if ( !n ) return;
+        internal_reserve(n, sizeof(T), max_size()); my_early_size = n;
+        __TBB_ASSERT( my_first_block == segment_index_of(n)+1, NULL );
+        initialize_array(static_cast<T*>(my_segment[0].array), NULL, n);
+#endif
+    }
+
+    //! Construction with initial size specified by argument n, initialization by copying of t, and given allocator instance
+    explicit concurrent_vector(size_type n, const_reference t, const allocator_type& a = allocator_type())
         : internal::allocator_base<T, A>(a)
     {
         vector_allocator_ptr = &internal_allocator;
+        internal_assign( n, t );
     }
 
-	explicit concurrent_vector(size_type n)
-    {
-        vector_allocator_ptr = &internal_allocator;
-        internal_reserve(n, sizeof(T), max_size());
-        my_early_size = n;
-        T* array = static_cast<T*>(my_segment[0].array);
-        for( size_type j = 0; j < n; ++j )
-            new( &array[j] ) T();
-    }
-
-	concurrent_vector(size_type n, const T& t)
-    {
-        vector_allocator_ptr = &internal_allocator;
-        internal_reserve(n, sizeof(T), max_size());
-        my_early_size = n;
-        T* array = static_cast<T*>(my_segment[0].array);
-        for( size_type j = 0; j < n; ++j )
-            new( &array[j] ) T( t );
-    }
-
-	concurrent_vector(size_type n, const T& t, const A& a)
+    //! Construction with copying iteration range and given allocator instance
+    template<class I>
+    concurrent_vector(I first, I last, const allocator_type &a = allocator_type())
         : internal::allocator_base<T, A>(a)
     {
         vector_allocator_ptr = &internal_allocator;
-        internal_reserve(n, sizeof(T), max_size());
-        my_early_size = n;
-        T* array = static_cast<T*>(my_segment[0].array);
-        for( size_type j = 0; j < n; ++j )
-            new( &array[j] ) T( t );
+        internal_assign(first, last);
     }
 
-	template<class I>
-    concurrent_vector(I first, I last)
-	{	// TODO: construct from [first, last)
-        vector_allocator_ptr = &internal_allocator;
-	}
-
-	template<class I>
-	concurrent_vector(I first, I last, const A &a)
-        : internal::allocator_base<T, A>(a)
-	{	// TODO: construct from [first, last), with allocator
-        vector_allocator_ptr = &internal_allocator;
-	}
-
-    //! Assignment 
+    //! Assignment
     concurrent_vector& operator=( const concurrent_vector& vector ) {
-        if( this!=&vector )
-            internal_assign(vector,sizeof(T),&destroy_array,&assign_array,&copy_array);
+        if( this != &vector )
+            concurrent_vector_base::internal_assign(vector, sizeof(T), &destroy_array, &assign_array, &copy_array);
+        return *this;
+    }
+
+    //! Assignment for vector with different allocator type
+    template<class M>
+    concurrent_vector& operator=( const concurrent_vector<T, M>& vector ) {
+        if( reinterpret_cast<void*>( this ) != reinterpret_cast<const void*>( &vector ) )
+            concurrent_vector_base::internal_assign(vector.internal_vector_base(),
+                sizeof(T), &destroy_array, &assign_array, &copy_array);
         return *this;
     }
 
@@ -452,13 +515,19 @@ public:
     //! Grow by "delta" elements.
     /** Returns old size. */
     size_type grow_by( size_type delta ) {
-        return delta ? internal_grow_by( delta, sizeof(T), &initialize_array ) : my_early_size;
+        return delta ? internal_grow_by( delta, sizeof(T), &initialize_array, NULL ) : my_early_size;
+    }
+
+    //! Grow by "delta" elements using copying constuctor.
+    /** Returns old size. */
+    size_type grow_by( size_type delta, const_reference t ) {
+        return delta ? internal_grow_by( delta, sizeof(T), &initialize_array_by, static_cast<const void*>(&t) ) : my_early_size;
     }
 
     //! Grow array until it has at least n elements.
     void grow_to_at_least( size_type n ) {
         if( my_early_size<n )
-            internal_grow_to_at_least( n, sizeof(T), &initialize_array );
+            internal_grow_to_at_least( n, sizeof(T), &initialize_array, NULL );
     };
 
     //! Push item 
@@ -480,6 +549,27 @@ public:
         return internal_subscript(index);
     }
 
+    //! Get reference to element at given index.
+    reference at( size_type index ) {
+        if( index >= size() )
+            internal_throw_exception(0);
+        return internal_subscript(index);
+    }
+
+    //! Get const reference to element at given index.
+    const_reference at( size_type index ) const {
+        if( index >= size() )
+            internal_throw_exception(0);
+        return internal_subscript(index);
+    }
+
+    range_type range( size_t grainsize = 1) {
+        return range_type( begin(), end(), grainsize );
+    }
+
+    const_range_type range( size_t grainsize = 1 ) const {
+        return const_range_type( begin(), end(), grainsize );
+    }
     //------------------------------------------------------------------------
     // Capacity
     //------------------------------------------------------------------------
@@ -495,60 +585,102 @@ public:
     //! Allocate enough space to grow to size n without having to allocate more memory later.
     /** Like most of the methods provided for STL compatibility, this method is *not* thread safe. 
         The capacity afterwards may be bigger than the requested reservation. */
-    void reserve( size_type n ) {internal_reserve(n,sizeof(T),max_size());}
+    void reserve( size_type n ) {
+        if( n )
+            internal_reserve(n, sizeof(T), max_size());
+    }
+
+    //! Optimize memory usage and fragmentation. Returns true if optimization occurred.
+    void compact();
 
     //! Upper bound on argument to reserve.
-    size_type max_size() const {return (-size_t(1))/sizeof(T);}
+    size_type max_size() const {return (~size_type(0))/sizeof(T);}
 
     //------------------------------------------------------------------------
     // STL support
     //------------------------------------------------------------------------
 
+    //! start iterator
     iterator begin() {return iterator(*this,0);}
+    //! end iterator
     iterator end() {return iterator(*this,size());}
+    //! start const iterator
     const_iterator begin() const {return const_iterator(*this,0);}
+    //! end const iterator
     const_iterator end() const {return const_iterator(*this,size());}
-
+    //! reverse start iterator
     reverse_iterator rbegin() {return reverse_iterator(end());}
+    //! reverse end iterator
     reverse_iterator rend() {return reverse_iterator(begin());}
+    //! reverse start const iterator
     const_reverse_iterator rbegin() const {return const_reverse_iterator(end());}
+    //! reverse end const iterator
     const_reverse_iterator rend() const {return const_reverse_iterator(begin());}
+    //! the first item
+    reference front() { return *begin(); }
+    //! the first item const
+    const_reference front() const { return *begin(); }
+    //! the last item
+    reference back() { return *--end(); }
+    //! the last item const
+    const_reference back() const { return *--end(); }
+    //! return allocator object
+    allocator_type get_allocator() const { return this->allocator; }
 
-    range_type range( size_t grainsize ) {
-        return range_type( begin(), end(), grainsize );
+    //! assign n items by copying t item
+    void assign(size_type n, const_reference t) { clear(); internal_assign( n, t ); }
+    //! assign range [first, last)
+    template<class I>
+    void assign(I first, I last) { clear(); internal_assign( first, last ); }
+
+    //! swap two instances
+    void swap(concurrent_vector &vector) {
+        if( this != &vector ) {
+            concurrent_vector_base::internal_swap(static_cast<concurrent_vector_base&>(vector));
+            std::swap(this->allocator, vector.allocator);
+        }
     }
 
-    const_range_type range( size_t grainsize ) const {
-        return const_range_type( begin(), end(), grainsize );
+    //! Clear container. Not thread safe
+    void clear() {
+        internal_free_segments( my_segment, internal_clear(&destroy_array), my_first_block );
+#if !TBB_VECTOR_NO_SOLID
+        my_first_block = 0; // here is not default_initial_segments
+#else
+        my_first_block = default_initial_segments;
+#endif
     }
-
-    //! Not thread safe
-    /** Does not change capacity. */
-    void clear() { internal_clear(&destroy_array); }       
 
     //! Clear and destroy vector.
     ~concurrent_vector() {
-        size_type k = internal_clear(&destroy_array);
-        // Free the arrays
-        while( k > 0 ) {
-            --k;
-            segment_t& s = my_segment[k];
-            T* array = reinterpret_cast<T*>(s.array);
-            s.array = NULL;
-            this->allocator.deallocate( array, segment_size(k) );
-        }
+        clear();
         // base class destructor call should be then
     }
+
+    inline const internal::concurrent_vector_base &internal_vector_base() const { return *this; }
 private:
+    //! Allocate k items
     static void *internal_allocator(internal::concurrent_vector_base &vb, size_t k) {
         return static_cast<concurrent_vector<T, A>&>(vb).allocator.allocate(k);
     }
+    //! Free k segments from table
+    void internal_free_segments(segment_t *table, segment_index_t k, segment_index_t first_block);
 
     //! Get reference to element at given index.
     T& internal_subscript( size_type index ) const;
 
+    //! assign n items by copying t
+    void internal_assign(size_type n, const_reference t);
+
+    //! assign by iterators
+    template<class I>
+    void internal_assign(I first, I last);
+
     //! Construct n instances of T, starting at "begin".
-    static void initialize_array( void* begin, size_type n );
+    static void initialize_array( void* begin, const void*, size_type n );
+
+    //! Construct n instances of T, starting at "begin".
+    static void initialize_array_by( void* begin, const void* src, size_type n );
 
     //! Construct n instances of T, starting at "begin".
     static void copy_array( void* dst, const void* src, size_type n );
@@ -561,18 +693,77 @@ private:
 };
 
 template<typename T, class A>
+void concurrent_vector<T, A>::compact() {
+    segment_index_t old_first_block = my_first_block;
+    char table_space[sizeof(segment_t) * pointers_per_long_table];
+    segment_t *old_table = internal_compact( sizeof(T), reinterpret_cast<void*>(table_space), &destroy_array, &copy_array );
+    if( old_table )
+        internal_free_segments( old_table, my_first_block, old_first_block );
+}
+
+template<typename T, class A>
+void concurrent_vector<T, A>::internal_free_segments(segment_t *table, segment_index_t k, segment_index_t first_block) {
+    // Free the arrays
+    while( k > first_block ) {
+        --k;
+        segment_t& s = table[k];
+        T* array = reinterpret_cast<T*>(s.array);
+        s.array = NULL;
+        this->allocator.deallocate( array, segment_size(k) );
+    }
+    T* array = reinterpret_cast<T*>(table[0].array);
+    if( array ) {
+        __TBB_ASSERT( first_block > 0, NULL );
+        while(k > 0) table[--k].array = 0;
+        this->allocator.deallocate( array, segment_size(first_block) );
+    }
+}
+
+template<typename T, class A>
 T& concurrent_vector<T, A>::internal_subscript( size_type index ) const {
     __TBB_ASSERT( index<size(), "index out of bounds" );
-    segment_index_t k = segment_index_of( index );
-    size_type j = index-segment_base(k);
+    size_type j = index;
+    segment_index_t k = segment_base_index_of( j );
     return static_cast<T*>(my_segment[k].array)[j];
 }
 
 template<typename T, class A>
-void concurrent_vector<T, A>::initialize_array( void* begin, size_type n ) {
+void concurrent_vector<T, A>::internal_assign(size_type n, const_reference t)
+{
+#ifdef TBB_VECTOR_NO_SOLID
+    grow_by( n, t );
+#else
+    if( !n ) return;
+    internal_reserve(n, sizeof(T), max_size()); my_early_size = n;
+    __TBB_ASSERT( my_first_block == segment_index_of(n)+1, NULL );
+    initialize_array_by(static_cast<T*>(my_segment[0].array), static_cast<const void*>(&t), n);
+#endif
+}
+
+template<typename T, class A> template<class I>
+void concurrent_vector<T, A>::internal_assign(I first, I last) {
+    size_type n = std::distance(first, last);
+    if( !n ) return;
+    internal_reserve(n, sizeof(T), max_size()); my_early_size = n;
+    __TBB_ASSERT( my_first_block == segment_index_of(n)+1, NULL );
+    T* array = static_cast<T*>(my_segment[0].array);
+    for( size_type j = 0; j < n; ++j, ++first )
+        new( &array[j] ) T( *first );
+}
+
+template<typename T, class A>
+void concurrent_vector<T, A>::initialize_array( void* begin, const void *, size_type n ) {
     T* array = static_cast<T*>(begin);
     for( size_type j=0; j<n; ++j )
         new( &array[j] ) T();
+}
+
+template<typename T, class A>
+void concurrent_vector<T, A>::initialize_array_by( void* begin, const void *src, size_type n ) {
+    T* array = static_cast<T*>(begin);
+    const T &s = *static_cast<const T*>(src);
+    for( size_type j=0; j<n; ++j )
+        new( &array[j] ) T(s);
 }
 
 template<typename T, class A>
@@ -598,6 +789,67 @@ void concurrent_vector<T, A>::destroy_array( void* begin, size_type n ) {
         array[j-1].~T();
 }
 
+// concurrent_vector's template functions
+template<typename T, class A1, class A2>
+inline bool operator==(const concurrent_vector<T, A1> &a, const concurrent_vector<T, A2> &b) {
+    //TODO: deal with _Range_checked_iterator_tag of MSVC.
+    // Simply:    return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin());
+    if(a.size() != b.size()) return false;
+    typename concurrent_vector<T, A1>::const_iterator i(a.begin());
+    typename concurrent_vector<T, A2>::const_iterator j(b.begin());
+    for(; i != a.end(); ++i, ++j)
+        if( !(*i == *j) ) return false;
+    return true;
+}
+
+template<typename T, class A1, class A2>
+inline bool operator!=(const concurrent_vector<T, A1> &a, const concurrent_vector<T, A2> &b)
+{    return !(a == b); }
+
+template<typename T, class A1, class A2>
+inline bool operator<(const concurrent_vector<T, A1> &a, const concurrent_vector<T, A2> &b)
+{    return (std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end())); }
+
+template<typename T, class A1, class A2>
+inline bool operator>(const concurrent_vector<T, A1> &a, const concurrent_vector<T, A2> &b)
+{    return b < a; }
+
+template<typename T, class A1, class A2>
+inline bool operator<=(const concurrent_vector<T, A1> &a, const concurrent_vector<T, A2> &b)
+{    return !(b < a); }
+
+template<typename T, class A1, class A2>
+inline bool operator>=(const concurrent_vector<T, A1> &a, const concurrent_vector<T, A2> &b)
+{    return !(a < b); }
+
+template<typename T, class A>
+inline void swap(concurrent_vector<T, A> &a, concurrent_vector<T, A> &b)
+{    a.swap( b ); }
+
 } // namespace tbb
 
+/*******************************************************
+Changes in tbb::concurrent_vector since 2.0 version:
+* custom allocator support through template argument 
+  - defaulting to cache_aligned_allocator for now
+* segment sizes start from 2 (then 2, 4, 8...) 
+  - faster index calculation 
+  - fixes memory blow up for swarm of vector’s instances of small size 
+* first segments block solid allocation 
+  - first growth call specifies a number of segments to be merged in the first allocation. 
+  - introduces additional size_t field in data structure but doesn’t require additional mask on segment pointer
+    – potentially faster then “any solid segment” technique. 
+  - in conjunction with faster index calculation gives about 5-10% performance grow for test set of standard sequential algorithms. 
+* introduced new methods:
+  - grow_by(size_type n, const_reference t) growth using copying constructor to init new items. 
+  - STL-like constructors.
+  - operators ==, < and derivatives
+  - at() method
+  - get_allocator() method.
+  - assign() methods
+  - compact() method to defragment first segments increasing items access time. 
+  - swap() method
+* range() defaults on grainsize = 1 supporting auto grainsize algorithms. 
+* clear() behavior changed to freeing segments memory 
+********************************************************/
 #endif /* __TBB_concurrent_vector_H */

@@ -34,7 +34,6 @@
 #include <unistd.h>
 #include <sched.h>
 
-#define __TBB_OFFSET_OF_NEXT -8
 #define __TBB_WORDSIZE 8
 #define __TBB_BIG_ENDIAN 0
 

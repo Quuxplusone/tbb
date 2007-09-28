@@ -29,7 +29,7 @@
 /* This file contains the TBB task scheduler. There are many classes
    lumped together here because very few are exposed to the outside
    world, and by putting them in a single translation unit, the
-   optimizer might be able to do a better job. */
+   compiler's optimizer might be able to do a better job. */
 
 #if USE_PTHREAD
 
@@ -56,6 +56,7 @@
 #include <cstdio>
 #include <new>
 #include "tbb/tbb_stddef.h"
+
 
 /* Temporarily change "private" to "public" while including "tbb/task.h"
    This hack allows us to avoid publishing types Arena and CustomScheduler
@@ -98,11 +99,13 @@
 namespace tbb {
 
 using namespace std;
-typedef internal::reference_count ReferenceCount;
 
 namespace internal {
 
 template<typename SchedulerTraits> class CustomScheduler;
+
+typedef task::depth_type depth_type;
+
 
 //------------------------------------------------------------------------
 // TaskPool
@@ -115,26 +118,17 @@ class TaskPoolPrefix {
     unsigned arena_index;
 
     //! Index of first non-empty element of TaskPool::array
-    int steal_begin;
-
-/* Set BALANCED_EXCHANGE to enable fix for TR#159.
-   The preprocessor symbol demarcates the changes for the fix.
-   It will be removed once we are comfortable with the fix. */
-#define BALANCED_EXCHANGE 1
-#if BALANCED_EXCHANGE
-    //! Tasks donated by other threads in exchange for a stolen victim task
-    task* donation_list;
-#endif /*BALANCED_EXCHAGE*/
+    depth_type steal_begin;
 
     friend class GenericScheduler;
     friend class TaskPool;
-    friend void Spawn( scheduler& s, task& first, task*& next );
 };
-
 
 //! Pool of tasks, organized as a deque.
 class TaskPool {
-    static const size_t min_array_size = (NFS_MaxLineSize-sizeof(TaskPoolPrefix))/sizeof(task*);
+    typedef size_t size_type;
+
+    static const size_type min_array_size = (NFS_MaxLineSize-sizeof(TaskPoolPrefix))/sizeof(task*);
 
     /** Must be last field, because it is really array of indeterminate length. */
     task* array[min_array_size];
@@ -143,12 +137,13 @@ class TaskPool {
     TaskPoolPrefix& prefix() const {return ((TaskPoolPrefix*)(void*)this)[-1];}
 
     //! Return number of bytes required to allocate a pool with given number of array elements.
-    static size_t byte_size( size_t array_size ) {
+    static size_t byte_size( size_type array_size ) {
         return sizeof(TaskPoolPrefix)+array_size*sizeof(task*);
     }
 
     //! Allocate TaskPool object with given number of array elements.
-    static TaskPool* allocate_task_pool( size_t array_size ) {
+    static TaskPool* allocate_task_pool( size_type array_size ) {
+        __TBB_ASSERT( array_size>0, NULL );
         size_t n = byte_size(array_size);
         unsigned char* storage = (unsigned char*)NFS_Allocate( n, 1, NULL );
         memset( storage, 0, n );
@@ -162,7 +157,6 @@ class TaskPool {
     }
 
     friend class GenericScheduler;
-    friend void Spawn( scheduler& s, task& first, task*& next );
     template<typename SchedulerTraits> friend class internal::CustomScheduler;
 
 #if TBB_DO_ASSERT
@@ -173,7 +167,6 @@ class TaskPool {
     }
 #endif /* TBB_DO_ASSERT */
 };
-
 
 //------------------------------------------------------------------------
 // Arena
@@ -207,13 +200,12 @@ class UnpaddedArenaPrefix {
     friend class Arena;
     friend class tbb::task_scheduler_init;
 
-
     //! One more than index of highest arena slot currently in use.
     atomic<size_t> limit;
 
     //! Number of masters that own this arena.
     /** This may be smaller than the number of masters who have entered the arena. */
-    int number_of_masters;
+    unsigned number_of_masters;
 
     //! Total number of slots in the arena
     const unsigned number_of_slots;
@@ -234,7 +226,7 @@ class UnpaddedArenaPrefix {
     Gate gate;
  
 protected:
-    UnpaddedArenaPrefix( size_t number_of_slots_, size_t number_of_workers_ ) :
+    UnpaddedArenaPrefix( unsigned number_of_slots_, unsigned number_of_workers_ ) :
         number_of_masters(1),
         number_of_slots(number_of_slots_),
         number_of_workers(number_of_workers_)
@@ -252,7 +244,7 @@ class ArenaPrefix: public UnpaddedArenaPrefix {
     char pad[(sizeof(UnpaddedArenaPrefix)/NFS_MaxLineSize+1)*NFS_MaxLineSize-sizeof(UnpaddedArenaPrefix)];
 
 public:
-    ArenaPrefix( size_t number_of_slots_, size_t number_of_workers_ ) :
+    ArenaPrefix( unsigned number_of_slots_, unsigned number_of_workers_ ) :
         UnpaddedArenaPrefix(number_of_slots_,number_of_workers_)
     {
     }
@@ -262,7 +254,7 @@ struct UnpaddedArenaSlot {
     //! Holds copy of task_pool->deepest and a lock bit
     /** Computed as 2*task_pool->deepest+(is_locked).
         I.e., the low order bit indicates whether the slot is locked. */
-    volatile intptr steal_end;
+    volatile depth_type steal_end;
     TaskPool* task_pool;
     bool owner_waits;
 };
@@ -279,10 +271,12 @@ class Arena {
     //! Get reference to prefix portion
     ArenaPrefix& prefix() const {return ((ArenaPrefix*)(void*)this)[-1];}
 
+
     //! Allocate the arena
     /** Allocates an instance of Arena and sets TheArena to point to it.
         Creates the worker threads, but does not wait for them to start. */
-    static Arena* allocate_arena( size_t number_of_slots, size_t number_of_workers );
+    static Arena* allocate_arena( unsigned number_of_slots, unsigned number_of_workers );
+
 
     //! Terminate worker threads
     /** Wait for worker threads to complete. */
@@ -548,7 +542,7 @@ public:
 };
 
 //------------------------------------------------------------------------
-// Scheduler
+// GenericScheduler
 //------------------------------------------------------------------------
 
 //  A pure virtual destructor should still have a body
@@ -566,7 +560,7 @@ class GenericScheduler: public scheduler {
     typedef task::depth_type depth_type;
     friend class tbb::task;
     friend class tbb::task_scheduler_init;
-    friend class WorkerDescriptor;
+    friend struct WorkerDescriptor;
     friend class Arena;
     friend class allocate_root_proxy;
     friend class scheduler;
@@ -591,7 +585,7 @@ class GenericScheduler: public scheduler {
 
     //! The physical number of slots in "array".
     /** Read by thieves. */
-    size_t array_size;
+    TaskPool::size_type array_size;
 
     //! Dummy slot used when scheduler is not in arena
     UnpaddedArenaSlot dummy_slot;
@@ -605,9 +599,8 @@ class GenericScheduler: public scheduler {
     //! Random number generator used for picking a random victim from which to steal.
     FastRandom random;
 
-    //! Free list of storage to be used for allocating task objects.
+    //! Free list of small tasks that can be reused.
     task* free_list;
-
 
     //! Innermost task whose task::execute() is running.
     task* innermost_running_task;
@@ -625,20 +618,21 @@ class GenericScheduler: public scheduler {
     Gate* open_gate;
 #endif /* IMPROVED_GATING */
 
+
 #if COUNT_TASK_NODES
-    //! Net number of allocated nodes
+    //! Net number of big task objects that have been allocated but not yet freed.
     intptr task_node_count;
 #endif /* COUNT_TASK_NODES */
 
 #if STATISTICS
     long execute_count;
     long steal_count;
-    long implicit_steal_count;
     long current_active;
     long current_length;
-    long current_malloc;
+    //! Number of big tasks that have been malloc'd.
+    /** To find total number of tasks malloc'd, compute (current_big_malloc+small_task_count) */
+    long current_big_malloc;
 #endif /* STATISTICS */
-
 
     //! Try to enter the arena
     /** On return, guaranteess that task pool has been acquired. */
@@ -650,13 +644,6 @@ class GenericScheduler: public scheduler {
     void acquire_task_pool() const;
 
     void release_task_pool() const;
-
-#if BALANCED_EXCHANGE
-    //! Move contents of donation_list to free_list and extract one task from the list.
-    /** Requires that free_list==NULL and donation_list!=NULL.
-        Returns pointer to the extracted task */
-    task* grab_donation_list();
-#endif /* BALANCE_EXCHANGE */
 
     //! Get task from ready pool.
     /** Called only by the thread that owns *this.
@@ -671,21 +658,14 @@ class GenericScheduler: public scheduler {
     //! Grow "array" to at least "minimum_size" elements.
     /** Does nothing if array is already that big.
         Returns &array[minimum_size-1] */
-    void grow( size_t minimum_size );
-
-#if TBB_DO_ASSERT
-    bool assert_ownership( task& t ) {
-        __TBB_ASSERT( GetThreadSpecific()==this, "wrong thread?" );
-        return t.prefix().owner==this;
-    }
-#endif /* TBB_DO_ASSERT */
+    void grow( TaskPool::size_type minimum_size );
 
     //! Call destructor for a task and put it on the free list (or free it if it is big).
     void destroy_task( task& t ) {
         TBB_TRACE(("%p.destroy_task(%p)\n",this,&t));
-        __TBB_ASSERT( assert_ownership( t ), "task owned by different thread" );
+        __TBB_ASSERT( t.is_owned_by_current_thread(), "task owned by different thread" );
         t.~task();
-        free_task( t );
+        free_task<no_hint>( t );
     }
     static GenericScheduler* create_master( Arena* a );
 
@@ -714,7 +694,6 @@ protected:
     bool assert_okay() const;
 #endif /* TBB_DO_ASSERT || TEST_ASSEMBLY_ROUTINES */
 
-
 public:
     /*override*/ void spawn( task& first, task*& next );
 
@@ -727,46 +706,27 @@ public:
 
     //! Allocate task object, either from the heap or a free list.
     /** Returns uninitialized task object with initialized prefix. */
-    task& allocate_task( size_t number_of_bytes, depth_type depth, task* parent ) {
-        GATHER_STATISTIC(current_active+=1);
-        task* t = free_list;
-        if( number_of_bytes<=quick_task_size ) {
-            number_of_bytes = quick_task_size;
-            if( t ) {
-                GATHER_STATISTIC(current_length-=1);
-                __TBB_ASSERT( t->state()==task::freed, "free list of tasks is corrupted" );
-                free_list = t->prefix().next;
-                goto init;
-#if BALANCED_EXCHANGE
-            } else if( dummy_slot.task_pool->prefix().donation_list ) {
-                t = grab_donation_list();
-                goto init;
-#endif /* BALANCED_EXCHANGE */
-            }
-        }
-        GATHER_STATISTIC(current_malloc+=1);
-        t = &((task_prefix*)NFS_Allocate( sizeof(task_prefix)+number_of_bytes, 1, NULL ))->task();
-#if COUNT_TASK_NODES
-        task_node_count += 1;
-#endif /* COUNT_TASK_NODES */
-    init:
-        task_prefix& p = t->prefix();
-        p.owner = this;
-        p.ref_count = 0;
-        p.depth = depth;
-        p.parent = parent;
-        p.is_big = number_of_bytes>quick_task_size;
-#if TBB_DO_ASSERT
-        p.debug_state = GenericScheduler::ds_debug;
-#else
-        // Clear reserved0 so that if client compiles their code with TBB_DO_ASSERT set,
-        // the assertions in task.h that inspect debug_state still work.
-        p.reserved0 = GenericScheduler::ds_release;
-#endif /* TBB_DO_ASSERT */
-        p.state = task::allocated;
-        __TBB_ASSERT( (char*)&t->prefix().next - (char*)t == OFFSET_OF_NEXT, NULL );
-        return *t;
-    }
+    task& allocate_task( size_t number_of_bytes, depth_type depth, task* parent );
+
+    //! Optimization hint to free_task that enables it omit unnecessary tests and code.
+    enum hint {
+        //! No hint 
+        no_hint=0,
+        //! Task is known to have been allocated by this scheduler
+        is_local=1,
+        //! Task is known to be a small task.
+        /** Task should be returned to the free list of *some* scheduler, possibly not this scheduler. */
+        is_small=2,
+        //! Bitwise-OR of is_local and is_small.  
+        /** Task should be returned to free list of this scheduler. */
+        is_small_local=3
+    };
+
+    //! Put task on free list.
+    /** Does not call destructor. */
+    template<hint h>
+    void free_task( task& t );
+
 
     void deallocate_task( task& t ) {
         task_prefix& p = t.prefix();
@@ -774,35 +734,10 @@ public:
         p.state = 0xFF;
         poison_pointer(p.next);
 #endif /* TBB_DO_ASSERT */
-        NFS_Free(&t.prefix());
+        NFS_Free(&p);
 #if COUNT_TASK_NODES
         task_node_count -= 1;
 #endif /* COUNT_TASK_NODES */
-    }
-
-    //! Put task on free list.
-    /** Does not call destructor.
-        The argument is_always_small should be a constant so that the compiler can optimize
-        away the test against it and unreachable code. */
-    void free_task( task& t, bool is_always_small=false ) {
-        GATHER_STATISTIC(current_active-=1);
-        task_prefix& p = t.prefix();
-#if TBB_DO_ASSERT
-        p.depth = 0xDEADBEEF;
-        p.ref_count = 0xDEADBEEF;
-        poison_pointer(p.owner);
-#endif /* TBB_DO_ASSERT */
-        __TBB_ASSERT( 1L<<t.state() & (1L<<task::executing|1L<<task::allocated), NULL );
-        p.state = task::freed;
-        __TBB_ASSERT( p.is_big<=2u, "internal state of task is corrupt" );
-        __TBB_ASSERT( !is_always_small || !p.is_big, NULL );
-        if( is_always_small || !p.is_big ) {
-            GATHER_STATISTIC(current_length+=1);
-            p.next = free_list;
-            free_list = &t;
-        } else {
-            deallocate_task(t);
-        }
     }
 
     //! True if running on a worker thread, false otherwise.
@@ -837,7 +772,112 @@ public:
         return task_node_count + (count_arena_workers? arena->workers_task_node_count(): 0);
     }
 #endif
+
+    //! Special value used to mark return_list as not taking any more entries.
+    static task* plugged_return_list() {return (task*)(intptr)(-1);}
+
+    //! Number of small tasks that have been allocated by this scheduler. 
+    intptr small_task_count;
+
+    //! List of small tasks that have been returned to this scheduler by other schedulers.
+    // FIXME - see if puting return_list on separate cache line improves performance, 
+    // e.g. on a prefix of the scheduler
+    task* volatile return_list;    
+
+    //! Free a small task t that that was allocated by a different scheduler 
+    void free_nonlocal_small_task( task& t ); 
 };
+
+inline task& GenericScheduler::allocate_task( size_t number_of_bytes, depth_type depth, task* parent ) {
+    GATHER_STATISTIC(current_active+=1);
+    task* t = free_list;
+    if( number_of_bytes<=quick_task_size ) {
+        if( t ) {
+            GATHER_STATISTIC(current_length-=1);
+            __TBB_ASSERT( t->state()==task::freed, "free list of tasks is corrupted" );
+            free_list = t->prefix().next;
+        } else if( return_list ) {
+            t = (task*)__TBB_FetchAndStoreW( &return_list, 0 );
+            __TBB_ASSERT( t, "another thread emptied the return_list" );
+            __TBB_ASSERT( t->prefix().origin==this, "task returned to wrong return_list" );
+            free_list = t->prefix().next;
+        } else {
+            t = &((task_prefix*)NFS_Allocate( sizeof(task_prefix)+quick_task_size, 1, NULL ))->task();
+#if COUNT_TASK_NODES
+            ++task_node_count;
+#endif /* COUNT_TASK_NODES */
+            t->prefix().origin = this;
+            ++small_task_count;
+        }
+    } else {
+        GATHER_STATISTIC(current_big_malloc+=1);
+        t = &((task_prefix*)NFS_Allocate( sizeof(task_prefix)+number_of_bytes, 1, NULL ))->task();
+#if COUNT_TASK_NODES
+        ++task_node_count;
+#endif /* COUNT_TASK_NODES */
+        t->prefix().origin = NULL;
+    }
+    task_prefix& p = t->prefix();
+    p.owner = this;
+    p.ref_count = 0;
+    p.depth = int(depth);
+    p.parent = parent;
+#if TBB_DO_ASSERT
+    p.debug_state = GenericScheduler::ds_debug;
+#else
+    // Clear reserved0 so that if client compiles their code with TBB_DO_ASSERT set,
+    // the assertions in task.h that inspect debug_state still work.
+    p.reserved0 = GenericScheduler::ds_release;
+#endif /* TBB_DO_ASSERT */
+    p.state = task::allocated;
+    return *t;
+}
+
+template<GenericScheduler::hint h>
+inline void GenericScheduler::free_task( task& t ) {
+    GATHER_STATISTIC(current_active-=1);
+    task_prefix& p = t.prefix();
+    // Verify that optimization hints are correct.
+    __TBB_ASSERT( h!=is_small_local || p.origin==this, NULL );
+    __TBB_ASSERT( !(h&is_small) || p.origin, NULL );
+#if TBB_DO_ASSERT
+    p.depth = 0xDEADBEEF;
+    p.ref_count = 0xDEADBEEF;
+    poison_pointer(p.owner);
+#endif /* TBB_DO_ASSERT */
+    __TBB_ASSERT( 1L<<t.state() & (1L<<task::executing|1L<<task::allocated), NULL );
+    p.state = task::freed;
+    if( h==is_small_local || p.origin==this ) {
+        GATHER_STATISTIC(current_length+=1);
+        p.next = free_list;
+        free_list = &t;
+    } else if( h&is_local || p.origin ) {
+        free_nonlocal_small_task(t);
+    } else {  
+        deallocate_task(t);
+    }
+}
+
+void GenericScheduler::free_nonlocal_small_task( task& t ) {
+    __TBB_ASSERT( t.state()==task::freed, NULL );
+    GenericScheduler& s = *static_cast<GenericScheduler*>(t.prefix().origin);
+    __TBB_ASSERT( &s!=this, NULL );
+    for(;;) {
+        task* old = s.return_list;
+        if( old==plugged_return_list() ) 
+            break;
+        // Atomically insert t at head of s.return_list
+        t.prefix().next = old; 
+        if( __TBB_CompareAndSwapW( &s.return_list, (intptr)&t, (intptr)old )==(intptr)old ) 
+            return;
+    }
+    deallocate_task(t);
+    if( __TBB_FetchAndDecrementWrelease( &s.small_task_count )==1 ) {
+        // We freed the last task allocated by scheduler s, so it's our responsibility
+        // to free the scheduler.
+        NFS_Free( &s );
+    }
+}
 
 #if IMPROVED_GATING
 inline void GenericScheduler::mark_pool_full() {
@@ -915,6 +955,7 @@ public:
     }
 };
 
+
 //------------------------------------------------------------------------
 // AssertOkay
 //------------------------------------------------------------------------
@@ -933,7 +974,7 @@ static bool AssertOkay( const task& task ) {
 //------------------------------------------------------------------------
 // Methods of Arena
 //------------------------------------------------------------------------
-Arena* Arena::allocate_arena( size_t number_of_slots, size_t number_of_workers ) {
+Arena* Arena::allocate_arena( unsigned number_of_slots, unsigned number_of_workers ) {
     __TBB_ASSERT( sizeof(ArenaPrefix) % NFS_GetLineSize()==0, "ArenaPrefix not multiple of cache line size" );
     size_t n = sizeof(ArenaPrefix) + number_of_slots*sizeof(ArenaSlot);
 
@@ -949,6 +990,7 @@ Arena* Arena::allocate_arena( size_t number_of_slots, size_t number_of_workers )
     memset( w, 0, sizeof(WorkerDescriptor)*(number_of_workers));
     a->prefix().worker_list = w;
 
+
     size_t k;
     // Mark each worker slot as locked and unused
     for( k=0; k<number_of_workers; ++k ) {
@@ -958,7 +1000,6 @@ Arena* Arena::allocate_arena( size_t number_of_slots, size_t number_of_workers )
     // Mark rest of slots as unused
     for( ; k<number_of_slots; ++k )
         a->slot[k].steal_end = -4;
-
 
     // Publish the Arena
     __TBB_ASSERT( !TheArena, NULL );
@@ -973,12 +1014,12 @@ Arena* Arena::allocate_arena( size_t number_of_slots, size_t number_of_workers )
 
 void Arena::terminate_workers() {
     int n = prefix().number_of_workers;
+    __TBB_ASSERT( n>=0, "negative number of workers; casting error?" );
 #if IMPROVED_GATING
     prefix().gate.try_update( GenericScheduler::SNAPSHOT_PERMANENTLY_OPEN, GenericScheduler::SNAPSHOT_PERMANENTLY_OPEN, true );
 #else
     prefix().gate.open();
 #endif /* IMPROVED_GATING */
-    __TBB_ASSERT( n>=0, "negative number of workers?" );
     for( int i=n; --i>=0; ) {
         WorkerDescriptor& w = prefix().worker_list[i];
         // The following while wait_for_all protects against situation where worker has not started yet.
@@ -1009,14 +1050,15 @@ void Arena::terminate_workers() {
             handle_perror(status,"pthread_join");
 #endif /* USE_WINTHREAD */
     }
+    // All workers have quit
 #if !IMPROVED_GATING
     prefix().gate.close();
 #endif /* !IMPROVED_GATING */
     delete[] prefix().worker_list;
     prefix().worker_list = NULL;
 #if COUNT_TASK_NODES && !TEST_ASSEMBLY_ROUTINES
-    if( intptr node_count = prefix().task_node_count ) {
-        fprintf(stderr,"warning: leaked %ld task objects\n",long(node_count));
+    if( prefix().task_node_count ) {
+        fprintf(stderr,"warning: leaked %ld task objects\n", long(prefix().task_node_count));
     }
 #endif /* COUNT_TASK_NODES && !TEST_ASSEMBLY_ROUTINES */
     __TBB_ASSERT( this, "attempt to free NULL Arena" );
@@ -1027,7 +1069,7 @@ void Arena::terminate_workers() {
 #if COUNT_TASK_NODES
 intptr Arena::workers_task_node_count() {
     intptr result = 0;
-    for(unsigned i=0; i<prefix().number_of_workers; ++i) {
+    for( unsigned i=0; i<prefix().number_of_workers; ++i ) {
         GenericScheduler* s = prefix().worker_list[i].scheduler;
         if( s )
             result += s->task_node_count;
@@ -1046,16 +1088,15 @@ GenericScheduler::GenericScheduler( Arena* arena_ ) :
 #if STATISTICS
     current_active(0),
     current_length(0),
-    current_malloc(0),
+    current_big_malloc(0),
     steal_count(0),
-    implicit_steal_count(0),
     execute_count(0),
 #endif /* STATISTICS */
     deepest(-1),
     array_size(0),
     arena_slot(&dummy_slot),
     arena(arena_),
-    random( this-(GenericScheduler*)NULL ),
+    random( unsigned(this-(GenericScheduler*)NULL) ),
     free_list(NULL),
     innermost_running_task(NULL),
     dummy_task(NULL),
@@ -1066,10 +1107,12 @@ GenericScheduler::GenericScheduler( Arena* arena_ ) :
 #if TBB_DO_ASSERT
    ,task_node_count(0)
 #endif /* TBB_DO_ASSERT */
+   ,small_task_count(1)   // Extra 1 is a guard reference
+   ,return_list(NULL)
 {
     TaskPool* t = TaskPool::allocate_task_pool(TaskPool::min_array_size);
     dummy_slot.task_pool = t;
-    t->prefix().steal_begin = array_size;
+    t->prefix().steal_begin = depth_type(array_size);
     t->prefix().arena_index = TaskPoolPrefix::null_arena_index;
     dummy_slot.steal_end = -2;
     dummy_slot.owner_waits = false;
@@ -1088,7 +1131,7 @@ bool GenericScheduler::assert_okay() const {
     acquire_task_pool();
     TaskPool* tp = dummy_slot.task_pool;
     __TBB_ASSERT( tp, NULL );
-    for( depth_type k=0; k<array_size; ++k ) {
+    for( depth_type k=0; k<depth_type(array_size); ++k ) {
         for( task* t = tp->array[k]; t; t=t->prefix().next ) {
             __TBB_ASSERT( deepest>=k, "deepest not set properly" );
             __TBB_ASSERT( t->prefix().depth==k, NULL );
@@ -1101,13 +1144,13 @@ bool GenericScheduler::assert_okay() const {
 }
 #endif /* TBB_DO_ASSERT||TEST_ASSEMBLY_ROUTINES */
 
-void GenericScheduler::grow( size_t minimum_size ) {
+void GenericScheduler::grow( TaskPool::size_type minimum_size ) {
     TBB_TRACE(("%p.grow(minimum_size=%lx)\n", this, minimum_size ));
     __TBB_ASSERT( assert_okay(), NULL );
 
     // Might need to resize the underlying array.
     // Get a fresh zeroed array before acquiring the old array.
-    size_t b_size = 2*minimum_size;
+    TaskPool::size_type b_size = 2*minimum_size;
     __TBB_ASSERT( b_size>=TaskPool::min_array_size, NULL );
     TaskPool* new_pool = TaskPool::allocate_task_pool( b_size );
     __TBB_ASSERT( assert_okay(), NULL );
@@ -1137,29 +1180,31 @@ void GenericScheduler::free_scheduler() {
     if( arena_slot!=&dummy_slot ) {
         leave_arena(/*compress=*/false);
     }
-    free_task( *dummy_task, /*is_always_small=*/true );
-#if BALANCED_EXCHANGE
-deallocate_tasks_on_free_list:
-#endif /* BALANCED_EXCHANGE */
-    while( task* t = free_list ) {
-        free_list = t->prefix().next;
-        deallocate_task(*t);
+    free_task<is_small_local>( *dummy_task );
+
+    // k accounts for a guard reference and each task that we deallocate.
+    intptr k = 1;
+    for(;;) {
+        while( task* t = free_list ) {
+            free_list = t->prefix().next;
+            deallocate_task(*t);
+            ++k;
+        }
+        if( return_list==plugged_return_list() ) 
+            break;
+        free_list = (task*)__TBB_FetchAndStoreW( &return_list, (intptr)plugged_return_list() );
     }
-#if BALANCED_EXCHANGE
-    if( task*& donation_list = dummy_slot.task_pool->prefix().donation_list ) {
-        // Transfer contents of donation_list to free_list
-        free_list = donation_list;
-        donation_list = NULL;
-        goto deallocate_tasks_on_free_list;
-    }
-#endif /* BALANCED_EXCHANGE */
+
 #if COUNT_TASK_NODES
     arena->prefix().task_node_count += task_node_count;
 #endif /* COUNT_TASK_NODES */
     dummy_slot.task_pool->free_task_pool();
     dummy_slot.task_pool = NULL;
     SetThreadSpecific( NULL );
-    NFS_Free( this );
+    // Update small_task_count last.  Doing so sooner might cause another thread to free *this.
+    __TBB_ASSERT( small_task_count>=k, "small_task_count corrupted" );
+    if( __TBB_FetchAndAddW( &small_task_count, -k )==k ) 
+        NFS_Free( this );
 }
 
 inline void GenericScheduler::acquire_task_pool() const {
@@ -1174,7 +1219,7 @@ inline void GenericScheduler::acquire_task_pool() const {
 #endif /* TEST_ASSEMBLY_ROUTINES */
         __TBB_ASSERT( arena_slot==&dummy_slot || arena_slot==&arena->slot[dummy_slot.task_pool->prefix().arena_index], "slot ownership corrupt?" );
         __TBB_ASSERT( arena_slot->task_pool==dummy_slot.task_pool, "slot ownership corrupt?" );
-        intptr steal_end = arena_slot->steal_end;
+        depth_type steal_end = arena_slot->steal_end;
         if( steal_end==2*deepest && (steal_end=__TBB_CompareAndSwapW( (volatile void *)&(arena_slot->steal_end), 2*deepest+1, 2*deepest ))==2*deepest ) {
             // We acquired our own slot
             ITT_NOTIFY(sync_acquired, arena_slot);
@@ -1198,65 +1243,48 @@ inline void GenericScheduler::acquire_task_pool() const {
 #endif /* TEST_ASSEMBLY_ROUTINES */
         }
     }
-    __TBB_ASSERT( arena_slot->steal_end>>1 <= intptr(array_size), NULL );
-    __TBB_ASSERT( dummy_slot.task_pool->prefix().steal_begin<=intptr(array_size), NULL );
-    __TBB_ASSERT( deepest<=intptr(array_size), NULL );
+    __TBB_ASSERT( arena_slot->steal_end>>1 <= depth_type(array_size), NULL );
+    __TBB_ASSERT( dummy_slot.task_pool->prefix().steal_begin<=depth_type(array_size), NULL );
+    __TBB_ASSERT( deepest<=depth_type(array_size), NULL );
 }
 
 inline void GenericScheduler::release_task_pool() const {
-    __TBB_ASSERT( arena_slot->steal_end>>1 <= intptr(array_size), NULL );
-    __TBB_ASSERT( dummy_slot.task_pool->prefix().steal_begin<=intptr(array_size), NULL );
-    __TBB_ASSERT( deepest<=intptr(array_size), NULL );
+    __TBB_ASSERT( arena_slot->steal_end>>1 <= depth_type(array_size), NULL );
+    __TBB_ASSERT( dummy_slot.task_pool->prefix().steal_begin<=depth_type(array_size), NULL );
+    __TBB_ASSERT( deepest<=depth_type(array_size), NULL );
     ITT_NOTIFY(sync_releasing, arena_slot);
     arena_slot->steal_end = 2*deepest;
 }
-
-#if BALANCED_EXCHANGE
-task* GenericScheduler::grab_donation_list() {
-    if( arena_slot!=&dummy_slot ) {
-        acquire_task_pool();
-    }
-    task*& donation_list = dummy_slot.task_pool->prefix().donation_list;
-    __TBB_ASSERT( !free_list, NULL );
-    task* result = donation_list;
-    __TBB_ASSERT( result, NULL );
-    __TBB_ASSERT( result->state()==task::freed, "donation list is corrupted" );
-    donation_list = NULL;
-    release_task_pool();
-    free_list = result->prefix().next;
-    return result;
-}
-#endif /* BALANCED_EXCHANGE */
-
 
 /** Conceptually, this method should be a member of class scheduler.
     But doing so would force us to publish class scheduler in the headers. */
 void GenericScheduler::spawn( task& first, task*& next ) {
     __TBB_ASSERT( assert_okay(), NULL );
     TBB_TRACE(("%p.internal_spawn enter\n", this ));
-    for( task* t = &first; ;  t = t->prefix().next ) {
+    for( task* t = &first; ;  t = t->prefix().next ) 
+    {
         __TBB_ASSERT( t->state()==task::allocated, "attempt to spawn task that is not in 'allocated' state" );
         __TBB_ASSERT( t->prefix().depth==first.prefix().depth, "tasks must have same depth" );
         t->prefix().owner = this;
         t->prefix().state = task::ready;
 #if TBB_DO_ASSERT
         if( task* parent = t->parent() ) {
-            ReferenceCount ref_count = parent->prefix().ref_count;
+            internal::reference_count ref_count = parent->prefix().ref_count;
             __TBB_ASSERT( ref_count>=0, "attempt to spawn task whose parent has a ref_count<0" );
             __TBB_ASSERT( ref_count!=0, "attempt to spawn task whose parent has a ref_count==0 (forgot to set_ref_count?)" );
             parent->prefix().debug_state |= ds_ref_count_active;
         }
 #endif /* TBB_DO_ASSERT */
-
         if( &t->prefix().next==&next )
             break;
     }
-    task::depth_type d = first.prefix().depth;
+    depth_type d = first.prefix().depth;
 #if !IMPROVED_GATING
     __TBB_ASSERT( !open_gate, NULL );
 #endif /* !IMPROVED_GATING */
-    if( d>=task::depth_type(array_size) ) {
-        grow(d+1);
+    __TBB_ASSERT(depth_type(array_size)>0, "casting overflow?");
+    if( d>=depth_type(array_size) ) {
+        grow( d+1 );
     }
     __TBB_ASSERT( assert_okay(), NULL );
     if( arena_slot==&dummy_slot ) {
@@ -1275,7 +1303,6 @@ void GenericScheduler::spawn( task& first, task*& next ) {
     if( d<tp->prefix().steal_begin )
         tp->prefix().steal_begin = d;
 
-
     release_task_pool();
 #if IMPROVED_GATING
     mark_pool_full();
@@ -1293,10 +1320,10 @@ void GenericScheduler::spawn( task& first, task*& next ) {
 void GenericScheduler::spawn_root_and_wait( task& first, task*& next ) {
     __TBB_ASSERT( &first, NULL );
     empty_task& dummy = *new(&allocate_task( sizeof(empty_task), first.prefix().depth-1, NULL )) empty_task;
-    size_t n = 0;
+    internal::reference_count n = 0;
     for( task* t=&first; ; t=t->prefix().next ) {
         ++n;
-        __TBB_ASSERT( assert_ownership( *t ), "root owned by different thread" );
+        __TBB_ASSERT( t->is_owned_by_current_thread(), "root task not owned by current thread" );
         __TBB_ASSERT( !t->prefix().parent, "not a root task, or already running" );
         t->prefix().parent = &dummy;
         if( &t->prefix().next==&next ) break;
@@ -1307,19 +1334,13 @@ void GenericScheduler::spawn_root_and_wait( task& first, task*& next ) {
     TBB_TRACE(("spawn_root_and_wait((task_list*)%p): calling %p.loop\n",&first,this));
     wait_for_all( dummy, &first );
     // empty_task has trivial destructor, so call free_task directly instead of going through destroy_task.
-    free_task( dummy, /*is_always_small=*/true );
+    free_task<is_small_local>( dummy );
     TBB_TRACE(("spawn_root_and_wait((task_list*)%p): return\n",&first));
 }
 
 
 inline task* GenericScheduler::get_task( depth_type d ) {
     task* result = NULL;
-    //parallel_reduce has a subtle dependence on the order in which tasks are
-    //selected from the deque for execution.  If the task selected is not the
-    //next immediate task -- i.e. there is a hole between the previous task and
-    //the task selected -- then the selected task must be treated as stolen and
-    //the body of the task split in order to ensure the correctness of the join
-    //operations.
     if( deepest>=d ) {
         acquire_task_pool();
         task** a = dummy_slot.task_pool->array;
@@ -1338,16 +1359,10 @@ inline task* GenericScheduler::get_task( depth_type d ) {
 }
 
 task* GenericScheduler::steal_task( UnpaddedArenaSlot& arena_slot, depth_type d ) {
-#if BALANCED_EXCHANGE
-    if( !free_list ) {
-        // Method steal_task expects the caller to provide a non-empty free list.
-        free_task( allocate_task(sizeof(task),-1,NULL), /*is_always_small=*/true );
-    }
-#endif /* BALANCED_EXCHANGE */
     task* result = NULL;
     ExponentialBackoff backoff;
     bool sync_prepare_done = false;
-    intptr steal_end = arena_slot.steal_end;
+    depth_type steal_end = arena_slot.steal_end;
     for(;;) {
         if( steal_end>>1<d ) {
             // Nothing of interest to steal
@@ -1371,7 +1386,7 @@ task* GenericScheduler::steal_task( UnpaddedArenaSlot& arena_slot, depth_type d 
             backoff.pause();
             steal_end = arena_slot.steal_end;
         } else {
-            intptr tmp = steal_end;
+            depth_type tmp = steal_end;
             steal_end = __TBB_CompareAndSwapW( (volatile void *)&(arena_slot.steal_end), steal_end+1, steal_end );
             if( tmp==steal_end ) {
                 ITT_NOTIFY(sync_acquired, &arena_slot);
@@ -1391,17 +1406,6 @@ task* GenericScheduler::steal_task( UnpaddedArenaSlot& arena_slot, depth_type d 
             // is relatively infrequent compared to insert_task, and the
             // latter updates steal_begin too.
             tp->array[i] = result->prefix().next;
-#if BALANCED_EXCHANGE
-            if( !result->prefix().is_big ) {
-                __TBB_ASSERT( free_list, "caller must ensure that free_list is not empty" );
-                __TBB_ASSERT( free_list->state()==task::freed, "free list of Tasks is corrupted" );
-                // Send a task back to the victim to make up for the memory that we are stealing.
-                task* donation = free_list;
-                free_list = free_list->prefix().next;
-                donation->prefix().next = tp->prefix().donation_list;
-                tp->prefix().donation_list = donation;
-            }
-#endif /* BALANCED_EXCHANGE */
             break;
         }
     }
@@ -1462,7 +1466,7 @@ void CustomScheduler<SchedulerTraits>::wait_for_all( task& parent, task* child )
                     t_next->prefix().owner = this;
                 }
                 __TBB_ASSERT(assert_okay(),NULL);
-                switch( (task::state_type)t->prefix().state ) {
+                switch( task::state_type(t->prefix().state) ) {
                     case task::executing:
                         // this block was copied below to case task::recycle
                         // when making changes, check it too
@@ -1475,13 +1479,7 @@ void CustomScheduler<SchedulerTraits>::wait_for_all( task& parent, task* child )
 #if TBB_DO_ASSERT
                                 s->prefix().debug_state &= ~ds_ref_count_active;
 #endif /* TBB_DO_ASSERT */
-                                if( s->prefix().owner!=this ) {
-                                    s->prefix().owner = this;
-#if BALANCED_EXCHANGE
-                                    s->prefix().is_big = true;
-#endif /* BALANCED_EXCHANGE */
-                                    GATHER_STATISTIC( ++implicit_steal_count );
-                                }
+                                s->prefix().owner = this;
                                 depth_type s_depth = s->prefix().depth;
                                 if( !t_next && s_depth>=deepest && s_depth>=d ) {
                                     // Eliminate spawn/get_task pair.
@@ -1537,12 +1535,17 @@ void CustomScheduler<SchedulerTraits>::wait_for_all( task& parent, task* child )
                         break;
                     default:
                         __TBB_ASSERT( false, "illegal state" );
+#else
+                    default: // just to shut up some compilation warnings
+                        break;
 #endif /* TBB_DO_ASSERT */
                 }
                 __TBB_ASSERT( !t_next||t_next->prefix().depth>=d, NULL );
                 t = t_next;
             }
             __TBB_ASSERT(assert_okay(),NULL);
+
+
             t = get_task( d );
 #if TBB_DO_ASSERT
             __TBB_ASSERT(assert_okay(),NULL);
@@ -1586,6 +1589,7 @@ void CustomScheduler<SchedulerTraits>::wait_for_all( task& parent, task* child )
                             ITT_NOTIFY(sync_acquired, victim);
                         }
                     }
+                    __TBB_ASSERT(t,NULL);
                     break;
                 }
             }
@@ -1599,8 +1603,9 @@ void CustomScheduler<SchedulerTraits>::wait_for_all( task& parent, task* child )
             }
             // Pause, even if we are going to yield, because the yield might return immediately.
             __TBB_Pause(PauseTime);
-            if( failure_count>=int(n) ) {
-                if( failure_count>=2*int(n) ) {
+            int yield_threshold = int(n);
+            if( failure_count>=yield_threshold ) {
+                if( failure_count>=2*yield_threshold ) {
                     __TBB_Yield();
 #if IMPROVED_GATING
                     // Note: if d!=0 or !is_worker(), it is not safe to wait for a non-empty pool,
@@ -1611,13 +1616,14 @@ void CustomScheduler<SchedulerTraits>::wait_for_all( task& parent, task* child )
                     arena->prefix().gate.wait();
 #endif /* IMPROVED_GATING */
                     failure_count = 0;
-                } else if( failure_count==int(n) ) {
+                } else if( failure_count==yield_threshold ) {
                     // We have paused n times since last yield.
                     // Odds are that there is no other work to do.
                     __TBB_Yield();
                 }
             }
         }
+        __TBB_ASSERT(t,NULL);
         GATHER_STATISTIC( ++steal_count );
         t->prefix().owner = this;
     }
@@ -1638,9 +1644,9 @@ void GenericScheduler::try_enter_arena() {
     __TBB_ASSERT( arena, NULL );
     __TBB_ASSERT( arena_slot, "arena_slot not set" );
     __TBB_ASSERT( arena_slot==&dummy_slot, "already in arena?" );
-    size_t n = arena->prefix().number_of_slots;
-    size_t j = arena->prefix().limit;
-    for( size_t k=j; k<n; ++k ) {
+    unsigned n = arena->prefix().number_of_slots;
+    unsigned j = unsigned(arena->prefix().limit);
+    for( unsigned k=j; k<n; ++k ) {
         if( arena->slot[k].steal_end==-4 && __TBB_CompareAndSwapW( (volatile void *)&(arena->slot[k].steal_end), -4|1, -4 )==-4 ) {
             __TBB_ASSERT( arena->slot[k].steal_end==-3, "slot not really acquired?" );
             ITT_NOTIFY(sync_acquired,&arena->slot[k]);
@@ -1653,7 +1659,7 @@ void GenericScheduler::try_enter_arena() {
 #endif /* !IMPROVED_GATING */
             // Successfully claimed a spot in the arena.  Update arena->prefix().limit.
             do {
-                j = arena->prefix().limit.compare_and_swap( k+1, j );
+                j = unsigned(arena->prefix().limit.compare_and_swap( k+1, j ));
             } while( j<=k );
             break;
         }
@@ -1704,10 +1710,10 @@ void GenericScheduler::leave_arena( bool compress ) {
 
 GenericScheduler* GenericScheduler::create_worker( WorkerDescriptor& w ) {
     __TBB_ASSERT( !w.scheduler, NULL );
-    size_t n = w.arena->prefix().number_of_workers;
+    unsigned n = w.arena->prefix().number_of_workers;
     WorkerDescriptor* worker_list = w.arena->prefix().worker_list;
     __TBB_ASSERT( &w >= worker_list, NULL );
-    size_t i = &w - worker_list;
+    unsigned i = unsigned(&w - worker_list);
     __TBB_ASSERT( i<n, NULL );
 
     // Start my children
@@ -1840,7 +1846,7 @@ task& allocate_root_proxy::allocate( size_t size ) {
 void allocate_root_proxy::free( task& task ) {
     internal::GenericScheduler* v = GetThreadSpecific();
     __TBB_ASSERT( v, "thread does not have initialized task_scheduler_init object?" );
-    v->free_task( task );
+    v->free_task<GenericScheduler::is_local>( task );
 }
 
 //------------------------------------------------------------------------
@@ -1858,7 +1864,9 @@ task& allocate_continuation_proxy::allocate( size_t size ) const {
 
 void allocate_continuation_proxy::free( task& mytask ) const {
     task& t = *((task*)this);
-    static_cast<GenericScheduler*>(t.prefix().owner)->free_task(mytask);
+    // Restore the parent as it was before the corresponding allocate was called.
+    t.prefix().parent = mytask.parent();
+    static_cast<GenericScheduler*>(t.prefix().owner)->free_task<GenericScheduler::is_local>(mytask);
 }
 
 //------------------------------------------------------------------------
@@ -1875,7 +1883,7 @@ task& allocate_child_proxy::allocate( size_t size ) const {
 void allocate_child_proxy::free( task& mytask ) const {
     task& t = *((task*)this);
     GenericScheduler* v = static_cast<GenericScheduler*>(t.prefix().owner);
-    v->free_task(mytask);
+    v->free_task<GenericScheduler::is_local>(mytask);
 }
 
 //------------------------------------------------------------------------
@@ -1889,8 +1897,17 @@ task& allocate_additional_child_of_proxy::allocate( size_t size ) const {
 }
 
 void allocate_additional_child_of_proxy::free( task& task ) const {
+    // Undo the increment.  We do not check the result of the fetch-and-decrement.
+    // We could consider be spawning the task if the fetch-and-decrement returns 1.
+    // But we do not know that was the programmer's intention.
+    // Furthermore, if it was the programmer's intention, the program has a fundamental
+    // race condition (that we warn about in Reference manual), because the
+    // reference count might have become zero before the corresponding call to
+    // allocate_additional_child_of_proxy::allocate.
+    __TBB_FetchAndDecrementWrelease( (volatile void *)&(parent.prefix().ref_count) );
     GenericScheduler* v = static_cast<GenericScheduler*>(self.prefix().owner);
-    v->free_task(task);
+
+    v->free_task<GenericScheduler::is_local>(task);
 }
 
 } // namespace internal
@@ -1915,6 +1932,10 @@ task& task::self() {
     return *v->innermost_running_task;
 }
 
+bool task::is_owned_by_current_thread() const {
+    return GetThreadSpecific()==prefix().owner;
+}
+
 void task::destroy( task& victim ) {
     __TBB_ASSERT( victim.prefix().ref_count==0, "victim must have reference count of zero" );
     __TBB_ASSERT( victim.state()==task::allocated, "illegal state for victim task" );
@@ -1931,6 +1952,7 @@ void task::destroy( task& victim ) {
 }
 
 void task::spawn_and_wait_for_all( task_list& list ) {
+    __TBB_ASSERT( is_owned_by_current_thread(), "'this' not owned by current thread" );
     task* t = list.first;
     if( t ) {
         if( &t->prefix().next!=list.next_ptr )
@@ -1939,8 +1961,6 @@ void task::spawn_and_wait_for_all( task_list& list ) {
     }
     prefix().owner->wait_for_all( *this, t );
 }
-
-
 
 //------------------------------------------------------------------------
 // task_scheduler_init
@@ -2002,5 +2022,7 @@ void task_scheduler_init::terminate() {
         }
     }
 }
+
+
 
 } // namespace tbb

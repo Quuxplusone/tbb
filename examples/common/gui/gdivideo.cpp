@@ -92,7 +92,7 @@ LRESULT CALLBACK InternalWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lPa
         case WM_RBUTTONUP:      g_video->on_mouse( (int)LOWORD(lParam), (int)HIWORD(lParam), -2); break;
         case WM_MBUTTONDOWN:    g_video->on_mouse( (int)LOWORD(lParam), (int)HIWORD(lParam), 3); break;
         case WM_MBUTTONUP:      g_video->on_mouse( (int)LOWORD(lParam), (int)HIWORD(lParam), -3); break;
-        case WM_CHAR:           g_video->on_key(wParam); break;
+        case WM_CHAR:           g_video->on_key( (int)wParam); break;
 
         // some useless stuff
         case WM_ERASEBKGND:     return 1;  // keeps erase-background events from happening, reduces chop

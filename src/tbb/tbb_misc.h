@@ -113,7 +113,12 @@ void PrintVersion();
 //! Print extra TBB version information on stderr
 void PrintExtraVersionInfo( const char* category, const char* description );
 
+//! Type definition for a pointer to a void somefunc(void)
 typedef void (*PointerToHandler)();
+
+//! The macro casts "address of a pointer to a function" to PointerToHandler*.
+/** Need it because (PointerToHandler*)&ptr_to_func causes warnings from g++ 4.1 */
+#define ADDRESS_OF_HANDLER(x) (PointerToHandler*)(void*)(x)
 
 //! Association between a handler name and location of pointer to it.
 struct DynamicLinkDescriptor {

@@ -32,7 +32,8 @@ DEFINE_KEY = -D
 OUTPUT_KEY = -o #
 OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
-WARNING_KEY = -Wall -Werror
+WARNING_AS_ERROR_KEY = -Werror
+WARNING_KEY = -Wall
 DYLIB_KEY = -dynamiclib
 LIBDL = -ldl
 
@@ -51,6 +52,12 @@ endif
 CPLUS_FLAGS += -DUSE_PTHREAD
 
 ifeq (em64t,$(arch))
+    CPLUS_FLAGS += -m64
+    LINK_FLAGS += -m64
+    LIB_LINK_FLAGS += -m64
+endif
+
+ifeq (ppc64,$(arch))
     CPLUS_FLAGS += -m64
     LINK_FLAGS += -m64
     LIB_LINK_FLAGS += -m64
