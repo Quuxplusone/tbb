@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -26,90 +26,50 @@
 
 tbb_root?=.
 include $(tbb_root)/build/common.inc
-.PHONY: all tbb tbbmalloc test debug examples clean
+.PHONY: default all tbb tbbmalloc test examples
 
-all: release debug examples
+#workaround for non-depend targets tbb and tbbmalloc which both depend on version_string.tmp
+#According to documentation submakes should run in parallel
+.NOTPARALLEL: tbb tbbmalloc
 
-tbb: tbb_release tbb_debug
+default: tbb tbbmalloc
 
-tbbmalloc: tbbmalloc_release tbbmalloc_debug
+all: tbb tbbmalloc test examples
 
-test: tbbmalloc_test_release test_release tbbmalloc_test_debug test_debug
-
-test_no_depends: tbbmalloc_test_release_no_depends test_release_no_depends tbbmalloc_test_debug_no_depends test_debug_no_depends
-
-release: tbb_release tbbmalloc_release tbbmalloc_test_release test_release
- 
-debug: tbb_debug tbbmalloc_debug tbbmalloc_test_debug test_debug
-
-examples: tbb tbbmalloc examples_debug clean_examples examples_release
-
-clean: clean_release clean_debug clean_examples
-	@echo clean done
-
-
-.PHONY: tbb_release tbb_debug test_release test_debug
-
-# do not delete double-space after -C option
-tbb_release: mkdir_release
+tbb: mkdir
+	$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.tbb cfg=debug tbb_root=$(tbb_root)
 	$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.tbb cfg=release tbb_root=$(tbb_root)
 
-tbb_debug: mkdir_debug
-	$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.tbb cfg=debug tbb_root=$(tbb_root)
-
-test_release: mkdir_release tbb_release test_release_no_depends
-test_release_no_depends: 
-	-$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.test cfg=release tbb_root=$(tbb_root) 
-
-test_debug: tbb_debug mkdir_debug test_debug_no_depends
-test_debug_no_depends:
-	-$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.test cfg=debug tbb_root=$(tbb_root)
-
-.PHONY: tbbmalloc_release tbbmalloc_debug tbbmalloc_test_release tbbmalloc_test_debug
-
-tbbmalloc_release: mkdir_release
+tbbmalloc: mkdir
+	$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=debug malloc tbb_root=$(tbb_root)
 	$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=release malloc tbb_root=$(tbb_root)
 
-tbbmalloc_debug: mkdir_debug
-	$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=debug malloc tbb_root=$(tbb_root)
-
-tbbmalloc_test_release: tbb_release tbbmalloc_release mkdir_release tbbmalloc_test_release_no_depends
-tbbmalloc_test_release_no_depends:
-	-$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=release malloc_test tbb_root=$(tbb_root)
-
-tbbmalloc_test_debug: tbb_debug tbbmalloc_debug mkdir_debug tbbmalloc_test_debug_no_depends
-tbbmalloc_test_debug_no_depends:
+test: tbb tbbmalloc
 	-$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=debug malloc_test tbb_root=$(tbb_root)
+	-$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.test cfg=debug tbb_root=$(tbb_root)
+	-$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=release malloc_test tbb_root=$(tbb_root)
+	-$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.test cfg=release tbb_root=$(tbb_root) 
 
-.PHONY: examples_release examples_debug
 
-examples_release: tbb_release tbbmalloc_release
+examples: tbb tbbmalloc
 	$(MAKE) -C examples -r -f Makefile tbb_root=.. release test
 
-examples_debug: tbb_debug tbbmalloc_debug
-	$(MAKE) -C examples -r -f Makefile tbb_root=.. debug test
+.PHONY: clean clean_examples mkdir info
 
-.PHONY: clean_release clean_debug clean_examples
+clean: clean_examples
+	$(shell $(RM) $(work_dir)_release$(SLASH)*.* >$(NUL) 2>$(NUL))
+	$(shell $(RD) $(work_dir)_release >$(NUL) 2>$(NUL))
+	$(shell $(RM) $(work_dir)_debug$(SLASH)*.* >$(NUL) 2>$(NUL))
+	$(shell $(RD) $(work_dir)_debug >$(NUL) 2>$(NUL))
+	@echo clean done
 
-clean_release:
-	$(shell $(RM) $(work_dir)_release$(SLASH)*.* $(NUL))
-	$(shell $(RD) $(work_dir)_release $(NUL))
-
-clean_debug:
-	$(shell $(RM) $(work_dir)_debug$(SLASH)*.* $(NUL))
-	$(shell $(RD) $(work_dir)_debug $(NUL))
-	
 clean_examples:
-	$(shell $(MAKE) -s -i -r -C examples -f Makefile tbb_root=.. clean $(NUL))
+	$(shell $(MAKE) -s -i -r -C examples -f Makefile tbb_root=.. clean >$(NUL) 2>$(NUL))
 
-.PHONY: mkdir_release mkdir_debug
-
-mkdir_release:
-	$(shell $(MD) "$(work_dir)_release" $(NUL))
+mkdir:
+	$(shell $(MD) "$(work_dir)_release" >$(NUL) 2>$(NUL))
 	$(if $(subst undefined,,$(origin_build_dir)),,cd "$(work_dir)_release" && $(MAKE_TBBVARS) $(tbb_build_prefix)_release)
-
-mkdir_debug:
-	$(shell $(MD) "$(work_dir)_debug" $(NUL))
+	$(shell $(MD) "$(work_dir)_debug" >$(NUL) 2>$(NUL))
 	$(if $(subst undefined,,$(origin_build_dir)),,cd "$(work_dir)_debug" && $(MAKE_TBBVARS) $(tbb_build_prefix)_debug)
 
 info:
@@ -118,3 +78,4 @@ info:
 	@echo compiler=$(compiler)
 	@echo runtime=$(runtime)
 	@echo tbb_build_prefix=$(tbb_build_prefix)
+

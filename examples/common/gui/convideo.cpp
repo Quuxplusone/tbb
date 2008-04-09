@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -48,7 +48,7 @@ void video::win_load_accelerators(int idc)
 }
 #endif
 
-#elif __linux__ || __APPLE__
+#elif __linux__ || __APPLE__ || __FreeBSD__
 
 #include <sched.h>
 #include <sys/time.h>
@@ -101,14 +101,16 @@ video::~video()
 //! Count and display FPS count in titlebar
 bool video::next_frame()
 {
-	if(!g_fps) {
+    if(calc_fps){
+	    if(!g_fps) {
 #if _WIN32 || _WIN64
-        g_msec = GetTickCount();
+            g_msec = GetTickCount();
 #else
-        struct timezone tz; gettimeofday(&g_time, &tz);
+            struct timezone tz; gettimeofday(&g_time, &tz);
 #endif
-	}
-    g_fps++;
+	    }
+        g_fps++;
+    }
     return running;
 }
 

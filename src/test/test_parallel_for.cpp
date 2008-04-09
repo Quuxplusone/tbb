@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -98,7 +98,8 @@ template<size_t Pad>
 void Flog( int nthread ) {
     tbb::tick_count T0 = tbb::tick_count::now();
     for( int i=0; i<N; ++i ) {
-        for ( int mode = 0; mode < 3; ++mode) {
+        for ( int mode = 0; mode < 4; ++mode) 
+        {
             FooRange<Pad> r( 0, i );
             const FooRange<Pad> rc = r;
             FooBody<Pad> f( Array );
@@ -115,6 +116,11 @@ void Flog( int nthread ) {
                 case 2:
                     tbb::parallel_for( rc, fc, tbb::auto_partitioner() );
                 break;
+                case 3: {
+                    static tbb::affinity_partitioner affinity;
+                    tbb::parallel_for( rc, fc, affinity );
+                }
+                break;
             }
             for( int j=0; j<i; ++j ) 
                 ASSERT( Array[j]==1, NULL );
@@ -122,9 +128,8 @@ void Flog( int nthread ) {
                 ASSERT( Array[j]==0, NULL );
             // Destruction of bodies might take a while, but there should be at most one body per thread
             // at this point.
-            while( FooBodyCount>1 ) { 
-                ASSERT( FooBodyCount<=nthread, NULL );
-            }
+            while( FooBodyCount>1 && FooBodyCount<=nthread )
+                __TBB_Yield();
             ASSERT( FooBodyCount==1, NULL );
         }
     }
@@ -154,7 +159,7 @@ int main( int argc, char* argv[] ) {
             Flog<10000>(p);
 
            // Test that all workers sleep when no work
-           TestCPUUserTime(p-1);
+           TestCPUUserTime(p);
         }
     } 
     printf("done\n");

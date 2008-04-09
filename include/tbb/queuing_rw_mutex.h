@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -152,6 +152,11 @@ public:
         //! A helper function
         void unblock_or_wait_on_internal_lock( uintptr_t );
     };
+
+    // Mutex traits
+    static const bool is_rw_mutex = true;
+    static const bool is_recursive_mutex = false;
+    static const bool is_fair_mutex = true;
 
 private:
     //! The last competitor requesting the lock

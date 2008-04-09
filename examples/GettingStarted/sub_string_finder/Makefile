@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -32,14 +32,14 @@
 all:	release test
 
 release: *.cpp
-	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o sub_string_finder sub_string_finder.cpp -ltbb
-	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o sub_string_finder_extended sub_string_finder_extended.cpp -ltbb
-	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o sub_string_finder_pretty sub_string_finder_pretty.cpp -ltbb
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o sub_string_finder sub_string_finder.cpp -ltbb $(LIBS)
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o sub_string_finder_extended sub_string_finder_extended.cpp -ltbb $(LIBS)
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o sub_string_finder_pretty sub_string_finder_pretty.cpp -ltbb $(LIBS)
 
 debug: *.cpp
-	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o sub_string_finder sub_string_finder.cpp -ltbb_debug
-	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o sub_string_finder_extended sub_string_finder_extended.cpp -ltbb_debug
-	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o sub_string_finder_pretty sub_string_finder_pretty.cpp -ltbb_debug
+	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o sub_string_finder sub_string_finder.cpp -ltbb_debug $(LIBS)
+	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o sub_string_finder_extended sub_string_finder_extended.cpp -ltbb_debug $(LIBS)
+	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o sub_string_finder_pretty sub_string_finder_pretty.cpp -ltbb_debug $(LIBS)
 
 clean:
 	rm -f sub_string_finder sub_string_finder_extended sub_string_finder_pretty *.o *.d

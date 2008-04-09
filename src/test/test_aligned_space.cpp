@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,30 +34,45 @@ class Minimal {
     Minimal( Minimal& min );
     ~Minimal();
     void operator=( const Minimal& );
-#if __GNUC__
-    /** If compiling with -Werror, GNU C++ issues an error if all constructors of 
-        a class are private.  Therefore, we add a fake friend. */
-    friend class FakeFriend;
-#endif /* __GNUC__ */
+    T pad;
+public:
+    friend void AssignToCheckAlignment( Minimal& dst, const Minimal& src ) {
+        dst.pad = src.pad;
+    }  
 };
 
 #include "tbb/aligned_space.h"
 #include "harness_assert.h"
 
+static bool SpaceWasted;
+
 template<typename U, size_t N>
 void TestAlignedSpaceN() {
     typedef Minimal<U> T;
-    tbb::aligned_space< T ,N> space;
-    AssertSameType( static_cast< T *>(0), space.begin() );
-    AssertSameType( static_cast< T *>(0), space.end() );
-    ASSERT( reinterpret_cast<void *>(space.begin())==reinterpret_cast< void *>(&space), NULL );
-    ASSERT( space.end()-space.begin()==N, NULL );
-    ASSERT( reinterpret_cast<void *>(space.begin())>=reinterpret_cast< void *>(&space), NULL );
-    ASSERT( space.end()<=reinterpret_cast< T *>(&space+1), NULL );
+    struct {
+        //! Pad byte increases chance that subsequent member will be misaligned if there is a problem.
+        char pad;
+        tbb::aligned_space<T ,N> space;
+    } x;
+    AssertSameType( static_cast< T *>(0), x.space.begin() );
+    AssertSameType( static_cast< T *>(0), x.space.end() );
+    ASSERT( reinterpret_cast<void *>(x.space.begin())==reinterpret_cast< void *>(&x.space), NULL );
+    ASSERT( x.space.end()-x.space.begin()==N, NULL );
+    ASSERT( reinterpret_cast<void *>(x.space.begin())>=reinterpret_cast< void *>(&x.space), NULL );
+    ASSERT( x.space.end()<=reinterpret_cast< T *>(&x.space+1), NULL );
+    // Though not required, a good implementation of aligned_space<T,N> does not use any more space than a T[N].
+    SpaceWasted |= sizeof(x.space)!=sizeof(T)*N;
+    for( size_t k=1; k<N; ++k )
+        AssignToCheckAlignment( x.space.begin()[k-1], x.space.begin()[k] );
 }
+
+static void PrintSpaceWastingWarning( const char* type_name );
+
+#include <typeinfo>
 
 template<typename T>
 void TestAlignedSpace() {
+    SpaceWasted = false;
     TestAlignedSpaceN<T,1>();
     TestAlignedSpaceN<T,2>();
     TestAlignedSpaceN<T,3>();
@@ -66,11 +81,19 @@ void TestAlignedSpace() {
     TestAlignedSpaceN<T,6>();
     TestAlignedSpaceN<T,7>();
     TestAlignedSpaceN<T,8>();
+    if( SpaceWasted )
+        PrintSpaceWastingWarning( typeid(T).name() );
 }
- 
-#include <stdio.h>
-#define HARNESS_NO_PARSE_COMMAND_LINE 1
-#include "harness.h"
+
+#include "harness_m128.h"
+#include <cstdio>         // Inclusion of <cstdio> deferred, to improve odds of detecting accidental dependences on it.
+
+//workaround for old patform SDK
+#if defined(_WIN64) && !defined(_CPPLIB_VER)
+namespace std {
+    using ::printf;
+}
+#endif /* defined(_WIN64) && !defined(_CPPLIB_VER) */
 
 int main() {
     TestAlignedSpace<char>();
@@ -80,6 +103,17 @@ int main() {
     TestAlignedSpace<double>();
     TestAlignedSpace<long double>();
     TestAlignedSpace<size_t>();
-    printf("done\n");
+#if HAVE_m128
+    TestAlignedSpace<__m128>();
+#endif /* HAVE_m128 */
+    std::printf("done\n");
     return 0;
 }
+
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#include "harness.h"
+
+static void PrintSpaceWastingWarning( const char* type_name ) {
+    std::printf("Consider rewriting aligned_space<%s,N> to waste less space\n", type_name ); 
+}
+

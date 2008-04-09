@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,6 +35,9 @@
 #define mallocThreadShutdownNotification __TBB_mallocThreadShutdownNotification
 #define mallocProcessShutdownNotification __TBB_mallocProcessShutdownNotification
 
+//! Same function as InitializeITT but performs initialization in tbbmalloc
+#define InitializeITT __TBB_mallocInitializeITT
+
 extern "C" void mallocThreadShutdownNotification(void *);
 extern "C" void mallocProcessShutdownNotification(void);
 
@@ -43,6 +46,19 @@ extern "C" void mallocProcessShutdownNotification(void);
 #define MALLOC_ASSERT(assertion, message) __TBB_ASSERT(assertion, message)
 
 #include "tbb/tbb_machine.h"
+
+#if DO_ITT_NOTIFY
+#include "tbb/itt_notify.h"
+#define MALLOC_ITT_SYNC_PREPARE(pointer) ITT_NOTIFY(sync_prepare, (pointer))
+#define MALLOC_ITT_SYNC_ACQUIRED(pointer) ITT_NOTIFY(sync_acquired, (pointer))
+#define MALLOC_ITT_SYNC_RELEASING(pointer) ITT_NOTIFY(sync_releasing, (pointer))
+#define MALLOC_ITT_SYNC_CANCEL(pointer) ITT_NOTIFY(sync_cancel, (pointer))
+#else
+#define MALLOC_ITT_SYNC_PREPARE(pointer) ((void)0)
+#define MALLOC_ITT_SYNC_ACQUIRED(pointer) ((void)0)
+#define MALLOC_ITT_SYNC_RELEASING(pointer) ((void)0)
+#define MALLOC_ITT_SYNC_CANCEL(pointer) ((void)0)
+#endif
 
 //! Stripped down version of spin_mutex.
 /** Instances of MallocMutex must be declared in memory that is zero-initialized.
@@ -54,7 +70,7 @@ extern "C" void mallocProcessShutdownNotification(void);
     in a strict block-scoped locking pattern.  Omitting these methods permitted
     further simplication. */
 class MallocMutex {
-    volatile unsigned char value;
+    unsigned char value;
 
     //! Deny assignment
     void operator=( MallocMutex& MallocMutex );
@@ -64,7 +80,7 @@ public:
         MallocMutex& mutex;
     public:
         scoped_lock( MallocMutex& m ) : value( __TBB_LockByte(m.value)), mutex(m) {}
-        ~scoped_lock() { mutex.value = value; }
+        ~scoped_lock() { __TBB_store_with_release(mutex.value, value); }
     };
     friend class scoped_lock;
 };
@@ -78,5 +94,20 @@ inline intptr_t AtomicCompareExchange( volatile intptr_t& location, intptr_t new
 }
 
 #define USE_DEFAULT_MEMORY_MAPPING 1
+
+namespace tbb {
+namespace internal {
+
+void DoOneTimeInitializations();
+
+inline void init_tbbmalloc() {
+#if DO_ITT_NOTIFY
+    InitializeITT();
+#endif
+}
+
+} } // namespaces
+
+#define MALLOC_EXTRA_INITIALIZATION tbb::internal::init_tbbmalloc()
 
 #endif /* _TBB_malloc_Customize_H_ */

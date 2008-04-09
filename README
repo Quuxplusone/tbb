@@ -1,5 +1,7 @@
 Threading Building Blocks - README
 
 To build and test, type 'gmake' in this directory.
+See index.html for build directions and documentation.
 
-See index.html for directions and documentation.
+See http://threadingbuildingblocks.org for full documentation
+and software information.

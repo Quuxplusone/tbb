@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -119,6 +119,15 @@ static inline void __TBB_machine_OR( volatile void *operand, unsigned __int32 ad
    }
 }
 
+static inline void __TBB_machine_AND( volatile void *operand, unsigned __int32 addend ) {
+   __asm 
+   {
+       mov eax, addend
+       mov edx, [operand]
+       lock and [edx], eax
+   }
+}
+
 static inline void __TBB_machine_pause (__int32 delay ) {
     _asm 
     {
@@ -154,9 +163,13 @@ static inline void __TBB_machine_pause (__int32 delay ) {
 #undef __TBB_Load8
 
 #define __TBB_AtomicOR(P,V) __TBB_machine_OR(P,V)
+#define __TBB_AtomicAND(P,V) __TBB_machine_AND(P,V)
 
 // Definition of other functions
-#define __TBB_Yield()  Sleep(0)
+#if !defined(_WIN32_WINNT)
+extern "C" BOOL WINAPI SwitchToThread(void);
+#endif
+#define __TBB_Yield()  SwitchToThread()
 #define __TBB_Pause(V) __TBB_machine_pause(V)
 #define __TBB_Log2(V)    __TBB_machine_lg(V)
 

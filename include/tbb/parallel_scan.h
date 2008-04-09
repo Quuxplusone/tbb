@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -198,23 +198,58 @@ namespace internal {
         bool is_final;
         bool is_right_child;
         Range range;
-        Partitioner partitioner;
+        typename Partitioner::partition_type partition;
         /*override*/ task* execute();
     public:
-        start_scan( 
-            sum_node_type*& return_slot_, const Range& range_, final_sum_type& body_, const Partitioner& partitioner_,
-            final_sum_type**sum_, bool is_final_, sum_node_type* parent_sum_ 
-        ) :
-            body(&body_),
-            sum(sum_),
+        start_scan( sum_node_type*& return_slot_, start_scan& parent, sum_node_type* parent_sum_ ) :
+            body(parent.body),
+            sum(parent.sum),
             return_slot(&return_slot_),
             parent_sum(parent_sum_),
-            is_final(is_final_),
+            is_final(parent.is_final),
             is_right_child(false),
-            range(range_),
-            partitioner(partitioner_)
+            range(parent.range,split()),
+            partition(parent.partition,split())
         {
             __TBB_ASSERT( !*return_slot, NULL );
+        }
+
+        start_scan( sum_node_type*& return_slot_, const Range& range_, final_sum_type& body_, const Partitioner& partitioner_) :
+            body(&body_),
+            sum(NULL),
+            return_slot(&return_slot_),
+            parent_sum(NULL),
+            is_final(true),
+            is_right_child(false),
+            range(range_),
+            partition(partitioner_)
+        {
+            __TBB_ASSERT( !*return_slot, NULL );
+        }
+
+        static void run(  const Range& range, Body& body, const Partitioner& partitioner ) {
+            if( !range.empty() ) {
+                typedef internal::start_scan<Range,Body,Partitioner> start_pass1_type;
+                internal::sum_node<Range,Body>* root = NULL;
+                typedef internal::final_sum<Range,Body> final_sum_type;
+                final_sum_type* temp_body = new(task::allocate_root()) final_sum_type( body );
+                start_pass1_type& pass1 = *new(task::allocate_root()) start_pass1_type(
+                    /*return_slot=*/root,
+                    range,
+                    *temp_body,
+                    partitioner );
+                task::spawn_root_and_wait( pass1 );
+                if( root ) {
+                    root->body = temp_body;
+                    root->incoming = NULL;
+                    root->stuff_last = &body;
+                    task::spawn_root_and_wait( *root );
+                } else {
+                    body.assign(temp_body->body);
+                    temp_body->finish_construction( range, NULL );
+                    temp_body->destroy(*temp_body);
+                }
+            }
         }
     };
 
@@ -232,7 +267,7 @@ namespace internal {
             is_final = false;
         }
         task* next_task = NULL;
-        if( is_right_child && !treat_as_stolen || partitioner.should_execute_range(range, *this) ) {
+        if( (is_right_child && !treat_as_stolen) || !range.is_divisible() || partition.should_execute_range(*this) ) {
             if( is_final )
                 (body->body)( range, final_scan_tag() );
             else if( sum )
@@ -248,14 +283,7 @@ namespace internal {
                 result = new(task::allocate_root()) sum_node_type(range,/*left_is_final=*/is_final);
             finish_pass1_type& c = *new( allocate_continuation()) finish_pass1_type(*return_slot,sum,*result);
             // Split off right child
-            start_scan& b = *new( c.allocate_child() ) start_scan(
-                /*return_slot=*/result->right,
-                /*range=*/Range(range,split()),
-                /*body=*/ *body,
-                /*partitioner=*/ Partitioner(partitioner,split()),
-                sum,
-                is_final,
-                result);
+            start_scan& b = *new( c.allocate_child() ) start_scan( /*return_slot=*/result->right, *this, result );
             b.is_right_child = true;    
             // Left child is recycling of *this.  Must recycle this before spawning b, 
             // otherwise b might complete and decrement c.ref_count() to zero, which
@@ -275,64 +303,40 @@ namespace internal {
 } // namespace internal
 //! @endcond
 
-//! Parallel prefix
-/**
-  * Type Body must have the following signatures: \n
-  *     void operator( const Range& r, pre_scan_tag ); \n
-  *     void operator( const Range& r, final_scan_tag ); \n
-  *     Body( const Body& b, split );  (be aware that b may have concurrent accesses) \n
-  *     void reverse_join( const Body& ); \n
-  *     void assign( const Body& ); \n
-  *     ~Body \n
-  * The partitioner p must define: \n
-  *     p.should_execute_range(r,t)   True if r should be executed to completion without further splits. \n
-  *     P p2(p,split())               Split the partitioner into p2 and p.      \n
-  * @ingroup algorithms
-  */
-template<typename Range, typename Body, typename Partitioner>
-void parallel_scan( const Range& range, Body& body, const Partitioner& partitioner ) {
-    if( !range.empty() ) {
-        typedef internal::start_scan<Range,Body,Partitioner> start_pass1_type;
-        internal::sum_node<Range,Body>* root = NULL;
-        typedef internal::final_sum<Range,Body> final_sum_type;
-        final_sum_type* temp_body = new(task::allocate_root()) final_sum_type( body );
-        start_pass1_type& pass1 = *new(task::allocate_root()) start_pass1_type(
-            /*return_slot=*/root,
-            range,
-            *temp_body,
-            partitioner,
-            /*sum=*/NULL,
-            /*is_final=*/true,
-            /*parent_sum=*/NULL);
-        task::spawn_root_and_wait( pass1 );
-        if( root ) {
-            root->body = temp_body;
-            root->incoming = NULL;
-            root->stuff_last = &body;
-            task::spawn_root_and_wait( *root );
-        } else {
-            body.assign(temp_body->body);
-            temp_body->finish_construction( range, NULL );
-            temp_body->destroy(*temp_body);
-        }
-    }
+// Requirements on Range concept are documented in blocked_range.h
+
+/** \page parallel_scan_body_req Requirements on parallel_scan body
+    Class \c Body implementing the concept of parallel_reduce body must define:
+    - \code Body::Body( Body&, split ); \endcode    Splitting constructor.
+                                                    Split \c b so that \c this and \c b can accumulate separately
+    - \code Body::~Body(); \endcode                 Destructor
+    - \code void Body::operator()( const Range& r, pre_scan_tag ); \endcode
+                                                    Preprocess iterations for range \c r
+    - \code void Body::operator()( const Range& r, final_scan_tag ); \endcode 
+                                                    Do final processing for iterations of range \c r
+    - \code void Body::reverse_join( Body& a ); \endcode
+                                                    Merge preprocessing state of \c a into \c this, where \c a was 
+                                                    created earlier from \c b by b's splitting constructor
+**/
+
+/** \name parallel_scan
+    See also requirements on \ref range_req "Range" and \ref parallel_scan_body_req "parallel_scan Body". **/
+//@{
+
+//! Parallel prefix with simple_partitioner
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_scan( const Range& range, Body& body, const simple_partitioner& partitioner=simple_partitioner() ) {
+    internal::start_scan<Range,Body,simple_partitioner>::run(range,body,partitioner);
 }
 
-//! Parallel prefix with default partitioner
-/** 
-  * Type Body must have the following signatures: \n
-  *     void operator( const Range& r, pre_scan_tag ); \n
-  *     void operator( const Range& r, final_scan_tag ); \n
-  *     Body( const Body& b, split );  (be aware that b may have concurrent accesses) \n
-  *     void reverse_join( const Body& ); \n
-  *     void assign( const Body& ); \n
-  *     ~Body
-  * @ingroup algorithms
-  */
+//! Parallel prefix with auto_partitioner
+/** @ingroup algorithms **/
 template<typename Range, typename Body>
-inline void parallel_scan( const Range& range, Body& body ) {
-    parallel_scan( range, body, simple_partitioner() );
+void parallel_scan( const Range& range, Body& body, const auto_partitioner& partitioner ) {
+    internal::start_scan<Range,Body,auto_partitioner>::run(range,body,partitioner);
 }
+//@}
 
 } // namespace tbb
 

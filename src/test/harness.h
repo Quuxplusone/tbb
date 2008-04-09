@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,14 +31,19 @@
 // Every test is presumed to have a command line of the form "foo [-v] [nthread]"
 // The default for nthread is 2.
 
+#if __SUNPRO_CC
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#else
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#endif
 #include <new>
-#include "tbb/tbb_stddef.h"
 #include "harness_assert.h"
 
-#if __linux__||__APPLE__
+#if __linux__||__APPLE__||__FreeBSD__ || __sun
     #include <pthread.h>
 #elif _WIN32||WIN64
     #include <windows.h>
@@ -47,9 +52,17 @@
     #error unknown OS
 #endif
 
-static void ReportError( int line, const char* expression, const char * message ) {
-    fprintf(stderr,"Line %d, assertion %s: %s\n", line, expression, message ? message : "failed" );
-    abort();
+static void ReportError( int line, const char* expression, const char * message, bool is_error ) {
+    if ( is_error ) {
+        fprintf(stderr,"Line %d, assertion %s: %s\n", line, expression, message ? message : "failed" );
+#if TBB_EXIT_ON_ASSERT
+        exit(1);
+#else
+        abort();
+#endif /* TBB_EXIT_ON_ASSERT */
+    }
+    else
+        printf("WARNING: at line %d, assertion %s: %s\n", line, expression, message ? message : "failed" );
 }
 
 #if !HARNESS_NO_PARSE_COMMAND_LINE
@@ -120,7 +133,7 @@ public:
 
     //! Start task
     void start() {
-#if __linux__||__APPLE__
+#if __linux__||__APPLE__||__FreeBSD__ || __sun
         int status = pthread_create(&thread_id, NULL, thread_function, this);
         ASSERT(0==status, "NativeParallelFor: pthread_create failed");
 #else
@@ -132,7 +145,7 @@ public:
 
     //! Wait for task to finish
     void wait_to_finish() {
-#if __linux__||__APPLE__
+#if __linux__||__APPLE__||__FreeBSD__ || __sun
         int status = pthread_join( thread_id, NULL );
         ASSERT( !status, "pthread_join failed" );
 #else
@@ -148,7 +161,7 @@ public:
         Top-level caller should let index default to 0. */
     static size_t build_task_array( const Range& range, const Body& body, NativeParalleForTask* array, size_t index ); 
 private:
-#if __linux__||__APPLE__
+#if __linux__||__APPLE__||__FreeBSD__ || __sun
     pthread_t thread_id;
 #else
     HANDLE thread_handle;
@@ -160,7 +173,7 @@ private:
     //! Body to invoke over the range.
     const Body body;
 
-#if __linux__||__APPLE__
+#if __linux__||__APPLE__||__FreeBSD__ || __sun
     static void* thread_function(void* object)
 #else
     static unsigned __stdcall thread_function( void* object )
@@ -171,6 +184,8 @@ private:
         return 0;
     }
 };
+
+#include "tbb/tbb_stddef.h"
 
 template<typename Range,typename Body>
 size_t NativeParalleForTask<Range,Body>::build_task_array( const Range& range, const Body& body, NativeParalleForTask* array, size_t index ) {
@@ -224,3 +239,25 @@ template <typename T>
 void zero_fill(void* array, size_t N) {
     memset(array, 0, sizeof(T)*N);
 }
+
+#ifndef min
+    //! Utility template function returning lesser of the two values.
+    /** Provided here to avoid including not strict safe <algorithm>.\n
+        In case operands cause sined/unsigned or size mismatch warnings it is caller's
+        responsibility to do the appropriate cast before calling the function. **/
+    template<typename T1, typename T2>
+    const T1& min ( const T1& val1, const T2& val2 ) {
+        return val1 < val2 ? val1 : val2;
+    }
+#endif /* !min */
+
+#ifndef max
+    //! Utility template function returning greater of the two values. Provided here to avoid including not strict safe <algorithm>.
+    /** Provided here to avoid including not strict safe <algorithm>.\n
+        In case operands cause sined/unsigned or size mismatch warnings it is caller's
+        responsibility to do the appropriate cast before calling the function. **/
+    template<typename T1, typename T2>
+    const T1& max ( const T1& val1, const T2& val2 ) {
+        return val1 < val2 ? val1 : val2;
+    }
+#endif /* !max */

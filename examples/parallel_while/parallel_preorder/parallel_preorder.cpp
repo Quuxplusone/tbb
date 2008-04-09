@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -33,7 +33,10 @@
 #include "tbb/atomic.h"
 #include <vector>
 #include <algorithm>
+#include <cstring>
 #include "Graph.h"
+
+using namespace std;
 
 //! Number of trials. Can be changed from command line
 int ntrial = 50;
@@ -62,9 +65,9 @@ public:
 
 class Stream {
     size_t k;
-    const std::vector<Cell*>& my_roots;
+    const vector<Cell*>& my_roots;
 public:
-    Stream( const std::vector<Cell*>& root_set ) : my_roots(root_set), k(0) {}
+    Stream( const vector<Cell*>& root_set ) : my_roots(root_set), k(0) {}
     bool pop_if_present( Cell*& item ) {
         bool result = k<my_roots.size();
         if( result ) 
@@ -73,7 +76,7 @@ public:
     }
 };    
 
-void ParallelPreorderTraversal( const std::vector<Cell*>& root_set ) {
+void ParallelPreorderTraversal( const vector<Cell*>& root_set ) {
     tbb::parallel_while<Body> w;
     Stream s(root_set);
     w.run(s,Body(w));
@@ -163,7 +166,7 @@ int main( int argc, char* argv[] ) {
         for( int trial=0; trial<ntrial; ++trial ) {
             Graph g;
             g.create_random_dag(1000);
-            std::vector<Cell*> root_set;
+            vector<Cell*> root_set;
             g.get_root_set(root_set);
             total_root_set_size += root_set.size();
 

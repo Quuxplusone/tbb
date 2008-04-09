@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,9 +30,7 @@
 #error Do not include this file directly; include tbb_machine.h instead
 #endif
 
-#include <stdint.h>
-#include <unistd.h>
-#include <sched.h>
+#include "linux_common.h"
 #include <ia64intrin.h>
 
 #define __TBB_WORDSIZE 8
@@ -138,24 +136,11 @@ extern "C" {
 #define __TBB_FetchAndDecrementWrelease(P) __TBB_FetchAndAdd8release(P,-1)
 
 #ifndef __INTEL_COMPILER
-template<typename T, typename V>
-inline void __TBB_store_with_release_via_explicit_fence(volatile T& location, V value) {
-    __asm__ __volatile__("": : :"memory");
-    location = value;
-}
-
-//! Load with acquire semantics, both for hardware and compiler.
-/** Even though GCC imbues volatile loads with acquire semantics, 
-    it sometimes hoists loads over the acquire fence.  We use
-    an explicit memory fence to prevent such incorrect hoisting. */
-template<typename T>
-inline T __TBB_load_with_acquire_via_explicit_fence(const volatile T& location) {
-    T tmp = location;
-    __asm__ __volatile__("": : :"memory");
-    return tmp;
-}
-#define __TBB_load_with_acquire(L)    __TBB_load_with_acquire_via_explicit_fence(L)
-#define __TBB_store_with_release(L,V) __TBB_store_with_release_via_explicit_fence(L,V)
+/* Even though GCC imbues volatile loads with acquire semantics, 
+   it sometimes moves loads over the acquire fence.  The
+   fences defined here stop such incorrect code motion. */
+#define __TBB_fence_for_release() __asm__ __volatile__("": : :"memory")
+#define __TBB_fence_for_acquire() __asm__ __volatile__("": : :"memory")
 #endif
 
 // Special atomic functions
@@ -173,7 +158,6 @@ inline T __TBB_load_with_acquire_via_explicit_fence(const volatile T& location) 
 #define __TBB_LockByte(P)    __TBB_machine_lockbyte(P)
 
 // Definition of other utility functions
-#define __TBB_Yield()  sched_yield()
 #define __TBB_Pause(V) __TBB_machine_pause(V)
 #define __TBB_Log2(V)  __TBB_machine_lg(V)
 

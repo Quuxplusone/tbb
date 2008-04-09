@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,15 +32,24 @@
 
 #include <windows.h>
 
-#if !defined(__INTEL_COMPILER)
-#if _MSC_VER >= 1300
+#if defined(__INTEL_COMPILER)
+#define __TBB_fence_for_acquire() __asm { __asm nop }
+#define __TBB_fence_for_release() __asm { __asm nop }
+#elif _MSC_VER >= 1300
 extern "C" void _ReadWriteBarrier();
 #pragma intrinsic(_ReadWriteBarrier)
-#endif
+#define __TBB_fence_for_acquire() _ReadWriteBarrier()
+#define __TBB_fence_for_release() _ReadWriteBarrier()
 #endif
 
 #define __TBB_WORDSIZE 4
 #define __TBB_BIG_ENDIAN 0
+
+#if defined(_MSC_VER) && defined(_Wp64)
+    // Workaround for overzealous compiler warnings in /Wp64 mode
+    #pragma warning (push)
+    #pragma warning (disable: 4244 4267)
+#endif /* _MSC_VER && _Wp64 */
 
 extern "C" {
     __int64 __TBB_machine_cmpswp8 (volatile void *ptr, __int64 value, __int64 comparand );
@@ -54,20 +63,18 @@ extern "C" {
 template <typename T, size_t S>
 struct __TBB_machine_load_store {
     static inline T load_with_acquire(const volatile T& location) {
-#if !defined(__INTEL_COMPILER) && _MSC_VER >= 1300
         T to_return = location;
-        _ReadWriteBarrier();
+#ifdef __TBB_fence_for_acquire 
+        __TBB_fence_for_acquire();
+#endif /* __TBB_fence_for_acquire */
         return to_return;
-#else
-        return location;
-#endif
     }
 
-    static inline void store_with_release(T &location, T value) {
-#if !defined(__INTEL_COMPILER) && _MSC_VER >= 1300
-        _ReadWriteBarrier();
-#endif
-        const_cast<T volatile&>(location) = value;
+    static inline void store_with_release(volatile T &location, T value) {
+#ifdef __TBB_fence_for_release
+        __TBB_fence_for_release();
+#endif /* __TBB_fence_for_release */
+        location = value;
     }
 };
 
@@ -163,6 +170,15 @@ static inline void __TBB_machine_OR( volatile void *operand, unsigned __int32 ad
    }
 }
 
+static inline void __TBB_machine_AND( volatile void *operand, unsigned __int32 addend ) {
+   __asm 
+   {
+       mov eax, addend
+       mov edx, [operand]
+       lock and [edx], eax
+   }
+}
+
 static inline void __TBB_machine_pause (__int32 delay ) {
     _asm 
     {
@@ -197,9 +213,13 @@ static inline void __TBB_machine_pause (__int32 delay ) {
 #define __TBB_Store8(P,V) __TBB_machine_store8(P,V)
 #define __TBB_Load8(P) __TBB_machine_load8(P)
 #define __TBB_AtomicOR(P,V) __TBB_machine_OR(P,V)
+#define __TBB_AtomicAND(P,V) __TBB_machine_AND(P,V)
 
 // Definition of other functions
-#define __TBB_Yield()  Sleep(0)
+#if !defined(_WIN32_WINNT)
+extern "C" BOOL WINAPI SwitchToThread(void);
+#endif
+#define __TBB_Yield()  SwitchToThread()
 #define __TBB_Pause(V) __TBB_machine_pause(V)
 #define __TBB_Log2(V)    __TBB_machine_lg(V)
 
@@ -219,3 +239,7 @@ static inline void __TBB_x86_cpuid( __int32 buffer[4], __int32 mode ) {
     }
 }
 
+#if defined(_MSC_VER) && defined(_Wp64)
+    // Workaround for overzealous compiler warnings in /Wp64 mode
+    #pragma warning (pop)
+#endif /* _MSC_VER && _Wp64 */

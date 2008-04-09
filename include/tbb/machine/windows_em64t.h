@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -33,10 +33,13 @@
 #include <windows.h>
 
 #if defined(__INTEL_COMPILER)
-#define _ReadWriteBarrier() __asm { __asm nop }
+#define __TBB_fence_for_acquire() __asm { __asm nop }
+#define __TBB_fence_for_release() __asm { __asm nop }
 #elif _MSC_VER >= 1300
 extern "C" void _ReadWriteBarrier();
 #pragma intrinsic(_ReadWriteBarrier)
+#define __TBB_fence_for_acquire() _ReadWriteBarrier()
+#define __TBB_fence_for_release() _ReadWriteBarrier()
 #endif
 
 #define __TBB_WORDSIZE 8
@@ -53,22 +56,6 @@ extern "C" {
     __int16 __TBB_machine_fetchstore2 (volatile void *ptr, __int16 value );
     void __TBB_machine_pause (__int32 delay );
 }
-
-template <typename T>
-static inline T __TBB_machine_load_with_acquire(const volatile T& location) {
-    T to_return = location;
-    _ReadWriteBarrier();
-    return to_return;
-}
-
-template <typename T, typename V>
-static inline void __TBB_machine_store_with_release(volatile T &location, V value) {
-    _ReadWriteBarrier();
-    location = value;
-}
-
-#define __TBB_load_with_acquire(L) __TBB_machine_load_with_acquire((L))
-#define __TBB_store_with_release(L,V) __TBB_machine_store_with_release((L),(V))
 
 
 #if !__INTEL_COMPILER
@@ -95,6 +82,10 @@ inline void __TBB_machine_OR( volatile void *operand, uintptr_t addend ) {
     InterlockedOr64((LONGLONG *)operand, addend); 
 }
 
+inline void __TBB_machine_AND( volatile void *operand, uintptr_t addend ) {
+    InterlockedAnd64((LONGLONG *)operand, addend); 
+}
+
 #define __TBB_CompareAndSwap1(P,V,C) __TBB_machine_cmpswp1(P,V,C)
 #define __TBB_CompareAndSwap2(P,V,C) __TBB_machine_cmpswp2(P,V,C)
 #define __TBB_CompareAndSwap4(P,V,C) InterlockedCompareExchange( (LONG *) P , V , C ) 
@@ -118,9 +109,13 @@ inline void __TBB_machine_OR( volatile void *operand, uintptr_t addend ) {
 #undef __TBB_Load8
 
 #define __TBB_AtomicOR(P,V) __TBB_machine_OR(P,V)
+#define __TBB_AtomicAND(P,V) __TBB_machine_AND(P,V)
 
 // Definition of other functions
-#define __TBB_Yield()  Sleep(0)
+#if !defined(_WIN32_WINNT)
+extern "C" BOOL WINAPI SwitchToThread(void);
+#endif
+#define __TBB_Yield()  SwitchToThread()
 #define __TBB_Pause(V) __TBB_machine_pause(V)
 #define __TBB_Log2(V)    __TBB_machine_lg(V)
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,10 +32,52 @@
 #include "task.h"
 
 namespace tbb {
+class affinity_partitioner;
 
+//! @cond INTERNAL
 namespace internal {
 size_t get_initial_auto_partitioner_divisor();
-}
+
+//! Defines entry points into tbb run-time library;
+/** The entry points are the constructor and destructor. */
+class affinity_partitioner_base_v3: no_copy {
+    friend class tbb::affinity_partitioner;
+    //! Array that remembers affinities of tree positions to affinity_id.
+    /** NULL if my_size==0. */
+    affinity_id* my_array;
+    //! Number of elements in my_array.
+    size_t my_size;
+    //! Zeros the fields.
+    affinity_partitioner_base_v3() : my_array(NULL), my_size(0) {}
+    //! Deallocates my_array.
+    ~affinity_partitioner_base_v3() {resize(0);}
+    //! Resize my_array.
+    /** Retains values if resulting size is the same. */
+    void resize( unsigned factor );
+    friend class affinity_partition_type;
+};
+
+//! Provides default methods for partition objects without affinity.
+class partition_type_base {
+public:
+    void set_affinity( task &t ) {}
+    void note_affinity( task::affinity_id id ) {}
+    task* continue_after_execute_range( task& t ) {return NULL;}
+    bool decide_whether_to_delay() {return false;}
+    void spawn_or_delay( bool, task& a, task& b ) {
+        a.spawn(b);
+    }
+};
+
+class affinity_partition_type;
+
+template<typename Range, typename Body, typename Partitioner> class start_for;
+template<typename Range, typename Body, typename Partitioner> class start_reduce;
+template<typename Range, typename Body> class start_reduce_with_affinity;
+template<typename Range, typename Body, typename Partitioner> class start_scan;
+
+} // namespace internal
+//! @endcond
 
 //! A simple partitioner 
 /** Divides the range until the range is not divisible. 
@@ -43,12 +85,17 @@ size_t get_initial_auto_partitioner_divisor();
 class simple_partitioner {
 public:
     simple_partitioner() {}
-    simple_partitioner(simple_partitioner &partitioner, split) {}
+private:
+    template<typename Range, typename Body, typename Partitioner> friend class internal::start_for;
+    template<typename Range, typename Body, typename Partitioner> friend class internal::start_reduce;
+    template<typename Range, typename Body, typename Partitioner> friend class internal::start_scan;
 
-    template <typename Range>
-    inline bool should_execute_range(const Range &r, const task &t) {
-        return !r.is_divisible();
-    }
+    class partition_type: public internal::partition_type_base {
+    public:
+        bool should_execute_range(const task &t) {return false;}
+        partition_type( const simple_partitioner& sp ) {}
+        partition_type( const partition_type&, split ) {}
+    };
 };
 
 //! An auto partitioner 
@@ -56,25 +103,117 @@ public:
     Chunks are further subdivided into VICTIM_CHUNKS pieces if they are stolen and divisible.
     @ingroup algorithms */
 class auto_partitioner {
-    size_t num_chunks;
+public:
+    auto_partitioner() {}
+
+private:
+    template<typename Range, typename Body, typename Partitioner> friend class internal::start_for;
+    template<typename Range, typename Body, typename Partitioner> friend class internal::start_reduce;
+    template<typename Range, typename Body, typename Partitioner> friend class internal::start_scan;
+
+    class partition_type: public internal::partition_type_base {
+        size_t num_chunks;
+        static const size_t VICTIM_CHUNKS = 4;
+public:
+        bool should_execute_range(const task &t) {
+            if( num_chunks<VICTIM_CHUNKS && t.is_stolen_task() )
+                num_chunks = VICTIM_CHUNKS;
+            return num_chunks==1;
+        }
+        partition_type( const auto_partitioner& ap ) : num_chunks(internal::get_initial_auto_partitioner_divisor()) {}
+        partition_type( partition_type& pt, split ) {
+            num_chunks = pt.num_chunks /= 2u;
+        }
+    };
+};
+
+//! An affinity partitioner
+class affinity_partitioner: private internal::affinity_partitioner_base_v3 {
+public:
+    affinity_partitioner() {}
+
+private:
+    template<typename Range, typename Body, typename Partitioner> friend class internal::start_for;
+    template<typename Range, typename Body> friend class internal::start_reduce_with_affinity;
+    template<typename Range, typename Body, typename Partitioner> friend class internal::start_scan;
+
+    typedef internal::affinity_partition_type partition_type;
+    friend class internal::affinity_partition_type;
+};
+
+//! @cond INTERNAL
+namespace internal {
+
+class affinity_partition_type: public no_copy {
+    //! Must be power of two
+    static const unsigned factor = 16;
     static const size_t VICTIM_CHUNKS = 4;
 
+    internal::affinity_id* my_array;
+    task_list delay_list;
+    unsigned map_begin, map_end;
+    size_t num_chunks;
 public:
-    auto_partitioner() : num_chunks(internal::get_initial_auto_partitioner_divisor())  {
+    affinity_partition_type( affinity_partitioner& ap ) {
+        __TBB_ASSERT( (factor&(factor-1))==0, "factor must be power of two" ); 
+        ap.resize(factor);
+        my_array = ap.my_array;
+        map_begin = 0;
+        map_end = unsigned(ap.my_size);
+        num_chunks = internal::get_initial_auto_partitioner_divisor();
+    }
+    affinity_partition_type(affinity_partition_type& p, split) : my_array(p.my_array) {
+        __TBB_ASSERT( p.map_end-p.map_begin<factor || (p.map_end-p.map_begin)%factor==0, NULL );
+        num_chunks = p.num_chunks /= 2;
+        unsigned e = p.map_end;
+        unsigned d = (e - p.map_begin)/2;
+        if( d>factor ) 
+            d &= 0u-factor;
+        map_end = e;
+        map_begin = p.map_end = e-d;
     }
 
-    auto_partitioner(auto_partitioner &partitioner, split) : num_chunks(partitioner.num_chunks/2) {
-        partitioner.num_chunks /= 2;
-    }
-
-    template <typename Range>
-    inline bool should_execute_range(const Range &r, const task &t) {
-        if (t.is_stolen_task() && num_chunks < VICTIM_CHUNKS)
+    bool should_execute_range(const task &t) {
+        if( num_chunks < VICTIM_CHUNKS && t.is_stolen_task() )
             num_chunks = VICTIM_CHUNKS;
-        return !r.is_divisible() || num_chunks == 1;
+        return num_chunks == 1;
+    }
+
+    void set_affinity( task &t ) {
+        if( map_begin<map_end )
+            t.set_affinity( my_array[map_begin] );
+    }
+    void note_affinity( task::affinity_id id ) {
+        if( map_begin<map_end ) 
+            my_array[map_begin] = id;
+    }
+    task* continue_after_execute_range( task& t ) {
+        task* first = NULL;
+        if( !delay_list.empty() ) {
+            first = &delay_list.pop_front();
+            while( !delay_list.empty() ) {
+                t.spawn(*first);
+                first = &delay_list.pop_front();
+            }
+        }
+        return first;
+    }
+    bool decide_whether_to_delay() {
+        // The possible underflow caused by "-1u" is deliberate
+        return (map_begin&(factor-1))==0 && map_end-map_begin-1u<factor;
+    }
+    void spawn_or_delay( bool delay, task& a, task& b ) {
+        if( delay )  
+            delay_list.push_back(b);
+        else 
+            a.spawn(b);
     }
 };
 
-}
+} // namespace internal
+//! @endcond
 
-#endif
+
+} // namespace tbb
+
+#endif /* __TBB_partitioner_H */

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -84,7 +84,7 @@ class SubStringFinder {
   str(s), max_array(m), pos_array(p) { }										
 };				
 
-int main(size_t argc, char *argv[]) {
+int main(int argc, char *argv[]) {
  task_scheduler_init init;
 
  string str[N] = { string("a"), string("b") };

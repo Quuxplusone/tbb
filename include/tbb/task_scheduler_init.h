@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -33,6 +33,8 @@
 
 namespace tbb {
 
+typedef std::size_t stack_size_type;
+
 //! @cond INTERNAL
 namespace internal {
     //! Internal to library. Should not be used by clients.
@@ -49,6 +51,7 @@ class task_scheduler_init: internal::no_copy {
     /** NULL if not currently initialized. */
     internal::scheduler* my_scheduler;
 public:
+    
     //! Typedef for number of threads that is automatic.
     static const int automatic = -1;
 
@@ -56,10 +59,9 @@ public:
     static const int deferred = -2;
 
     //! Ensure that scheduler exists for this thread
-    /** A value of -1 lets tbb decide on the number 
-        of threads, which is typically the number of hardware threads. 
-        For production code, the default value of -1 should be used, 
-        particularly if the client code is mixed with third party clients 
+    /** A value of -1 lets tbb decide on the number of threads, which is typically 
+        the number of hardware threads. For production code, the default value of -1 
+        should be used, particularly if the client code is mixed with third party clients 
         that might also use tbb.
 
         The number_of_threads is ignored if any other task_scheduler_inits 
@@ -67,12 +69,16 @@ public:
         Doing so does no harm because the underlying scheduler is reference counted. */
     void initialize( int number_of_threads=automatic );
 
+    //! The overloaded method with stack size parameter
+    /** Overloading is necessary to preserve ABI compatibility */
+    void initialize( int number_of_threads, stack_size_type thread_stack_size );
+
     //! Inverse of method initialize.
     void terminate();
 
     //! Shorthand for default constructor followed by call to intialize(number_of_threads).
-    task_scheduler_init( int number_of_threads=automatic ) : my_scheduler(NULL)  {
-        initialize( number_of_threads );
+    task_scheduler_init( int number_of_threads=automatic, stack_size_type thread_stack_size=0 ) : my_scheduler(NULL)  {
+        initialize( number_of_threads, thread_stack_size );
     }
   
     //! Destroy scheduler for this thread if thread has no other live task_scheduler_inits.
@@ -81,6 +87,15 @@ public:
             terminate();
         internal::poison_pointer( my_scheduler );
     }
+    //! Returns the number of threads tbb scheduler would create if initialized by default.
+    /** Result returned by this method does not depend on whether the scheduler 
+        has already been initialized.
+        
+        Because tbb 2.0 does not support blocking tasks yet, you may use this method
+        to boost the number of threads in the tbb's internal pool, if your tasks are 
+        doing I/O operations. The optimal number of additional threads depends on how
+        much time your tasks spend in the blocked state. */
+    static int default_num_threads ();
 };
 
 } // namespace tbb

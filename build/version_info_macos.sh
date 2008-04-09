@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -28,12 +28,12 @@
 
 # Script used to generate version info string
 echo "#define __TBB_VERSION_STRINGS \\"
-echo '"TBB: ' "BUILD_HOST\t\t"`hostname -s`" ("`arch`")"'" ENDL \'
-echo '"TBB: ' "BUILD_KERNEL\t"`uname -rv`'" ENDL \'
-echo '"TBB: ' "BUILD_GCC\t\t"`gcc -v </dev/null 2>&1 | grep 'version'`'" ENDL \'
-[ -z "$COMPILER_VERSION" ] || echo '"TBB: ' "BUILD_COMPILER\t"$COMPILER_VERSION'" ENDL \'
-echo '"TBB: ' "BUILD_LD\t\t"`ld -v | grep 'version'`'" ENDL \'
-echo '"TBB: ' "BUILD_TARGET\t$arch on $runtime"'" ENDL \'
-echo '"TBB: ' "BUILD_COMMAND\t"$*'" ENDL \'
+echo '"TBB:' "BUILD_HOST\t\t"`hostname -s`" ("`arch`")"'" ENDL \'
+echo '"TBB:' "BUILD_KERNEL\t"`uname -rv`'" ENDL \'
+echo '"TBB:' "BUILD_GCC\t\t"`gcc -v </dev/null 2>&1 | grep 'version'`'" ENDL \'
+[ -z "$COMPILER_VERSION" ] || echo '"TBB:' "BUILD_COMPILER\t"$COMPILER_VERSION'" ENDL \'
+echo '"TBB:' "BUILD_LD\t\t"`ld -v | grep 'version'`'" ENDL \'
+echo '"TBB:' "BUILD_TARGET\t$arch on $runtime"'" ENDL \'
+echo '"TBB:' "BUILD_COMMAND\t"$*'" ENDL \'
 echo ""
 echo "#define __TBB_DATETIME \""`date -u`"\""

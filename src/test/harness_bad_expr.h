@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -55,8 +55,8 @@ AssertionFailure::AssertionFailure( const char* filename, int line, const char* 
 {
     ASSERT(filename,"missing filename");
     ASSERT(0<line,"line number must be positive");
-    // All of our current files have fewer than 3000 lines.
-    ASSERT(line<3000,"dubiously high line number");
+    // All of our current files have fewer than 4000 lines.
+    ASSERT(line<4000,"dubiously high line number");
     ASSERT(expression,"missing expression");
 }
 

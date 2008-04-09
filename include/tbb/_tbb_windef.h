@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,12 +30,21 @@
 #error Do not #include this file directly.  Use "#include tbb/tbb_stddef.h" instead.
 #endif /* __TBB_tbb_windef_H */
 
-#if !defined(_MT) || !defined(_DLL)
-#    error The library requires dynamic linkage with multithreaded MSVC runtime. \
-           Choose proper project settings or use /MD[d] compiler switch.
+// Check that the target Windows version has all API calls requried for TBB.
+// Do not increase the version in condition beyond 0x0500 without prior discussion!
+#if defined(_WIN32_WINNT) && _WIN32_WINNT<0x0400
+#error TBB is unable to run on old Windows versions; _WIN32_WINNT must be 0x0400 or greater.
 #endif
 
-// Workaround for problem in which MVSC headers fail to define namespace std::.
+#if !defined(_MT)
+#error TBB requires linkage with multithreaded C/C++ runtime library. \
+       Choose multithreaded DLL runtime in project settings, or use /MD[d] compiler switch.
+#elif !defined(_DLL)
+#pragma message("Warning: Using TBB together with static C/C++ runtime library is not recommended. " \
+                "Consider switching your project to multithreaded DLL runtime used by TBB.")
+#endif
+
+// Workaround for the problem with MVSC headers failing to define namespace std
 namespace std {
   using ::size_t; using ::ptrdiff_t;
 }
@@ -59,3 +68,17 @@ namespace std {
 #        define TBB_DO_ASSERT 1
 #    endif
 #endif 
+
+#if __TBB_BUILD && !defined(__TBB_NO_IMPLICIT_LINKAGE)
+#define __TBB_NO_IMPLICIT_LINKAGE 1
+#endif
+
+#if _MSC_VER
+    #if !__TBB_NO_IMPLICIT_LINKAGE
+        #ifdef _DEBUG
+            #pragma comment(lib, "tbb_debug.lib")
+        #else
+            #pragma comment(lib, "tbb.lib")
+        #endif
+    #endif
+#endif

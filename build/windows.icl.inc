@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -43,26 +43,27 @@ cfg ?= release
 #------------------------------------------------------------------------------
 CPLUS = icl $(VCCOMPAT_FLAG)
 LINK_FLAGS = /link /nologo
-LIB_LINK_FLAGS=/nologo /link /nologo /DLL \
-               /DEF:"$(TBB.DEF)" /MAP /DEBUG /fixed:no
+LIB_LINK_FLAGS=/nologo /link /nologo /DLL /MAP /DEBUG /fixed:no
+MS_CRT_KEY = /MD$(if $(findstring debug,$(cfg)),d)
+EH_FLAGS = /EHsc /GR
 
 ifeq ($(cfg), release)
-        CPLUS_FLAGS = /nologo /MD /O2 /Zi /EHsc /Zc:forScope /DDO_ITT_NOTIFY
+        CPLUS_FLAGS = /nologo $(MS_CRT_KEY) /O2 /Zi $(EH_FLAGS) /Zc:forScope
         ASM_FLAGS =
 ifeq (ia32,$(arch))
         CPLUS_FLAGS += /Oy
 endif
 endif
 ifeq ($(cfg), debug)
-        CPLUS_FLAGS = /nologo /MDd /Od /Ob0 /Zi /EHsc /Zc:forScope \
-                      /DTBB_DO_ASSERT /DDO_ITT_NOTIFY
+        CPLUS_FLAGS = /nologo $(MS_CRT_KEY) /O2 /Ob0 /Zi $(EH_FLAGS) /Zc:forScope \
+                      /DTBB_DO_ASSERT
         LINK_FLAGS += libmmds.lib /NODEFAULTLIB:libmmdd.lib
         ASM_FLAGS = /DUSE_FRAME_POINTER
 endif
 
 
 COMPILE_ONLY = /c /QMMD
-PREPROC_ONLY = /E
+PREPROC_ONLY = /EP /Tc
 INCLUDE_KEY = /I
 DEFINE_KEY = /D
 OUTPUT_KEY = /Fe
@@ -70,26 +71,31 @@ OUTPUTOBJ_KEY = /Fo
 WARNING_AS_ERROR_KEY = /WX
 WARNING_KEY = /W3
 DYLIB_KEY = /DLL
+EXPORT_KEY = /DEF:
 
 ifeq (em64t,$(arch))
         ASM_FLAGS += /DEM64T=1
         CPLUS_FLAGS += /GS-
 endif
 
-ifeq (true,$(codecov))
+ifneq (,$(codecov))
     CPLUS_FLAGS += /Qprof-genx
+else
+    CPLUS_FLAGS += /DDO_ITT_NOTIFY
 endif
 
-TARGET_VERSION = 0x0400
 OPENMP_FLAG = /Qopenmp
 CPLUS_FLAGS += /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE \
-        /D_WIN32_WINNT=$(TARGET_VERSION)
+        /D_WIN32_WINNT=$(_WIN32_WINNT)
 C_FLAGS = $(CPLUS_FLAGS) /TC
 
 VCVERSION:=$(runtime)
 VCCOMPAT_FLAG := $(if $(findstring vc7.1, $(VCVERSION)),/Qvc7.1)
 ifeq ($(VCCOMPAT_FLAG),)
         VCCOMPAT_FLAG := $(if $(findstring vc8, $(VCVERSION)),/Qvc8)
+endif
+ifeq ($(VCCOMPAT_FLAG),)
+        VCCOMPAT_FLAG := $(if $(findstring vc9, $(VCVERSION)),/Qvc9)
 endif
 ifeq ($(VCCOMPAT_FLAG),)
         $(error VC version not detected correctly: $(VCVERSION) )
@@ -121,9 +127,7 @@ endif
 #------------------------------------------------------------------------------
 # Setting tbbmalloc data.
 #------------------------------------------------------------------------------
-M_CPLUS_FLAGS = $(subst EHsc,EHs-,$(CPLUS_FLAGS))
-M_INCLUDES = $(INCLUDES) /I$(MALLOC_ROOT) /I$(MALLOC_SOURCE_ROOT)
-M_CPLUS_FLAGS += /EHs- /GR-
+M_CPLUS_FLAGS = $(subst $(EH_FLAGS),/EHs-,$(CPLUS_FLAGS))
 #------------------------------------------------------------------------------
 # End of setting tbbmalloc data.
 #------------------------------------------------------------------------------

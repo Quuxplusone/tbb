@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -25,7 +25,7 @@
 # the GNU General Public License.
 
 # GNU Makefile that builds and runs example.
-PROG=sum_tree
+PROG=tree_sum
 
 # The C++ compiler
 #CXX=g++
@@ -33,10 +33,10 @@ PROG=sum_tree
 all:	release test
 
 release: *.cpp
-	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbb -ltbbmalloc
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbb -ltbbmalloc $(LIBS)
 
 debug: *.cpp
-	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug -ltbbmalloc_debug
+	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug -ltbbmalloc_debug $(LIBS)
 
 clean:
 	rm -f $(PROG) *.o *.d

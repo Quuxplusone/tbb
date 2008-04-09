@@ -1,5 +1,0 @@
-//
-// Prefix header for all source files of the 'tacheon' target in the 'tacheon' project.
-//
-
-#include <Carbon/Carbon.h>

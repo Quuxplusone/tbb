@@ -1,4 +1,4 @@
-// Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+// Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 //
 // This file is part of Threading Building Blocks.
 //
@@ -51,4 +51,4 @@ __TBB_machine_trylockbyte:
 ;;
 (p6)    mov RETCODE=1
    	br.ret.sptk.many b0	
-	.endp __TBB_TryLockByte#
+	.endp __TBB_machine_trylockbyte#

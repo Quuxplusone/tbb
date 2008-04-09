@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,8 +29,8 @@
 #ifndef __TBB_pipeline_H 
 #define __TBB_pipeline_H 
 
+#include "atomic.h"
 #include "task.h"
-#include "spin_mutex.h"
 #include <cstddef>
 
 namespace tbb {
@@ -40,8 +40,16 @@ class filter;
 
 //! @cond INTERNAL
 namespace internal {
+const unsigned char IS_SERIAL = 0x1;
+const unsigned char SERIAL_MODE_MASK = 0x1; // the lowest bit 0 is for parallel vs. serial 
+
+// The argument for PIPELINE_VERSION should be an integer between 2 and 9
+#define __TBB_PIPELINE_VERSION(x) (unsigned char)(x-2)<<1
+const unsigned char VERSION_MASK = 0x7<<1; // bits 1-3 are for version
+const unsigned char CURRENT_VERSION = __TBB_PIPELINE_VERSION(3);
 
 typedef unsigned long Token;
+typedef long tokendiff_t;
 class stage_task;
 class ordered_buffer;
 
@@ -55,14 +63,34 @@ private:
     //! Value used to mark "not in pipeline"
     static filter* not_in_pipeline() {return reinterpret_cast<filter*>(internal::intptr(-1));}
 protected:
+    //! For pipeline version 2 and earlier 0 is parallel and 1 is serial mode
+    enum mode {
+        parallel = internal::CURRENT_VERSION,
+        serial = internal::CURRENT_VERSION | internal::IS_SERIAL
+    };
+
     filter( bool is_serial_ ) : 
         next_filter_in_pipeline(not_in_pipeline()),
         input_buffer(NULL),
-        my_is_serial(is_serial_)
+        my_filter_mode(static_cast<unsigned char>(is_serial_ ? serial : parallel)),
+        prev_filter_in_pipeline(not_in_pipeline()),
+        my_pipeline(NULL)
     {}
+    
+    filter( mode filter_mode ) :
+        next_filter_in_pipeline(not_in_pipeline()),
+        input_buffer(NULL),
+        my_filter_mode(static_cast<unsigned char>(filter_mode)),
+        prev_filter_in_pipeline(not_in_pipeline()),
+        my_pipeline(NULL)
+    {}
+
+
 public:
     //! True if filter must receive stream in order.
-    bool is_serial() const {return my_is_serial;}
+    bool is_serial() const {
+        return (my_filter_mode & internal::SERIAL_MODE_MASK) == internal::IS_SERIAL;
+    }  
 
     //! Operate on an item from the input stream, and return item for output stream.
     /** Returns NULL if filter is a sink. */
@@ -83,7 +111,13 @@ private:
     friend class pipeline;
 
     //! Internal storage for is_serial()
-    bool my_is_serial;
+    const unsigned char my_filter_mode;
+
+    //! Pointer to previous filter in the pipeline.
+    filter* prev_filter_in_pipeline;
+
+    //! Pointer to the pipeline
+    pipeline* my_pipeline;
 };
 
 //! A processing pipeling that applies filters to items.
@@ -97,7 +131,7 @@ public:
     virtual ~pipeline();
 
     //! Add filter to end of pipeline.
-    void add_filter( filter& filter );
+    void add_filter( filter& filter_ );
 
     //! Run the pipeline to completion.
     void run( size_t max_number_of_live_tokens );
@@ -107,27 +141,30 @@ public:
 
 private:
     friend class internal::stage_task;
+    friend class filter;
 
     //! Pointer to first filter in the pipeline.
     filter* filter_list;
 
     //! Pointer to location where address of next filter to be added should be stored.
-    filter** filter_end;
+    filter* filter_end;
 
     //! task who's reference count is used to determine when all stages are done.
     empty_task* end_counter;
 
-    //! Mutex protecting token_counter and end_of_input.
-    spin_mutex input_mutex;
+    //! Number of idle tokens waiting for input stage.
+    atomic<internal::Token> input_tokens;
 
     //! Number of tokens created so far.
     internal::Token token_counter;
 
     //! False until fetch_input returns NULL.
     bool end_of_input;
-    
-    //! Attempt to fetch a new input item and put it in the pipeline.
-    /** "self" is used only for sake of providing the contextual "this" for task::allocate_child_of. */
+
+    //! Remove filter from pipeline.
+    void remove_filter( filter& filter_ );
+
+    //! Not used, but retained to satisfy old export files.
     void inject_token( task& self );
 };
 

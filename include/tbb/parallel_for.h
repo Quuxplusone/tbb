@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -40,77 +40,140 @@ namespace internal {
 
     //! Task type used in parallel_for
     /** @ingroup algorithms */
-    template<typename Range, typename Body, typename Partitioner=simple_partitioner>
+    template<typename Range, typename Body, typename Partitioner>
     class start_for: public task {
         Range my_range;
         const Body my_body;
-        Partitioner my_partitioner;
+        typename Partitioner::partition_type my_partition;
         /*override*/ task* execute();
-    public:
-        start_for( const Range& range, const Body& body, const Partitioner& partitioner ) :
+
+        //! Constructor for root task.
+        start_for( const Range& range, const Body& body, Partitioner& partitioner ) :
             my_range(range),    
             my_body(body),
-            my_partitioner(partitioner)
+            my_partition(partitioner)
         {
         }
+        //! Splitting constructor used to generate children.
+        /** this becomes left child.  Newly constructed object is right child. */
+        start_for( start_for& parent, split ) :
+            my_range(parent.my_range,split()),    
+            my_body(parent.my_body),
+            my_partition(parent.my_partition,split())
+        {
+            my_partition.set_affinity(*this);
+        }
+        //! Update affinity info, if any.
+        /*override*/ void note_affinity( affinity_id id ) {
+            my_partition.note_affinity( id );
+        }
+    public:
+        static void run(  const Range& range, const Body& body, const Partitioner& partitioner ) {
+            if( !range.empty() ) {
+#if !__TBB_EXCEPTIONS || TBB_JOIN_OUTER_TASK_GROUP
+                start_for& a = *new(task::allocate_root()) start_for(range,body,const_cast<Partitioner&>(partitioner));
+#else
+                // Bound context prevents exceptions from body to affect nesting or sibling algorithms,
+                // and allows users to handle exceptions safely by wrapping parallel_for in the try-block.
+                task_group_context context;
+                start_for& a = *new(task::allocate_root(context)) start_for(range,body,const_cast<Partitioner&>(partitioner));
+#endif /* __TBB_EXCEPTIONS && !TBB_JOIN_OUTER_TASK_GROUP */
+                task::spawn_root_and_wait(a);
+            }
+        }
+#if __TBB_EXCEPTIONS
+        static void run(  const Range& range, const Body& body, const Partitioner& partitioner, task_group_context& context ) {
+            if( !range.empty() ) {
+                start_for& a = *new(task::allocate_root(context)) start_for(range,body,const_cast<Partitioner&>(partitioner));
+                task::spawn_root_and_wait(a);
+            }
+        }
+#endif /* __TBB_EXCEPTIONS */
     };
 
     template<typename Range, typename Body, typename Partitioner>
-    task* start_for<Range,Body,Partitioner>::execute()
-    {
-        if( my_partitioner.should_execute_range(my_range, *this) ) {
+    task* start_for<Range,Body,Partitioner>::execute() {
+        if( !my_range.is_divisible() || my_partition.should_execute_range(*this) ) {
             my_body( my_range );
-            return NULL;
+            return my_partition.continue_after_execute_range(*this); 
         } else {
-            empty_task& c = *new( allocate_continuation() ) empty_task;
+            empty_task& c = *new( this->allocate_continuation() ) empty_task;
             recycle_as_child_of(c);
             c.set_ref_count(2);
-            start_for& b = *new( c.allocate_child() ) start_for(Range(my_range,split()),my_body,Partitioner(my_partitioner,split()));
-            c.spawn(b);
+            bool delay = my_partition.decide_whether_to_delay();
+            start_for& b = *new( c.allocate_child() ) start_for(*this,split());
+            my_partition.spawn_or_delay(delay,*this,b);
             return this;
         }
     } 
-
 } // namespace internal
 //! @endcond
 
-//! Parallel iteration over range.
-/** The body b must allow:                                      \n
-        b(r)                    Apply function to range r.      \n
-    r must define:                                              \n
-        r.is_divisible()        True if range should be divided \n
-        r.empty()               True if range is empty          \n
-        R r2(r,split())         Split range into r2 and r.      \n
-    @ingroup algorithms */ 
+
+// Requirements on Range concept are documented in blocked_range.h
+
+/** \page parallel_for_body_req Requirements on parallel_for body
+    Class \c Body implementing the concept of parallel_for body must define:
+    - \code Body::Body( const Body& ); \endcode                 Copy constructor
+    - \code Body::~Body(); \endcode                             Destructor
+    - \code void Body::operator()( Range& r ) const; \endcode   Function call operator applying the body to range \c r.
+**/
+
+/** \name parallel_for
+    See also requirements on \ref range_req "Range" and \ref parallel_for_body_req "parallel_for Body". **/
+//@{
+
+//! Parallel iteration over range with simple partitioner, or default partitioner if no partitioner is specified.
+/** @ingroup algorithms **/
 template<typename Range, typename Body>
-void parallel_for( const Range& range, const Body& body ) {
-    if( !range.empty() ) {
-        typedef typename internal::start_for<Range,Body> start_type;
-        start_type& a = *new(task::allocate_root()) start_type(range,body,simple_partitioner());
-        task::spawn_root_and_wait(a);
-    }
+void parallel_for( const Range& range, const Body& body, const simple_partitioner& partitioner=simple_partitioner() ) {
+    internal::start_for<Range,Body,simple_partitioner>::run(range,body,partitioner);
 }
 
-//! Parallel iteration over range using a partitioner.
-/** The body b must allow:                                      \n
-        b(r)                    Apply function to range r.      \n
-    r must define:                                              \n
-        r.is_divisible()        True if range can be divided \n
-        r.empty()               True if range is empty          \n
-        R r2(r,split())         Split range into r2 and r.      \n
-    The partitioner p must define: \n
-        p.should_execute_range(r,t)   True if r should be executed to completion without further splits. \n  
-        P p2(p,split())               Split the partitioner into p2 and p.      \n
-    @ingroup algorithms */
-template<typename Range, typename Body, typename Partitioner>
-void parallel_for( const Range& range, const Body& body, const Partitioner& partitioner ) {
-    if( !range.empty() ) {
-        typedef typename internal::start_for<Range,Body,Partitioner> start_type;
-        start_type& a = *new(task::allocate_root()) start_type(range,body,partitioner);
-        task::spawn_root_and_wait(a);
-    }
+//! Parallel iteration over range with auto_partitioner.
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_for( const Range& range, const Body& body, const auto_partitioner& partitioner ) {
+    internal::start_for<Range,Body,auto_partitioner>::run(range,body,partitioner);
 }
 
+//! Parallel iteration over range with affinity_partitioner.
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_for( const Range& range, const Body& body, affinity_partitioner& partitioner ) {
+    internal::start_for<Range,Body,affinity_partitioner>::run(range,body,partitioner);
+}
+
+#if __TBB_EXCEPTIONS
+//! Parallel iteration over range with default partitioner and user-supplied context.
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_for( const Range& range, const Body& body, task_group_context& context ) {
+    internal::start_for<Range,Body,simple_partitioner>::run(range, body, simple_partitioner(), context);
+}
+
+//! Parallel iteration over range with simple partitioner and user-supplied context.
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_for( const Range& range, const Body& body, const simple_partitioner& partitioner, task_group_context& context ) {
+    internal::start_for<Range,Body,simple_partitioner>::run(range, body, partitioner, context);
+}
+
+//! Parallel iteration over range with auto_partitioner and user-supplied context.
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_for( const Range& range, const Body& body, const auto_partitioner& partitioner, task_group_context& context ) {
+    internal::start_for<Range,Body,auto_partitioner>::run(range, body, partitioner, context);
+}
+
+//! Parallel iteration over range with affinity_partitioner and user-supplied context.
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_for( const Range& range, const Body& body, affinity_partitioner& partitioner, task_group_context& context ) {
+    internal::start_for<Range,Body,affinity_partitioner>::run(range,body,partitioner, context);
+}
+#endif /* __TBB_EXCEPTIONS */
+//@}
 
 } // namespace tbb
 

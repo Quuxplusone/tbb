@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -25,7 +25,7 @@
 # the GNU General Public License.
 
 COMPILE_ONLY = -c -MMD
-PREPROC_ONLY = -E -MMD
+PREPROC_ONLY = -E -x c
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
 OUTPUT_KEY = -o #
@@ -33,13 +33,13 @@ OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -Wall
+WARNING_SUPPRESS = -Wno-parentheses
 DYLIB_KEY = -shared
 LIBDL = -ldl
 
 TBB_NOSTRICT = 1
 
 CPLUS = g++ 
-INCLUDES += -I$(tbb_root)/src/tbb -I$(tbb_root)/include -I$(tbb_root)/src
 LIB_LINK_FLAGS = -shared
 LIBS = -lpthread -lrt -ldl 
 C_FLAGS = $(CPLUS_FLAGS) -x c
@@ -81,7 +81,7 @@ endif
 
 ASSEMBLY_SOURCE=$(arch)-gas
 ifeq (itanium,$(arch))
-    ASM=ias
+    ASM=as
     TBB_ASM.OBJ = atomic_support.o lock_byte.o log2.o pause.o
 endif 
 #------------------------------------------------------------------------------
@@ -91,8 +91,9 @@ endif
 #------------------------------------------------------------------------------
 # Setting tbbmalloc data.
 #------------------------------------------------------------------------------
-M_INCLUDES = $(INCLUDES) -I$(MALLOC_ROOT) -I$(MALLOC_SOURCE_ROOT)
+
 M_CPLUS_FLAGS = $(CPLUS_FLAGS) -fno-rtti -fno-exceptions -fno-schedule-insns2
+
 #------------------------------------------------------------------------------
 # End of setting tbbmalloc data.
 #------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,30 +30,13 @@
 #error Do not include this file directly; include tbb_machine.h instead
 #endif
 
-#include <stdint.h>
-#include <unistd.h>
-#include <sched.h>
+#include "linux_common.h"
 
 #define __TBB_WORDSIZE 8
 #define __TBB_BIG_ENDIAN 0
 
-//! Load with acquire semantics, both for hardware and compiler.
-template<typename T>
-inline T __TBB_load_with_acquire_via_explicit_fence(const volatile T& location) {
-    T tmp = location;
-    __asm__ __volatile__("": : :"memory");
-    return tmp;
-}
-
-//! Store with release semantics, both for hardware and compiler.
-template<typename T, typename V>
-inline void __TBB_store_with_release_via_explicit_fence(volatile T& location, V value) {
-    __asm__ __volatile__("": : :"memory");
-    location = value;
-}
-
-#define __TBB_load_with_acquire __TBB_load_with_acquire_via_explicit_fence
-#define __TBB_store_with_release __TBB_store_with_release_via_explicit_fence
+#define __TBB_fence_for_acquire() __asm__ __volatile__("": : :"memory")
+#define __TBB_fence_for_release() __asm__ __volatile__("": : :"memory")
 
 #define __MACHINE_DECL_ATOMICS(S,T,X) \
 static inline T __TBB_machine_cmpswp##S (volatile void *ptr, T value, T comparand )         \
@@ -102,6 +85,10 @@ static inline void __TBB_machine_or( volatile void *ptr, uint64_t addend ) {
     __asm__ __volatile__("lock\norq %1,%0" : "=m"(*(uint64_t *)ptr) : "r"(addend) : "memory");
 }
 
+static inline void __TBB_machine_and( volatile void *ptr, uint64_t addend ) {
+    __asm__ __volatile__("lock\nandq %1,%0" : "=m"(*(uint64_t *)ptr) : "r"(addend) : "memory");
+}
+
 static inline void __TBB_machine_pause( int32_t delay ) {
     for (int32_t i = 0; i < delay; i++) {
        __asm__ __volatile__("pause;");
@@ -133,9 +120,9 @@ static inline void __TBB_machine_pause( int32_t delay ) {
 #define __TBB_Load8(P)    (*P)
 
 #define __TBB_AtomicOR(P,V) __TBB_machine_or(P,V)
+#define __TBB_AtomicAND(P,V) __TBB_machine_and(P,V)
 
 // Definition of other functions
-#define __TBB_Yield()  sched_yield()
 #define __TBB_Pause(V) __TBB_machine_pause(V)
 #define __TBB_Log2(V)    __TBB_machine_lg(V)
 

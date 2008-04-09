@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,8 +28,16 @@
 
 // Test whether scalable_allocator works with some of the host's STL containers.
 
+/* to avoid dependency on TBB shared library, the following macro should be
+   defined to non-zero _before_ including any TBB or test harness headers.
+   Also tbb_assert_impl.h from src/tbb should be included right after */
+#define __TBB_NO_IMPLICIT_LINKAGE 1
+#include "../tbb/tbb_assert_impl.h"
+
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 #include "tbb/scalable_allocator.h"
+
+// the actual body of the test is there:
 #include "test/test_allocator.h"
 
 #include <vector>

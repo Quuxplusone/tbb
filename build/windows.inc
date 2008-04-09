@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -30,6 +30,7 @@ else
   test_dir:=.
 endif
 
+# TODO give an error if archs doesn't match
 ifndef arch
   export arch:=$(shell cmd /C "cscript /nologo /E:jscript $(tbb_root)/build/detect.js /arch")
 endif
@@ -42,32 +43,36 @@ native_compiler := cl
 export compiler ?= cl
 debugger ?= devenv /debugexe
 
+CMD=cmd /C
 CWD=$(shell cmd /C echo %CD%)
 RM=cmd /C del /Q /F
 RD=cmd /C rmdir
 MD=cmd /c mkdir
 SLASH=\\
-NUL = >nul 2>&1
+NUL = nul
 
-INCLUDES += /I$(tbb_root)/src /I$(tbb_root)/include
 OBJ = obj
 DLL = dll
 LIBEXT = lib
 
-ifeq ($(cfg),debug)
-    DEBUG_SUFFIX = _debug
-endif
+def_prefix = $(if $(findstring ia32,$(arch)),win32,win64)
 
-TBB.DEF = $(tbb_root)/src/tbb/$(arch)-tbb.def
-TBB.DLL = tbb$(DEBUG_SUFFIX).dll
-TBB.LIB = tbb$(DEBUG_SUFFIX).lib
+# Target Windows version. Do not increase beyond 0x0500 without prior discussion!
+# Used as the value for macro definition opiton in windows.cl.inc etc.
+_WIN32_WINNT=0x0400
+
+TBB.DEF = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.def
+TBB.DLL = tbb$(DEBUG_SUFFIX).$(DLL)
+TBB.LIB = tbb$(DEBUG_SUFFIX).$(LIBEXT)
 TBB.RES = tbb_resource.res
+#On Windows we specify appropriate tbb library using #pragma comment
+LINK_TBB.LIB =
 
-MALLOC.DEF = $(MALLOC_ROOT)/$(arch)-malloc.def
-MALLOC.DLL = tbbmalloc$(DEBUG_SUFFIX).dll
-MALLOC.LIB = tbbmalloc$(DEBUG_SUFFIX).lib
+MALLOC.DEF = $(MALLOC_ROOT)/$(def_prefix)-tbbmalloc-export.def
+MALLOC.DLL = tbbmalloc$(DEBUG_SUFFIX).$(DLL)
+MALLOC.LIB = tbbmalloc$(DEBUG_SUFFIX).$(LIBEXT)
 MALLOC.RES = tbbmalloc.res
 
-
-MAKE_VERSIONS = cmd /C cscript /nologo /E:jscript $(tbb_root)/build/version_info_windows.js $(compiler) $(arch) "$(CPLUS) $(CPLUS_FLAGS) $(INCLUDES)" > version_string.tmp
+MAKE_VERSIONS = cmd /C cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build/version_info_windows.js $(compiler) $(arch) $(subst \,/,"$(CPLUS) $(CPLUS_FLAGS) $(INCLUDES)") > version_string.tmp
 MAKE_TBBVARS  = cmd /C "$(subst /,\,$(tbb_root))\build\generate_tbbvars.bat"
+

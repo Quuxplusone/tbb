@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,9 +30,7 @@
 #error Do not include this file directly; include tbb_machine.h instead
 #endif
 
-#include <stdint.h>
-#include <unistd.h>
-#include <sched.h>
+#include "linux_common.h"
 
 #define __TBB_WORDSIZE 4
 #define __TBB_BIG_ENDIAN 0
@@ -76,9 +74,12 @@ __MACHINE_DECL_ATOMICS(4,int32_t,"l")
 
 static int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t comparand )
 {
-    const int32_t comparand_lo = (int32_t)comparand;
-    const int32_t comparand_hi = *(int32_t*)((intptr_t)&comparand+sizeof(int32_t));
     int64_t result;
+    union {
+      int64_t comparand_local;
+      int32_t comparand_parts[2];
+    };
+    comparand_local = comparand;
     // EBX register saved for compliancy with position-independent code (PIC) rules on IA32
     __asm__ __volatile__ (
              "pushl %%ebx\n\t"
@@ -88,8 +89,8 @@ static int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t
              "popl  %%ebx"
                     : "=A"(result), "=m"(*(int64_t *)ptr)
                     : "S"(ptr),
-                      "a"(comparand_lo),
-                      "d"(comparand_hi),
+                      "a"(comparand_parts[0]),
+                      "d"(comparand_parts[1]),
                       "c"(&value)
                     : "memory", "esp");
     return result;
@@ -103,6 +104,10 @@ static inline int32_t __TBB_machine_lg( uint32_t x ) {
 
 static inline void __TBB_machine_or( volatile void *ptr, uint32_t addend ) {
     __asm__ __volatile__("lock\norl %1,%0" : "=m"(*(uint32_t *)ptr) : "r"(addend) : "memory");
+}
+
+static inline void __TBB_machine_and( volatile void *ptr, uint32_t addend ) {
+    __asm__ __volatile__("lock\nandl %1,%0" : "=m"(*(uint32_t *)ptr) : "r"(addend) : "memory");
 }
 
 static inline void __TBB_machine_pause( int32_t delay ) {
@@ -171,22 +176,23 @@ inline void __TBB_machine_store_with_release(volatile T &location, V value) {
 #define __TBB_CompareAndSwap2(P,V,C) __TBB_machine_cmpswp2(P,V,C)
 #define __TBB_CompareAndSwap4(P,V,C) __TBB_machine_cmpswp4(P,V,C)
 #define __TBB_CompareAndSwap8(P,V,C) __TBB_machine_cmpswp8(P,V,C)
-#define __TBB_CompareAndSwapW(P,V,C)  __TBB_machine_cmpswp4(P,V,C)
+#define __TBB_CompareAndSwapW(P,V,C) __TBB_machine_cmpswp4(P,V,C)
 
 #define __TBB_FetchAndAdd1(P,V) __TBB_machine_fetchadd1(P,V)
 #define __TBB_FetchAndAdd2(P,V) __TBB_machine_fetchadd2(P,V)
 #define __TBB_FetchAndAdd4(P,V) __TBB_machine_fetchadd4(P,V)
-#define __TBB_FetchAndAddW(P,V)  __TBB_machine_fetchadd4(P,V)
+#define __TBB_FetchAndAddW(P,V) __TBB_machine_fetchadd4(P,V)
 
 #define __TBB_FetchAndStore1(P,V) __TBB_machine_fetchstore1(P,V)
 #define __TBB_FetchAndStore2(P,V) __TBB_machine_fetchstore2(P,V)
 #define __TBB_FetchAndStore4(P,V) __TBB_machine_fetchstore4(P,V)
-#define __TBB_FetchAndStoreW(P,V)  __TBB_machine_fetchstore4(P,V)
+#define __TBB_FetchAndStoreW(P,V) __TBB_machine_fetchstore4(P,V)
 
 #define __TBB_Store8(P,V) __TBB_machine_store8(P,V)
 #define __TBB_Load8(P)    __TBB_machine_load8(P)
 
 #define __TBB_AtomicOR(P,V) __TBB_machine_or(P,V)
+#define __TBB_AtomicAND(P,V) __TBB_machine_and(P,V)
 
 
 // Those we chose not to implement (they will be implemented generically using CMPSWP8)
@@ -194,9 +200,8 @@ inline void __TBB_machine_store_with_release(volatile T &location, V value) {
 #undef __TBB_FetchAndStore8
 
 // Definition of other functions
-#define __TBB_Yield()  sched_yield()
 #define __TBB_Pause(V) __TBB_machine_pause(V)
-#define __TBB_Log2(V)    __TBB_machine_lg(V)
+#define __TBB_Log2(V)  __TBB_machine_lg(V)
 
 // Special atomic functions
 #define __TBB_FetchAndAddWrelease(P,V) __TBB_FetchAndAddW(P,V)

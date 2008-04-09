@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -26,9 +26,6 @@
 
 .PRECIOUS: %.$(OBJ) %.$(DLL).$(OBJ) %.exe
 
-#if INTEL_PRIVATE
-tbb_strict ?= 1
-#endif
 ifeq ($(tbb_strict),1)
   ifeq ($(WARNING_AS_ERROR_KEY),)
     $(error WARNING_AS_ERROR_KEY is empty)
@@ -37,7 +34,20 @@ ifeq ($(tbb_strict),1)
   WARNING_KEY += $(WARNING_AS_ERROR_KEY)
 endif
 
+INCLUDES += $(INCLUDE_KEY)$(tbb_root)/src $(INCLUDE_KEY)$(tbb_root)/include
+
+CPLUS_FLAGS += $(WARNING_KEY) $(CXXFLAGS)
+LINK_FLAGS += $(LDFLAGS)
+LIB_LINK_FLAGS += $(LDFLAGS)
 CPLUS_FLAGS_NOSTRICT:=$(subst -strict_ansi,-ansi,$(CPLUS_FLAGS))
+
+LIB_LINK_CMD ?= $(CPLUS) $(PIC_KEY)
+ifeq ($(origin LIB_OUTPUT_KEY), undefined)
+    LIB_OUTPUT_KEY = $(OUTPUT_KEY)
+endif
+ifeq ($(origin LIB_LINK_LIBS), undefined)
+    LIB_LINK_LIBS = $(LIBS)
+endif
 
 %.$(OBJ): %.cpp
 	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS) $(INCLUDES) $<
@@ -52,14 +62,14 @@ tbb_misc.$(OBJ): tbb_misc.cpp version_string.tmp
 	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS_NOSTRICT) $(INCLUDE_KEY). $(INCLUDES) $<
 
 tbb_misc.E: tbb_misc.cpp version_string.tmp
-	$(CPLUS) $(PREPROC_ONLY) $(CPLUS_FLAGS_NOSTRICT) $(INCLUDE_KEY). $(INCLUDES) $< >$@
+	$(CPLUS) $(CPLUS_FLAGS_NOSTRICT) $(INCLUDE_KEY). $(INCLUDES) $(PREPROC_ONLY) $< >$@
 
 %.res: %.rc version_string.tmp
 	rc /Fo$@ $(INCLUDES) $(filter /D%,$(CPLUS_FLAGS)) $<
 
 # Rule for generating .E file if needed for visual inspection
 %.E: %.cpp
-	$(CPLUS) $(PREPROC_ONLY) $(CPLUS_FLAGS) $(INCLUDES) $< >$@
+	$(CPLUS) $(CPLUS_FLAGS) $(INCLUDES) $(PREPROC_ONLY) $< >$@
 
 # TODO Rule for generating .asm file if needed for visual inspection
 %.asm: %.cpp
@@ -80,12 +90,7 @@ $(KNOWN_NOSTRICT): %.o: %.cpp
 endif
 
 $(KNOWN_WARNINGS): %.$(OBJ): %.cpp
-#if INTEL_PRIVATE
-	@echo TODO: Fix warnings for $<
-	$(CPLUS) $(COMPILE_ONLY) $(subst $(WARNING_AS_ERROR_KEY),,$(CPLUS_FLAGS_NOSTRICT)) $(INCLUDES) $<
-#else
 	$(CPLUS) $(COMPILE_ONLY) $(subst $(WARNING_KEY),,$(CPLUS_FLAGS_NOSTRICT)) $(INCLUDES) $<
-#endif
 
 version_string.tmp: 
 	$(MAKE_VERSIONS)
@@ -93,14 +98,3 @@ version_string.tmp:
 tbbvars:
 	$(MAKE_TBBVARS)
 
-#if INTEL_PRIVATE
-# Sanity check
-ifeq ($(WARNING_AS_ERROR_KEY),)
-  $(error WARNING_AS_ERROR_KEY is empty)
-endif
-ifeq ($(findstring $(WARNING_AS_ERROR_KEY),$(CPLUS_FLAGS)),)
-  $(warning )
-  $(warning ----====!!!!! $(WARNING_AS_ERROR_KEY) is not set in CPLUS_FLAGS for $(MAKECMDGOALS). [Use tbb_strict=1] !!!!!====----)
-  $(warning )
-endif
-#endif

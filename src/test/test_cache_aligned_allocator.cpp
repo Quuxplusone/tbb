@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,6 +29,7 @@
 // Test whether cache_aligned_allocator works with some of the host's STL containers.
 
 #include "tbb/cache_aligned_allocator.h"
+#include "tbb/tbb_allocator.h"
 
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 // the real body of the test is there:
@@ -37,6 +38,8 @@
 int main(void)
 {
     int result = TestMain<tbb::cache_aligned_allocator<void> >();
+    result += TestMain<tbb::tbb_allocator<void> >();   
+
     printf("done\n");
     return result;
 }

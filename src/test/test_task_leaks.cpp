@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,8 +26,11 @@
     the GNU General Public License.
 */
 
+// to avoid usage of #pragma comment
+#define __TBB_NO_IMPLICIT_LINKAGE 1
 
 #define  COUNT_TASK_NODES 1
+#define __TBB_TASK_CPP_DIRECTLY_INCLUDED 1
 #include "../tbb/task.cpp"
 
 #include "tbb/atomic.h"
@@ -128,6 +131,7 @@ void RunTaskGenerators( int i ) {
 void TestTaskReclamation() {
     if( Verbose )
         printf("testing task reclamation\n");
+
     size_t initial_amount_of_memory = 0;
     double task_count_sum = 0;
     double task_count_sum_square = 0;
@@ -187,17 +191,17 @@ void TestTaskReclamation() {
 //------------------------------------------------------------------------
 
 int main(int argc, char* argv[]) {
-#if _WIN32||_WIN64
-    // This initialization is normally done by DllMain in task.cpp,
-    // but because this test directly includes task.cpp,
-    // the initialization must be done explicitly.
-    InitializeCriticalSection(&OneTimeInitializationCriticalSection);
-#endif /* _WIN32||_WIN64 */
     srand(2);
     MinThread = -1;
     ParseCommandLine( argc, argv );
-    TestTaskReclamation();
-    printf("done\n");
+    if( !GetMemoryUsage() ) {
+        if( Verbose )
+            printf("GetMemoryUsage is not implemented for this platform\n");
+        printf("skip\n");
+    } else {
+        TestTaskReclamation();
+        printf("done\n");
+    }
     return 0;
 }
 

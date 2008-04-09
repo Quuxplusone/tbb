@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -24,8 +24,8 @@
 # invalidate any other reasons why the executable file might be covered by
 # the GNU General Public License.
 
-COMPILE_ONLY = -c -MMD
-PREPROC_ONLY = -E -MMD
+COMPILE_ONLY = -c -MMD 
+PREPROC_ONLY = -E -x c
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
 OUTPUT_KEY = -o #
@@ -39,16 +39,15 @@ LIBDL = -ldl
 TBB_NOSTRICT = 1
 
 CPLUS = g++ 
-INCLUDES += -I$(tbb_root)/src/tbb -I$(tbb_root)/include -I$(tbb_root)/src
 LIB_LINK_FLAGS = -shared
 LIBS = -lpthread -lrt -ldl 
 C_FLAGS = $(CPLUS_FLAGS) -x c
 
 ifeq ($(cfg), release)
-        CPLUS_FLAGS = -DDO_ITT_NOTIFY -O2 -DUSE_PTHREAD -D__linux__ -D__custom_linux__
+        CPLUS_FLAGS = -DDO_ITT_NOTIFY -O2 -DUSE_PTHREAD
 endif
 ifeq ($(cfg), debug)
-        CPLUS_FLAGS = -DTBB_DO_ASSERT -DDO_ITT_NOTIFY -g -O0 -DUSE_PTHREAD -D__linux__ -D__custom_linux__
+        CPLUS_FLAGS = -DTBB_DO_ASSERT -DDO_ITT_NOTIFY -g -O0 -DUSE_PTHREAD
 endif
 
 ASM=
@@ -91,8 +90,9 @@ endif
 #------------------------------------------------------------------------------
 # Setting tbbmalloc data.
 #------------------------------------------------------------------------------
-M_INCLUDES = $(INCLUDES) -I$(MALLOC_ROOT) -I$(MALLOC_SOURCE_ROOT)
+
 M_CPLUS_FLAGS = $(CPLUS_FLAGS) -fno-rtti -fno-exceptions -fno-schedule-insns2
+
 #------------------------------------------------------------------------------
 # End of setting tbbmalloc data.
 #------------------------------------------------------------------------------

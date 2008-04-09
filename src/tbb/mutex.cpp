@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,7 +34,14 @@ namespace tbb {
 #if _WIN32||_WIN64
         switch( m.state ) {
         case INITIALIZED: 
-            EnterCriticalSection(&m.impl);
+        case HELD:
+            EnterCriticalSection( &m.impl );
+            // If a thread comes here, and another thread holds the lock, it will block
+            // in EnterCriticalSection.  When it returns from EnterCriticalSection,
+            // m.state must be set to INITIALIZED.  If the same thread tries to acquire a lock it
+            // aleady holds, the the lock is in HELD state, thus will cause the assertion to fail.
+            __TBB_ASSERT(m.state!=HELD, "mutex::scoped_lock: deadlock caused by attempt to reacquire held mutex");
+            m.state = HELD;
             break;
         case DESTROYED: 
             __TBB_ASSERT(false,"mutex::scoped_lock: mutex already destroyed"); 
@@ -55,6 +62,10 @@ void mutex::scoped_lock::internal_release() {
 #if _WIN32||_WIN64    
      switch( my_mutex->state ) {
         case INITIALIZED: 
+            __TBB_ASSERT(false,"mutex::scoped_lock: try to release the lock without acquisition");
+            break;
+        case HELD:
+            my_mutex->state = INITIALIZED;
             LeaveCriticalSection(&my_mutex->impl);
             break;
         case DESTROYED: 
@@ -75,6 +86,7 @@ bool mutex::scoped_lock::internal_try_acquire( mutex& m ) {
 #if _WIN32||_WIN64
     switch( m.state ) {
         case INITIALIZED: 
+        case HELD:
             break;
         case DESTROYED: 
             __TBB_ASSERT(false,"mutex::scoped_lock: mutex already destroyed"); 
@@ -87,11 +99,15 @@ bool mutex::scoped_lock::internal_try_acquire( mutex& m ) {
 
     bool result;
 #if _WIN32||_WIN64
-            result = TryEnterCriticalSection(&m.impl)!=0;
+    result = TryEnterCriticalSection(&m.impl)!=0;
+    if( result ) {
+        __TBB_ASSERT(m.state!=HELD, "mutex::scoped_lock: deadlock caused by attempt to reacquire held mutex");
+        m.state = HELD;
+    }
 #else
-            result = pthread_mutex_trylock(&m.impl)==0;
+    result = pthread_mutex_trylock(&m.impl)==0;
 #endif /* _WIN32||_WIN64 */
-    if( result )
+    if( result ) 
         my_mutex = &m;
     return result;
 }
@@ -110,13 +126,15 @@ void mutex::internal_construct() {
 void mutex::internal_destroy() {
 #if _WIN32||_WIN64
     switch( state ) {
-       case INITIALIZED: {
-           DeleteCriticalSection(&impl);
-       } break;
-       case DESTROYED: 
-           __TBB_ASSERT(false,"mutex: already destroyed"); break;
-       default: 
-           __TBB_ASSERT(false,"mutex: illegal state for destruction");
+      case INITIALIZED:
+        DeleteCriticalSection(&impl);
+       break;
+      case DESTROYED: 
+        __TBB_ASSERT(false,"mutex: already destroyed");
+        break;
+      default: 
+        __TBB_ASSERT(false,"mutex: illegal state for destruction");
+        break;
     }
     state = DESTROYED;
 #else

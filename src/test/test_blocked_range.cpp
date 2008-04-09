@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -46,7 +46,7 @@ AbstractValueType MakeAbstractValueType( int i ) {
     return x;
 }
 
-size_t operator-( const AbstractValueType& u, const AbstractValueType& v ) {
+std::size_t operator-( const AbstractValueType& u, const AbstractValueType& v ) {
     return GetValueOf(u)-GetValueOf(v);
 }
 
@@ -54,7 +54,7 @@ bool operator<( const AbstractValueType& u, const AbstractValueType& v ) {
     return GetValueOf(u)<GetValueOf(v);
 }
 
-AbstractValueType operator+( const AbstractValueType& u, size_t offset ) {
+AbstractValueType operator+( const AbstractValueType& u, std::size_t offset ) {
     return MakeAbstractValueType(GetValueOf(u)+int(offset));
 }
 
@@ -63,11 +63,11 @@ static void SerialTest() {
         for( int y=-10; y<10; ++y ) {
             AbstractValueType i = MakeAbstractValueType(x);
             AbstractValueType j = MakeAbstractValueType(y);
-            for( size_t k=1; k<10; ++k ) {
+            for( std::size_t k=1; k<10; ++k ) {
                 typedef tbb::blocked_range<AbstractValueType> range_type;
                 range_type r( i, j, k );
                 AssertSameType( r.empty(), true );
-                AssertSameType( range_type::size_type(), size_t() );
+                AssertSameType( range_type::size_type(), std::size_t() );
                 AssertSameType( static_cast<range_type::const_iterator*>(0), static_cast<AbstractValueType*>(0) );
                 AssertSameType( r.begin(), MakeAbstractValueType(0) );
                 AssertSameType( r.end(), MakeAbstractValueType(0) );
@@ -75,8 +75,8 @@ static void SerialTest() {
                 ASSERT( r.grainsize()==k, NULL );
                 if( x<=y ) {
                     AssertSameType( r.is_divisible(), true );
-                    ASSERT( r.is_divisible()==(size_t(y-x)>k), NULL );
-                    ASSERT( r.size()==size_t(y-x), NULL );
+                    ASSERT( r.is_divisible()==(std::size_t(y-x)>k), NULL );
+                    ASSERT( r.size()==std::size_t(y-x), NULL );
                     if( r.is_divisible() ) {
                         tbb::blocked_range<AbstractValueType> r2(r,tbb::split());
                         ASSERT( GetValueOf(r.begin())==x, NULL );
@@ -118,6 +118,13 @@ void ParallelTest() {
 
 #include "tbb/task_scheduler_init.h"
 
+//workaround for old patform SDK
+#if defined(_WIN64) && !defined(_CPPLIB_VER)
+namespace std{
+    using ::printf;
+}
+#endif /* defined(_WIN64) && !defined(_CPPLIB_VER) */
+
 int main( int argc, char* argv[] ) {
     ParseCommandLine(argc,argv);
     SerialTest();
@@ -125,6 +132,6 @@ int main( int argc, char* argv[] ) {
         tbb::task_scheduler_init init(p);
         ParallelTest();
     }
-    printf("done\n");
+    std::printf("done\n");
     return 0;
 }

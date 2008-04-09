@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -46,10 +46,10 @@
 #       define __ARCH_x86_64 1
 #   elif __ia64__
 #       define __ARCH_ipf 1
-#   elif __i386__
+#   elif __i386__ || __i386
 #       define __ARCH_x86_32 1
 #   else
-#       define __ARCH_unknown 1
+#       define __ARCH_other 1
 #   endif
 #   define USE_PTHREAD 1
 #endif

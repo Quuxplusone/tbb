@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,9 +35,6 @@
 // The following Windows API function is declared explicitly;
 // otherwise any user would have to specify /D_WIN32_WINNT=0x0400
 extern "C" BOOL WINAPI TryEnterCriticalSection( LPCRITICAL_SECTION );
-#elif _WIN32_WINNT<0x0400
-// If earlier WINNT target is explicitly specified, no try_acquire is possible
-#define __TBB_mutex_NO_TRY_ACQUIRE
 #endif
 
 #else /* if not _WIN32||_WIN64 */
@@ -123,7 +120,6 @@ public:
 #endif /* TBB_DO_ASSERT */
         }
 
-#ifndef __TBB_mutex_NO_TRY_ACQUIRE
         //! Try acquire lock on given mutex.
         bool try_acquire( mutex& mutex ) {
 #if TBB_DO_ASSERT
@@ -140,7 +136,6 @@ public:
             return result;
 #endif /* TBB_DO_ASSERT */
         }
-#endif /* __TBB_mutex_NO_TRY_ACQUIRE */
 
         //! Release lock
         void release() {
@@ -170,12 +165,18 @@ public:
         void internal_release();
     };
 
+    // Mutex traits
+    static const bool is_rw_mutex = false;
+    static const bool is_recursive_mutex = false;
+    static const bool is_fair_mutex = false;
+
 private:
 #if _WIN32||_WIN64
     CRITICAL_SECTION impl;    
     enum state_t {
         INITIALIZED=0x1234,
-        DESTROYED=0x789A
+        DESTROYED=0x789A,
+        HELD=0x56CD
     } state;
 #else
     pthread_mutex_t impl;

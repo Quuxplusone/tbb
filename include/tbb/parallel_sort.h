@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -112,11 +112,21 @@ void parallel_quick_sort( RandomAccessIterator begin, RandomAccessIterator end, 
 } // namespace internal
 //! @endcond
 
+/** \page parallel_sort_iter_req Requirements on iterators for parallel_sort
+    Requirements on value type \c T of \c RandomAccessIterator for \c parallel_sort:
+    - \code void swap( T& x, T& y ) \endcode        Swaps \c x and \c y
+    - \code bool Compare::operator()( const T& x, const T& y ) \endcode
+                                                    True if x comes before y;
+**/
+
+/** \name parallel_sort
+    See also requirements on \ref parallel_sort_iter_req "iterators for parallel_sort". **/
+//@{
+
 //! Sorts the data in [begin,end) using the given comparator 
-/*! The compare function object is used for all comparisons between elements during sorting.
+/** The compare function object is used for all comparisons between elements during sorting.
     The compare object must define a bool operator() function.
-    @ingroup algorithms
-*/
+    @ingroup algorithms **/
 template<typename RandomAccessIterator, typename Compare>
 void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end, const Compare& comp) { 
     const int min_parallel_size = 500; 
@@ -129,23 +139,20 @@ void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end, const 
     }
 }
 
-//! Sorts the data in [begin,end) with a default comparator 
-/*! The std::less<RandomAccessIterator> class is used for all comparisons during sorting.
-    @ingroup algorithms
-*/
+//! Sorts the data in [begin,end) with a default comparator \c std::less<RandomAccessIterator>
+/** @ingroup algorithms **/
 template<typename RandomAccessIterator>
 inline void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end ) { 
     parallel_sort( begin, end, std::less< typename std::iterator_traits<RandomAccessIterator>::value_type >() );
 }
 
-//! Sorts the data in [begin,end) with a default comparator 
-/*! The std::less<RandomAccessIterator> class is used for all comparisons during sorting.
-    @ingroup algorithms
-*/
+//! Sorts the data in the range \c [begin,end) with a default comparator \c std::less<T>
+/** @ingroup algorithms **/
 template<typename T>
 inline void parallel_sort( T * begin, T * end ) {
     parallel_sort( begin, end, std::less< T >() );
 }   
+//@}
 
 
 } // namespace tbb

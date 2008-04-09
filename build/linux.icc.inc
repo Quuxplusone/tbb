@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -25,7 +25,7 @@
 # the GNU General Public License.
 
 COMPILE_ONLY = -c -MMD
-PREPROC_ONLY = -E -MMD
+PREPROC_ONLY = -E -x c
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
 OUTPUT_KEY = -o #
@@ -36,23 +36,25 @@ WARNING_KEY = -w1
 DYLIB_KEY = -shared
 LIBDL = -ldl
 export COMPILER_VERSION := ICC: $(shell icc -V </dev/null 2>&1 | grep 'Version')
+#TODO: autodetection of arch from COMPILER_VERSION!!
 
 TBB_NOSTRICT = 1
 
 CPLUS = icpc 
 
 ifeq (release,$(cfg))
-CPLUS_FLAGS = -DDO_ITT_NOTIFY -O2 -strict_ansi -DUSE_PTHREAD
+CPLUS_FLAGS = -O2 -strict_ansi -DUSE_PTHREAD
 else
-CPLUS_FLAGS = -DTBB_DO_ASSERT -DDO_ITT_NOTIFY -O0 -g -strict_ansi -DUSE_PTHREAD
+CPLUS_FLAGS = -O0 -g -strict_ansi -DUSE_PTHREAD -DTBB_DO_ASSERT
 endif
 
-ifeq (true,$(codecov))
+ifneq (,$(codecov))
     CPLUS_FLAGS += -prof-genx
+else
+    CPLUS_FLAGS += -DDO_ITT_NOTIFY
 endif
 
 OPENMP_FLAG = -openmp
-INCLUDES += -I$(tbb_root)/src/tbb -I$(tbb_root)/include -I$(tbb_root)/src -I.
 LIB_LINK_FLAGS = -shared -i-static
 LIBS = -lpthread -lrt -ldl 
 C_FLAGS = $(CPLUS_FLAGS) -x c
@@ -87,8 +89,9 @@ endif
 #------------------------------------------------------------------------------
 # Setting tbbmalloc data.
 #------------------------------------------------------------------------------
-M_INCLUDES = $(INCLUDES) -I$(MALLOC_ROOT) -I$(MALLOC_SOURCE_ROOT)
+
 M_CPLUS_FLAGS = $(CPLUS_FLAGS) -fno-rtti -fno-exceptions
+
 #------------------------------------------------------------------------------
 # End of setting tbbmalloc data.
 #------------------------------------------------------------------------------

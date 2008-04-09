@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -242,7 +242,7 @@ int main(int argc, char* argv[]) {
 
     pointVec_t      points;
     pointVec_t      hull;
-    size_t          nthreads;
+    int             nthreads;
     util::my_time_t tm_init, tm_start, tm_end;
 
     std::cout << " Starting TBB-bufferred version of QUICK HULL algorithm" << std::endl;

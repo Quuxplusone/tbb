@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,7 +31,7 @@
 // This header is an optional part of the test harness.
 // It assumes that "harness_assert.h" has already been included.
 
-#if __linux__
+#if __linux__ || __sun
 #include <sys/resource.h>
 #include <unistd.h>
 
@@ -57,27 +57,22 @@ static size_t GetMemoryUsage() {
 #if __linux__
     FILE* statsfile = fopen("/proc/self/statm","r");
     size_t pagesize = getpagesize();
-    ASSERT( statsfile, NULL );
+    ASSERT(statsfile, NULL);
     long total_mem;
     fscanf(statsfile,"%lu",&total_mem);
     fclose(statsfile);
     return total_mem*pagesize;
 #elif __APPLE__
-    task_t cur_task;
     kern_return_t status;
-    // port kernel current task object to user space
-    status = task_for_pid(current_task(), getpid(), &cur_task);
-    ASSERT( status==KERN_SUCCESS, NULL);
-    // get task info
     task_basic_info info;
     mach_msg_type_number_t msg_type = TASK_BASIC_INFO_COUNT;
-    status = task_info(cur_task, TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&info), &msg_type);
-    ASSERT( status==KERN_SUCCESS, NULL);
+    status = task_info(mach_task_self(), TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&info), &msg_type);
+    ASSERT(status==KERN_SUCCESS, NULL);
     return info.virtual_size - shared_size;
 #elif _WIN32
     PROCESS_MEMORY_COUNTERS mem;
     bool status = GetProcessMemoryInfo(GetCurrentProcess(), &mem, sizeof(mem))!=0;
-    ASSERT( status, NULL );
+    ASSERT(status, NULL);
     return mem.PagefileUsage;
 #else
     return 0;

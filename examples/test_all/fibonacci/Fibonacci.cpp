@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -333,7 +333,7 @@ value ParallelQueueFib(int n)
 
 //! filter to fills queue
 class InputFilter: public filter {
-    atomic<int> N; //< index of Fibonacci number
+    atomic<int> N; //< index of Fibonacci number minus 1
 public:
     concurrent_queue<Matrix2x2> Queue;
     //! fill filter arguments
@@ -344,7 +344,7 @@ public:
         int n = --N;
         if(n <= 0) return 0;
         Queue.push( Matrix1110 );
-        return n == 1? 0 : &Queue; // one less multiplications
+        return &Queue;
     }
 };
 //! filter to process queue
@@ -365,7 +365,7 @@ public:
 //! Root function
 value ParallelPipeFib(int n)
 {
-    InputFilter input( n );
+    InputFilter input( n-1 );
     MultiplyFilter process;
     // Create the pipeline
     pipeline pipeline;
@@ -373,6 +373,7 @@ value ParallelPipeFib(int n)
     pipeline.add_filter( input ); // first
     pipeline.add_filter( process ); // second
 
+    input.Queue.push( Matrix1110 );
     // Run the pipeline
     pipeline.run( n ); // must be larger then max threads number
     pipeline.clear(); // do not forget clear the pipeline
@@ -460,7 +461,7 @@ struct FibTask: public task {
     //! Execute task
     /*override*/ task* execute() {
         // Using Lucas' formula here
-        if( second_phase ) { // childs finished
+        if( second_phase ) { // children finished
             sum = n&1 ? x*x + y*y : x*x - y*y;
             return NULL;
         }
@@ -468,7 +469,7 @@ struct FibTask: public task {
             sum = n!=0;
             return NULL;
         } else {
-            recycle_as_continuation();  // repeat this task when childs finish
+            recycle_as_continuation();  // repeat this task when children finish
             second_phase = true; // mark second phase
             FibTask& a = *new( allocate_child() ) FibTask( n/2 + 1, x );
             FibTask& b = *new( allocate_child() ) FibTask( n/2 - 1 + (n&1), y );

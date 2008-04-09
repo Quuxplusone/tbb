@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -46,7 +46,7 @@ void spin_mutex::scoped_lock::internal_release() {
     __TBB_ASSERT( !(my_unlock_value&1), "corrupted scoped_lock?" );
 
     ITT_NOTIFY(sync_releasing, my_mutex);
-    my_mutex->flag = static_cast<unsigned char>(my_unlock_value);
+    __TBB_store_with_release(my_mutex->flag, static_cast<unsigned char>(my_unlock_value));
     my_mutex = NULL;
 }
 

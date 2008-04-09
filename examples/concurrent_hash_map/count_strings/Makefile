@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -30,18 +30,16 @@ PROG=count_strings
 # The C++ compiler
 #CXX=g++
 
-all:	release test
+all:   release test
 
 release: *.cpp
-	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbb
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbb $(LIBS)
 
 debug: *.cpp
-	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug
+	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug $(LIBS)
 
 clean:
 	rm -f $(PROG) *.o *.d
 
 test:
-	./$(PROG) 1
-	./$(PROG) 2
-	./$(PROG) 4
+	./$(PROG)

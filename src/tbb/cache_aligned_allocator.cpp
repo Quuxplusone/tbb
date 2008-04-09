@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,6 +27,7 @@
 */
 
 #include "tbb/cache_aligned_allocator.h"
+#include "tbb/tbb_allocator.h"
 #include "tbb_misc.h"
 #include <cstdlib>
 
@@ -35,6 +36,22 @@
 #else
 #include <dlfcn.h>
 #endif /* _WIN32||_WIN64 */
+
+using namespace std;
+
+#if __TBB_WEAK_SYMBOLS
+
+#pragma weak scalable_malloc
+#pragma weak scalable_free
+
+extern "C" {
+    void* scalable_malloc( size_t );
+    void scalable_free( void* );
+}
+
+#endif /* __TBB_WEAK_SYMBOLS */
+
+#define __TBB_IS_SCALABLE_MALLOC_FIX_READY 0
 
 namespace tbb {
 
@@ -54,9 +71,34 @@ static void (*FreeHandler)( void* pointer ) = &DummyFree;
 
 //! Table describing the how to link the handlers.
 static const DynamicLinkDescriptor MallocLinkTable[] = {
-    {"scalable_malloc",ADDRESS_OF_HANDLER(&MallocHandler)},
-    {"scalable_free",ADDRESS_OF_HANDLER(&FreeHandler)}
+    DLD(scalable_malloc, MallocHandler),
+    DLD(scalable_free, FreeHandler),
 };
+
+#if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
+//! Dummy routine used for first indirect call via padded_allocate_handler.
+static void* dummy_padded_allocate( size_t bytes, size_t alignment );
+
+//! Dummy routine used for first indirect call via padded_free_handler.
+static void dummy_padded_free( void * ptr );
+
+// ! Allocates memory using standard malloc. It is used when scalable_allocator is not available
+static void* padded_allocate( size_t bytes, size_t alignment );
+
+// ! Allocates memory using scalable_malloc
+static void* padded_allocate_via_scalable_malloc( size_t bytes, size_t alignment );
+
+// ! Allocates memory using standard free. It is used when scalable_allocator is not available
+static void padded_free( void* p );
+
+//! Handler for padded memory allocation
+static void* (*padded_allocate_handler)( size_t bytes, size_t alignment ) = &dummy_padded_allocate;
+
+//! Handler for padded memory deallocation
+static void (*padded_free_handler)( void* p ) = &dummy_padded_free;
+
+#endif // #if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
+
 
 #if TBB_DO_ASSERT
 #define DEBUG_SUFFIX "_debug"
@@ -69,7 +111,7 @@ static const DynamicLinkDescriptor MallocLinkTable[] = {
 #define MALLOCLIB_NAME "tbbmalloc" DEBUG_SUFFIX ".dll"
 #elif __APPLE__
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".dylib"
-#elif __linux__
+#elif __linux__ || __FreeBSD__ || __sun
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".so"
 #else
 #error Unknown OS
@@ -89,6 +131,14 @@ void initialize_cache_aligned_allocator() {
         // which forces them to wait.
         FreeHandler = &free;
         MallocHandler = &malloc;
+#if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
+        padded_allocate_handler = &padded_allocate;
+        padded_free_handler = &padded_free;
+    }else{
+        padded_allocate_handler = &padded_allocate_via_scalable_malloc;
+        __TBB_ASSERT(FreeHandler != &free && FreeHandler != &DummyFree, NULL);
+        padded_free_handler = FreeHandler;
+#endif // __TBB_IS_SCALABLE_MALLOC_FIX_READY 
     }
     PrintExtraVersionInfo( "ALLOCATOR", success?"scalable_malloc":"malloc" );
 }
@@ -110,6 +160,22 @@ static void DummyFree( void * ptr ) {
     (*FreeHandler)( ptr );
 }
 
+#if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
+//! Executed on very first call throught padded_allocate_handler
+static void* dummy_padded_allocate( size_t bytes, size_t alignment ) {
+    DoOneTimeInitializations();
+    __TBB_ASSERT( padded_allocate_handler!=&dummy_padded_allocate, NULL );
+    return (*padded_allocate_handler)(bytes, alignment);
+}
+
+//! Executed on very first call throught padded_free_handler
+static void dummy_padded_free( void * ptr ) {
+    DoOneTimeInitializations();
+    __TBB_ASSERT( padded_free_handler!=&dummy_padded_free, NULL );
+    (*padded_free_handler)( ptr );
+}    
+#endif // __TBB_IS_SCALABLE_MALLOC_FIX_READY 
+
 static size_t NFS_LineSize = 128;
 
 size_t NFS_GetLineSize() {
@@ -126,27 +192,41 @@ const size_t BigSize = 4096;
 #endif /* _MSC_VER && !defined(__INTEL_COMPILER) */
 
 void* NFS_Allocate( size_t n, size_t element_size, void* hint ) {
-    using namespace internal;
     size_t m = NFS_LineSize;
     __TBB_ASSERT( m<=NFS_MaxLineSize, "illegal value for NFS_LineSize" );
     __TBB_ASSERT( (m & m-1)==0, "must be power of two" );
     size_t bytes = n*element_size;
+#if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
+
+    if (bytes<n || bytes+m<bytes) {
+        // Overflow
+        throw bad_alloc();
+    }
+    
+    void* result = (*padded_allocate_handler)( bytes, m );
+#else
     unsigned char* base;
     if( bytes<n || bytes+m<bytes || !(base=(unsigned char*)(bytes>=BigSize?malloc(m+bytes):(*MallocHandler)(m+bytes))) ) {
         // Overflow
-        throw std::bad_alloc();
+        throw bad_alloc();
     }
     // Round up to next line
     unsigned char* result = (unsigned char*)((uintptr)(base+m)&-m);
     // Record where block actually starts.  Use low order bit to record whether we used malloc or MallocHandler.
     ((uintptr*)result)[-1] = uintptr(base)|(bytes>=BigSize);
+#endif // __TBB_IS_SCALABLE_MALLOC_FIX_READY    
+    /** The test may fail with TBB_IS_SCALABLE_MALLOC_FIX_READY = 1 
+        because scalable_malloc returns addresses aligned to 64 when large block is allocated */
+    __TBB_ASSERT( ((size_t)result&(m-1)) == 0, "The address returned isn't aligned to cache line size" );
     return result;
 }
 
 void NFS_Free( void* p ) {
+#if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
+    (*padded_free_handler)( p );
+#else
     if( p ) {
         __TBB_ASSERT( (uintptr)p>=0x4096, "attempt to free block not obtained from cache_aligned_allocator" );
-        using namespace internal;
         // Recover where block actually starts
         unsigned char* base = ((unsigned char**)p)[-1];
         __TBB_ASSERT( (void*)((uintptr)(base+NFS_LineSize)&-NFS_LineSize)==p, "not allocated by NFS_Allocate?" );
@@ -158,8 +238,67 @@ void NFS_Free( void* p ) {
             (*FreeHandler)( base );
         }
     }
+#endif // __TBB_IS_SCALABLE_MALLOC_FIX_READY
 }
 
+#if __TBB_IS_SCALABLE_MALLOC_FIX_READY
+static void* padded_allocate_via_scalable_malloc( size_t bytes, size_t alignment  ) {  
+    unsigned char* base;
+    if( !(base=(unsigned char*)(*MallocHandler)((bytes+alignment)&-alignment))) {
+        throw bad_alloc();
+    }        
+    return base; // scalable_malloc returns aligned pointer
+}
+
+static void* padded_allocate( size_t bytes, size_t alignment ) {    
+    unsigned char* base;
+    if( !(base=(unsigned char*)malloc(alignment+bytes)) ) {        
+        throw bad_alloc();
+    }
+    // Round up to the next line
+    unsigned char* result = (unsigned char*)((uintptr)(base+alignment)&-alignment);
+    // Record where block actually starts.
+    ((uintptr*)result)[-1] = uintptr(base);
+    return result;    
+}
+
+static void padded_free( void* p ) {
+    if( p ) {
+        __TBB_ASSERT( (uintptr)p>=0x4096, "attempt to free block not obtained from cache_aligned_allocator" );
+        // Recover where block actually starts
+        unsigned char* base = ((unsigned char**)p)[-1];
+        __TBB_ASSERT( (void*)((uintptr)(base+NFS_LineSize)&-NFS_LineSize)==p, "not allocated by NFS_Allocate?" );
+        free(base);
+    }
+}
+#endif // #if __TBB_IS_SCALABLE_MALLOC_FIX_READY
+
+void* allocate_via_handler_v3( size_t n ) {    
+    void* result;
+    result = (*MallocHandler) (n);
+    if (!result) {
+        // Overflow
+        throw bad_alloc();
+    }
+    return result;
+}
+
+void deallocate_via_handler_v3( void *p ) {
+    if( p ) {        
+        (*FreeHandler)( p );
+    }
+}
+
+bool is_malloc_used_v3() {
+    if (MallocHandler == &DummyMalloc) {
+        void* void_ptr = (*MallocHandler)(1);
+        (*FreeHandler)(void_ptr);
+    }
+    __TBB_ASSERT( MallocHandler!=&DummyMalloc && FreeHandler!=&DummyFree, NULL );
+    __TBB_ASSERT(MallocHandler==&malloc && FreeHandler==&free ||
+                  MallocHandler!=&malloc && FreeHandler!=&free, NULL );
+    return MallocHandler == &malloc;
+}
 #if _MSC_VER && !defined(__INTEL_COMPILER)
 #pragma warning( pop )
 #endif /* _MSC_VER && !defined(__INTEL_COMPILER) */

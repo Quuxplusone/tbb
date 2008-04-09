@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,12 +26,14 @@
     the GNU General Public License.
 */
 
-#include "harness.h"
-#include <cstdlib>
-#include <cstdio>
-#include "tbb/task_scheduler_init.h"
+#include <stdio.h>
 
 #if __APPLE__
+
+#include "harness.h"
+#include <cstdlib>
+#include "tbb/task_scheduler_init.h"
+
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -71,23 +73,25 @@ bool exec_test(const char *self) {
     }
     return true;
 }
-#endif
+#endif /* __APPLE__ */
 
 int main( int argc, char * argv[] ) {
+#if __APPLE__
     MinThread = 3000;
     ParseCommandLine( argc, argv );
     if( MinThread <= 0 ) {
         tbb::task_scheduler_init init( 2 ); // even number reuired for an error
     } else {
-#if __APPLE__
         for(int i = 0; i<MinThread; i++)
             if(exec_test(argv[0])) {
                 printf("ERROR: execution fails at %d-th iteration!\n", i);
                 exit(1);
             }
 
-#endif
         printf("done\n");
     }
+#else
+        printf("skip\n");
+#endif
     return 0;
 }

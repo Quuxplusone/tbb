@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -42,9 +42,14 @@
 int main(void)
 {
     size_t i, j;
-    void *p1=NULL, *p2=NULL;
-    for( i=0; i<=1<<16; ++i)
-        scalable_free(scalable_malloc(i));
+    void *p1, *p2;
+    for( i=0; i<=1<<16; ++i) {
+        p1 = scalable_malloc(i);
+        if( !p1 )
+            printf("Warning: there should be memory but scalable_malloc returned NULL\n");
+        scalable_free(p1);
+    }
+    p1 = p2 = NULL;
     for( i=1024*1024; ; i/=2 )
     {
         scalable_free(p1);

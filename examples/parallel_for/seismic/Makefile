@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -31,7 +31,7 @@ NAME=seismic
 #CXX=g++
 
 # detecting x64
-ifeq ($(shell arch),x86_64)
+ifeq ($(shell uname -m),x86_64)
 x64 ?= 64
 endif
 # detecting UI ("mac", "x" or "con")
@@ -55,8 +55,8 @@ endif # libXext
 else # ! X
 
 ifeq ($(UI),mac)
-TBBLIBS = /Library/Frameworks/TBB.framework/Libraries
-CXXFLAGS += -L$(TBBLIBS) -arch i386 -mmacosx-version-min=10.4 -fno-rtti -msse3 -ftree-vectorize
+TBBLIBSPATH = /Library/Frameworks/TBB.framework/Libraries
+CXXFLAGS += -L$(TBBLIBSPATH) -arch i386 -mmacosx-version-min=10.4 -msse3 -ftree-vectorize
 LIBS += -framework OpenGL -framework AGL -framework Carbon
 APPRES = $(NAME).app/Contents/Resources
 EXE = ./$(NAME).app/Contents/MacOS/$(NAME)
@@ -77,10 +77,10 @@ ifeq ($(UI),mac)
 endif
 
 release: ../../common/gui/$(UI)video.cpp SeismicSimulation.cpp resources
-	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(EXE) $< *.cpp -ltbb $(LIBS)
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(EXE) $< SeismicSimulation.cpp -ltbb $(LIBS)
 
 debug: ../../common/gui/$(UI)video.cpp SeismicSimulation.cpp resources
-	$(CXX) -g -O0 -DTBB_DO_ASSERT $(CXXFLAGS) -o $(EXE) $< *.cpp -ltbb_debug $(LIBS)
+	$(CXX) -g -O0 -DTBB_DO_ASSERT $(CXXFLAGS) -o $(EXE) $< SeismicSimulation.cpp -ltbb_debug $(LIBS)
 
 clean:
 	rm -f $(EXE) *.o *.d
@@ -90,7 +90,7 @@ endif
 
 test:
 ifeq ($(UI),mac)
-	export DYLD_LIBRARY_PATH="$(DYLD_LIBRARY_PATH):$(TBBLIBS)"; $(EXE) - 300
+	export DYLD_LIBRARY_PATH="$(DYLD_LIBRARY_PATH):$(TBBLIBSPATH)"; $(EXE) - 300
 else
 	$(EXE) - 300
 endif

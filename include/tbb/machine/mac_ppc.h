@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -42,57 +42,43 @@ inline int32_t __TBB_machine_cmpswp4 (volatile void *ptr, int32_t value, int32_t
 {
     int32_t result;
 
-    __asm__ __volatile__("0: lwarx %0,0,%1\n\t" /* load w/ reservation */
-                         "cmpw %0,%3\n\t"       /* compare against comparand */
+    __asm__ __volatile__("sync\n"
+                         "0: lwarx %0,0,%1\n\t"  /* load w/ reservation */
+                         "cmpw %0,%3\n\t"        /* compare against comparand */
                          "bne- 1f\n\t"           /* exit if not same */
                          "stwcx. %2,0,%1\n\t"    /* store new_value */
                          "bne- 0b\n"             /* retry if reservation lost */
-                         "1:"                   /* the exit */
+                         "1: sync"               /* the exit */
                           : "=&r"(result)
                           : "r"(ptr), "r"(value), "r"(comparand)
                           : "cr0");
     return result;
 }
 
+inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t comparand )
+{
+    int64_t result;
+    __asm__ __volatile__("sync\n"
+                         "0: ldarx %0,0,%1\n\t"  /* load w/ reservation */
+                         "cmpd %0,%3\n\t"        /* compare against comparand */
+                         "bne- 1f\n\t"           /* exit if not same */
+                         "stdcx. %2,0,%1\n\t"    /* store new_value */
+                         "bne- 0b\n"             /* retry if reservation lost */
+                         "1: sync"               /* the exit */
+                          : "=&b"(result)
+                          : "r"(ptr), "r"(value), "r"(comparand)
+                          : "cr0");
+    return result;
+}
+
 #if defined(powerpc64) || defined(__powerpc64__) || defined(__ppc64__)
-
-inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t comparand )
-{
-    int64_t result;
-    __asm__ __volatile__("0: ldarx %0,0,%1\n\t" /* load w/ reservation */
-                         "cmpd %0,%3\n\t"       /* compare against comparand */
-                         "bne- 1f\n\t"           /* exit if not same */
-                         "stdcx. %2,0,%1\n\t"    /* store new_value */
-                         "bne- 0b\n"             /* retry if reservation lost */
-                         "1:"                   /* the exit */
-                          : "=&b"(result)
-                          : "r"(ptr), "r"(value), "r"(comparand)
-                          : "cr0");
-    return result;
-}
-
+#define __TBB_CompareAndSwapW(P,V,C) __TBB_machine_cmpswp8(P,V,C)
 #else
-#error This configuratioin is not supported yet
-
-inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t comparand )
-{
-    int64_t result;
-    __asm__ __volatile__("0: ldarx %0,0,%1\n\t" /* load w/ reservation */
-                         "cmpd %0,%3\n\t"       /* compare against comparand */
-                         "bne- 1f\n\t"           /* exit if not same */
-                         "stdcx. %2,0,%1\n\t"    /* store new_value */
-                         "bne- 0b\n"             /* retry if reservation lost */
-                         "1:"                   /* the exit */
-                          : "=&b"(result)
-                          : "r"(ptr), "r"(value), "r"(comparand)
-                          : "cr0");
-    return result;
-}
-
+#define __TBB_CompareAndSwapW(P,V,C) __TBB_machine_cmpswp4(P,V,C)
 #endif
 
 #define __TBB_CompareAndSwap4(P,V,C) __TBB_machine_cmpswp4(P,V,C)
 #define __TBB_CompareAndSwap8(P,V,C) __TBB_machine_cmpswp8(P,V,C)
-#define __TBB_CompareAndSwapW(P,V,C) __TBB_machine_cmpswp8(P,V,C)
 #define __TBB_Yield() sched_yield()
-
+#define __TBB_fence_for_acquire() __asm__ __volatile__("sync": : :"memory")
+#define __TBB_fence_for_release() __asm__ __volatile__("sync": : :"memory")

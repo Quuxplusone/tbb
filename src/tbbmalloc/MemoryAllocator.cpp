@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,7 +32,7 @@
 #ifdef MALLOC_TRACE
 #define TRACEF printf
 #else
-static inline int TRACEF(char *arg, ...)
+static inline int TRACEF(const char *arg, ...)
 {
     return 0;
 }
@@ -52,11 +52,12 @@ static inline int TRACEF(char *arg, ...)
     inline void do_yield() {sched_yield();}
 
 #elif USE_WINTHREAD
+    #define _WIN32_WINNT 0x0400
     #include <windows.h>
     #define TlsSetValue_func TlsSetValue
     #define TlsGetValue_func TlsGetValue
     typedef DWORD tls_key_t;
-    inline void do_yield() {Sleep(0);}
+    inline void do_yield() {SwitchToThread();}
 
 #else
     #error Must define USE_PTHREAD or USE_WINTHREAD
@@ -67,7 +68,7 @@ static inline int TRACEF(char *arg, ...)
 #include <string.h>
 #include <errno.h>
 
-#if __linux__||__APPLE__
+#if __linux__||__APPLE__ || __FreeBSD__ || __sun
 #include <fcntl.h>
 #endif
 
@@ -105,7 +106,7 @@ namespace Internal {
 
 typedef intptr_t ThreadId;
 
-static volatile ThreadId ThreadIdCount;
+static ThreadId ThreadIdCount;
 
 static tls_key_t TLS_pointer_key;
 static tls_key_t Tid_key;
@@ -192,21 +193,21 @@ static void returnMemory(void *area, size_t bytes)
 
 /********* The data structures                           **************/
 
-typedef struct FreeObjectS *FreeObjectPtr;
+typedef struct FreeObject *FreeObjectPtr;
 
-typedef struct FreeObjectS {
+struct FreeObject {
     FreeObjectPtr  next;
-} FreeObject;
+};
 
 /*
- * The intent is to make sure that the size of a Block is the same as a cache line size, this allows us to
- * get good alignement at the cost of some overhead equal to the amount of padding included in the Block.
+ * The intent is to have the size of a Block multiple of the cache line size, this allows us to
+ * get good alignment at the cost of some overhead equal to the amount of padding included in the Block.
  *
  */
 
 #define CACHE_LINE_SIZE 64
 
-typedef struct BlockS *BlockPtr;
+typedef struct Block *BlockPtr;
 
 /* The next field in this structure has to maintain some invariants.
  *   it needs to be on a 16K boundary and the first field in the block.
@@ -219,7 +220,7 @@ typedef struct BlockS *BlockPtr;
  * in particular "fitting" sizes (see below).
  */
 
-typedef struct BlockS {
+struct Block {
     BlockPtr     next;     /* This field needs to be on a 16K boundary and the first field in the block
                               so non-blocking LifoQueues will work. */
     BlockPtr     previous; /* Use double linked list to speed up removal */
@@ -240,15 +241,13 @@ typedef struct BlockS {
     void        *pad5;
     void        *pad6;
 #endif
-} Block;
+};
 
-//typedef Block SizeBins[]; /* an array of blocks */
-
-typedef struct BinS {
+struct Bin {
     BlockPtr  activeBlk;
     BlockPtr  mailbox;
     MallocMutex mailLock;
-} Bin;
+};
 
 /********* End of the data structures                    **************/
 
@@ -324,7 +323,7 @@ static inline unsigned int highestBitPos(unsigned int number)
     unsigned int pos;
 #if __ARCH_x86_32||__ARCH_x86_64
 
-# if __linux__||__APPLE__
+# if __linux__||__APPLE__||__FreeBSD__ || __sun
     __asm__ ("bsr %1,%0" : "=r"(pos) : "r"(number));
 # elif (_WIN32 && (!_WIN64 || __INTEL_COMPILER))
     __asm
@@ -338,7 +337,7 @@ static inline unsigned int highestBitPos(unsigned int number)
 #   error highestBitPos() not implemented for this platform
 # endif
 
-#elif __ARCH_ipf || __ARCH_unknown
+#elif __ARCH_ipf || __ARCH_other
     static unsigned int bsr[16] = {0,6,7,7,8,8,8,8,9,9,9,9,9,9,9,9};
     MALLOC_ASSERT( number>=64 && number<1024, ASSERT_TEXT );
     pos = bsr[ number>>6 ];
@@ -771,9 +770,10 @@ static void freePublicObject (Block *block, FreeObject *objectToFree)
     FreeObject *publicFreeList;
 
 #if FREELIST_NONBLOCKING
-    FreeObject *temp;
+    FreeObject *temp = block->publicFreeList;
+    MALLOC_ITT_SYNC_RELEASING(&block->publicFreeList);
     do {
-        publicFreeList = objectToFree->next = const_cast<FreeObject* volatile &>(block->publicFreeList);
+        publicFreeList = objectToFree->next = temp;
         temp = (FreeObject*)AtomicCompareExchange(
                                 (intptr_t&)block->publicFreeList,
                                 (intptr_t)objectToFree, (intptr_t)publicFreeList );
@@ -825,13 +825,15 @@ static void privatizePublicFreeList (Block *mallocBlock)
 
     MALLOC_ASSERT( mallocBlock->owner == getThreadId(), ASSERT_TEXT );
 #if FREELIST_NONBLOCKING
+    temp = mallocBlock->publicFreeList;
     do {
-        publicFreeList = const_cast<FreeObject* volatile &>(mallocBlock->publicFreeList);
+        publicFreeList = temp;
         temp = (FreeObject*)AtomicCompareExchange(
                                 (intptr_t&)mallocBlock->publicFreeList,
                                 0, (intptr_t)publicFreeList);
         //no backoff necessary because trying to make change, not waiting for a change
     } while( temp != publicFreeList );
+    MALLOC_ITT_SYNC_ACQUIRED(&mallocBlock->publicFreeList);
 #else
     STAT_increment(mallocBlock->owner, ThreadCommonCounters, lockPublicFreeList);
     {
@@ -989,9 +991,8 @@ static void initEmptyBlock(Block *block, size_t size)
     block->pad5 = 0;
     block->pad6 = 0;
 #endif /* BLOCK_IS_PADDED */
-/*    printf ("Empty block %p is initialized, owner is %d, objectSize is %d, bumpPtr is %p\n",
+    TRACEF ("Empty block %p is initialized, owner is %d, objectSize is %d, bumpPtr is %p\n",
         block, block->owner, block->objectSize, block->bumpPtr);
- */
   }
 
 /* Return an empty uninitialized block in a non-blocking fashion. */
@@ -1097,11 +1098,11 @@ inline static Block* setPreviousBlockActive( Bin* bin )
 
 static unsigned int isLargeObject(void *object); /* Forward Ref */
 
-typedef struct LargeObjectHeaderS {
+struct LargeObjectHeader {
     void        *unalignedResult;   /* The base of the memory returned from getMemory, this is what is used to return this to the OS */
     size_t       unalignedSize;     /* The size that was requested from getMemory */
     size_t       objectSize;        /* The size originally requested by a client */
-} LargeObjectHeader;
+};
 
 static inline void *mallocLargeObject (size_t size)
 {
@@ -1112,12 +1113,15 @@ static inline void *mallocLargeObject (size_t size)
 
     // TODO: can the requestedSize be optimized somehow?
     size_t requestedSize = size + sizeof(LargeObjectHeader) + blockSize;
+    /* errno should be tested because some Linux versions have a known issue
+       of returning non-NULL even if there is no memory */
+    errno = 0;
 #if USE_MALLOC_FOR_LARGE_OBJECT
     unalignedArea = malloc(requestedSize);
 #else
     unalignedArea = getMemory(requestedSize);
 #endif /* USE_MALLOC_FOR_LARGE_OBJECT */
-    if (!unalignedArea) {
+    if (!unalignedArea || errno) {
         /* We can't get any more memory from the OS or executive so return 0 */
         return 0;
     }
@@ -1176,6 +1180,9 @@ static void checkInitialization()
         MALLOC_ASSERT(mallocInitialized==0, ASSERT_TEXT);
         mallocInitialized = 1;
         initMemoryManager();
+#ifdef  MALLOC_EXTRA_INITIALIZATION
+        MALLOC_EXTRA_INITIALIZATION;
+#endif /* MALLOC_EXTRA_INITIALIZATION */
         MALLOC_ASSERT(mallocInitialized==1, ASSERT_TEXT);
         mallocInitialized = 2;
     }
@@ -1223,21 +1230,21 @@ inline static FreeObject* allocateFromBlock( Block *mallocBlock )
 
     MALLOC_ASSERT( mallocBlock->owner == getThreadId(), ASSERT_TEXT );
     /*
-     * use thread local bump pointer allocation.
-     */
-    if ( (result = allocateFromBumpPtr(mallocBlock)) ) { /* avoid initing free list */
-        return result;
-    }
-    MALLOC_ASSERT( !mallocBlock->bumpPtr, ASSERT_TEXT );
-    /*
-     * else use allocation from free lists
+     * for better cache locality, first looking in the free list
      */
     if ( (result = allocateFromFreeList(mallocBlock)) ) {
         return result;
     }
     MALLOC_ASSERT( !mallocBlock->freeList, ASSERT_TEXT );
     /*
-     * else the block is considered full
+     * if free list is empty, try thread local bump pointer allocation.
+     */
+    if ( (result = allocateFromBumpPtr(mallocBlock)) ) {
+        return result;
+    }
+    MALLOC_ASSERT( !mallocBlock->bumpPtr, ASSERT_TEXT );
+    /*
+     * the block is considered full
      */
     mallocBlock->isFull = 1;
     return NULL;

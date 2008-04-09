@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -31,6 +31,7 @@
 tbb_root ?= "$(TBB20_INSTALL_DIR)"
 BUILDING_PHASE=1
 include $(tbb_root)/build/common.inc
+DEBUG_SUFFIX=$(findstring _debug,_$(cfg))
 
 #------------------------------------------------------------
 # Define static pattern rules dealing with .cpp source files
@@ -41,9 +42,9 @@ default_tbb: $(TBB.DLL)
 .PHONY: default_tbb tbbvars clean
 .PRECIOUS: %.$(OBJ)
 
-VPATH = $(tbb_root)/src/tbb/$(ASSEMBLY_SOURCE) $(tbb_root)/src/tbb
+VPATH = $(tbb_root)/src/tbb/$(ASSEMBLY_SOURCE) $(tbb_root)/src/tbb $(tbb_root)/src/old
 
-CPLUS_FLAGS += $(PIC_KEY) $(WARNING_KEY)
+CPLUS_FLAGS += $(PIC_KEY) $(DEFINE_KEY)__TBB_BUILD=1
 
 ifeq (1,$(TBB_NOSTRICT))
 # GNU 3.2.3 headers have a ISO syntax that is rejected by Intel compiler in -strict_ansi mode.
@@ -51,11 +52,10 @@ ifeq (1,$(TBB_NOSTRICT))
 # The files below need the -strict_ansi flag downgraded to -ansi to compile
 
 KNOWN_NOSTRICT = concurrent_hash_map.o \
+	concurrent_vector_v2.o \
 	concurrent_vector.o
 
 endif
-
-include $(tbb_root)/build/common_rules.inc
 
 # Object files (that were compiled from C++ code) that gmake up TBB
 TBB_CPLUS.OBJ = concurrent_hash_map.$(OBJ) \
@@ -70,14 +70,36 @@ TBB_CPLUS.OBJ = concurrent_hash_map.$(OBJ) \
 		spin_mutex.$(OBJ) \
 		task.$(OBJ) \
 		tbb_misc.$(OBJ) \
-		mutex.$(OBJ) 
+		mutex.$(OBJ) \
+		recursive_mutex.$(OBJ) \
+		tbb_thread.$(OBJ)
+
+# OLD/Legacy object files for backward binary compatibility
+ifeq (,$(findstring $(DEFINE_KEY)TBB_NO_LEGACY,$(CPLUS_FLAGS)))
+TBB_CPLUS_OLD.OBJ = \
+		concurrent_vector_v2.$(OBJ) \
+		concurrent_queue_v2.$(OBJ) \
+		spin_rw_mutex_v2.$(OBJ)
+endif
 
 # Object files that gmake up TBB (TBB_ASM.OBJ is platform-specific)
-TBB.OBJ = $(TBB_CPLUS.OBJ) $(TBB_ASM.OBJ)
+TBB.OBJ = $(TBB_CPLUS.OBJ) $(TBB_CPLUS_OLD.OBJ) $(TBB_ASM.OBJ)
 
-$(TBB.DLL): $(TBB.OBJ) $(TBB.DEF) $(TBB.RES) tbbvars
-	$(CPLUS) $(TBB.OBJ) $(TBB.RES) $(LIBS) $(PIC_KEY) $(OUTPUT_KEY)$(TBB.DLL) $(LIB_LINK_FLAGS)
+# Suppress superfluous warnings for TBB compilation
+WARNING_KEY += $(WARNING_SUPPRESS)
 
+include $(tbb_root)/build/common_rules.inc
+
+ifneq (,$(TBB.DEF))
+tbb.def: $(TBB.DEF)
+	$(CMD) "$(CPLUS) $(PREPROC_ONLY) $(TBB.DEF) $(filter $(DEFINE_KEY)%,$(CPLUS_FLAGS)) >tbb.def 2>$(NUL) || exit 0"
+
+LIB_LINK_FLAGS += $(EXPORT_KEY)tbb.def
+$(TBB.DLL): tbb.def
+endif
+
+$(TBB.DLL): $(TBB.OBJ) $(TBB.RES) tbbvars
+	$(LIB_LINK_CMD) $(LIB_OUTPUT_KEY)$(TBB.DLL) $(TBB.OBJ) $(TBB.RES) $(LIB_LINK_LIBS) $(LIB_LINK_FLAGS)
 
 #clean:
 #	$(RM) *.$(OBJ) *.$(DLL) *.res *.map *.ilk *.pdb *.exp *.manifest *.tmp *.d core core.*[0-9][0-9]

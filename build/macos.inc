@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -53,11 +53,12 @@ native_compiler := gcc
 export compiler ?= gcc
 debugger ?= gdb
 
+CMD=$(SHELL) -c
 CWD=$(shell pwd)
 RM?=rm -f
 RD?=rmdir
 MD?=mkdir -p
-NUL= > /dev/null 2>&1
+NUL= /dev/null
 SLASH=/
 MAKE_VERSIONS=sh $(tbb_root)/build/version_info_macos.sh $(CPLUS) $(CPLUS_FLAGS) $(INCLUDES) >version_string.tmp
 MAKE_TBBVARS=sh $(tbb_root)/build/generate_tbbvars.sh
@@ -68,16 +69,15 @@ OBJ=o
 DLL=dylib
 LIBEXT=dylib
 
-ifeq ($(cfg),debug)
-    DEBUG_SUFFIX = _debug
-endif
+def_prefix = $(if $(findstring 32,$(arch)),mac32,mac64)
 
-TBB.DEF = $(tbb_root)/src/tbb/$(arch)-tbb-mac-export.txt
+TBB.DEF = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.def
 TBB.DLL = libtbb$(DEBUG_SUFFIX).$(DLL)
 TBB.LIB = $(TBB.DLL)
+LINK_TBB.LIB = $(TBB.LIB)
 
-MALLOC.DEF = $(MALLOC_ROOT)/$(arch)-malloc-mac-export.txt
-MALLOC.DLL = libtbbmalloc$(DEBUG_SUFFIX).dylib
+MALLOC.DEF = $(MALLOC_ROOT)/$(def_prefix)-tbbmalloc-export.def
+MALLOC.DLL = libtbbmalloc$(DEBUG_SUFFIX).$(DLL)
 MALLOC.LIB = $(MALLOC.DLL)
 
 TBB_NOSTRICT=1

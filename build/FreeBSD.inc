@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -28,15 +28,18 @@ ifndef arch
         ifeq ($(shell uname -m),i386)
                 export arch:=ia32
         endif
+        ifeq ($(shell uname -m),ia64)
+                export arch:=itanium
+        endif
+        ifeq ($(shell uname -m),amd64)
+                export arch:=em64t
+        endif
 endif
 
 ifndef runtime
         gcc_version:=$(shell gcc -v 2>&1 | grep 'gcc version' | sed -e 's/^gcc version //' | sed -e 's/ .*$$//')
         os_version:=$(shell uname -r)
         os_kernel_version:=$(shell uname -r | sed -e 's/-.*$$//')
-#        export os_glibc_version_full:=$(shell rpm -qa | grep '^glibc-[0-9]' | sort -u | sed -e 's/^glibc-//')
-#        os_glibc_version:=$(shell echo "$(os_glibc_version_full)" | sed -e '2,$$d' -e 's/-.*$$//')
-#        export runtime:=cc$(gcc_version)_libc$(os_glibc_version)_kernel$(os_kernel_version)
         export runtime:=cc$(gcc_version)_kernel$(os_kernel_version)
 endif
 
@@ -44,11 +47,12 @@ native_compiler := gcc
 export compiler ?= gcc
 debugger ?= gdb
 
+CMD=$(SHELL) -c
 CWD=$(shell pwd)
 RM?=rm -f
 RD?=rmdir
 MD?=mkdir -p
-NUL= > /dev/null 2>&1
+NUL= /dev/null
 SLASH=/
 MAKE_VERSIONS=sh $(tbb_root)/build/version_info_linux.sh $(CPLUS) $(CPLUS_FLAGS) $(INCLUDES) >version_string.tmp
 MAKE_TBBVARS=sh $(tbb_root)/build/generate_tbbvars.sh
@@ -64,18 +68,12 @@ endif
 OBJ = o
 DLL = so
 
-ifeq ($(cfg),debug)
-    DEBUG_SUFFIX = _debug
-endif
-
 TBB.DEF = 
 TBB.DLL = libtbb$(DEBUG_SUFFIX).$(DLL)
 TBB.LIB = $(TBB.DLL)
+LINK_TBB.LIB = $(TBB.LIB)
 
-MALLOC.DLL = libtbbmalloc$(DEBUG_SUFFIX).so
+MALLOC.DLL = libtbbmalloc$(DEBUG_SUFFIX).$(DLL)
 MALLOC.LIB = $(MALLOC.DLL)
 
 TBB_NOSTRICT=1
-
-
-

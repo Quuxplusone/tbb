@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -56,12 +56,12 @@ bool operator<( const AbstractValueType<Tag>& u, const AbstractValueType<Tag>& v
 }
 
 template<typename Tag>
-size_t operator-( const AbstractValueType<Tag>& u, const AbstractValueType<Tag>& v ) {
+std::size_t operator-( const AbstractValueType<Tag>& u, const AbstractValueType<Tag>& v ) {
     return GetValueOf(u)-GetValueOf(v);
 }
 
 template<typename Tag>
-AbstractValueType<Tag> operator+( const AbstractValueType<Tag>& u, size_t offset ) {
+AbstractValueType<Tag> operator+( const AbstractValueType<Tag>& u, std::size_t offset ) {
     return MakeAbstractValueType<Tag>(GetValueOf(u)+int(offset));
 }
 

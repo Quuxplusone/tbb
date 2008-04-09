@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -52,11 +52,13 @@ struct TestStruct {
 //! Test compare_and_swap template members of class atomic<T> for memory_semantics=M
 template<typename T,tbb::memory_semantics M>
 void TestCompareAndSwapAcquireRelease( T i, T j, T k ) {
-    ASSERT( i!=j && j!=k, "values must be distinct" ); 
+    ASSERT( i!=k, "values must be distinct" ); 
+    // Test compare_and_swap that should fail
     TestStruct<T> x(i);
     T old = x.counter.template compare_and_swap<M>( j, k );
     ASSERT( old==i, NULL );
     ASSERT( x.counter==i, "old value not retained" );
+    // Test compare and swap that should suceed
     old = x.counter.template compare_and_swap<M>( j, i );
     ASSERT( old==i, NULL );
     ASSERT( x.counter==j, "value not updated?" );
@@ -65,11 +67,13 @@ void TestCompareAndSwapAcquireRelease( T i, T j, T k ) {
 //! i, j, k must be different values
 template<typename T>
 void TestCompareAndSwap( T i, T j, T k ) {
-    ASSERT( i!=j && j!=k, "values must be distinct" ); 
+    ASSERT( i!=k, "values must be distinct" ); 
+    // Test compare_and_swap that should fail
     TestStruct<T> x(i);
     T old = x.counter.compare_and_swap( j, k );
     ASSERT( old==i, NULL );
     ASSERT( x.counter==i, "old value not retained" );
+    // Test compare and swap that should suceed
     old = x.counter.compare_and_swap( j, i );
     ASSERT( old==i, NULL );
     if( x.counter==i ) {
@@ -180,6 +184,10 @@ void TestFetchAndAdd( void* ) {
     // There are no fetch-and-add operations on a void*.
 }
 
+void TestFetchAndAdd( bool ) {
+    // There are no fetch-and-add operations on a bool.
+}
+
 template<typename T>
 void TestConst( T i ) { 
     // Try const 
@@ -192,7 +200,7 @@ template<typename T>
 void TestOperations( T i, T j, T k ) {
     TestConst(i);
     TestCompareAndSwap(i,j,k);
-    TestFetchAndStore(i,j);
+    TestFetchAndStore(i,k);    // Pass i,k instead of i,j, because callee requires two distinct values.
     TestFetchAndAdd(i);
 }
 
@@ -220,14 +228,15 @@ template<typename T>
 void TestAtomicInteger( const char* name ) {
     if( Verbose )
         printf("testing atomic<%s>\n",name);
-#if __linux__ && __TBB_x86_32 && __GNUC__==3 && __GNUC_MINOR__==3
+#if ( __linux__ && __TBB_x86_32 && __GNUC__==3 && __GNUC_MINOR__==3 ) || defined(__SUNPRO_CC)
     // gcc 3.3 has known problem for 32-bit Linux, so only warn if there is a problem.
+    // SUNPRO_CC does have this problem as well
     if( sizeof(T)==8 ) {
         if( sizeof(AlignmentChecker<T>)!=2*sizeof(tbb::atomic<T>) ) {
-            printf("Warning: alignment for atomic<%s> is wrong (known issue with gcc 3.3 for IA32)\n",name);
+            printf("Warning: alignment for atomic<%s> is wrong (known issue with gcc 3.3 and sunCC 5.9 2008/01/28 for IA32)\n",name);
         }
     } else
-#endif /* __linux__ && __GNUC__ */
+#endif /* ( __linux__ && __TBB_x86_32 && __GNUC__==3 && __GNUC_MINOR__==3 ) || defined(__SUNPRO_CC) */
     ASSERT( sizeof(AlignmentChecker<T>)==2*sizeof(tbb::atomic<T>), NULL );
     TestOperations<T>(0L,T(-T(1)),T(1));
     for( int k=0; k<int(sizeof(long))*8-1; ++k ) {
@@ -285,6 +294,12 @@ void TestAtomicPointer<void*>() {
     TestLoadAndStoreFences<void*>( "pointer" );
 }
 
+void TestAtomicBool() {
+    TestOperations<bool>(true,true,false);
+    TestOperations<bool>(false,false,true);
+    TestLoadAndStoreFences<bool>( "bool" );
+}
+
 template<unsigned N>
 class ArrayElement {
     char item[N];
@@ -319,6 +334,7 @@ int main( int argc, char* argv[] ) {
     TestAtomicPointer<ArrayElement<7> >();
     TestAtomicPointer<ArrayElement<8> >();
     TestAtomicPointer<void*>();
+    TestAtomicBool();
     ASSERT( !MemoryFenceError, NULL );
     printf("done\n");
     return 0;
@@ -351,6 +367,13 @@ T special_sum(intptr_t arg1, intptr_t arg2) {
 template<>
 void* special_sum<void*>(intptr_t arg1, intptr_t arg2) {
     return (void*)(arg1 + arg2);
+}
+
+// The specialization for bool is required to shut up gratuitous compiler warnings,
+// because some compilers warn about casting int to bool.
+template<>
+bool special_sum<bool>(intptr_t arg1, intptr_t arg2) {
+    return ((arg1!=0) + arg2)!=0;
 }
 
 volatile int One = 1;

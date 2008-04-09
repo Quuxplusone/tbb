@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,6 +29,7 @@
 // Test whether cache_aligned_allocator works with some of the host's STL containers.
 
 #include "tbb/cache_aligned_allocator.h"
+#include "tbb/tbb_allocator.h"
 
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 #include "test_allocator.h"
@@ -41,6 +42,7 @@
 
 int main() {
     TestContainer<std::vector<int,tbb::cache_aligned_allocator<int> > >();
+    TestContainer<std::vector<int,tbb::tbb_allocator<int> > >();    
 #if defined(_WIN64) && !defined(_CPPLIB_VER)
     // Microsoft incorrectly typed the first argument to std::allocator<T>::deallocate
     // as (void*), and depends upon this error in their early versions of list and deque.
@@ -48,7 +50,9 @@ int main() {
            "because they depend on error that Microsoft corrected later.\n");
 #else
     TestContainer<std::list<int,tbb::cache_aligned_allocator<int> > >();
+    TestContainer<std::list<int,tbb::tbb_allocator<int> > >();
     TestContainer<std::deque<int,tbb::cache_aligned_allocator<int> > >();
+    TestContainer<std::deque<int,tbb::tbb_allocator<int> > >();
 #endif /* _WIN64 */
     printf("done\n");
     return 0;

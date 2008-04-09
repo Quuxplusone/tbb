@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -157,7 +157,6 @@ public:
     template<typename Stream>
     void run( Stream& stream, const Body& body );
 
-
     //! Add a work item while running.
     /** Should be executed only by body.apply or a thread spawned therefrom. */
     void add( const value_type& item );
@@ -175,7 +174,6 @@ void parallel_while<Body>::run( Stream& stream, const Body& body ) {
     my_body = &body;
     my_barrier = &barrier;
     my_barrier->set_ref_count(2);
-
     while_task<Stream,Body>& w = *new( my_barrier->allocate_child() ) while_task<Stream,Body>( stream, body, barrier );
     my_barrier->spawn_and_wait_for_all(w);
     my_barrier->destroy(*my_barrier);
@@ -183,7 +181,6 @@ void parallel_while<Body>::run( Stream& stream, const Body& body ) {
     my_body = NULL;
 }
 
- 
 template<typename Body>
 void parallel_while<Body>::add( const value_type& item ) {
     __TBB_ASSERT(my_barrier,"attempt to add to parallel_while that is not running");

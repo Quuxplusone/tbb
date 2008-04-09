@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -32,12 +32,12 @@
 all:	release test
 
 release: *.cpp
-	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o convex_hull_sample convex_hull_sample.cpp -ltbb
-	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o convex_hull_bench convex_hull_bench.cpp -ltbb
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o convex_hull_sample convex_hull_sample.cpp -ltbb $(LIBS)
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o convex_hull_bench convex_hull_bench.cpp -ltbb $(LIBS)
 
 debug: *.cpp
-	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o convex_hull_sample convex_hull_sample.cpp -ltbb_debug
-	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o convex_hull_bench convex_hull_bench.cpp -ltbb_debug
+	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o convex_hull_sample convex_hull_sample.cpp -ltbb_debug $(LIBS)
+	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o convex_hull_bench convex_hull_bench.cpp -ltbb_debug $(LIBS)
 
 clean:
 	rm -f convex_hull_bench convex_hull_sample *.o *.d

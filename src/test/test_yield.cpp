@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -63,7 +63,7 @@ struct RoundRobin {
     }
 };
 
-int main( long argc, char* argv[] ) {
+int main( int argc, char* argv[] ) {
     // Set defaults
     MaxThread = MinThread = 3;
     ParseCommandLine( argc, argv );

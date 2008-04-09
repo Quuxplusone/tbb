@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -105,9 +105,6 @@ void queuing_mutex::scoped_lock::release( )
         SpinwaitWhileEq( next, (scoped_lock*)0 );
     }
     __TBB_ASSERT(next,NULL);
-    // The volatile here ensures release semantics on IPF, which are necessary
-    // so that the user's critical section sends the correct values to the next
-    // process that acquires the critical section.
     __TBB_store_with_release(next->going, 1);
 done:
     initialize();

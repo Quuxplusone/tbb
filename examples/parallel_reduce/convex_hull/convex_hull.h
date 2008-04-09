@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,26 +30,30 @@
 #define __CONVEX_HULL_H__
 
 #define _SCL_SECURE_NO_DEPRECATE
-#include <stdlib.h>
+#include <cstdlib>
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <vector>
 #include <string>
+#include <cstring>
 #include <algorithm>
 #include <functional>
 #include <assert.h>
 #include "tbb/tick_count.h"
 
+using namespace std;
+
 namespace cfg {
     // convex hull problem parameter defaults
     const long    NP = 5000000; // problem size
-    const size_t SNT = 1;        // minimal number of threads
-    const size_t ENT = 8;        // maximal number of threads
+    const int     SNT = 1;        // minimal number of threads
+    const int     ENT = 8;        // maximal number of threads
 
     // convex hull problem user set parameters
     long   MAXPOINTS         = NP;
-    size_t NUM_THREADS_START = SNT;
-    size_t NUM_THREADS_END   = ENT;
+    int    NUM_THREADS_START = SNT;
+    int    NUM_THREADS_END   = ENT;
 
     // convex hull grain sizes for 3 subproblems. Be sure 16*GS < 512Kb
     const size_t GENERATE_GS = 25000;
@@ -59,7 +63,7 @@ namespace cfg {
 
 namespace util {
     bool                     VERBOSE = false;
-    std::vector<std::string> OUTPUT;
+    vector<string> OUTPUT;
 
     // utility functionality
     void ParseInputArgs(int argc, char* argv[]) {
@@ -67,14 +71,14 @@ namespace util {
         if(argc>numArgs) {
             char delim = ':';
             if(!strcmp(argv[numArgs], "-h")) {
-                std::cout << " Program usage is:" << std::endl
+                cout << " Program usage is:" << endl
                     << " " << argv[0] << " [NP] [SNT" << delim << "ENT] [-v]"
-                    << std::endl << std::endl
-                    << " where:" << std::endl
-                    << " NP  - number of points" << std::endl
-                    << " SNT - start with this number of threads" << std::endl
-                    << " ENT - end with this number of threads" << std::endl
-                    << "  -v - turns verbose ON" << std::endl;
+                    << endl << endl
+                    << " where:" << endl
+                    << " NP  - number of points" << endl
+                    << " SNT - start with this number of threads" << endl
+                    << " ENT - end with this number of threads" << endl
+                    << "  -v - turns verbose ON" << endl;
                 exit(0);
             } else {
                 while(argc>numArgs) {
@@ -84,35 +88,35 @@ namespace util {
                     } else if(!strchr(argv[numArgs], delim)) {
                         cfg::MAXPOINTS = strtol(argv[numArgs], &endptr, 0);
                         if(*endptr!='\0') {
-                            std::cout << " wrong parameter format for Number of Points" << std::endl;
+                            cout << " wrong parameter format for Number of Points" << endl;
                             exit(1);
                         }
                         if(cfg::MAXPOINTS<=0) {
-                            std::cout
-                                << "  wrong value set for Number of Points" << std::endl
-                                << "  using default value: " << std::endl
-                                << "  Number of Points = " << cfg::NP << std::endl;
+                            cout
+                                << "  wrong value set for Number of Points" << endl
+                                << "  using default value: " << endl
+                                << "  Number of Points = " << cfg::NP << endl;
                             cfg::MAXPOINTS = cfg::NP;
                         }
                     } else {
-                        cfg::NUM_THREADS_START=strtol(argv[numArgs], &endptr, 0);
+                        cfg::NUM_THREADS_START=(int)strtol(argv[numArgs], &endptr, 0);
                         if(*endptr==delim) {
-                            cfg::NUM_THREADS_END = strtol(endptr+1, &endptr, 0);
+                            cfg::NUM_THREADS_END = (int)strtol(endptr+1, &endptr, 0);
                         } else {
-                            std::cout << " wrong parameter format for Number of Threads" << std::endl;
+                            cout << " wrong parameter format for Number of Threads" << endl;
                             exit(1);
                         }
                         if(*endptr!='\0') {
-                            std::cout << " wrong parameter format for Number of Threads" << std::endl;
+                            cout << " wrong parameter format for Number of Threads" << endl;
                             exit(1);
                         }    
                         if((cfg::NUM_THREADS_START<=0)
                             || (cfg::NUM_THREADS_END<cfg::NUM_THREADS_START)) {
-                                std::cout
-                                    << "  wrong values set for Number of Threads" << std::endl
-                                    << "  using default values: " << std::endl
-                                    << "  start NT = " << cfg::SNT << std::endl
-                                    << "  end   NT = " << cfg::ENT << std::endl;
+                                cout
+                                    << "  wrong values set for Number of Threads" << endl
+                                    << "  using default values: " << endl
+                                    << "  start NT = " << cfg::SNT << endl
+                                    << "  end   NT = " << cfg::ENT << endl;
                                 cfg::NUM_THREADS_START=cfg::SNT;
                                 cfg::NUM_THREADS_END  =cfg::ENT;
                         }
@@ -129,17 +133,18 @@ namespace util {
         T y;
         point() : x(T()), y(T()) {}
         point(T _x, T _y) : x(_x), y(_y) {}
-        point(const point<T>& _P) : x(_P.x), y(_P.y) {}
-    };
+        //why do we need below line? it fails to compile with suncc
+	    //point(const point<T>& _P) : x(_P.x), y(_P.y) {} 
+	};
 
     int random(unsigned int& rseed) {
-#if __linux__ || __APPLE__
+#if __linux__ || __APPLE__ || __FreeBSD__ 
             return rand_r(&rseed);
-#elif _WIN32
+#elif _WIN32 || __sun
             return rand();
 #else
 #error Unknown/unsupported OS?
-#endif // __linux__
+#endif // __linux__ || __APPLE__ || __FreeBSD__ 
     }
 
     template < typename T >
@@ -179,12 +184,12 @@ namespace util {
     };
 
     template <typename T>
-    std::ostream& operator <<(std::ostream& _ostr, point<T> _p) {
+    ostream& operator <<(ostream& _ostr, point<T> _p) {
         return _ostr << '(' << _p.x << ',' << _p.y << ')';
     }
 
     template <typename T>
-    std::istream& operator >>(std::istream& _istr, point<T> _p) {
+    istream& operator >>(istream& _istr, point<T> _p) {
         return _istr >> _p.x >> _p.y;
     }
 
@@ -214,19 +219,19 @@ namespace util {
         return (end-start).seconds();
     }
 
-    void WriteResults(size_t nthreads, double initTime, double calcTime) {
+    void WriteResults(int nthreads, double initTime, double calcTime) {
         if(VERBOSE) {
-            std::cout << " Step by step hull constuction:" << std::endl;
+            cout << " Step by step hull constuction:" << endl;
             for(size_t i = 0; i < OUTPUT.size(); ++i)
-                std::cout << OUTPUT[i] << std::endl;
+                cout << OUTPUT[i] << endl;
         }
 
-        std::cout
+        cout
             << "  Number of nodes:" << cfg::MAXPOINTS
-            << "  Number of threads:" << nthreads
-            << "  Initialization time:" << initTime
-            << "  Calculation time:" << calcTime
-            << std::endl;
+            << "  Number of threads:" << nthreads 
+            << "  Initialization time:" << setw(10) << setprecision(3) << initTime 
+            << "  Calculation time:" << setw(10) << setprecision(3) << calcTime
+            << endl;
     }
 };
 

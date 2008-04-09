@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -41,15 +41,23 @@
 /*  Returns 0 if not implemented on platform. */
 static double GetCPUUserTime() { 
 #if _WIN32
-    FILETIME times[4];
-    bool status = GetProcessTimes(GetCurrentProcess(), times, times+1, times+2, times+3)!=0;
+    FILETIME my_times[4];
+    bool status = GetProcessTimes(GetCurrentProcess(), my_times, my_times+1, my_times+2, my_times+3)!=0;
     ASSERT( status, NULL );
     LARGE_INTEGER usrtime;
-    usrtime.LowPart = times[3].dwLowDateTime;
-    usrtime.HighPart = times[3].dwHighDateTime;
+    usrtime.LowPart = my_times[3].dwLowDateTime;
+    usrtime.HighPart = my_times[3].dwHighDateTime;
     return double(usrtime.QuadPart)*1E-7;
 #else
-    // Generic UNIX, including __linux__ or __APPLE__
+    // Generic UNIX, including __APPLE__
+
+    // On Linux, there is no good way to get CPU usage info for the current process:
+    //   getrusage(RUSAGE_SELF, ...) that is used now only returns info for the calling thread;
+    //   getrusage(RUSAGE_CHILDREN, ...) only counts for finished children threads;
+    //   tms_utime and tms_cutime got with times(struct tms*) are equivalent to the above items;
+    //   finally, /proc/self/task/<task_id>/stat doesn't exist on older kernels 
+    //      and it isn't quite convenient to read it for every task_id.
+
     struct rusage resources;
     bool status = getrusage(RUSAGE_SELF, &resources)==0;
     ASSERT( status, NULL );
@@ -58,25 +66,40 @@ static double GetCPUUserTime() {
 }
 
 #include "tbb/tick_count.h"
+#include "tbb/tbb_machine.h"
 #include <cstdio>
 
 // The resolution of GetCPUUserTime is 10-15 ms or so; waittime should be a few times bigger.
 const double WAITTIME = 0.1; // in seconds, i.e. 100 ms
+const double THRESHOLD = WAITTIME/100;
 
-static void TestCPUUserTime( int nworkers ) {
+static void TestCPUUserTime( int nthreads, int nactive = 1 ) {
+    // The test will always pass on Linux; read the comments in GetCPUUserTime for details
+    // Also it will not detect spinning issues on systems with only one processing core.
+
     static double minimal_waittime = WAITTIME;
+    int nworkers = nthreads-nactive;
     if( !nworkers ) return;
 
-    // Test that all workers sleep when no work
-    // So far this will not detect the issue on systems with only one processing core
+    double usrtime;
+    double lastusrtime = GetCPUUserTime();
+    while( (usrtime=GetCPUUserTime())-lastusrtime < THRESHOLD )
+        ; // wait for GetCPUUserTime update
+    lastusrtime = usrtime;
+    
+    // Test that all workers sleep when no work.
     double waittime;
-    double usrtime = GetCPUUserTime();
     tbb::tick_count stamp = tbb::tick_count::now();
-    while( (waittime = (tbb::tick_count::now()-stamp).seconds()) < minimal_waittime )
-        ;  // Wait for workers to sleep
-    usrtime = GetCPUUserTime() - usrtime;
+    while( ((waittime=(tbb::tick_count::now()-stamp).seconds()) < minimal_waittime) 
+        || ((usrtime=GetCPUUserTime()-lastusrtime) < THRESHOLD) )
+        ; // Wait for workers to go sleep
 
-    double avg_worker_usrtime = (usrtime-waittime)/nworkers;
+    while( nactive>1 && usrtime-nactive*waittime<0 ) {
+        // probably the number of active threads was mispredicted
+        --nactive; ++nworkers;
+    }
+    double avg_worker_usrtime = (usrtime-nactive*waittime)/nworkers;
+
     if( avg_worker_usrtime > waittime/2 )
         fprintf(stderr, "ERROR: %d worker threads are spinning; waittime: %g; usrtime: %g; avg worker usrtime: %g\n",
                         nworkers, waittime, usrtime, avg_worker_usrtime);

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,7 +26,9 @@
     the GNU General Public License.
 */
 
+#if !defined(INSTANTIATE_ITT_NOTIFY)
 #define INSTANTIATE_ITT_NOTIFY 1
+#endif
 #include "itt_notify.h"
 #include "tbb_misc.h"
 #include <stdlib.h>
@@ -34,36 +36,51 @@
 #include "tbb/tbb_machine.h"
 
 #if _WIN32||_WIN64
-#include <windows.h>
-#else
-#include <dlfcn.h>
-#endif /* _WIN32||_WIN64 */
+    #include <windows.h>
+#else /* !WIN */
+    #include <dlfcn.h>
+#if __TBB_WEAK_SYMBOLS
+    #pragma weak __itt_notify_sync_prepare
+    #pragma weak __itt_notify_sync_acquired
+    #pragma weak __itt_notify_sync_releasing
+    #pragma weak __itt_notify_sync_cancel
+    #pragma weak __itt_thr_name_set
+    extern "C" {
+        void __itt_notify_sync_prepare(void *p);
+        void __itt_notify_sync_cancel(void *p);
+        void __itt_notify_sync_acquired(void *p);
+        void __itt_notify_sync_releasing(void *p);
+        int __itt_thr_name_set (void* p, int len);
+    }
+#endif /* __TBB_WEAK_SYMBOLS */
+#endif /* !WIN */
 
 namespace tbb {
 namespace internal {
 
 #if DO_ITT_NOTIFY
+
 //! Table describing the __itt_notify handlers.
 static const DynamicLinkDescriptor ITT_HandlerTable[] = {
-    {"__itt_notify_sync_prepare",ADDRESS_OF_HANDLER(&ITT_Handler_sync_prepare)},
-    {"__itt_notify_sync_acquired",ADDRESS_OF_HANDLER(&ITT_Handler_sync_acquired)},
-    {"__itt_notify_sync_releasing",ADDRESS_OF_HANDLER(&ITT_Handler_sync_releasing)},
-    {"__itt_notify_sync_cancel",ADDRESS_OF_HANDLER(&ITT_Handler_sync_cancel)},
+    DLD( __itt_notify_sync_prepare, ITT_Handler_sync_prepare),
+    DLD( __itt_notify_sync_acquired, ITT_Handler_sync_acquired),
+    DLD( __itt_notify_sync_releasing, ITT_Handler_sync_releasing),
+    DLD( __itt_notify_sync_cancel, ITT_Handler_sync_cancel),
 # if _WIN32||_WIN64
 #  ifdef UNICODE
-    {"__itt_thr_name_setW",ADDRESS_OF_HANDLER(&ITT_Handler_thr_name_set)},
+    DLD( __itt_thr_name_setW, ITT_Handler_thr_name_set),
 #  else
-    {"__itt_thr_name_setA",ADDRESS_OF_HANDLER(&ITT_Handler_thr_name_set)},
-#  endif
+    DLD( __itt_thr_name_setA, ITT_Handler_thr_name_set),
+#  endif /* UNICODE */
 # else
-    {"__itt_thr_name_set",ADDRESS_OF_HANDLER(&ITT_Handler_thr_name_set)},
-# endif
+    DLD( __itt_thr_name_set, ITT_Handler_thr_name_set),
+# endif /* _WIN32 || _WIN64 */
 };
 
 // LIBITTNOTIFY_NAME is the name of the ITT notification library 
 # if _WIN32||_WIN64
 #  define LIBITTNOTIFY_NAME "libittnotify.dll"
-# elif __linux__
+# elif __linux__ || __FreeBSD__ || __sun
 #  define LIBITTNOTIFY_NAME "libittnotify.so"
 # elif __APPLE__
 #  define LIBITTNOTIFY_NAME "libittnotify.dylib"
@@ -134,6 +151,17 @@ int dummy_thr_name_set( const char* str, int number ) {
 }
 
 #endif /* DO_ITT_NOTIFY */
+
+void itt_store_pointer_with_release_v3( void* dst, void* src ) {
+    ITT_NOTIFY(sync_releasing, dst);
+    __TBB_store_with_release(*static_cast<void**>(dst),src);
+}
+
+void* itt_load_pointer_with_acquire_v3( const void* src ) {
+    void* result = __TBB_load_with_acquire(*static_cast<void*const*>(src));
+    ITT_NOTIFY(sync_acquired, const_cast<void*>(src));
+    return result;
+}
 
 } // namespace internal 
 

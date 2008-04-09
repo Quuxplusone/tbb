@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,7 +27,7 @@
 */
 
 #include "tbb/pipeline.h"
-#include "tbb/tick_count.h"
+#include "tbb/spin_mutex.h"
 #include <cstdlib>
 #include <cstdio>
 #include "harness.h"
@@ -39,6 +39,17 @@ struct Buffer {
     Buffer() : id(-1), is_busy(false) {}
 };
 
+class waiting_probe {
+    size_t check_counter;
+public:
+    waiting_probe() : check_counter(0) {}
+    bool required( ) {
+        ++check_counter;
+        return !((check_counter+1)&size_t(0x7FFF));
+    }
+    void probe( ); // defined below
+};
+
 static size_t InputCounter;
 static const size_t MaxStreamSize = 1<<12;
 //! Maximum number of filters allowed
@@ -46,21 +57,26 @@ static const int MaxFilters = 5;
 static size_t StreamSize;
 static const size_t MaxBuffer = 8;
 static bool Done[MaxFilters][MaxStreamSize];
+static waiting_probe WaitTest;
 
 class MyFilter: public tbb::filter {
     bool* const my_done;
-    const bool my_is_last;      
+    const bool my_is_last;  
+    const bool input_was_ordered;
 public:
-    MyFilter( bool is_ordered, bool done[], bool is_last ) : 
-        filter(is_ordered) ,
+    MyFilter( bool is_ordered, bool done[], bool is_last, bool first_stage_is_ordered ) : 
+        filter(is_ordered? tbb::filter::serial : tbb::filter::parallel) ,
         my_done(done),
-        my_is_last(is_last)
+        my_is_last(is_last),
+        input_was_ordered(first_stage_is_ordered)
     {}
     /*override*/void* operator()( void* item ) {
         Buffer& b = *static_cast<Buffer*>(item);
         ASSERT( 0<=b.id && size_t(b.id)<StreamSize, NULL );
         ASSERT( !my_done[b.id], "duplicate processing of token?" );
-        ASSERT( !is_serial() || b.id==0 || my_done[b.id-1], NULL );
+        // The below assertion is no more kept if the first stage was parallel
+        if( input_was_ordered )
+            ASSERT( !is_serial() || b.id==0 || my_done[b.id-1], NULL );
         ASSERT( b.is_busy, NULL );
         my_done[b.id] = true;
         if( my_is_last ) {
@@ -71,64 +87,124 @@ public:
 };
 
 class MyInput: public tbb::filter {
-    const size_t my_number_of_filters;
-    size_t next_buffer;
+    const bool my_is_last;
+    const size_t my_number_of_tokens;
     Buffer buffer[MaxBuffer];
+    tbb::spin_mutex input_lock;
+    bool my_is_running;
     /*override*/void* operator()( void* );
 public:
-    MyInput( bool is_ordered, int number_of_filters ) : 
+    MyInput( bool is_ordered, size_t ntokens, bool is_last ) : 
         tbb::filter(is_ordered),
-        my_number_of_filters(number_of_filters),
-        next_buffer(0)
-    {}
-    bool last_filter_is_ordered;        
+        my_is_last(is_last),
+        my_number_of_tokens(ntokens),
+        my_is_running(false)
+    {
+        ASSERT( my_number_of_tokens<=MaxBuffer, NULL );
+    }
 };
 
 void* MyInput::operator()(void*) {
-    if( InputCounter>=StreamSize ) 
-        return NULL;
-    else {
-retry:
-        Buffer& b = buffer[next_buffer];
-        ASSERT( &buffer[0] <= &b, NULL );
-        ASSERT( &b <= &buffer[MaxBuffer-1], NULL ); 
-        next_buffer = (next_buffer+1) % MaxBuffer;
-        if( !last_filter_is_ordered && b.is_busy ) 
-            goto retry;
-        ASSERT( !b.is_busy, "premature reuse of buffer");
-        b.id = int(InputCounter++);
-        b.is_busy = my_number_of_filters>1;
-        return &b;
+    size_t next_input, free_buffer = 0;
+    if( is_serial() )
+        ASSERT( !my_is_running, "premature entry to serial input stage" );
+    my_is_running = true;
+    { // lock protected scope
+        tbb::spin_mutex::scoped_lock lock(input_lock);
+        if( InputCounter>=StreamSize ) {
+            my_is_running = false;
+            return NULL;
+        }
+        next_input = InputCounter++;
+        // once in a while, emulate waiting for input; this only makes sense for serial input
+        if( is_serial() && WaitTest.required() )
+            WaitTest.probe( );
+        while( free_buffer<MaxBuffer )
+            if( buffer[free_buffer].is_busy )
+                ++free_buffer;
+            else {
+                buffer[free_buffer].is_busy = true;
+                break;
+            }
     }
+    ASSERT( free_buffer<my_number_of_tokens, "premature reuse of buffer" );
+    Buffer& b = buffer[free_buffer];
+    ASSERT( &buffer[0] <= &b, NULL );
+    ASSERT( &b <= &buffer[MaxBuffer-1], NULL ); 
+    b.id = int(next_input);
+    b.is_busy = !my_is_last;
+    my_is_running = false;
+    return &b;
 }
 
-//! Test pipeline that has a single stage, which is ordered, or two stages, where first is unordered.
-void TestTrivialpipeline( size_t nthread, int number_of_filters ) {
+//! The struct below repeats layout of tbb::pipeline.
+struct hacked_pipeline {
+    tbb::filter* filter_list;
+    tbb::filter* filter_end;
+    tbb::empty_task* end_counter;
+    tbb::internal::Token input_tokens;
+    tbb::internal::Token token_counter;
+    bool end_of_input;
+
+    virtual ~hacked_pipeline();
+};
+
+//! The struct below repeats layout of tbb::internal::ordered_buffer.
+struct hacked_ordered_buffer {
+    tbb::task** array;
+    tbb::internal::Token array_size;
+    tbb::internal::Token low_token;
+    tbb::spin_mutex array_mutex;
+};
+
+//! The struct below repeats layout of tbb::filter.
+struct hacked_filter {
+    tbb::filter* next_filter_in_pipeline;
+    hacked_ordered_buffer* input_buffer;
+    unsigned char my_filter_mode;
+    tbb::filter* prev_filter_in_pipeline;
+    tbb::pipeline* my_pipeline;
+
+    virtual ~hacked_filter();
+};
+
+const tbb::internal::Token tokens_before_wraparound = 0xF;
+
+void TestTrivialPipeline( size_t nthread, int number_of_filters ) {
     if( Verbose ) 
-        printf("testing with %d filters\n", number_of_filters );
+        printf("testing with %d threads and %d filters\n", int(nthread), number_of_filters );
     ASSERT( number_of_filters<=MaxFilters, "too many filters" );
+    ASSERT( sizeof(hacked_pipeline) == sizeof(tbb::pipeline), "layout changed for tbb::pipeline?" );
+    ASSERT( sizeof(hacked_filter) == sizeof(tbb::filter), "layout changed for tbb::filter?" );
+    size_t ntokens = nthread<MaxBuffer ? nthread : MaxBuffer;
     // Iterate over possible ordered/unordered filter sequences
     for( int bitmask=0; bitmask<1<<number_of_filters; ++bitmask ) {
         // Build pipeline
         tbb::pipeline pipeline;
+        // A private member of pipeline is hacked there for sake of testing wrap-around immunity.
+        ((hacked_pipeline*)(void*)&pipeline)->token_counter = ~tokens_before_wraparound;
         tbb::filter* filter[MaxFilters];
+        bool first_stage_is_ordered = false;
         for( int i=0; i<number_of_filters; ++i ) {
             const bool is_ordered = bitmask>>i&1;
             const bool is_last = i==number_of_filters-1;
-            if( i==0 )
-                filter[i] = new MyInput(is_ordered,number_of_filters);
+            if( i==0 ) {
+                filter[i] = new MyInput(is_ordered,ntokens,is_last);
+                first_stage_is_ordered = is_ordered;
+            }
             else
-                filter[i] = new MyFilter(is_ordered,Done[i],is_last);
+                filter[i] = new MyFilter(is_ordered,Done[i],is_last,first_stage_is_ordered);
             pipeline.add_filter(*filter[i]);
-            if( is_last ) 
-                static_cast<MyInput*>(filter[0])->last_filter_is_ordered = is_ordered;
+            // The ordered buffer of serial filters is hacked as well.
+            if (is_ordered)
+                ((hacked_filter*)(void*)filter[i])->input_buffer->low_token = ~tokens_before_wraparound;
         }
         for( StreamSize=0; StreamSize<=MaxStreamSize; StreamSize += StreamSize/3+1 ) {
             memset( Done, 0, sizeof(Done) );
             InputCounter = 0;
-            tbb::tick_count t0 = tbb::tick_count::now();
-            pipeline.run( nthread<MaxBuffer ? nthread : MaxBuffer-1 );
-            tbb::tick_count t1 = tbb::tick_count::now();
+
+            pipeline.run( ntokens );
+
             if( number_of_filters>0 ) 
                 ASSERT( InputCounter==StreamSize, NULL );
             for( int i=1; i<MaxFilters; ++i )
@@ -144,8 +220,21 @@ void TestTrivialpipeline( size_t nthread, int number_of_filters ) {
     }
 }
 
-#include "tbb/task_scheduler_init.h"
+#include "tbb/tick_count.h"
+#include "tbb/tbb_machine.h"
 #include "harness_cpu.h"
+
+static int nthread; // knowing number of threads is necessary to call TestCPUUserTime
+
+void waiting_probe::probe( ) {
+    if( nthread==1 ) return;
+    if( Verbose ) printf("emulating wait for input\n");
+    // Test that threads sleep while no work.
+    // The master doesn't sleep so there could be 2 active threads if a worker is waiting for input
+    TestCPUUserTime(nthread, 2);
+}
+
+#include "tbb/task_scheduler_init.h"
 
 int main( int argc, char* argv[] ) {
     // Default is at least one thread.
@@ -157,16 +246,16 @@ int main( int argc, char* argv[] ) {
     }
 
     // Test with varying number of threads.
-    for( int nthread=MinThread; nthread<=MaxThread; ++nthread ) {
+    for( nthread=MinThread; nthread<=MaxThread; ++nthread ) {
         // Initialize TBB task scheduler
-        tbb::task_scheduler_init init( nthread );
+        tbb::task_scheduler_init init(nthread);
 
         // Test pipelines with n filters
         for( int n=0; n<=5; ++n )
-            TestTrivialpipeline(size_t(nthread),n);
+            TestTrivialPipeline(size_t(nthread),n);
 
         // Test that all workers sleep when no work
-        TestCPUUserTime(nthread-1);
+        TestCPUUserTime(nthread);
     }
     printf("done\n");
     return 0;

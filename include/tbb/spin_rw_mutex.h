@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,51 +30,55 @@
 #define __TBB_spin_rw_mutex_H
 
 #include "tbb_stddef.h"
+#include "tbb_machine.h"
 
 namespace tbb {
 
+class spin_rw_mutex_v3;
+typedef spin_rw_mutex_v3 spin_rw_mutex;
+
 //! Fast, unfair, spinning reader-writer lock with backoff and writer-preference
 /** @ingroup synchronization */
-class spin_rw_mutex {
+class spin_rw_mutex_v3 {
     //! @cond INTERNAL
 
     //! Present so that 1.0 headers work with 1.1 dynamic library.
-    static void internal_itt_releasing(spin_rw_mutex *);
+    void internal_itt_releasing();
 
     //! Internal acquire write lock.
-    static bool internal_acquire_writer(spin_rw_mutex *);
+    bool internal_acquire_writer();
 
     //! Out of line code for releasing a write lock.  
     /** This code is has debug checking and instrumentation for Intel(R) Thread Checker and Intel(R) Thread Profiler. */
-    static void internal_release_writer(spin_rw_mutex *);
+    void internal_release_writer();
 
     //! Internal acquire read lock.
-    static void internal_acquire_reader(spin_rw_mutex *);
+    void internal_acquire_reader();
 
     //! Internal upgrade reader to become a writer.
-    static bool internal_upgrade(spin_rw_mutex *);
+    bool internal_upgrade();
 
     //! Out of line code for downgrading a writer to a reader.   
     /** This code is has debug checking and instrumentation for Intel(R) Thread Checker and Intel(R) Thread Profiler. */
-    static void internal_downgrade(spin_rw_mutex *);
+    void internal_downgrade();
 
     //! Internal release read lock.
-    static void internal_release_reader(spin_rw_mutex *);
+    void internal_release_reader();
 
     //! Internal try_acquire write lock.
-    static bool internal_try_acquire_writer(spin_rw_mutex *);
+    bool internal_try_acquire_writer();
 
     //! Internal try_acquire read lock.
-    static bool internal_try_acquire_reader(spin_rw_mutex *);
+    bool internal_try_acquire_reader();
 
     //! @endcond
 public:
     //! Construct unacquired mutex.
-    spin_rw_mutex() : state(0) {}
+    spin_rw_mutex_v3() : state(0) {}
 
 #if TBB_DO_ASSERT
     //! Destructor asserts if the mutex is acquired, i.e. state is zero.
-    ~spin_rw_mutex() {
+    ~spin_rw_mutex_v3() {
         __TBB_ASSERT( !state, "destruction of an acquired mutex");
     };
 #endif /* TBB_DO_ASSERT */
@@ -104,8 +108,8 @@ public:
             __TBB_ASSERT( !mutex, "holding mutex already" );
             is_writer = write; 
             mutex = &m;
-            if( write ) internal_acquire_writer(mutex);
-            else        internal_acquire_reader(mutex);
+            if( write ) mutex->internal_acquire_writer();
+            else        mutex->internal_acquire_reader();
         }
 
         //! Upgrade reader to become a writer.
@@ -114,7 +118,7 @@ public:
             __TBB_ASSERT( mutex, "lock is not acquired" );
             __TBB_ASSERT( !is_writer, "not a reader" );
             is_writer = true; 
-            return internal_upgrade(mutex);
+            return mutex->internal_upgrade();
         }
 
         //! Release lock.
@@ -122,26 +126,24 @@ public:
             __TBB_ASSERT( mutex, "lock is not acquired" );
             spin_rw_mutex *m = mutex; 
             mutex = NULL;
-            if( is_writer ) {
 #if TBB_DO_THREADING_TOOLS||TBB_DO_ASSERT
-                internal_release_writer(m);
+            if( is_writer ) m->internal_release_writer();
+            else            m->internal_release_reader();
 #else
-                m->state = 0; 
+            if( is_writer ) __TBB_AtomicAND( &m->state, READERS ); 
+            else            __TBB_FetchAndAddWrelease( &m->state, -(intptr_t)ONE_READER);
 #endif /* TBB_DO_THREADING_TOOLS||TBB_DO_ASSERT */
-            } else {
-                internal_release_reader(m);
-            }
-        };
+        }
 
         //! Downgrade writer to become a reader.
         bool downgrade_to_reader() {
 #if TBB_DO_THREADING_TOOLS||TBB_DO_ASSERT
             __TBB_ASSERT( mutex, "lock is not acquired" );
             __TBB_ASSERT( is_writer, "not a writer" );
-            internal_downgrade(mutex);
+            mutex->internal_downgrade();
 #else
-            mutex->state = 4; // Bit 2 - reader, 00..00100
-#endif
+	     __TBB_FetchAndAddW( &mutex->state, ((intptr_t)ONE_READER-WRITER));
+#endif /* TBB_DO_THREADING_TOOLS||TBB_DO_ASSERT */
             is_writer = false;
 
             return true;
@@ -152,9 +154,10 @@ public:
             __TBB_ASSERT( !mutex, "holding mutex already" );
             bool result;
             is_writer = write; 
-            result = write? internal_try_acquire_writer(&m)
-                          : internal_try_acquire_reader(&m);
-            if( result ) mutex = &m;
+            result = write? m.internal_try_acquire_writer()
+                          : m.internal_try_acquire_reader();
+            if( result ) 
+                mutex = &m;
             return result;
         }
 
@@ -162,22 +165,28 @@ public:
         //! The pointer to the current mutex that is held, or NULL if no mutex is held.
         spin_rw_mutex* mutex;
 
-        //! True if holding a writer lock, false if holding a reader lock.
+        //! If mutex!=NULL, then is_writer is true if holding a writer lock, false if holding a reader lock.
         /** Not defined if not holding a lock. */
         bool is_writer;
     };
 
+    // Mutex traits
+    static const bool is_rw_mutex = true;
+    static const bool is_recursive_mutex = false;
+    static const bool is_fair_mutex = false;
+
 private:
-    typedef internal::uintptr state_t;
+    typedef intptr_t state_t;
     static const state_t WRITER = 1;
     static const state_t WRITER_PENDING = 2;
     static const state_t READERS = ~(WRITER | WRITER_PENDING);
     static const state_t ONE_READER = 4;
     static const state_t BUSY = WRITER | READERS;
+    //! State of lock
     /** Bit 0 = writer is holding lock
         Bit 1 = request by a writer to acquire lock (hint to readers to wait)
         Bit 2..N = number of readers holding lock */
-    volatile state_t state;
+    state_t state;
 };
 
 } // namespace ThreadingBuildingBlocks

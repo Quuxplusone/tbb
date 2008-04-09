@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,64 +32,71 @@
 #include "tbb/tbb_stddef.h"
 #include "tbb/tbb_machine.h"
 
-#if __linux__
+#if defined(__linux__)
 #include <sys/sysinfo.h>
-#elif __APPLE__
+#elif defined(__sun)
+#include <sys/sysinfo.h>
+#include <unistd.h>
+#elif defined(__APPLE__)
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#elif defined(__FreeBSD__)
+#include <unistd.h>
 #endif
 
 namespace tbb {
 
-static volatile int number_of_workers = 0;
+namespace internal {
 
 #if defined(__TBB_DetectNumberOfWorkers)
 static inline int DetectNumberOfWorkers() {
     return __TBB_DetectNumberOfWorkers(); 
 }
+
 #else
+
 #if _WIN32||_WIN64
-
 static inline int DetectNumberOfWorkers() {
-    if (!number_of_workers) {
-        SYSTEM_INFO si;
-        GetSystemInfo(&si);
-        number_of_workers = static_cast<int>(si.dwNumberOfProcessors);
-    }
-    return number_of_workers; 
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    return static_cast<int>(si.dwNumberOfProcessors);
 }
 
-#elif __linux__ 
+#elif defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__sun) 
+static inline int DetectNumberOfWorkers() {
+    long number_of_workers;
 
-static inline int DetectNumberOfWorkers( void ) {
-    if (!number_of_workers) {
-        number_of_workers = get_nprocs();
+#if (defined(__FreeBSD__) || defined(__sun)) && defined(_SC_NPROCESSORS_ONLN) 
+    number_of_workers = sysconf(_SC_NPROCESSORS_ONLN);
+
+// In theory, sysconf should work everywhere.
+// But in practice, system-specific methods are more reliable
+#elif defined(__linux__)
+    number_of_workers = get_nprocs();
+#elif defined(__APPLE__)
+    int name[2] = {CTL_HW, HW_AVAILCPU};
+    int ncpu;
+    size_t size = sizeof(ncpu);
+    sysctl( name, 2, &ncpu, &size, NULL, 0 );
+    number_of_workers = ncpu;
+#else
+#error DetectNumberOfWorkers: Method to detect the number of online CPUs is unknown
+#endif
+
+// Fail-safety strap
+    if ( number_of_workers < 1 ) {
+        number_of_workers = 1;
     }
-    return number_of_workers; 
-}
-
-#elif __APPLE__
-
-static inline int DetectNumberOfWorkers( void ) {
-    if (!number_of_workers) {
-        int name[2] = {CTL_HW, HW_AVAILCPU};
-        int ncpu;
-        size_t size = sizeof(ncpu);
-        sysctl( name, 2, &ncpu, &size, NULL, 0 );
-        number_of_workers = ncpu;
-    }
-    return number_of_workers; 
+    
+    return number_of_workers;
 }
 
 #else
-
-#error Unknown OS
+#error DetectNumberOfWorkers: OS detection method is unknown
 
 #endif /* os kind */
 
 #endif
-
-namespace internal {
 
 // assertion_failure is declared in tbb/tbb_stddef.h because it user code
 // needs to see its declaration.
@@ -116,10 +123,22 @@ void PrintExtraVersionInfo( const char* category, const char* description );
 //! Type definition for a pointer to a void somefunc(void)
 typedef void (*PointerToHandler)();
 
-//! The macro casts "address of a pointer to a function" to PointerToHandler*.
-/** Need it because (PointerToHandler*)&ptr_to_func causes warnings from g++ 4.1 */
-#define ADDRESS_OF_HANDLER(x) (PointerToHandler*)(void*)(x)
+// Double cast through the void* from func_ptr in DLD macro is necessary to 
+// prevent warnings from some compilers (g++ 4.1)
+#if __TBB_WEAK_SYMBOLS
 
+#define DLD(s,h) {(PointerToHandler)&s, (PointerToHandler*)(void*)(&h)}
+//! Association between a handler name and location of pointer to it.
+struct DynamicLinkDescriptor {
+    //! pointer to the handler
+    PointerToHandler ptr;
+    //! Pointer to the handler
+    PointerToHandler* handler;
+};
+
+#else /* !__TBB_WEAK_SYMBOLS */
+
+#define DLD(s,h) {#s, (PointerToHandler*)(void*)(&h)}
 //! Association between a handler name and location of pointer to it.
 struct DynamicLinkDescriptor {
     //! Name of the handler
@@ -128,26 +147,13 @@ struct DynamicLinkDescriptor {
     PointerToHandler* handler;
 };
 
+#endif /* !__TBB_WEAK_SYMBOLS */
+
 //! Fill in dynamically linked handlers.
 /** n is the length of array list[], must not exceed 4, which is all we currently need. 
     If the library and all of the handlers are found, then all corresponding handler pointers are set.
     Otherwise all corresponding handler pointers are untouched. */
 bool FillDynamicLinks( const char* libraryname, const DynamicLinkDescriptor list[], size_t n );
-
-//! Template functions to temporary add volatile attribute to a variable.
-/** Allow to perform operations with volatile semantics on non-volatile variables
-    which is useful to improve performance on IPF where Intel compiler
-    translates volatile reads to "load with acquire semantics" (ld*.acq)
-    and volatile writes to "store with release semantics" (st*.rel). */
-template<typename T>
-static inline T volatile& volatile_cast(T& location) {
-    return const_cast<T volatile&>(location);
-}
-
-template<typename T>
-static inline T const volatile& volatile_cast(T const& location) {
-    return const_cast<T const volatile&>(location);
-}
 
 //! Class that implements exponential backoff.
 /** See implementation of SpinwaitWhileEq for an example. */

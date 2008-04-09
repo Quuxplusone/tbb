@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -39,12 +39,6 @@
 #include "tbb/tick_count.h"
 #include "tbb/atomic.h"
 
-
-#if __linux__
-#define STD std
-#else
-#define STD   /* Cater to broken Windows compilers that are missing "std". */
-#endif /* __linux__ */
 
 // This test deliberately avoids a "using tbb" statement,
 // so that the error of putting types in the wrong namespace will be caught.
@@ -164,7 +158,7 @@ void TwiddleInvariant( I& invariant, size_t mode )
         }
     }
     if( !okay ) {
-        STD::printf( "ERROR for %s at %ld: %s %s %s %s\n",invariant.mutex_name, long(mode),
+        std::printf( "ERROR for %s at %ld: %s %s %s %s\n",invariant.mutex_name, long(mode),
                      write?"write,":"read,", write?(mode%16==7?"downgrade,":""):(mode%8==3?"upgrade,":""),
                      lock_kept?"lock kept,":"lock not kept,", (mode/8)&1?"imp/exp":"exp/imp" );
     }
@@ -232,7 +226,7 @@ void Test( const char * name ) {
     if( Verbose )
         printf("%s time = %g usec\n",name, (t1-t0).seconds() );
     if( counter.value!=Work<M>::mutex_test_size )
-        STD::printf("ERROR for %s: counter.value=%ld\n",name,counter.value);
+        std::printf("ERROR for %s: counter.value=%ld\n",name,counter.value);
     delete[] thr;
 }
 
@@ -255,7 +249,7 @@ void TestReaderWriterLock( const char * mutex_name ) {
     // There is either a writer or a reader upgraded to a writer for each 4th iteration
     long expected_value = Work<M>::readwrite_test_size/4;
     if( !invariant.value_is(expected_value) )
-        STD::printf("ERROR for %s: final invariant value is wrong\n",mutex_name);
+        std::printf("ERROR for %s: final invariant value is wrong\n",mutex_name);
     if( Verbose )
         printf("%s readers & writers time = %g usec\n",mutex_name,(t1-t0).seconds());
     delete[] thr;
@@ -273,7 +267,7 @@ int main( int argc, char * argv[] ) {
     Test<tbb::spin_rw_mutex>( "Spin RW Mutex" );
     TestReaderWriterLock<tbb::queuing_rw_mutex>( "Queuing RW Mutex" );
     TestReaderWriterLock<tbb::spin_rw_mutex>( "Spin RW Mutex" );
-    STD::printf("done\n");
+    std::printf("done\n");
 #else
     if( Verbose )
         printf("this test need pthreads to work; define USE_PTHREAD before compilation.\n");

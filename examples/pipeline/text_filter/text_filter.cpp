@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -145,35 +145,39 @@ static bool is_number_of_threads_set = false;
 void Usage()
 {
     fprintf( stderr, "Usage:\ttext_filter [input-file [output-file [nthread]]]\n");
-    exit(1);
 }
 
-void ParseCommandLine(  int argc, char* argv[] ) {
+int ParseCommandLine(  int argc, char* argv[] ) {
     // Parse command line
-    if( argc> 4 ) Usage();
+    if( argc> 4 ){
+        Usage();
+        return 0;
+    }
     if( argc>=2 ) InputFileName = argv[1];
     if( argc>=3 ) OutputFileName = argv[2];
     if( argc>=4 ) {
         NThread = strtol(argv[3],0,0);
         if( NThread<1 ) {
             fprintf(stderr,"nthread set to %d, but must be at least 1\n",NThread);
-            exit(1);
+            return 0;
         }
         is_number_of_threads_set = true; //Number of threads is set explicitly
     }
+    return 1;
 }
 
-void run_pipeline( int nthreads )
+int run_pipeline( int nthreads )
 {
     FILE* input_file = fopen(InputFileName,"r");
     if( !input_file ) {
         perror( InputFileName );
         Usage();
+        return 0;
     }
     FILE* output_file = fopen(OutputFileName,"w");
     if( !output_file ) {
         perror( OutputFileName );
-        exit(1);
+        return 0;
     }
 
     // Create the pipeline
@@ -211,22 +215,28 @@ void run_pipeline( int nthreads )
             printf("parallel run time = %g\n", (t1-t0).seconds());
         }
     }
+    return 1;
 }
 
 int main( int argc, char* argv[] ) {
-    ParseCommandLine( argc, argv );
+    if(!ParseCommandLine( argc, argv ))
+        return 1;
     if (is_number_of_threads_set) {
         // Start task scheduler
         tbb::task_scheduler_init init( NThread );
-        run_pipeline (NThread);
+        if(!run_pipeline (NThread))
+            return 1;
     } else { // Number of threads wasn't set explicitly. Run serial and parallel version
         { // serial run
             tbb::task_scheduler_init init_serial(1);
-            run_pipeline (1);
+            if(!run_pipeline (1))
+                return 1;
         }
         { // parallel run (number of threads is selected automatically)
             tbb::task_scheduler_init init_parallel;
-            run_pipeline (0);
+            if(!run_pipeline (0))
+                return 1;
         }
     }
+    return 0;
 }

@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -30,39 +30,31 @@
 
 
 #------------------------------------------------------------------------------
-# Setting default configuration to release.
-#------------------------------------------------------------------------------
-cfg ?= release
-#------------------------------------------------------------------------------
-# End of setting default configuration to release.
-#------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
 # Setting compiler flags.
 #------------------------------------------------------------------------------
 CPLUS = cl
 LINK_FLAGS = /link /nologo
-LIB_LINK_FLAGS=/link /nologo /DLL \
-               /DEF:"$(TBB.DEF)" /MAP /DEBUG /fixed:no
-
+LIB_LINK_FLAGS=/link /nologo /DLL /MAP /DEBUG /fixed:no
+MS_CRT_KEY = /MD$(if $(findstring debug,$(cfg)),d)
+EH_FLAGS = /EHsc /GR
+               
 ifeq ($(cfg), release)
-        CPLUS_FLAGS = /nologo /MD /O2 /Zi /EHsc /Zc:forScope /DDO_ITT_NOTIFY \
-        /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE
+        CPLUS_FLAGS = /nologo $(MS_CRT_KEY) /O2 /Zi $(EH_FLAGS) /Zc:forScope /DDO_ITT_NOTIFY \
+                      /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE
         ASM_FLAGS =
 ifeq (ia32,$(arch))
         CPLUS_FLAGS += /Oy
 endif
 endif
 ifeq ($(cfg), debug)
-        CPLUS_FLAGS = /nologo /MDd /Od /Ob0 /Zi /EHsc /Zc:forScope \
+        CPLUS_FLAGS = /nologo $(MS_CRT_KEY) /Od /Ob0 /Zi $(EH_FLAGS) /Zc:forScope \
                       /DTBB_DO_ASSERT /DDO_ITT_NOTIFY
         ASM_FLAGS = /DUSE_FRAME_POINTER
 endif
 
 
 COMPILE_ONLY = /c
-PREPROC_ONLY = /E
+PREPROC_ONLY = /TC /EP
 INCLUDE_KEY = /I
 DEFINE_KEY = /D
 OUTPUT_KEY = /Fe
@@ -70,6 +62,8 @@ OUTPUTOBJ_KEY = /Fo
 WARNING_AS_ERROR_KEY = /WX
 WARNING_KEY = /W3
 DYLIB_KEY = /DLL
+EXPORT_KEY = /DEF:
+
 ifeq ($(runtime),vc8)
         OPENMP_FLAG = /openmp
 endif
@@ -81,9 +75,8 @@ endif
 
 
 
-TARGET_VERSION = 0x0400
 CPLUS_FLAGS += /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE \
-        /D_WIN32_WINNT=$(TARGET_VERSION)
+        /D_WIN32_WINNT=$(_WIN32_WINNT)
 C_FLAGS = $(CPLUS_FLAGS) /TC
 #------------------------------------------------------------------------------
 # End of setting compiler flags.
@@ -111,9 +104,7 @@ endif
 #------------------------------------------------------------------------------
 # Setting tbbmalloc data.
 #------------------------------------------------------------------------------
-M_CPLUS_FLAGS = $(subst EHsc,EHs-,$(CPLUS_FLAGS))
-M_INCLUDES = $(INCLUDES) /I$(MALLOC_ROOT) /I$(MALLOC_SOURCE_ROOT)
-M_CPLUS_FLAGS += /EHs- /GR-
+M_CPLUS_FLAGS = $(subst $(EH_FLAGS),/EHs-,$(CPLUS_FLAGS))
 #------------------------------------------------------------------------------
 # End of setting tbbmalloc data.
 #------------------------------------------------------------------------------

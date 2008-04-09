@@ -1,6 +1,6 @@
 @echo off
 REM
-REM Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+REM Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 REM
 REM This file is part of Threading Building Blocks.
 REM
@@ -35,9 +35,9 @@ if x%1==x goto without
 
 echo IF NOT DEFINED TBB20_INSTALL_DIR SET TBB20_INSTALL_DIR=%actual_root%>>tbbvars.bat
 echo SET TBB_ARCH_PLATFORM=%arch%\%runtime%>>tbbvars.bat
-echo SET INCLUDE="%%TBB20_INSTALL_DIR%%\include";%%INCLUDE%%>>tbbvars.bat
-echo SET LIB="%%TBB20_INSTALL_DIR%%\build\%1";%%LIB%%>>tbbvars.bat
-echo SET PATH="%%TBB20_INSTALL_DIR%%\build\%1";%%PATH%%>>tbbvars.bat
+echo SET INCLUDE=%%TBB20_INSTALL_DIR%%\include;%%INCLUDE%%>>tbbvars.bat
+echo SET LIB=%%TBB20_INSTALL_DIR%%\build\%1;%%LIB%%>>tbbvars.bat
+echo SET PATH=%%TBB20_INSTALL_DIR%%\build\%1;%%PATH%%>>tbbvars.bat
 
 if exist tbbvars.sh goto skipsh
 set fslash_root=%actual_root:\=/%

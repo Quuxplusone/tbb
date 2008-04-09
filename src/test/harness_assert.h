@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,8 +35,10 @@
 #ifndef harness_assert_H
 #define harness_assert_H
 
-static void ReportError( int line, const char* expression, const char * message ); 
+static void ReportError( int line, const char* expression, const char* message, bool is_error = true ); 
+
 #define ASSERT(p,message) ((p)?(void)0:ReportError(__LINE__,#p,message))
+#define ASSERT_WARNING(p,message) ((p)?(void)0:ReportError(__LINE__,#p,message, false))
 
 //! Compile-time error if x and y have different types
 template<typename T>

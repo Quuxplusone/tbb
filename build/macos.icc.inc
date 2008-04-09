@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -26,7 +26,7 @@
 
 CPLUS = icpc
 COMPILE_ONLY = -c -MMD
-PREPROC_ONLY = -E -MMD
+PREPROC_ONLY = -E -x c
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
 OUTPUT_KEY = -o #
@@ -35,14 +35,15 @@ PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -w1
 DYLIB_KEY = -dynamiclib
+EXPORT_KEY = -Wl,-exported_symbols_list,
 LIBDL = -ldl
 export COMPILER_VERSION := $(shell icc -V </dev/null 2>&1 | grep 'Version')
+#TODO: autodetection of arch from COMPILER_VERSION!!
 
-INCLUDES += -I$(tbb_root)/src -I$(tbb_root)/include
 OPENMP_FLAG = -openmp
 LIBS = -lpthread
 LINK_FLAGS = 
-LIB_LINK_FLAGS = -dynamiclib -i-static -Wl,-exported_symbols_list,$(TBB.DEF) 
+LIB_LINK_FLAGS = -dynamiclib -i-static
 C_FLAGS = $(CPLUS_FLAGS) -x c
 
 ifeq ($(cfg), release)
@@ -53,7 +54,7 @@ endif
 
 CPLUS_FLAGS += -DUSE_PTHREAD
 
-ifeq (true,$(codecov))
+ifneq (,$(codecov))
     CPLUS_FLAGS += -prof-genx
 endif
 
@@ -65,8 +66,9 @@ endif
 #------------------------------------------------------------------------------
 # Setting tbbmalloc data.
 #------------------------------------------------------------------------------
-M_INCLUDES = $(INCLUDES) -I$(MALLOC_ROOT) -I$(MALLOC_SOURCE_ROOT)
+
 M_CPLUS_FLAGS = $(CPLUS_FLAGS) -fno-rtti -fno-exceptions
+
 #------------------------------------------------------------------------------
 # End of setting tbbmalloc data.
 #------------------------------------------------------------------------------

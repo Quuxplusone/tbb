@@ -83,9 +83,9 @@ CAPTION "About"
 FONT 8, "System"
 BEGIN
     ICON            IDI_SEISMICSIMULATION,IDC_MYICON,14,9,16,16
-    LTEXT           "SeismicSimulation Version 1.0",IDC_STATIC,49,10,119,8,
+    LTEXT           "SeismicSimulation Version 1.1",IDC_STATIC,49,10,119,8,
                     SS_NOPREFIX
-    LTEXT           "Copyright (C) 2005",IDC_STATIC,49,20,119,8
+    LTEXT           "Copyright (C) 2005-2008",IDC_STATIC,49,20,119,8
     DEFPUSHBUTTON   "OK",IDOK,195,6,30,11,WS_GROUP
 END
 

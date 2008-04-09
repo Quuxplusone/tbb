@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -29,17 +29,17 @@
 # Just specify your program basename
 
 # The C++ compiler options
-CXX=cl.exe
-MYCXXFLAGS=/TP /EHsc /W3 /nologo $(TBB_SECURITY_SWITCH) /D _CONSOLE /D _MBCS /D WIN32 $(CXXFLAGS)
-MYLDFLAGS=/INCREMENTAL:NO /NOLOGO /DEBUG /FIXED:NO /OUT:$(PROG).exe $(LDFLAGS)
+CXX = cl.exe
+MYCXXFLAGS = /TP /EHsc /W3 /nologo $(TBB_SECURITY_SWITCH) /D _CONSOLE /D _MBCS /D WIN32 $(CXXFLAGS)
+MYLDFLAGS =/INCREMENTAL:NO /NOLOGO /DEBUG /FIXED:NO $(LDFLAGS)
 
 all: release test
 release:
-	$(CXX) convex_hull_sample.cpp /MD /O2 /D NDEBUG $(MYCXXFLAGS) /link tbb.lib $(MYLDFLAGS) /OUT:convex_hull_sample.exe
-	$(CXX) convex_hull_bench.cpp /MD /O2 /D NDEBUG $(MYCXXFLAGS) /link tbb.lib $(MYLDFLAGS) /OUT:convex_hull_bench.exe
+	$(CXX) convex_hull_sample.cpp /MD /O2 /D NDEBUG $(MYCXXFLAGS) /link tbb.lib $(LIBS) $(MYLDFLAGS) /OUT:convex_hull_sample.exe
+	$(CXX) convex_hull_bench.cpp /MD /O2 /D NDEBUG $(MYCXXFLAGS) /link tbb.lib $(LIBS) $(MYLDFLAGS) /OUT:convex_hull_bench.exe
 debug:
-	$(CXX) convex_hull_sample.cpp /MDd /Od /Zi /D TBB_DO_ASSERT /D _DEBUG $(MYCXXFLAGS) /link tbb_debug.lib $(MYLDFLAGS) /OUT:convex_hull_sample.exe
-	$(CXX) convex_hull_bench.cpp /MDd /Od /Zi /D TBB_DO_ASSERT /D _DEBUG $(MYCXXFLAGS) /link tbb_debug.lib $(MYLDFLAGS) /OUT:convex_hull_bench.exe
+	$(CXX) convex_hull_sample.cpp /MDd /Od /Zi /D TBB_DO_ASSERT /D _DEBUG $(MYCXXFLAGS) /link tbb_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:convex_hull_sample.exe
+	$(CXX) convex_hull_bench.cpp /MDd /Od /Zi /D TBB_DO_ASSERT /D _DEBUG $(MYCXXFLAGS) /link tbb_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:convex_hull_bench.exe
 clean:
 	@cmd.exe /C del convex_hull*.exe *.obj *.?db *.manifest
 test:

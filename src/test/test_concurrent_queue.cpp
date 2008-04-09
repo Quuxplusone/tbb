@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,6 +31,7 @@
 #include "tbb/tick_count.h"
 #include "tbb/blocked_range.h"
 #include "harness.h"
+#include "harness_allocator.h"
 
 static tbb::atomic<long> FooConstructed;
 static tbb::atomic<long> FooDestroyed;
@@ -69,6 +70,56 @@ public:
     bool is_const() {return false;}
     bool is_const() const {return true;}
 };
+
+// problem size
+static const int N = 50000;     // # of bytes
+
+//! Exception for concurrent_queue
+class Foo_exception : public std::bad_alloc {
+public:
+    virtual const char *what() const throw() { return "out of Foo limit"; }
+    virtual ~Foo_exception() throw() {}
+};
+
+static tbb::atomic<long> FooExConstructed;
+static tbb::atomic<long> FooExDestroyed;
+static tbb::atomic<long> serial_source;
+static long MaxFooCount = 0;
+static const long Threshold = 400;
+
+class FooEx {
+    enum state_t{
+        LIVE=0x1234,
+        DEAD=0xDEAD
+    };
+    state_t state;
+public:
+    int serial;
+    FooEx() : state(LIVE) {
+        ++FooExConstructed;
+        serial = serial_source++;
+    }
+
+    FooEx( const FooEx& item ) : state(LIVE) {
+        ++FooExConstructed;
+        if( MaxFooCount && (FooExConstructed-FooExDestroyed) >= MaxFooCount ) // in push()
+            throw Foo_exception();
+        serial = item.serial;
+    }
+    ~FooEx() {
+        ASSERT( state==LIVE, NULL );
+        ++FooExDestroyed;
+        state=DEAD;
+        serial=0xDEAD;
+    }
+    void operator=( FooEx& item ) {
+        ASSERT( item.state==LIVE, NULL );
+        ASSERT( state==LIVE, NULL );
+        serial = item.serial;
+        if( MaxFooCount==2*Threshold && (FooExConstructed-FooExDestroyed) <= MaxFooCount/4 ) // in pop()
+            throw Foo_exception();
+    }
+} ;
 
 const size_t MAXTHREAD = 256;
 
@@ -168,6 +219,7 @@ void TestPushPop( int prefill, ptrdiff_t capacity, int nthread ) {
         if( sum!=expected )
             printf("sum=%d expected=%d\n",sum,expected);
         ASSERT( FooConstructed==FooDestroyed, NULL );
+        // TODO: checks by counting allocators
 
         success = true;
         if( nthread>1 && prefill==0 ) {
@@ -298,6 +350,151 @@ void TestFullQueue() {
     }
 }
 
+template<typename T>
+struct TestNegativeQueueBody {
+    tbb::concurrent_queue<T>& queue;
+    const int nthread;
+    TestNegativeQueueBody( tbb::concurrent_queue<T>& q, int n ) : queue(q), nthread(n) {}
+    void operator()( const tbb::blocked_range<int>& range ) const {
+        if( range.begin()==0 ) {
+            int number_of_pops = nthread-1;
+            // Wait for all pops to pend.
+            while( queue.size()>-number_of_pops ) {
+                __TBB_Yield();
+            }
+            for( int i=0; ; ++i ) {
+                ASSERT( queue.size()==i-number_of_pops, NULL );
+                ASSERT( queue.empty()==(queue.size()<=0), NULL );
+                if( i==number_of_pops ) break;
+                // Satisfy another pop
+                queue.push( T() );
+            }
+        } else {
+            // Pop item from queue
+            T item;
+            queue.pop(item);
+        }
+    }
+};
+
+//! Test a queue with a negative size.
+template<typename T>
+void TestNegativeQueue( int nthread ) {
+    tbb::concurrent_queue<T> queue;
+    NativeParallelFor( tbb::blocked_range<int>(0,nthread,1), TestNegativeQueueBody<T>(queue,nthread) );
+}
+
+template<typename T>
+void TestExceptions() {
+    typedef static_counting_allocator<std::allocator<FooEx>, size_t> allocator_t;
+    typedef static_counting_allocator<std::allocator<char>, size_t> allocator_char_t;
+    typedef tbb::concurrent_queue<FooEx, allocator_t> concur_queue_t;
+
+    enum methods {
+        m_push = 0,
+        m_pop
+    };  
+
+    // verify 'clear()' on exception; queue's destructor calls its clear()
+    {
+        concur_queue_t queue_clear;
+        try {
+            allocator_char_t::init_counters();
+            allocator_char_t::set_limits(N/2);
+            for( int k=0; k<N; k++ )
+                queue_clear.push( T() );
+        } catch (...) {
+            // TODO: some assert here?
+        }
+    }
+
+    try {
+        int n_pushed=0, n_popped=0;
+#if defined(_WIN64) && !defined(_CPPLIB_VER)
+        if(Verbose)
+            printf("skipping exceptions testing for allocators\n");
+        int t = 1;
+#else
+        for(int t = 0; t <= 1; t++)// exception type -- 0 : from allocator(), 1 : from Foo's constructor
+#endif
+        {
+            concur_queue_t queue_test;
+            for( int m=m_push; m<=m_pop; m++ ) {
+                // concurrent_queue internally rebinds the allocator to one with 'char'
+                allocator_char_t::init_counters();
+
+                if(t) MaxFooCount = MaxFooCount + 400;
+                else allocator_char_t::set_limits(N/2);
+
+                try {
+                    switch(m) {
+                    case m_push:
+                            for( int k=0; k<N; k++ ) {
+                                queue_test.push( T() );
+                                n_pushed++;
+                            }
+                            break;
+                    case m_pop:
+                            n_popped=0;
+                            for( int k=0; k<n_pushed; k++ ) {
+                                T elt;
+                                queue_test.pop( elt );
+                                n_popped++;
+                            }
+                            n_pushed = 0;
+                            allocator_char_t::set_limits(); 
+                            break;
+                    }
+                    if( !t && m==m_push ) ASSERT(false, "should throw an exception");
+                } catch ( Foo_exception & ) {
+                    switch(m) {
+                    case m_push: {
+                                ASSERT( queue_test.size()==(n_pushed+1), "incorrect queue size" );
+                                long tc = MaxFooCount;
+                                MaxFooCount = 0;
+                                for( int k=0; k<(int)tc; k++ ) {
+                                    queue_test.push( T() );
+                                    n_pushed++;
+                                }
+                                MaxFooCount = tc;
+                            }
+                            break;
+                    case m_pop:
+                            MaxFooCount = 0; // disable exception
+                            n_pushed -= (n_popped+1); // including one that threw an exception
+                            for( int k=0; k<1000; k++ ) {
+                                queue_test.push( T() );
+                                n_pushed++;
+                            }
+                            ASSERT( !queue_test.empty(), "queue must not be empty" );
+                            ASSERT( queue_test.size()==n_pushed, "queue size must be equal to n pushed" );
+                            for( int k=0; k<n_pushed; k++ ) {
+                                T elt;
+                                queue_test.pop( elt );
+                            }
+                            ASSERT( queue_test.empty(), "queue must be empty" );
+                            ASSERT( queue_test.size()==0, "queue must be empty" );
+                            break;
+                    }
+                } catch ( std::bad_alloc & ) {
+                    allocator_char_t::set_limits(); // disable exception from allocator
+                    size_t size = queue_test.size();
+                    switch(m) {
+                    case m_push:
+                            ASSERT( size>0, "incorrect queue size");
+                            break;
+                    case m_pop:
+                            if( !t ) ASSERT( false, "should not throw an exceptin" );
+                            break;
+                    }
+                }
+            }
+        }
+    } catch(...) {
+        ASSERT(false, "unexpected exception");
+    }
+}
+
 int main( int argc, char* argv[] ) {
     // Set default for minimum number of threads.
     MinThread = 1;
@@ -311,6 +508,7 @@ int main( int argc, char* argv[] ) {
 
     // Test concurrent operations
     for( int nthread=MinThread; nthread<=MaxThread; ++nthread ) {
+        TestNegativeQueue<Foo>(nthread);
         for( int prefill=0; prefill<64; prefill+=(1+prefill/3) ) {
             TestPushPop(prefill,ptrdiff_t(-1),nthread);
             TestPushPop(prefill,ptrdiff_t(1),nthread);
@@ -319,6 +517,15 @@ int main( int argc, char* argv[] ) {
             TestPushPop(prefill,ptrdiff_t(100),nthread);
         }
     }
+#if __GNUC__==3&&__GNUC_MINOR__==2&&__GNUC_PATCHLEVEL__==3
+#if TBB_DO_ASSERT
+    TestExceptions<FooEx>();
+#else
+    printf("Exception safety test skipped due to a known issue.\n");
+#endif
+#else
+    TestExceptions<FooEx>();
+#endif
     printf("done\n");
     return 0;
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -134,11 +134,7 @@ public:
                 spawn(t);
             }
             --my_depth;
-#if __linux__||__APPLE__
-            sched_yield();
-#else
-            Sleep(0);
-#endif /* __linux__ */
+            __TBB_Yield();
             ASSERT( state()==recycle && ref_count()>0, NULL);
         }
         return NULL;
@@ -156,79 +152,62 @@ void TestSafeContinuation( int nthread ) {
 }
 
 //------------------------------------------------------------------------
-// Test that important assertions in class task fail as expected.
+// Test affinity interface
 //------------------------------------------------------------------------
+tbb::atomic<int> TotalCount;
 
-#include "tbb/blocked_range.h"
-#include "harness_bad_expr.h"
-
-//! Task that will be abused.
-tbb::task* volatile AbusedTask;
-
-//! Number of times that AbuseOneTask
-int AbuseOneTaskRan;
-
-//! Body used to create task in thread 0 and abuse it in thread 1.
-struct AbuseOneTask {
-    void operator()( const tbb::blocked_range<int>& r ) const {
-        tbb::task_scheduler_init init;
-        // Thread 1 attempts to incorrectly use the task created by thread 0.
-        TRY_BAD_EXPR(AbusedTask->spawn(*AbusedTask),"owne");
-        TRY_BAD_EXPR(AbusedTask->spawn_and_wait_for_all(*AbusedTask),"owne");
-        TRY_BAD_EXPR(tbb::task::spawn_root_and_wait(*AbusedTask),"owne");
-
-        // Try variant that operate on a tbb::task_list
-        tbb::task_list list;
-        TRY_BAD_EXPR(AbusedTask->spawn(list),"owne");
-        TRY_BAD_EXPR(AbusedTask->spawn_and_wait_for_all(list),"owne");
-        // spawn_root_and_wait over empty list should vacuously succeed.
-        tbb::task::spawn_root_and_wait(list);
-
-        // Check that spawn_root_and_wait fails on non-empty list. 
-        list.push_back(*AbusedTask);
-        TRY_BAD_EXPR(tbb::task::spawn_root_and_wait(list),"owne");
-
-        TRY_BAD_EXPR(AbusedTask->destroy(*AbusedTask),"owne");
-        TRY_BAD_EXPR(AbusedTask->wait_for_all(),"owne");
-
-        // Try abusing recycle_as_continuation
-        TRY_BAD_EXPR(AbusedTask->recycle_as_continuation(), "execute" );
-        TRY_BAD_EXPR(AbusedTask->recycle_as_safe_continuation(), "execute" );
-        TRY_BAD_EXPR(AbusedTask->recycle_to_reexecute(), "execute" );
-
-        // Check correct use of depth parameter
-        tbb::task::depth_type depth = AbusedTask->depth();
-        ASSERT( depth==0, NULL );
-        for( int k=1; k<=81; k*=3 ) {
-            AbusedTask->set_depth(depth+k);
-            ASSERT( AbusedTask->depth()==depth+k, NULL );
-            AbusedTask->add_to_depth(k+1);
-            ASSERT( AbusedTask->depth()==depth+2*k+1, NULL );
-        }
-        AbusedTask->set_depth(0);
-
-        // Try abusing the depth parameter
-        TRY_BAD_EXPR(AbusedTask->set_depth(-1),"negative");
-        TRY_BAD_EXPR(AbusedTask->add_to_depth(-1),"negative");
-
-        ++AbuseOneTaskRan;
+struct AffinityTask: public tbb::task {
+    const tbb::task::affinity_id expected_affinity_id; 
+    bool noted;
+    /** Computing affinities is NOT supported by TBB, and may disappear in the future.
+        It is done here for sake of unit testing. */
+    AffinityTask( int expected_affinity_id_ ) : 
+        expected_affinity_id(tbb::task::affinity_id(expected_affinity_id_)), 
+        noted(false) 
+    {
+        set_affinity(expected_affinity_id);
+        ASSERT( 0u-expected_affinity_id>0u, "affinity_id not an unsigned integral type?" );  
+        ASSERT( affinity()==expected_affinity_id, NULL );
+    } 
+    /*override*/ tbb::task* execute() {
+        ++TotalCount;
+        return NULL;
+    }
+    /*override*/ void note_affinity( affinity_id id ) {
+        // There is no guarantee in TBB that a task runs on its affinity thread.
+        // However, the current implementation does accidentally guarantee it
+        // under certain conditions, such as the conditions here.
+        // We exploit those conditions for sake of unit testing.
+        ASSERT( id!=expected_affinity_id, NULL );
+        ASSERT( !noted, "note_affinity_id called twice!" );
+        noted = true;
     }
 };
 
-//! Test various __TBB_ASSERT assertions related to class tbb::task.
-void TestTaskAssertions() {
-#if TBB_DO_ASSERT
-    // Catch assertion failures
-    tbb::set_assertion_handler( AssertionFailureHandler );
-    tbb::task_scheduler_init init;
-    // Create task to be abused
-    AbusedTask = new( tbb::task::allocate_root() ) tbb::empty_task;
-    NativeParallelFor( tbb::blocked_range<int>(0,1,1), AbuseOneTask() );
-    ASSERT( AbuseOneTaskRan==1, NULL );
-    AbusedTask->destroy(*AbusedTask);
-    // Restore normal assertion handling
-    tbb::set_assertion_handler( NULL );
-#endif /* TBB_DO_ASSERT */
+/** Note: This test assumes a lot about the internal implementation of affinity.
+    Do NOT use this as an example of good programming practice with TBB */
+void TestAffinity( int nthread ) {
+    TotalCount = 0;
+    int n = tbb::task_scheduler_init::default_num_threads();
+    if( n>nthread ) 
+        n = nthread;
+    tbb::task_scheduler_init init(n);
+    tbb::empty_task* t = new( tbb::task::allocate_root() ) tbb::empty_task;
+    tbb::task::affinity_id affinity_id = t->affinity();
+    ASSERT( affinity_id==0, NULL );
+    // Set ref_count for n-1 children, plus 1 for the wait.
+    t->set_ref_count(n);
+    // Spawn n-1 affinitized children.
+    for( int i=1; i<n; ++i ) 
+        t->spawn( *new(t->allocate_child()) AffinityTask(i) );
+    if( n>1 ) {
+        // Keep master from stealing
+        while( TotalCount!=n-1 ) 
+            __TBB_Yield();
+    }
+    // Wait for the children
+    t->wait_for_all();
+    t->destroy(*t);
 }
 
 //------------------------------------------------------------------------
@@ -242,7 +221,9 @@ struct ConstructionFailure {
 };
 
 //! Task that cannot be constructed.  
+template<size_t N>
 struct UnconstructibleTask: public tbb::empty_task {
+    char space[N];
     UnconstructibleTask() {
         throw ConstructionFailure();
     }
@@ -251,7 +232,7 @@ struct UnconstructibleTask: public tbb::empty_task {
 #define TRY_BAD_CONSTRUCTION(x)                  \
     {                                            \
         try {                                    \
-            new(x) UnconstructibleTask;          \
+            new(x) UnconstructibleTask<N>;       \
         } catch( ConstructionFailure ) {         \
             ASSERT( parent()==original_parent, NULL ); \
             ASSERT( ref_count()==original_ref_count, "incorrectly changed ref_count" );\
@@ -259,6 +240,7 @@ struct UnconstructibleTask: public tbb::empty_task {
         }                                        \
     }
 
+template<size_t N>
 struct RootTaskForTestUnconstructibleTask: public tbb::task {
     tbb::task* execute() {
         tbb::task* original_parent = parent();
@@ -272,26 +254,78 @@ struct RootTaskForTestUnconstructibleTask: public tbb::task {
     }
 };
 
+template<size_t N>
 void TestUnconstructibleTask() {
     TestUnconstructibleTaskCount = 0;
     tbb::task_scheduler_init init;
-    tbb::task* t = new( tbb::task::allocate_root() ) RootTaskForTestUnconstructibleTask;
+    tbb::task* t = new( tbb::task::allocate_root() ) RootTaskForTestUnconstructibleTask<N>;
     tbb::task::spawn_root_and_wait(*t);
     ASSERT( TestUnconstructibleTaskCount==4, NULL );
 }
 
 //------------------------------------------------------------------------
+// Test for alignment problems with task objects.
+//------------------------------------------------------------------------
 
+//! Task with members of type T.
+/** The task recursively creates tasks. */
+template<typename T> 
+class TaskWithMember: public tbb::task {
+    T x;
+    T y;
+    unsigned char count;
+    /*override*/ tbb::task* execute() {
+        x = y;
+        if( count>0 ) { 
+            set_ref_count(2);
+            tbb::task* t = new( tbb::task::allocate_child() ) TaskWithMember<T>(count-1);
+            spawn_and_wait_for_all(*t);
+        }
+        return NULL;
+    }
+public:
+    TaskWithMember( unsigned char n ) : count(n) {}
+};
+
+template<typename T> 
+void TestAlignmentOfOneClass() {
+    typedef TaskWithMember<T> task_type;
+    tbb::task* t = new( tbb::task::allocate_root() ) task_type(10);
+    tbb::task::spawn_root_and_wait(*t);
+}
+
+#include "harness_m128.h"
+
+void TestAlignment() {
+    if( Verbose ) 
+        printf("testing alignment\n");
+    tbb::task_scheduler_init init;
+    // Try types that have variety of alignments
+    TestAlignmentOfOneClass<char>();
+    TestAlignmentOfOneClass<short>();
+    TestAlignmentOfOneClass<int>();
+    TestAlignmentOfOneClass<long>();
+    TestAlignmentOfOneClass<void*>();
+    TestAlignmentOfOneClass<float>();
+    TestAlignmentOfOneClass<double>();
+#if HAVE_m128
+    TestAlignmentOfOneClass<__m128>();
+#endif /* HAVE_m128 */
+}
+
+//------------------------------------------------------------------------
 int main(int argc, char* argv[]) {
     srand(2);
     MinThread = 1;
     ParseCommandLine( argc, argv );
-    TestTaskAssertions();
-    TestUnconstructibleTask();
+    TestUnconstructibleTask<1>();
+    TestUnconstructibleTask<10000>();
+    TestAlignment();
     for( int p=MinThread; p<=MaxThread; ++p ) {
         TestSpawnChildren( p );
         TestSpawnRootList( p );
         TestSafeContinuation( p );
+        TestAffinity( p );
     }
     printf("done\n");
     return 0;

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -101,6 +101,12 @@ void TestBasic( A& a ) {
         for( size_t j=0; j<k*sizeof_T; ++j )
             s[j] = PseudoRandomValue(j,k);
     }
+
+    // Test hint argument. This can't be compiled when hint is void*, It should be const void*
+    typename A::pointer a_ptr;
+    const void * const_hint = NULL;    
+    a_ptr = a.allocate (1, const_hint);    
+    a.deallocate(a_ptr, 1);
 
     // Test "a.deallocate(p,n)
     for( size_t k=0; k<100; ++k ) {

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -33,6 +33,15 @@
 
 namespace tbb {
 
+/** \page range_req Requirements on range concept
+    Class \c R implementing the concept of range must define:
+    - \code R::R( const R& ); \endcode               Copy constructor
+    - \code R::~R(); \endcode                        Destructor
+    - \code bool R::is_divisible() const; \endcode   True if range can be partitioned into two subranges
+    - \code bool R::empty() const; \endcode          True if range is empty
+    - \code R::R( R& r, split ); \endcode            Split range \c r into two subranges.
+**/
+
 //! A range over which to iterate.
 /** @ingroup algorithms */
 template<typename Value>
@@ -44,7 +53,7 @@ public:
     typedef Value const_iterator;
 
     //! Type for size of a range
-    typedef size_t size_type;
+    typedef std::size_t size_type;
 
     //! Construct range with default-constructed values for begin and end.
     /** Requires that Value have a default constructor. */
@@ -114,7 +123,6 @@ private:
     template<typename RowValue, typename ColValue, typename PageValue>
     friend class blocked_range3d;
 };
-
 
 } // namespace tbb 
 

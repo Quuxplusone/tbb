@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,15 +26,8 @@
     the GNU General Public License.
 */
 
-// Please define version number here:
-#define TBB_VERSION_MAJOR 2
-#define TBB_VERSION_MINOR 0
-
-
-
-
-
-
+// Please define version number in the file:
+#include "tbb/tbb_stddef.h"
 
 // And don't touch anything below
 #ifndef ENDL
@@ -64,6 +57,7 @@
 #define __TBB_STRING(x) __TBB_STRING_AUX(x)
 
 #define __TBB_VERSION_NUMBER "TBB: VERSION\t\t" __TBB_STRING(TBB_VERSION_MAJOR.TBB_VERSION_MINOR) ENDL
+#define __TBB_INTERFACE_VERSION_NUMBER "TBB: INTERFACE VERSION\t" __TBB_STRING(TBB_INTERFACE_VERSION) ENDL
 #define __TBB_VERSION_DATETIME "TBB: BUILD_DATE\t\t" __TBB_DATETIME ENDL
 #ifndef TBB_DO_ASSERT
     #define __TBB_VERSION_DO_ASSERT "TBB: TBB_DO_ASSERT\tundefined" ENDL
@@ -86,7 +80,7 @@
     #error Unexpected value for DO_ITT_NOTIFY
 #endif
 
-#define TBB_VERSION_STRINGS __TBB_VERSION_NUMBER __TBB_VERSION_DATETIME __TBB_VERSION_STRINGS __TBB_VERSION_DO_ASSERT __TBB_VERSION_DO_NOTIFY
+#define TBB_VERSION_STRINGS __TBB_VERSION_NUMBER __TBB_INTERFACE_VERSION_NUMBER __TBB_VERSION_DATETIME __TBB_VERSION_STRINGS __TBB_VERSION_DO_ASSERT __TBB_VERSION_DO_NOTIFY
 
 // numbers
 #ifndef __TBB_VERSION_YMD

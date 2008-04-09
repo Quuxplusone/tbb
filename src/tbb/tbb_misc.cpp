@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,60 +30,31 @@
 // an executing program.
 
 #include "tbb/tbb_stddef.h"
+// Out-of-line TBB assertion handling routines are instantiated here.
+#include "tbb_assert_impl.h"
+
 #include "tbb_misc.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#if defined(__EXCEPTIONS) || defined(_CPPUNWIND)
+#if defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__SUNPRO_CC)
 #include <stdexcept>
 #endif
-#if _WIN32||_WIN64
-#include <crtdbg.h>
-#else
+#if !(_WIN32||_WIN64)
 #include <dlfcn.h>
 #endif 
 
+using namespace std;
+
 #include "tbb/tbb_machine.h"
 
-static tbb::assertion_handler_type assertion_handler;
+#include <iterator>
 
 namespace tbb {
 
-assertion_handler_type set_assertion_handler( assertion_handler_type new_handler ) {
-    assertion_handler_type old_handler = assertion_handler;
-    assertion_handler = new_handler;
-    return old_handler;
-}
-    
-void assertion_failure( const char * filename, int line, const char * expression, const char * comment ) {
-    if( assertion_handler_type a = assertion_handler ) {
-        (*a)(filename,line,expression,comment);
-    } else {
-        static bool already_failed;
-        if( !already_failed ) {
-            already_failed = true;
-            fprintf( stderr, "Assertion %s failed on line %d of file %s\n",
-                     expression, line, filename );
-            if( comment )
-                fprintf( stderr, "Detailed description: %s\n", comment );
-#if (_WIN32||_WIN64) && defined(_DEBUG)
-            if(1 == _CrtDbgReport(_CRT_ASSERT, filename, line, "tbb_debug.dll", "%s\r\n%s", expression, comment?comment:""))
-                    _CrtDbgBreak();
-#else
-            abort();
-#endif
-        }
-    }
-}
-
 namespace internal {
 
-size_t get_initial_auto_partitioner_divisor() {
-  const size_t X_FACTOR = 4;
-  return X_FACTOR * DetectNumberOfWorkers();
-}
-
-#if defined(__EXCEPTIONS) || defined(_CPPUNWIND)
+#if defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__SUNPRO_CC)
 // The above preprocessor symbols are defined by compilers when exception handling is enabled.
 // However, in some cases it could be disabled for this file.
 
@@ -95,7 +66,7 @@ void handle_perror( int error_code, const char* what ) {
     strncpy( end, strerror( error_code ), n );
     // Ensure that buffer ends in terminator.
     buf[sizeof(buf)-1] = 0; 
-    throw std::runtime_error(buf);
+    throw runtime_error(buf);
 }
 #endif //__EXCEPTIONS || _CPPUNWIND
 
@@ -105,35 +76,63 @@ bool GetBoolEnvironmentVariable( const char * name ) {
     return false;
 }
 
-bool FillDynamicLinks( const char* library, const DynamicLinkDescriptor list[], size_t n ) {
+#if __TBB_WEAK_SYMBOLS
+
+bool FillDynamicLinks( const char* /*library*/, const DynamicLinkDescriptor descriptors[], size_t n )
+{
+    size_t k = 0;
+    for ( ; k < n  &&  descriptors[k].ptr; ++k )
+        *descriptors[k].handler = (PointerToHandler) descriptors[k].ptr;
+    return k == n;
+}
+
+#else /* !__TBB_WEAK_SYMBOLS */
+
+bool FillDynamicLinks( void* module, const DynamicLinkDescriptor descriptors[], size_t n )
+{
     const size_t max_n = 5;
     __TBB_ASSERT( 0<n && n<=max_n, NULL );
+    PointerToHandler h[max_n];
+    size_t k = 0;
+    for ( ; k < n; ++k ) {
 #if _WIN32||_WIN64
-    HMODULE module = LoadLibrary( library );
+        h[k] = (PointerToHandler) GetProcAddress( (HMODULE)module, descriptors[k].name );
+#elif !_STATIC
+        h[k] = (PointerToHandler) dlsym( module, descriptors[k].name );
+#endif /* _WIN32||_WIN64 */
+        if ( !h[k] )
+            break;
+    }
+    // Commit the entry points if they are all present.
+    if ( k == n ) {
+        // Cannot use memset here, because the writes must be atomic.
+        for( size_t k=0; k<n; ++k )
+            *descriptors[k].handler = h[k];
+        return true;
+    }
+    return false;
+}
+
+bool FillDynamicLinks( const char* library, const DynamicLinkDescriptor descriptors[], size_t n )
+{
+#if _WIN32||_WIN64
+    if ( FillDynamicLinks( GetModuleHandle(NULL), descriptors, n ) )
+        // Target library was statically linked into this executable
+        return true;
+    // Prevent Windows from displaying silly message boxes if it fails to load library
+    // (e.g. because of MS runtime problems - one those crazy manifest related ones)
+    UINT prev_mode = SetErrorMode (SEM_FAILCRITICALERRORS);
+    void* module = LoadLibrary (library);
+    SetErrorMode (prev_mode);
 #else
     void* module = dlopen( library, RTLD_LAZY ); 
 #endif /* _WIN32||_WIN64 */
-    size_t count = 0;
-    if( module ) {
-        // The library is there, so get the entry points.
-        PointerToHandler h[max_n];
-        for( size_t k=0; k<n; ++k ) {
-#if _WIN32||_WIN64
-            h[k] = (PointerToHandler) GetProcAddress( module, list[k].name );
-#else
-            h[k] = (PointerToHandler) dlsym( module, list[k].name );
-#endif /* _WIN32||_WIN64 */
-            count += h[k]!=NULL;
-        }
-        // Commit the entry points if they are all present.
-        if( count==n ) {
-            // Cannot use memset here, because the writes must be atomic.
-            for( size_t k=0; k<n; ++k )
-                *list[k].handler = h[k];
-        }
-    }
-    return count==n;
+    // Return true if the library is there and it contains all the expected entry points.
+    return module != NULL  &&  FillDynamicLinks( module, descriptors, n );
 }
+
+#endif /* !__TBB_WEAK_SYMBOLS */
+
 
 #include "tbb_version.h"
 

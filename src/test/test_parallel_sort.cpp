@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -518,7 +518,7 @@ int main( int argc, char* argv[] ) {
             Flog(p);
 
             // Test that all workers sleep when no work
-            TestCPUUserTime(p-1);
+            TestCPUUserTime(p);
         }
     } 
     printf("done\n");

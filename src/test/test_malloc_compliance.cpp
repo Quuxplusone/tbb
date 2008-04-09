@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -57,8 +57,14 @@ void limitMem( int limit )
 #include <vector>
 #include "tbb/scalable_allocator.h"
 
+/* to avoid dependency on TBB shared library, the following macro should be
+   defined to non-zero _before_ including any TBB or test harness headers.
+   Also tbb_assert_impl.h from src/tbb should be included right after */
+#define __TBB_NO_IMPLICIT_LINKAGE 1
+#include "../tbb/tbb_assert_impl.h"
+
 #include "tbb/blocked_range.h"
-#include "test/harness.h"
+#include "harness.h"
 
 #pragma pack(1)
 
@@ -67,7 +73,6 @@ void limitMem( int limit )
 
 #define COUNT_ELEM 50000
 #define MAX 1000
-#define MByte 1048576 //1MB
 #define APPROACHES 100
 #define COUNTEXPERIMENT 10000
 #define MB 25
@@ -91,9 +96,6 @@ TestMalloc* Tmalloc;
 TestCalloc* Tcalloc;
 TestRealloc* Trealloc;
 TestFree* Tfree;
-
-
-using namespace tbb;
 
 
 
@@ -187,7 +189,7 @@ struct TestStruct
     UCHAR *tmp;
     tmp=(UCHAR*)this;
     bool b=true;
-    for (int i=0; i<sizeof(TestStruct); i++)
+    for (int i=0; i<(int)sizeof(TestStruct); i++)
       if (tmp[i]) b=false;
     return b;
   }
@@ -199,14 +201,14 @@ CMemTest::CMemTest()
   time_t zzz;
   srand((UINT)time(&zzz));
   FullLog=false;
-  UINT i=rand()%100;
+  rand();
 }
 CMemTest::CMemTest(bool verb)
 {
   time_t zzz;
   srand((UINT)time(&zzz));
   FullLog=verb;
-  UINT i=rand()%100;
+  rand();
 }
 
 void CMemTest::InvariantDataRealloc()
@@ -315,7 +317,7 @@ void CMemTest::AddrArifm()
   if (FullLog) printf("Count zero: %d\n",CountZero);
   for (int i=0; i<COUNT_ELEM-1; i++)
   {
-    if ((DWORD)MasPointer[i]+MasCountElem[i] > (DWORD)MasPointer[i+1])
+    if ((uintptr_t)MasPointer[i]+MasCountElem[i] > (uintptr_t)MasPointer[i+1])
     {
       CountErrors++;
 //      if (FullLog) printf("intersection detect at 0x%x between %d element(int) and 0x%x\n"
@@ -350,7 +352,7 @@ void CMemTest::AddrArifm()
   // now we have a sorted array of pointers
   for (int i=0; i<COUNT_ELEM-1; i++)
   {
-    if ((DWORD)MasPointer[i]+MasCountElem[i] > (DWORD)MasPointer[i+1])
+    if ((uintptr_t)MasPointer[i]+MasCountElem[i] > (uintptr_t)MasPointer[i+1])
     {
       CountErrors++;
 //      if (FullLog) printf("intersection detect at 0x%x between %d element(int) and 0x%x\n"
@@ -389,7 +391,7 @@ void CMemTest::AddrArifm()
   // now we have a sorted array of pointers
   for (int i=0; i<COUNT_ELEM-1; i++)
   {
-    if ((DWORD)MasPointer[i]+MasCountElem[i] > (DWORD)MasPointer[i+1])
+    if ((uintptr_t)MasPointer[i]+MasCountElem[i] > (uintptr_t)MasPointer[i+1])
     {
       CountErrors++;
 //      if (FullLog) printf("intersection detect at 0x%x between %d element(int) and 0x%x\n"

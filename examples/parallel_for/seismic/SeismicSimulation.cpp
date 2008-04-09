@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -40,6 +40,8 @@
 #include "tbb/parallel_for.h"
 #include "tbb/tick_count.h"
 
+using namespace std;
+
 #ifdef _MSC_VER
 // warning C4068: unknown pragma
 #pragma warning(disable: 4068)
@@ -52,13 +54,32 @@ const size_t MAX_HEIGHT = 512;
 
 int UniverseHeight=MAX_HEIGHT;
 int UniverseWidth=MAX_WIDTH;
-int GrainSize = 32;
 
 typedef float value;
+
+//! Velocity at each grid point
 static value V[MAX_HEIGHT][MAX_WIDTH];
+
+//! Horizontal stress
 static value S[MAX_HEIGHT][MAX_WIDTH];
+
+//! Vertical stress
 static value T[MAX_HEIGHT][MAX_WIDTH];
-static value M[MAX_HEIGHT];
+
+//! Coefficient related to modulus
+static value M[MAX_HEIGHT][MAX_WIDTH];
+
+//! Coefficient related to lightness
+static value L[MAX_HEIGHT][MAX_WIDTH];
+
+//! Damping coefficients
+static value D[MAX_HEIGHT][MAX_WIDTH];
+
+/** Affinity is an argument to parallel_for to hint that an iteration of a loop 
+    is best replayed on the same processor for each execution of the loop. 
+    It is a global object because it must remember where the iterations happened
+    in previous executions. */
+static tbb::affinity_partitioner Affinity;
 
 enum MaterialType {
     WATER=0,
@@ -67,7 +88,7 @@ enum MaterialType {
 };
 
 //! Values are MaterialType, cast to an unsigned char to save space.
-static unsigned char Material[MAX_HEIGHT];
+static unsigned char Material[MAX_HEIGHT][MAX_WIDTH];
 
 static const colorcomp_t MaterialColor[4][3] = { // BGR
     {96,0,0},     // WATER
@@ -76,7 +97,6 @@ static const colorcomp_t MaterialColor[4][3] = { // BGR
 };
 
 static const int DamperSize = 32;
-static value Damper[DamperSize];
 
 static const int ColorMapSize = 1024;
 static color_t ColorMap[4][ColorMapSize];
@@ -96,7 +116,7 @@ int threads_low = 0, threads_high = tbb::task_scheduler_init::automatic;
 static void UpdatePulse() {
     if( PulseCounter>0 ) {
         value t = (PulseCounter-PulseTime/2)*0.05f;
-        V[PulseY][PulseX] += 64*sqrt(M[PulseY])*exp(-t*t);
+        V[PulseY][PulseX] += 64*sqrt(M[PulseY][PulseX])*exp(-t*t);
         --PulseCounter;
     }
 }
@@ -104,15 +124,15 @@ static void UpdatePulse() {
 static void SerialUpdateStress() {
     drawing_area drawing(0, 0, UniverseWidth, UniverseHeight);
     for( int i=1; i<UniverseHeight-1; ++i ) {
-        color_t* c = ColorMap[Material[i]];
         drawing.set_pos(1, i);
 #pragma ivdep
         for( int j=1; j<UniverseWidth-1; ++j ) {
-            S[i][j] += (V[i][j+1]-V[i][j]);
-            T[i][j] += (V[i+1][j]-V[i][j]);
+            S[i][j] += M[i][j]*(V[i][j+1]-V[i][j]);
+            T[i][j] += M[i][j]*(V[i+1][j]-V[i][j]);
             int index = (int)(V[i][j]*(ColorMapSize/2)) + ColorMapSize/2;
             if( index<0 ) index = 0;
             if( index>=ColorMapSize ) index = ColorMapSize-1;
+            color_t* c = ColorMap[Material[i][j]];
             drawing.put_pixel(c[index]);
         }
     }
@@ -123,15 +143,15 @@ struct UpdateStressBody {
         drawing_area drawing(0, range.begin(), UniverseWidth, range.end()-range.begin());
         int i_end = range.end();
         for( int y = 0, i=range.begin(); i!=i_end; ++i,y++ ) {
-            color_t* c = ColorMap[Material[i]];
             drawing.set_pos(1, y);
 #pragma ivdep
             for( int j=1; j<UniverseWidth-1; ++j ) {
-                S[i][j] += (V[i][j+1]-V[i][j]);
-                T[i][j] += (V[i+1][j]-V[i][j]);
+                S[i][j] += M[i][j]*(V[i][j+1]-V[i][j]);
+                T[i][j] += M[i][j]*(V[i+1][j]-V[i][j]);
                 int index = (int)(V[i][j]*(ColorMapSize/2)) + ColorMapSize/2;
                 if( index<0 ) index = 0;
                 if( index>=ColorMapSize ) index = ColorMapSize-1;
+                color_t* c = ColorMap[Material[i][j]];
                 drawing.put_pixel(c[index]);
             }
         }
@@ -139,60 +159,44 @@ struct UpdateStressBody {
 };
 
 static void ParallelUpdateStress() {
-    tbb::parallel_for( tbb::blocked_range<int>( 1, UniverseHeight-1, GrainSize ), UpdateStressBody() );
+    tbb::parallel_for( tbb::blocked_range<int>( 1, UniverseHeight-1 ), // Index space for loop
+                       UpdateStressBody(),                             // Body of loop
+                       Affinity );                                     // Affinity hint
 }
 
 static void SerialUpdateVelocity() {
     for( int i=1; i<UniverseHeight-1; ++i ) 
 #pragma ivdep
-        for( int j=1; j<UniverseWidth-1; ++j ) {
-            V[i][j] += (S[i][j] - S[i][j-1] + T[i][j] - T[i-1][j])*M[i];
-        }
+        for( int j=1; j<UniverseWidth-1; ++j ) 
+            V[i][j] = D[i][j]*(V[i][j] + L[i][j]*(S[i][j] - S[i][j-1] + T[i][j] - T[i-1][j]));
 }
 
 struct UpdateVelocityBody {
     void operator()( const tbb::blocked_range<int>& range ) const {
         int i_end = range.end();
-        for( int i=range.begin(); i!=i_end; ++i ) {
+        for( int i=range.begin(); i!=i_end; ++i ) 
 #pragma ivdep
-            for( int j=1; j<UniverseWidth-1; ++j ) {
-                V[i][j] += (S[i][j] - S[i][j-1] + T[i][j] - T[i-1][j])*M[i];
-            }
-        }
+            for( int j=1; j<UniverseWidth-1; ++j ) 
+                V[i][j] = D[i][j]*(V[i][j] + L[i][j]*(S[i][j] - S[i][j-1] + T[i][j] - T[i-1][j]));
     }
 };
 
 static void ParallelUpdateVelocity() {
-    tbb::parallel_for( tbb::blocked_range<int>( 1, UniverseHeight-1, GrainSize ), UpdateVelocityBody() );
-}
-
-static void DrainEnergyFromBorders() {
-#pragma ivdep
-    for( int k=1; k<=DamperSize-1; ++k ) {
-        value d = Damper[k];
-        for( int j=1; j<UniverseWidth-1; ++j ) {
-            V[k][j] *= d;
-            V[UniverseHeight-k][j] *= d;
-        }
-        for( int i=1; i<UniverseHeight-1; ++i ) {
-            V[i][k] *= d;
-            V[i][UniverseWidth-k] *= d;
-        }
-    }
+    tbb::parallel_for( tbb::blocked_range<int>( 1, UniverseHeight-1 ), // Index space for loop
+                       UpdateVelocityBody(),                           // Body of loop
+                       Affinity );                                     // Affinity hint
 }
 
 void SerialUpdateUniverse() {
     UpdatePulse();
     SerialUpdateStress();
     SerialUpdateVelocity();
-    DrainEnergyFromBorders();
 }
 
 void ParallelUpdateUniverse() {
     UpdatePulse();
     ParallelUpdateStress();
     ParallelUpdateVelocity();
-    DrainEnergyFromBorders();
 }
 
 class seismic_video : public video
@@ -234,17 +238,29 @@ void InitializeUniverse() {
             T[i][j] = S[i][j] = V[i][j] = value(1.0E-6);
         }
     for( int i=1; i<UniverseHeight-1; ++i ) {
-        value t = (value)i/UniverseHeight;
-        MaterialType m = SANDSTONE;
-        M[i] = 1.0/8;
-        if( t<0.3f ) {
-            m = WATER;
-            M[i] = 1.0/32;
-        } else if( 0.5<=t && t<=0.7 ) {
-            m = SHALE; 
-            M[i] = 1.0/2;
+        for( int j=1; j<UniverseWidth-1; ++j ) {
+            float x = float(j-UniverseWidth/2)/(UniverseWidth/2);
+            value t = (value)i/UniverseHeight;
+            MaterialType m;
+            D[i][j] = 1.0;
+            // Coefficient values are fictitious, and chosen to visually exaggerate 
+            // physical effects such as Rayleigh waves.  The fabs/exp line generates
+            // a shale layer with a gentle upwards slope and an anticline.
+            if( t<0.3f ) {
+                m = WATER;
+                M[i][j] = 0.125;
+                L[i][j] = 0.125;
+            } else if( fabs(t-0.7+0.2*exp(-8*x*x)+0.025*x)<=0.1 ) {
+                m = SHALE;
+                M[i][j] = 0.5;
+                L[i][j] = 0.6;
+            } else {
+                m = SANDSTONE;
+                M[i][j] = 0.3;
+                L[i][j] = 0.4;
+            } 
+            Material[i][j] = m;
         }
-        Material[i] = m;
     }
     value scale = 2.0f/ColorMapSize;
     for( int k=0; k<4; ++k ) {
@@ -261,10 +277,18 @@ void InitializeUniverse() {
             ColorMap[k][i] = video.get_color(c[2], c[1], c[0]);
         }
     }
+    // Set damping coefficients around border to reduce reflections from boundaries.
     value d = 1.0;
-    for( int k=0; k<DamperSize; ++k ) {
+    for( int k=DamperSize-1; k>0; --k ) {
         d *= 1-1.0f/(DamperSize*DamperSize);
-        Damper[DamperSize-1-k] = d;
+        for( int j=1; j<UniverseWidth-1; ++j ) {
+            D[k][j] *= d;
+            D[UniverseHeight-k][j] *= d;
+        }
+        for( int i=1; i<UniverseHeight-1; ++i ) {
+            D[i][k] *= d;
+            D[i][UniverseWidth-k] *= d;
+        }
     }
 }
 

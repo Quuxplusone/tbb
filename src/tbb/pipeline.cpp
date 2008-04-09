@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,6 +27,7 @@
 */
 
 #include "tbb/pipeline.h"
+#include "tbb/spin_mutex.h"
 #include "tbb/cache_aligned_allocator.h"
 #include "itt_notify.h"
 
@@ -80,15 +81,18 @@ public:
     /** The putter must be in state that works if enqueued for later wakeup 
         If putter was enqueued, returns NULL.  Otherwise returns putter,
         which the caller is expected to spawn. */
-    task* put_token( task& putter, Token token ) {
+    // Using template to avoid explicit dependency on stage_task
+    template<typename StageTask>
+    task* put_token( StageTask& putter ) {
         task* result = &putter;
         {
             spin_mutex::scoped_lock lock( array_mutex );
+            Token token = putter.next_token_number();
             if( token!=low_token ) {
                 // Trying to put token that is beyond low_token.
                 // Need to wait until low_token catches up before dispatching.
                 result = NULL;
-                __TBB_ASSERT( token>low_token, NULL );
+                __TBB_ASSERT( (tokendiff_t)(token-low_token)>0, NULL );
                 if( token-low_token>=array_size ) 
                     grow( token-low_token+1 );
                 ITT_NOTIFY( sync_releasing, this );
@@ -142,20 +146,71 @@ private:
     pipeline& my_pipeline;
     void* my_object;
     filter* my_filter;  
-    const Token my_token;
+    //! Invalid until this task went through an ordered stage.
+    Token my_token;
+    //! False until my_token is set.
+    bool my_token_ready;
+    //! True if this task has not yet read the input.
+    bool my_at_start;
 public:
-    stage_task( pipeline& pipeline, Token token, filter* filter_list ) : 
+    //! Construct stage_task for first stage in a pipeline.
+    /** Such a stage has not read any input yet. */
+    stage_task( pipeline& pipeline ) : 
+        my_pipeline(pipeline), 
+        my_object(NULL),
+        my_filter(pipeline.filter_list),
+        my_token_ready(false),
+        my_at_start(true)
+    {}
+    //! Construct stage_task for a subsequent stage in a pipeline.
+    stage_task( pipeline& pipeline, filter* filter_list ) : 
         my_pipeline(pipeline), 
         my_filter(filter_list),
-        my_token(token)
+        my_token_ready(false),
+        my_at_start(false)
     {}
-    task* execute();
+    //! Requests the pipeline for the next token number
+    /** It's not thread safe! Callers should guarantee exclusive execution */
+    inline Token next_token_number () {
+        if(!my_token_ready) {
+            my_token = my_pipeline.token_counter++;
+            my_token_ready = true;
+        }
+        return my_token;
+    }
+    //! The virtual task execution method
+    /*override*/ task* execute();
 };
 
 task* stage_task::execute() {
-    my_object = (*my_filter)(my_object);
-    if( ordered_buffer* input_buffer = my_filter->input_buffer )
-        input_buffer->note_done(my_token,*this);
+    __TBB_ASSERT( !my_at_start || !my_object, NULL );
+    if( my_at_start ) {
+        if( my_filter->is_serial() ) {
+            if( (my_object = (*my_filter)(my_object)) ) {
+                my_token = my_pipeline.token_counter++;
+                my_token_ready = true;
+                if( --my_pipeline.input_tokens>0 ) 
+                    spawn( *new( allocate_additional_child_of(*my_pipeline.end_counter) ) stage_task( my_pipeline ) );
+            } else {
+                my_pipeline.end_of_input = true; 
+                return NULL;
+            }
+        } else /*not is_serial*/ {
+            if( my_pipeline.end_of_input )
+                return NULL;
+            if( --my_pipeline.input_tokens>0 )
+                spawn( *new( allocate_additional_child_of(*my_pipeline.end_counter) ) stage_task( my_pipeline ) );
+            if( !(my_object = (*my_filter)(my_object)) ) {
+                my_pipeline.end_of_input = true; 
+                return NULL;
+            }
+        }
+        my_at_start = false;
+    } else {
+        my_object = (*my_filter)(my_object);
+        if( ordered_buffer* input_buffer = my_filter->input_buffer )
+            input_buffer->note_done(my_token,*this);
+    }
     task* next = NULL;
     my_filter = my_filter->next_filter_in_pipeline; 
     if( my_filter ) {
@@ -164,10 +219,15 @@ task* stage_task::execute() {
         add_to_depth(1);
         if( ordered_buffer* input_buffer = my_filter->input_buffer ) {
             // The next filter must execute tokens in order.
-            stage_task& clone = *new( allocate_continuation() ) stage_task( my_pipeline, my_token, my_filter );
+            stage_task& clone = *new( allocate_continuation() ) stage_task( my_pipeline, my_filter );
+            clone.my_token = my_token;
+            clone.my_token_ready = my_token_ready;
             clone.my_object = my_object;
-            next = input_buffer->put_token(clone,my_token);
+            next = input_buffer->put_token(clone);
         } else {
+            /* A semi-hackish way to reexecute the same task object immediately without spawning.
+               recycle_as_continuation marks the task for future execution,
+               and then 'this' pointer is returned to bypass spawning. */
             recycle_as_continuation();
             next = this;
         }
@@ -176,50 +236,27 @@ task* stage_task::execute() {
         // The token must be injected before execute() returns, in order to prevent the
         // end_counter task's reference count from prematurely reaching 0.
         set_depth( my_pipeline.end_counter->depth()+1 ); 
-        my_pipeline.inject_token( *this );
+        if( ++my_pipeline.input_tokens==1 ) 
+            if( !my_pipeline.end_of_input ) 
+                spawn( *new( allocate_additional_child_of(*my_pipeline.end_counter) ) stage_task( my_pipeline ) );
     }
     return next;
 }
 
 } // namespace internal
 
-void pipeline::inject_token( task& self ) {
-    void* o = NULL;
-    filter* f = filter_list;
-    spin_mutex::scoped_lock lock( input_mutex );
-    if( !end_of_input ) {
-        ITT_NOTIFY(sync_acquired, this );
-        o = (*f)(NULL);
-        ITT_NOTIFY(sync_releasing, this );
-        if( o ) {
-            internal::Token token = token_counter++;
-            lock.release(); // release the lock as soon as finished updating shared fields
-
-            f = f->next_filter_in_pipeline;
-            // Successfully fetched another input object.  
-            // Create a stage_task to process it.
-            internal::stage_task* s = new( self.allocate_additional_child_of(*end_counter) ) internal::stage_task( *this, token, f );
-            s->my_object = o;
-            if( internal::ordered_buffer* input_buffer = f->input_buffer ) {
-                // The next filter must execute tokens in order.
-                s = static_cast<internal::stage_task*>(input_buffer->put_token(*s,token));
-            } 
-            if( s ) {
-                self.spawn(*s);
-            }
-        } 
-        else 
-            end_of_input = true;
-    }
+void pipeline::inject_token( task& ) {
+    __TBB_ASSERT(0,"illegal call to inject_token");
 }
 
 pipeline::pipeline() : 
     filter_list(NULL),
-    filter_end(&filter_list),
+    filter_end(NULL),
     end_counter(NULL),
     token_counter(0),
     end_of_input(false)
 {
+    input_tokens = 0;
 }
 
 pipeline::~pipeline() {
@@ -235,32 +272,78 @@ void pipeline::clear() {
         }
         next=f->next_filter_in_pipeline;
         f->next_filter_in_pipeline = filter::not_in_pipeline();
+        if ( (f->my_filter_mode & internal::VERSION_MASK) >= __TBB_PIPELINE_VERSION(3) ) {
+            f->prev_filter_in_pipeline = filter::not_in_pipeline();
+            f->my_pipeline = NULL;
+        }
     }
-    filter_list = NULL;
+    filter_list = filter_end = NULL;
 }
 
-void pipeline::add_filter( filter& filter ) {
-    __TBB_ASSERT( filter.next_filter_in_pipeline==filter::not_in_pipeline(), "filter already part of pipeline?" );
+void pipeline::add_filter( filter& filter_ ) {
+#if TBB_DO_ASSERT
+    if ( (filter_.my_filter_mode & internal::VERSION_MASK) >= __TBB_PIPELINE_VERSION(3) ) 
+        __TBB_ASSERT( filter_.prev_filter_in_pipeline==filter::not_in_pipeline(), "filter already part of pipeline?" );
+    __TBB_ASSERT( filter_.next_filter_in_pipeline==filter::not_in_pipeline(), "filter already part of pipeline?" );
     __TBB_ASSERT( !end_counter, "invocation of add_filter on running pipeline" );
-    if( filter.is_serial() ) {
-        filter.input_buffer = new internal::ordered_buffer();
+#endif    
+    if( filter_.is_serial() ) {
+        filter_.input_buffer = new internal::ordered_buffer();
     }
-    *filter_end = &filter;
-    filter_end = &filter.next_filter_in_pipeline;
-    *filter_end = NULL;
+    if ( (filter_.my_filter_mode & internal::VERSION_MASK) >= __TBB_PIPELINE_VERSION(3) ) {
+        filter_.my_pipeline = this;
+        filter_.prev_filter_in_pipeline = filter_end;
+        if ( filter_list == NULL)
+            filter_list = &filter_;
+        else
+            filter_end->next_filter_in_pipeline = &filter_;
+        filter_.next_filter_in_pipeline = NULL;
+        filter_end = &filter_;
+    }
+    else
+    {
+        if( !filter_end )
+            filter_end = reinterpret_cast<filter*>(&filter_list);
+        
+        *reinterpret_cast<filter**>(filter_end) = &filter_;
+        filter_end = reinterpret_cast<filter*>(&filter_.next_filter_in_pipeline);
+        *reinterpret_cast<filter**>(filter_end) = NULL;
+    }
+}
+
+void pipeline::remove_filter( filter& filter_ ) {
+    if (&filter_ == filter_list) 
+        filter_list = filter_.next_filter_in_pipeline;
+    else {
+        __TBB_ASSERT( filter_.prev_filter_in_pipeline, "filter list broken?" ); 
+        filter_.prev_filter_in_pipeline->next_filter_in_pipeline = filter_.next_filter_in_pipeline;
+    }
+    if (&filter_ == filter_end)
+        filter_end = filter_.prev_filter_in_pipeline;
+    else {
+        __TBB_ASSERT( filter_.next_filter_in_pipeline, "filter list broken?" ); 
+        filter_.next_filter_in_pipeline->prev_filter_in_pipeline = filter_.prev_filter_in_pipeline;
+    }
+    if( internal::ordered_buffer* b = filter_.input_buffer ) {
+        delete b; 
+        filter_.input_buffer = NULL;
+    }
+    filter_.next_filter_in_pipeline = filter_.prev_filter_in_pipeline = filter::not_in_pipeline();
+    filter_.my_pipeline = NULL;
 }
 
 void pipeline::run( size_t max_number_of_live_tokens ) {
     __TBB_ASSERT( max_number_of_live_tokens>0, "pipeline::run must have at least one token" );
     __TBB_ASSERT( !end_counter, "pipeline already running?" );
     if( filter_list ) {
-        if( filter_list->next_filter_in_pipeline ) {
+        if( filter_list->next_filter_in_pipeline || !filter_list->is_serial() ) {
             end_of_input = false;
             end_counter = new( task::allocate_root() ) empty_task;
-            end_counter->set_ref_count(1);
-            for( size_t i=0; i<max_number_of_live_tokens; ++i )
-                inject_token( *end_counter );
-            end_counter->wait_for_all();
+            // 2 = 1 for spawned child + 1 for wait
+            end_counter->set_ref_count(2);
+            input_tokens = internal::Token(max_number_of_live_tokens);
+            // Prime the pump with the non-waiter
+            end_counter->spawn_and_wait_for_all( *new( end_counter->allocate_child() ) internal::stage_task( *this ) );
             end_counter->destroy(*end_counter);
             end_counter = NULL;
         } else {
@@ -273,7 +356,15 @@ void pipeline::run( size_t max_number_of_live_tokens ) {
 }
 
 filter::~filter() {
-    __TBB_ASSERT( next_filter_in_pipeline==filter::not_in_pipeline(), "cannot destroy filter that is part of pipeline" );
+    if ( (my_filter_mode & internal::VERSION_MASK) >= __TBB_PIPELINE_VERSION(3) ) {
+        if ( next_filter_in_pipeline != filter::not_in_pipeline() ) { 
+            __TBB_ASSERT( prev_filter_in_pipeline != filter::not_in_pipeline(), "probably filter list is broken" );
+            my_pipeline->remove_filter(*this);
+        } else 
+            __TBB_ASSERT( prev_filter_in_pipeline == filter::not_in_pipeline(), "probably filter list is broken" );
+    } else {
+        __TBB_ASSERT( next_filter_in_pipeline==filter::not_in_pipeline(), "cannot destroy filter that is part of pipeline" );
+    }
 }
 
 } // tbb

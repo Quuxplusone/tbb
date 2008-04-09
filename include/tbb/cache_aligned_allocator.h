@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -92,8 +92,9 @@ public:
     const_pointer address(const_reference x) const {return &x;}
     
     //! Allocate space for n objects, starting on a cache/sector line.
-    pointer allocate( size_type n, void* hint=0 ) {
-        return pointer(internal::NFS_Allocate( n, sizeof(T), hint ));
+    pointer allocate( size_type n, const void* hint=0 ) {
+        // The "hint" argument is always ignored in NFS_Allocate thus const_cast shouldn't hurt
+        return pointer(internal::NFS_Allocate( n, sizeof(T), const_cast<void*>(hint) ));
     }
 
     //! Free block of memory that starts on a cache line

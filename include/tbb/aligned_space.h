@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,6 +30,7 @@
 #define __TBB_aligned_space_H
 
 #include "tbb_stddef.h"
+#include "tbb_machine.h"
 
 namespace tbb {
 
@@ -39,17 +40,7 @@ namespace tbb {
 template<typename T,size_t N>
 class aligned_space {
 private:
-    union element_type {
-        size_t s;
-        long z;
-#if  _MSC_VER
-        __int64 l;
-#else
-        long long l;
-#endif /*  _MSC_VER */
-        long double x;
-        double y;
-    };
+    typedef __TBB_TypeWithAlignmentAtLeastAsStrict(T) element_type;
     element_type array[(sizeof(T)*N+sizeof(element_type)-1)/sizeof(element_type)];
 public:
     //! Pointer to beginning of array

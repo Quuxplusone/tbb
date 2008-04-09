@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -253,9 +253,6 @@ void queuing_rw_mutex::scoped_lock::release( )
             acquire_internal_lock();
             queuing_rw_mutex::scoped_lock* tmp = tricky_pointer::fetch_and_store<tbb::release>(&(n->prev), NULL);
             n->state = STATE_UPGRADE_LOSER;
-            // The volatile here ensures release semantics on IPF, which is necessary
-            // so that the user's critical section sends the correct values to the next
-            // process that acquires the critical section.
             __TBB_store_with_release(n->going,1);
             unblock_or_wait_on_internal_lock(get_flag(tmp));
         } else {

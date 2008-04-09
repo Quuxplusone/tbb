@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -40,6 +40,12 @@
 
 #include "tbb_machine.h"
 
+#if defined(_MSC_VER) && defined(_Wp64)
+    // Workaround for overzealous compiler warnings in /Wp64 mode
+    #pragma warning (push)
+    #pragma warning (disable: 4244 4267)
+#endif /* _MSC_VER && _Wp64 */
+
 namespace tbb {
 
 //! Specifies memory fencing.
@@ -66,10 +72,10 @@ struct atomic_word {             // Primary template
 
 template<typename I>            // Primary template
 struct atomic_base {
-    volatile I my_value;
+    I my_value;
 };
 
-#if __GNUC__ 
+#if __GNUC__ || __SUNPRO_CC
 #define __TBB_DECL_ATOMIC_FIELD(t,f,a) t f  __attribute__ ((aligned(a)));
 #elif defined(__INTEL_COMPILER)||_MSC_VER >= 1300
 #define __TBB_DECL_ATOMIC_FIELD(t,f,a) __declspec(align(a)) t f;
@@ -102,12 +108,12 @@ struct atomic_word<4> {          // Specialization
 
 template<>
 struct atomic_base<uint64_t> {   // Specialization
-    __TBB_DECL_ATOMIC_FIELD(volatile uint64_t,my_value,8)
+    __TBB_DECL_ATOMIC_FIELD(uint64_t,my_value,8)
 };
 
 template<>
 struct atomic_base<int64_t> {    // Specialization
-    __TBB_DECL_ATOMIC_FIELD(volatile int64_t,my_value,8)
+    __TBB_DECL_ATOMIC_FIELD(int64_t,my_value,8)
 };
 
 #define __TBB_DECL_FENCED_ATOMIC_PRIMITIVES(S,M)                         \
@@ -216,7 +222,7 @@ public:
         return compare_and_swap<__TBB_full_fence>(value,comparand);
     }
 
-    operator value_type() const volatile {
+    operator value_type() const volatile {                // volatile qualifier here for backwards compatibility 
         return __TBB_load_with_acquire( this->my_value );
     }
 
@@ -334,7 +340,7 @@ template<typename T> struct atomic<T*>: internal::atomic_impl<T*,ptrdiff_t,sizeo
 template<>
 struct atomic<void*> {
 private:
-    void* volatile my_value;
+    void* my_value;
 
 public:
     typedef void* value_type;
@@ -358,15 +364,55 @@ public:
     }
 
     operator value_type() const {
-        return __TBB_load_with_acquire(this->my_value);
+        return __TBB_load_with_acquire(my_value);
     }
 
     value_type operator=( value_type rhs ) {
-        __TBB_store_with_release(this->my_value,rhs);
+        __TBB_store_with_release(my_value,rhs);
+        return rhs;
+    }
+};
+
+template<>
+struct atomic<bool> {
+private:
+    bool my_value;
+    typedef internal::atomic_word<sizeof(bool)>::word word;
+public:
+    typedef bool value_type;
+    template<memory_semantics M>
+    value_type compare_and_swap( value_type value, value_type comparand ) {
+        return internal::atomic_traits<sizeof(value_type),M>::compare_and_swap(&my_value,word(value),word(comparand))!=0;
+    }
+
+    value_type compare_and_swap( value_type value, value_type comparand ) {
+        return compare_and_swap<__TBB_full_fence>(value,comparand);
+    }
+
+    template<memory_semantics M>
+    value_type fetch_and_store( value_type value ) {
+        return internal::atomic_traits<sizeof(value_type),M>::fetch_and_store(&my_value,word(value))!=0;
+    }
+
+    value_type fetch_and_store( value_type value ) {
+        return fetch_and_store<__TBB_full_fence>(value);
+    }
+
+    operator value_type() const {
+        return __TBB_load_with_acquire(my_value);
+    }
+
+    value_type operator=( value_type rhs ) {
+        __TBB_store_with_release(my_value,rhs);
         return rhs;
     }
 };
 
 } // namespace tbb
+
+#if defined(_MSC_VER) && defined(_Wp64)
+    // Workaround for overzealous compiler warnings in /Wp64 mode
+    #pragma warning (pop)
+#endif /* _MSC_VER && _Wp64 */
 
 #endif /* __TBB_atomic_H */

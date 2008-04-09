@@ -1,4 +1,4 @@
-# Copyright 2005-2007 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -29,61 +29,66 @@ ifndef tbb_os
   export tbb_os=windows
  else
   OS:=$(shell uname)
-  ifneq ($(OS),)
+  ifeq ($(OS),)
+   $(error "$(OS) is not supported")
+  else
    export tbb_os=$(OS)
-  endif
-  ifeq ($(OS), Linux)
-   export tbb_os=linux
-  endif
-  ifeq ($(OS), Darwin)
-   export tbb_os=macos
-  endif
- endif
-endif
-
-ifndef tbb_os
- $(error "$(OS) is not supported")
-else
- ifeq ($(wildcard $(tbb_root)/build/$(tbb_os).inc),)
-   $(error "$(tbb_os)" is not supported. Add build/$(tbb_os).inc file with os-specific settings )
- endif
- 
- # detect arch and runtime versions, provide common os-specific definitions
- include $(tbb_root)/build/$(tbb_os).inc
-
- ifeq ($(arch),)
-  $(error Architecture not detected)
- endif
- ifeq ($(runtime),)
-  $(error Runtime version not detected)
- endif
- ifeq ($(wildcard $(tbb_root)/build/$(tbb_os).$(compiler).inc),)
-   $(error Compiler "$(compiler)" is not supported on $(tbb_os). Add build/$(tbb_os).$(compiler).inc file with compiler-specific settings )
- endif
-
- ifdef BUILDING_PHASE
-  # Setting default configuration to release
-  cfg?=release
-  # include copmiler-specific build configurations
-  -include $(tbb_root)/build/$(tbb_os).$(compiler).inc
- endif
- ifneq ($(BUILDING_PHASE),1)
-  # definitions for top-level Makefiles
-  origin_build_dir:=$(origin tbb_build_dir)
-  tbb_build_dir?=$(tbb_root)$(SLASH)build
-  tbb_build_prefix?=$(tbb_os)_$(arch)_$(compiler)_$(runtime)
-  work_dir=$(tbb_build_dir)$(SLASH)$(tbb_build_prefix)
-  ifneq ($(BUILDING_PHASE),0)
-   work_dir:=$(work_dir)
-   # assign new value for tbb_root
-   ifneq ($(firstword is_abs_path$(subst /, ,$(tbb_root))),is_abs_path)
-    ifeq ($(origin_build_dir),undefined)
-     override tbb_root:=../..
-    else
-     override tbb_root:=$(CWD)/$(tbb_root)
-    endif
+   ifeq ($(OS), Linux)
+    export tbb_os=linux
    endif
-   export tbb_root
-  endif # BUILDING_PHASE != 0
- endif  # BUILDING_PHASE != 1
+   ifeq ($(OS), Darwin)
+    export tbb_os=macos
+   endif
+  endif # OS successfully detected
+ endif # !Windows
+endif # !tbb_os
+
+ifeq ($(wildcard $(tbb_root)/build/$(tbb_os).inc),)
+  $(error "$(tbb_os)" is not supported. Add build/$(tbb_os).inc file with os-specific settings )
 endif
+
+# detect arch and runtime versions, provide common os-specific definitions
+include $(tbb_root)/build/$(tbb_os).inc
+
+ifeq ($(arch),)
+ $(error Architecture not detected)
+endif
+ifeq ($(runtime),)
+ $(error Runtime version not detected)
+endif
+ifeq ($(wildcard $(tbb_root)/build/$(tbb_os).$(compiler).inc),)
+  $(error Compiler "$(compiler)" is not supported on $(tbb_os). Add build/$(tbb_os).$(compiler).inc file with compiler-specific settings )
+endif
+
+# Support for running debug tests to release library and vice versa
+flip_cfg=$(subst _flipcfg,_release,$(subst _release,_debug,$(subst _debug,_flipcfg,$(1))))
+cross_cfg = $(if $(crosstest),$(call flip_cfg,$(1)),$(1))
+
+ifdef BUILDING_PHASE
+ # Setting default configuration to release
+ cfg?=release
+  # include compiler-specific build configurations
+ -include $(tbb_root)/build/$(tbb_os).$(compiler).inc
+ ifdef extra_inc
+  -include $(tbb_root)/build/$(extra_inc)
+ endif
+endif
+ifneq ($(BUILDING_PHASE),1)
+ # definitions for top-level Makefiles
+ origin_build_dir:=$(origin tbb_build_dir)
+ tbb_build_dir?=$(tbb_root)$(SLASH)build
+ tbb_build_prefix?=$(tbb_os)_$(arch)_$(compiler)_$(runtime)
+ work_dir=$(tbb_build_dir)$(SLASH)$(tbb_build_prefix)
+ ifneq ($(BUILDING_PHASE),0)
+  work_dir:=$(work_dir)
+  # assign new value for tbb_root
+  ifneq ($(firstword is_abs_path$(subst /, ,$(tbb_root))),is_abs_path)
+   ifeq ($(origin_build_dir),undefined)
+    override tbb_root:=../..
+   else
+    override tbb_root:=$(CWD)/$(tbb_root)
+   endif
+  endif
+  export tbb_root
+ endif # BUILDING_PHASE != 0
+endif  # BUILDING_PHASE != 1
