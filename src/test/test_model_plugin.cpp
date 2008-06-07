@@ -41,10 +41,10 @@
 
 class CModel {
 public:
-  CModel(void) {};
-  static tbb::task_scheduler_init tbb_init;
+    CModel(void) {};
+    static tbb::task_scheduler_init tbb_init;
 
-  void init_and_terminate( int );
+    void init_and_terminate( int );
 };
 
 tbb::task_scheduler_init CModel::tbb_init(1);
@@ -120,62 +120,98 @@ void report_error_in(const char* function_name)
 #endif
 }
 
+int use_lot_of_tls() {
+    int count = 0;
+#if _WIN32 || _WIN64
+    DWORD last_handles[10];
+    DWORD result;
+    result = TlsAlloc();
+    while( result!=TLS_OUT_OF_INDEXES ) {
+        last_handles[++count%10] = result;
+        result = TlsAlloc();
+    }
+    for( int i=0; i<10; ++i )
+        TlsFree(last_handles[i]);
+#else
+    pthread_key_t last_handles[10];
+    pthread_key_t result;
+    while( pthread_key_create(&result, NULL)==0 ) {
+        last_handles[++count%10] = result;
+        if(Verbose) printf("%d\n", count);
+    }
+    for( int i=0; i<10; ++i )
+        pthread_key_delete(last_handles[i]);
+#endif
+    return count-10;
+}
+
 typedef void (*PLUGIN_CALL)(int);
 
 int main(int argc, char* argv[])
 {
-  ParseCommandLine( argc, argv );
+    ParseCommandLine( argc, argv );
 
-  PLUGIN_CALL plugin_call;
+    PLUGIN_CALL my_plugin_call;
 
+    int tls_key_count = use_lot_of_tls();
+    if( Verbose )
+        printf("%d thread local objects allocated in advance\n", tls_key_count);
+
+    for( int i=1; i<100; ++i ) {  
 #if _WIN32 || _WIN64
-  HMODULE hLib = LoadLibrary("test_model_plugin.dll");
-  if (hLib==NULL){
+        HMODULE hLib = LoadLibrary("test_model_plugin.dll");
+        if (hLib==NULL){
 #if !__TBB_NO_IMPLICIT_LINKAGE
-    report_error_in("LoadLibrary");
-    return -1;
+            report_error_in("LoadLibrary");
+            return -1;
 #else
-    printf("skip\n");
-    return 0;
+            printf("skip\n");
+            return 0;
 #endif
-  }
-  plugin_call = (PLUGIN_CALL) GetProcAddress(hLib, "plugin_call");
-  if (plugin_call==NULL) {
-    report_error_in("GetProcAddress");
-    return -1;
-  }
+        }
+        my_plugin_call = (PLUGIN_CALL) GetProcAddress(hLib, "plugin_call");
+        if (my_plugin_call==NULL) {
+            report_error_in("GetProcAddress");
+            return -1;
+        }
 #else
 #if __APPLE__
-  const char *dllname = "test_model_plugin.dylib";
+        const char *dllname = "test_model_plugin.dylib";
 #else
-  const char *dllname = "test_model_plugin.so";
+        const char *dllname = "test_model_plugin.so";
 #endif
-  void* hLib = dlopen( dllname, RTLD_LAZY ); 
-  if (hLib==NULL){
+        void* hLib = dlopen( dllname, RTLD_LAZY ); 
+        if (hLib==NULL){
 #if !__TBB_NO_IMPLICIT_LINKAGE
-    report_error_in("dlopen");
-    return -1;
+            report_error_in("dlopen");
+            return -1;
 #else
-    printf("skip\n");
-    return 0;
+            printf("skip\n");
+            return 0;
 #endif
-  }
-  plugin_call = PLUGIN_CALL (dlsym(hLib, "plugin_call"));
-  if (plugin_call==NULL) {
-    report_error_in("dlsym");
-    return -1;
-  }
+        }
+        my_plugin_call = PLUGIN_CALL (dlsym(hLib, "plugin_call"));
+        if (my_plugin_call==NULL) {
+            report_error_in("dlsym");
+            return -1;
+        }
 #endif
 
-  plugin_call(MaxThread);
+        if( Verbose )
+            printf("Iteration %d, calling plugin... ", i);
+        my_plugin_call(MaxThread);
+        if( Verbose )
+            printf("succeeded\n");
 
 #if _WIN32 || _WIN64
-  FreeLibrary(hLib);
+        FreeLibrary(hLib);
 #else
-  dlclose(hLib);
+        dlclose(hLib);
 #endif
-  printf("done\n");
-  return 0;
+    } // end for(1,100)
+
+    printf("done\n");
+    return 0;
 }
 
 #endif

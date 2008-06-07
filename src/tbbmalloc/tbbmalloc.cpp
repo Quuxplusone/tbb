@@ -29,7 +29,33 @@
 #define INSTANTIATE_ITT_NOTIFY 1
 #include "Customize.h"
 
+#define DoOneTimeInitializations __TBB_malloc_DoOneTimeInitializations_stub
 #include "tbb/itt_notify.cpp"
+
+namespace tbb {
+namespace internal {
+
+void DoOneTimeInitializations() {}
+
+#if DO_ITT_NOTIFY
+
+/** Caller is responsible for ensuring this routine is called exactly once. */
+void MallocInitializeITT() {
+    bool success = false;
+    // Check if we are running under control of VTune.
+    if( GetBoolEnvironmentVariable("KMP_FOR_TCHECK") || GetBoolEnvironmentVariable("KMP_FOR_TPROFILE") ) {
+        // Yes, we are under control of VTune.  Check for libittnotify library.
+        success = FillDynamicLinks( LIBITTNOTIFY_NAME, ITT_HandlerTable, 5 );
+    }
+    if (!success){
+        for (int i = 0; i < 5; i++)
+            *ITT_HandlerTable[i].handler = NULL;
+    }
+}
+
+#endif /* DO_ITT_NOTIFY */
+
+} } // namespaces
 
 #ifdef _WIN32
 #include <windows.h>
@@ -48,9 +74,4 @@ BOOL WINAPI DllMain( HINSTANCE hInst, DWORD callReason, LPVOID )
 }
 #endif //_WIN32
 
-namespace tbb {
-namespace internal {
 
-void DoOneTimeInitializations() {}
-
-} } // namespaces

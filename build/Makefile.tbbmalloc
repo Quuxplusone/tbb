@@ -24,7 +24,7 @@
 # invalidate any other reasons why the executable file might be covered by
 # the GNU General Public License.
 
-tbb_root ?= $(TBB20_INSTALL_DIR)
+tbb_root ?= $(TBB21_INSTALL_DIR)
 BUILDING_PHASE=1
 include $(tbb_root)/build/common.inc
 DEBUG_SUFFIX=$(findstring _debug,_$(cfg))
@@ -75,8 +75,14 @@ LIB_LINK_FLAGS += $(EXPORT_KEY)tbbmalloc.def
 $(MALLOC.DLL): tbbmalloc.def
 endif
 
-$(MALLOC.DLL): $(MALLOC.OBJ) $(TBBMALLOC.RES)
+$(MALLOC.DLL): BUILDING_LIBRARY = $(MALLOC.DLL)
+$(MALLOC.DLL): $(MALLOC.OBJ) $(TBBMALLOC.RES) $(MALLOC_NO_VERSION.DLL)
 	$(LIB_LINK_CMD) $(LIB_OUTPUT_KEY)$(MALLOC.DLL) $(MALLOC.OBJ) $(TBBMALLOC.RES) $(LIB_LINK_LIBS) $(LIB_LINK_FLAGS)
+
+ifneq (,$(MALLOC_NO_VERSION.DLL))
+$(MALLOC_NO_VERSION.DLL):
+	echo "INPUT ($(MALLOC.DLL))" > $(MALLOC_NO_VERSION.DLL)
+endif
 
 malloc: $(MALLOC.DLL)
 

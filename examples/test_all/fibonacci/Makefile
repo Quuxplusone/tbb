@@ -42,4 +42,4 @@ clean:
 	rm -f $(PROG) *.o *.d
 
 test:
-	./$(PROG) 500
+	./$(PROG)

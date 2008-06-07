@@ -27,6 +27,7 @@
 */
 
 #include "tbb/concurrent_vector.h"
+#include "tbb/tbb_exception.h"
 #include "tbb_misc.h"
 #include "itt_notify.h"
 #include "tbb/task.h"

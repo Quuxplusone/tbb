@@ -46,15 +46,8 @@
 
 int main() {
     TestContainer<std::vector<int,tbb::scalable_allocator<int> > >();
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-    // Microsoft incorrectly typed the first argument to std::allocator<T>::deallocate
-    // as (void*), and depends upon this error in their early versions of list and deque.
-    printf("Warning: compatibility of NFS_Allocator with list and deque not tested\n"
-           "because they depend on error that Microsoft corrected later.\n");
-#else
     TestContainer<std::list<int,tbb::scalable_allocator<int> > >();
     TestContainer<std::deque<int,tbb::scalable_allocator<int> > >();
-#endif
     printf("done\n");
     return 0;
 }

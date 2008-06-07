@@ -47,7 +47,7 @@ LIB_LINK_FLAGS = -dynamiclib -i-static
 C_FLAGS = $(CPLUS_FLAGS) -x c
 
 ifeq ($(cfg), release)
-    CPLUS_FLAGS = -O2
+    CPLUS_FLAGS = -O2 -fno-omit-frame-pointer
 else
     CPLUS_FLAGS = -g -O0 -DTBB_DO_ASSERT
 endif

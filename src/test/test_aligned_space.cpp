@@ -88,13 +88,6 @@ void TestAlignedSpace() {
 #include "harness_m128.h"
 #include <cstdio>         // Inclusion of <cstdio> deferred, to improve odds of detecting accidental dependences on it.
 
-//workaround for old patform SDK
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-namespace std {
-    using ::printf;
-}
-#endif /* defined(_WIN64) && !defined(_CPPLIB_VER) */
-
 int main() {
     TestAlignedSpace<char>();
     TestAlignedSpace<short>();

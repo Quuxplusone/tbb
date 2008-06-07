@@ -48,13 +48,6 @@
     #pragma warning (disable: 4267)
 #endif /* _MSC_VER && _Wp64 */
 
-//workaround for old patform SDK
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-namespace std{
-    using ::memset;
-}
-#endif /* defined(_WIN64) && !defined(_CPPLIB_VER) */
-
 namespace tbb {
 
 template<typename T, class A = cache_aligned_allocator<T> >
@@ -356,19 +349,11 @@ public: // workaround for MSVC
         return ptrdiff_t(i.my_index)-ptrdiff_t(j.my_index);
     }
 
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-#pragma message ("Workaround for MS PSDK for Win64: allocator::rebind doesn't work")
-#endif
-
     template<typename T, class A>
     class allocator_base {
     public:
-#if (defined(_WIN64) && !defined(_CPPLIB_VER))
-        typedef A allocator_type;
-#else
         typedef typename A::template
             rebind<T>::other allocator_type;
-#endif
         allocator_type my_allocator;
 
         allocator_base(const allocator_type &a = allocator_type() ) : my_allocator(a) {}
@@ -414,7 +399,7 @@ public: // workaround for MSVC
     may increase element access time. Internal layout can be optimized by method compact() that
     merges several smaller arrays into one solid.
 
-@par Changes in since TBB 2.0
+@par Changes since TBB 2.0
     - Implemented exception-safety guaranties
     - Added template argument for allocator
     - Added allocator argument in constructors

@@ -29,7 +29,7 @@
 #------------------------------------------------------------------------------
 .PHONY: default test_tbb_plain test_tbb_old clean
 
-tbb_root ?= $(TBB20_INSTALL_DIR)
+tbb_root ?= $(TBB21_INSTALL_DIR)
 BUILDING_PHASE=1
 include $(tbb_root)/build/common.inc
 DEBUG_SUFFIX=$(findstring _debug,$(call cross_cfg,_$(cfg)))
@@ -82,12 +82,10 @@ include $(tbb_root)/build/common_rules.inc
 
 # Rules for the tests, which use TBB in a dynamically loadable library
 test_model_plugin.exe: test_model_plugin.$(OBJ) test_model_plugin.$(DLL)
-	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $< $(LINK_FLAGS) $(LIBDL)
+	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $< $(LIBDL) $(LIBS) $(LINK_FLAGS)
 
 
-TASK_CPP_DEPENDENCIES = $(TBB_ASM.OBJ) cache_aligned_allocator.$(OBJ) tbb_misc.$(OBJ) itt_notify.$(OBJ) mutex.$(OBJ) spin_rw_mutex.$(OBJ)
-
-test_eh_tasks.exe test_assembly.exe: spin_mutex.$(OBJ)
+TASK_CPP_DEPENDENCIES = $(TBB_ASM.OBJ) cache_aligned_allocator.$(OBJ) tbb_misc.$(OBJ) itt_notify.$(OBJ) mutex.$(OBJ) spin_rw_mutex.$(OBJ) spin_mutex.$(OBJ)
 
 # These executables don't depend on the TBB library, but include task.cpp directly
 TASK_CPP_DIRECTLY_INCLUDED = test_eh_tasks.exe \
@@ -98,7 +96,7 @@ TASK_CPP_DIRECTLY_INCLUDED = test_eh_tasks.exe \
 $(TASK_CPP_DIRECTLY_INCLUDED): WARNING_KEY += $(WARNING_SUPPRESS)
 
 $(TASK_CPP_DIRECTLY_INCLUDED): %.exe : %.$(OBJ) $(TASK_CPP_DEPENDENCIES)
-	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $^ $(LIBS) $(LINK_FLAGS)
+	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $^ $(LIBDL) $(LIBS) $(LINK_FLAGS)
 
 test_handle_perror.exe: test_handle_perror.$(OBJ) tbb_misc.$(OBJ) $(TBB_ASM.OBJ)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $^ $(LINK_TBB.LIB) $(LIBS) $(LINK_FLAGS)
@@ -160,10 +158,10 @@ endif
 
 test_tbb_plain: $(TEST_TBB_PLAIN.EXE)
 
+ifndef norun
 # Run tests that are in TEST_TBB_PLAIN.EXE
 # The test are ordered so that simpler components are tested first.
 # If a component Y uses component X, then tests for Y should come after tests for X.
-ifndef norun
 test_tbb_plain:
 	./test_assembly.exe 
 	./test_compiler.exe 
@@ -207,6 +205,7 @@ test_tbb_plain:
 	./test_tbb_version.exe
 	./test_eh_tasks.exe 2:4
 	./test_eh_algorithms.exe 2:4
+	./test_tbb_thread.exe
 endif # norun
 
 TEST_TBB_OLD.OBJ = test_concurrent_vector_v2.$(OBJ) test_concurrent_queue_v2.$(OBJ) test_mutex_v2.$(OBJ)

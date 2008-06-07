@@ -19,7 +19,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(TBB20_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;TBB_DO_ASSERT"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
@@ -31,7 +31,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb_debug.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB20_INSTALL_DIR)\ia32\vc7.1\lib"
+				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\ia32\vc7.1\lib"
 				GenerateDebugInformation="TRUE"
 				SubSystem="1"
 				TargetMachine="1"
@@ -41,7 +41,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying tbb_debug.dll"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\ia32\vc7.1\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot;"/>
+				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\ia32\vc7.1\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot;"/>
 			<Tool
 				Name="VCPreBuildEventTool"/>
 			<Tool
@@ -67,7 +67,7 @@
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="$(TBB20_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
@@ -78,7 +78,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB20_INSTALL_DIR)\ia32\vc7.1\lib"
+				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\ia32\vc7.1\lib"
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -89,7 +89,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying tbb.dll"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\ia32\vc7.1\bin\tbb.dll&quot; &quot;$(OutDir)&quot;"/>
+				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\ia32\vc7.1\bin\tbb.dll&quot; &quot;$(OutDir)&quot;"/>
 			<Tool
 				Name="VCPreBuildEventTool"/>
 			<Tool

@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <vector>
 #include <string>
+#include <utility>
 
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 #include "tbb/task_scheduler_init.h"
@@ -42,12 +43,19 @@
 #define TEST_SYSTEM_COMMAND "./test_tbb_version.exe 1"
 #endif
 
-void initialize_strings_vector(std::vector <std::string>* vector);
+enum string_required {
+    required,
+    not_required
+    };
+
+typedef std::pair <std::string, string_required> string_pair;
+
+void initialize_strings_vector(std::vector <string_pair>* vector);
+
 const char stderr_stream[] = "version_test.err";
 const char stdout_stream[] = "version_test.out";
 
 int main(int argc, char **argv)
-
 {
     try{
         FILE *stream_out;
@@ -117,8 +125,8 @@ int main(int argc, char **argv)
             exit( 1 );
         }
         //Checking pipe - it should contain version data
-        std::vector <std::string> strings_vector;
-        std::vector <std::string>::iterator strings_iterator;
+        std::vector <string_pair> strings_vector;
+        std::vector <string_pair>::iterator strings_iterator;
 
         initialize_strings_vector( &strings_vector );
         strings_iterator = strings_vector.begin();
@@ -141,23 +149,36 @@ int main(int argc, char **argv)
             fprintf( stderr, "Error (step 1):Internal test error (stderr open)\n" );
             exit( 1 );
         }
+        
+        int skip_line = 0;
+        
         while( !feof( stream_err ) ) {
             if( fgets( psBuffer, 512, stream_err ) != NULL ){
-                if ( strings_iterator == strings_vector.end() ){
-                    fprintf( stderr, "Error: problem with version dictionary.\n" );
-                    exit( 1 );
-                }
-                if ( strstr( psBuffer, strings_iterator->c_str() ) == NULL ){
-                    fprintf( stderr, "Error: version strings do not match.\n" );
-                    printf( psBuffer );
-                    exit( 1 );
-                }
-                if ( strings_iterator != strings_vector.end() ) strings_iterator ++;
+                do{
+                    if ( strings_iterator == strings_vector.end() ){
+                        fprintf( stderr, "Error: version string dictionary ended prematurely.\n" );
+                        fprintf( stderr, "No match for: \t%s", psBuffer );
+                        exit( 1 );
+                    }
+                    if ( strstr( psBuffer, strings_iterator->first.c_str() ) == NULL ){
+                        if( strings_iterator->second == required ){
+                            fprintf( stderr, "Error: version strings do not match.\n" );
+                            fprintf( stderr, "Expected \"%s\" not found in:\n\t%s", strings_iterator->first.c_str(), psBuffer );
+                            exit( 1 );
+                        }else{
+                            //Do we need to print in case there is no non-required string?
+                            skip_line = 1;
+                        }
+                    }else{
+                           skip_line = 0;
+                    }
+                    if ( strings_iterator != strings_vector.end() ) strings_iterator ++;
+                }while( skip_line );
             }
         }
         fclose( stream_err );
     } catch(...) {
-        ASSERT(0,"unexpected exception");
+        ASSERT( 0,"unexpected exception" );
     }
     printf("done\n");
     return 0;
@@ -165,62 +186,41 @@ int main(int argc, char **argv)
 
 
 // Fill dictionary with version strings for platforms 
-void initialize_strings_vector(std::vector <std::string>* vector)
+void initialize_strings_vector(std::vector <string_pair>* vector)
 {
-    vector->push_back("TBB: VERSION\t\t2.0");
-    vector->push_back("TBB: INTERFACE VERSION\t3010");
-    vector->push_back("TBB: BUILD_DATE");
-    vector->push_back("TBB: BUILD_HOST");
+    vector->push_back(string_pair("TBB: VERSION\t\t2.1", required));          // check TBB_VERSION
+    vector->push_back(string_pair("TBB: INTERFACE VERSION\t3011", required)); // check TBB_INTERFACE_VERSION
+    vector->push_back(string_pair("TBB: BUILD_DATE", required));
+    vector->push_back(string_pair("TBB: BUILD_HOST", required));
 #if _WIN32||_WIN64
-    vector->push_back("TBB: BUILD_OS");
-    vector->push_back("TBB: BUILD_CL");
-    vector->push_back("TBB: BUILD_COMPILER");
+    vector->push_back(string_pair("TBB: BUILD_OS", required));
+    vector->push_back(string_pair("TBB: BUILD_CL", required));
+    vector->push_back(string_pair("TBB: BUILD_COMPILER", required));
 #elif __APPLE__
-    vector->push_back("TBB: BUILD_KERNEL");
-    vector->push_back("TBB: BUILD_GCC");
-    if( getenv("COMPILER_VERSION") ) {
-		vector->push_back("TBB: BUILD_COMPILER");
-    }
-    vector->push_back("TBB: BUILD_LD");
-//#elif __linux__ //We use version_info_linux.sh for unsupported OSes
-#elif __APPLE__
-    vector->push_back("TBB: BUILD_KERNEL");
-    vector->push_back("TBB: BUILD_GCC");
-    if( getenv("COMPILER_VERSION") ) {
-		vector->push_back("TBB: BUILD_COMPILER");
-    }
-    vector->push_back("TBB: BUILD_LD");
-//#elif __linux__ //We use version_info_linux.sh for unsupported OSes
+    vector->push_back(string_pair("TBB: BUILD_KERNEL", required));
+    vector->push_back(string_pair("TBB: BUILD_GCC", required));
+    vector->push_back(string_pair("TBB: BUILD_COMPILER", not_required)); //if( getenv("COMPILER_VERSION") )
+    vector->push_back(string_pair("TBB: BUILD_LD", required));
 #elif __sun
-    vector->push_back("TBB: BUILD_OS");
-    vector->push_back("TBB: BUILD_KERNEL");
-    vector->push_back("TBB: BUILD_SUNCC");
-    if( getenv("COMPILER_VERSION") ) {
-		vector->push_back("TBB: BUILD_COMPILER");
-    }
-//#elif __linux__ //We use version_info_linux.sh for unsupported OSes
-#else
-    vector->push_back("TBB: BUILD_OS");
-    vector->push_back("TBB: BUILD_KERNEL");
-    vector->push_back("TBB: BUILD_GCC");
-    if( getenv("COMPILER_VERSION") ) {
-		vector->push_back("TBB: BUILD_COMPILER");
-    }
-    vector->push_back("TBB: BUILD_GLIBC");
-    vector->push_back("TBB: BUILD_LD");
+    vector->push_back(string_pair("TBB: BUILD_OS", required));
+    vector->push_back(string_pair("TBB: BUILD_KERNEL", required));
+    vector->push_back(string_pair("TBB: BUILD_SUNCC", required));
+    vector->push_back(string_pair("TBB: BUILD_COMPILER", not_required)); //if( getenv("COMPILER_VERSION") )
+#else //We use version_info_linux.sh for unsupported OSes
+    vector->push_back(string_pair("TBB: BUILD_OS", required));
+    vector->push_back(string_pair("TBB: BUILD_KERNEL", required));
+    vector->push_back(string_pair("TBB: BUILD_GCC", required));
+    vector->push_back(string_pair("TBB: BUILD_COMPILER", not_required)); //if( getenv("COMPILER_VERSION") )
+    vector->push_back(string_pair("TBB: BUILD_GLIBC", required));
+    vector->push_back(string_pair("TBB: BUILD_LD", required));
+#endif
+    vector->push_back(string_pair("TBB: BUILD_TARGET", required));
+    vector->push_back(string_pair("TBB: BUILD_COMMAND", required));
+    vector->push_back(string_pair("TBB: TBB_DO_ASSERT", required));
+    vector->push_back(string_pair("TBB: DO_ITT_NOTIFY", required));
+    vector->push_back(string_pair("TBB: ITT", not_required)); //#ifdef DO_ITT_NOTIFY
+    vector->push_back(string_pair("TBB: ALLOCATOR", required));
+    vector->push_back(string_pair("TBB: SCHEDULER", required));
 
-#endif
-    vector->push_back("TBB: BUILD_TARGET");
-    vector->push_back("TBB: BUILD_COMMAND");
-    vector->push_back("TBB: TBB_DO_ASSERT");
-    vector->push_back("TBB: DO_ITT_NOTIFY");
-#if !(__APPLE__)
-    vector->push_back("TBB: ITT");
-#endif
-    vector->push_back("TBB: ALLOCATOR");
-    vector->push_back("TBB: SCHEDULER");
-#if !(__APPLE__)
-    vector->push_back("TBB: ITT");
-#endif
     return;
 }

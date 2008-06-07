@@ -29,11 +29,13 @@
 #if _WIN32||_WIN64
 #include <process.h>        /* Need _beginthreadex from there */
 #include <stdexcept>        /* Need std::runtime_error from there */
+#include <string>           /* Need std::string from there */
 #endif // _WIN32||_WIN64
 #include "tbb_misc.h" // for handle_perror
 #include "tbb/tbb_stddef.h"
 #include "tbb/tbb_thread.h"
 #include "tbb/tbb_allocator.h"
+#include "tbb/task_scheduler_init.h" /* Need task_scheduler_init::default_num_threads() */
 
 namespace tbb {
 
@@ -68,7 +70,9 @@ void handle_win_error( int error_code )
         0,
         (LPTSTR) &msg_buf,
         0, NULL );
-    throw std::runtime_error(msg_buf);
+    const std::string msg_str(msg_buf);
+    LocalFree(msg_buf);
+    throw std::runtime_error(msg_str);
 }
 #endif //__EXCEPTIONS || _CPPUNWIND
 #endif // _WIN32||_WIN64
@@ -149,6 +153,10 @@ void tbb_thread_v3::internal_start( __TBB_NATIVE_THREAD_ROUTINE_PTR(start_routin
 #endif // _WIN32||_WIN64
 }
 
+unsigned tbb_thread_v3::hardware_concurrency() {
+    return task_scheduler_init::default_num_threads();
+}
+
 tbb_thread_v3::id thread_get_id_v3() {
 #if _WIN32||_WIN64
     return tbb_thread_v3::id( GetCurrentThreadId() );
@@ -177,7 +185,15 @@ void thread_yield_v3()
 void thread_sleep_v3(const tick_count::interval_t &i)
 {
 #if _WIN32||_WIN64
-    Sleep( static_cast<DWORD>(i.seconds()*1e3) );
+     tick_count t0 = tick_count::now();
+     tick_count t1 = t0;
+     for(;;) {
+         double remainder = (i-(t1-t0)).seconds()*1e3;  // milliseconds remaining to sleep
+         if( remainder<=0 ) break;
+         DWORD t = remainder>=INFINITE ? INFINITE-1 : DWORD(remainder);
+         Sleep( t );
+         t1 = tick_count::now();
+    }
 #else
     struct timespec req;
     double sec = i.seconds();

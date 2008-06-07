@@ -29,13 +29,6 @@
 #include "tbb/task_scheduler_init.h"
 #include <cstdlib>
 
-//workaround for old patform SDK
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-namespace std{
-    using ::rand;
-}
-#endif /* defined(_WIN64) && !defined(_CPPLIB_VER) */
-
 //! Test that task::initialize and task::terminate work when doing nothing else.
 /** maxthread is treated as the "maximum" number of worker threads. */
 void InitializeAndTerminate( int maxthread ) {

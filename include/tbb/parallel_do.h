@@ -37,96 +37,103 @@ namespace tbb {
 
 //! @cond INTERNAL
 namespace internal {
-    template<typename Body> class parallel_do_feeder_impl;
+    template<typename Body, typename Item> class parallel_do_feeder_impl;
     template<typename Body> class do_group_task;
+
+    //! Strips its template type argument from 'cv' and '&' qualifiers
+    template<typename T>
+    struct strip { typedef T type; };
+    template<typename T>
+    struct strip<T&> { typedef T type; };
+    template<typename T>
+    struct strip<const T&> { typedef T type; };
+    template<typename T>
+    struct strip<volatile T&> { typedef T type; };
+    template<typename T>
+    struct strip<const volatile T&> { typedef T type; };
+    // Most of the compilers remove cv-qualifiers from non-reference function argument types. 
+    // But unfortunately there are those that don't.
+    template<typename T>
+    struct strip<const T> { typedef T type; };
+    template<typename T>
+    struct strip<volatile T> { typedef T type; };
+    template<typename T>
+    struct strip<const volatile T> { typedef T type; };
 } // namespace internal
 //! @endcond
 
 //! Class the user supplied algorithm body uses to add new tasks
-/**
-    \param Item  Work item type
-**/
+/** \param Item Work item type **/
 template<typename Item>
 class parallel_do_feeder: internal::no_copy
 {
     parallel_do_feeder() {}
     virtual ~parallel_do_feeder () {}
     virtual void internal_add( const Item& item ) = 0;
-    template<typename Body>
-    friend class internal::parallel_do_feeder_impl;
+    template<typename Body_, typename Item_> friend class internal::parallel_do_feeder_impl;
 public:
     //! Add a work item to a running parallel_do.
     void add( const Item& item ) {internal_add(item);}
 };
 
-
 //! @cond INTERNAL
 namespace internal {
     //! For internal use only.
-    /** Selects one of the two possible forms of function call member operator
-        @ingroup algorithms */
-
-
-    template<class T, typename F1, typename F2>
+    /** Selects one of the two possible forms of function call member operator.
+        @ingroup algorithms **/
+    template<class Body, typename Item>
     class parallel_do_operator_selector
     {
-        template<typename A1, typename A2 >
-        static void internal_call( const T& obj, A1& arg1, A2& arg2, F2 )
-        {
-            obj(arg1, arg2);
-        }
-        template<typename A1, typename A2 >
-        static void internal_call( const T& obj, A1& arg1, A2& arg2, F1 )
-        {
+        typedef parallel_do_feeder<Item> Feeder;
+        template<typename A1, typename A2, typename CvItem >
+        static void internal_call( const Body& obj, A1& arg1, A2&, void (Body::*)(CvItem) const ) {
             obj(arg1);
         }
+        template<typename A1, typename A2, typename CvItem >
+        static void internal_call( const Body& obj, A1& arg1, A2& arg2, void (Body::*)(CvItem, parallel_do_feeder<Item>&) const ) {
+            obj(arg1, arg2);
+        }
+
     public:
         template<typename A1, typename A2 >
-        static void call( const T& obj, A1& arg1, A2& arg2 )
+        static void call( const Body& obj, A1& arg1, A2& arg2 )
         {
-            internal_call( obj, arg1, arg2, &T::operator() );
+            internal_call( obj, arg1, arg2, &Body::operator() );
         }
     };
 
     //! For internal use only.
     /** Executes one iteration of a do.
         @ingroup algorithms */
-    template<typename Body>
+    template<typename Body, typename Item>
     class do_iteration_task: public task
     {
-        typedef typename Body::argument_type item_type;
-        typedef parallel_do_feeder_impl<Body>   feeder_type;
-        typedef parallel_do_feeder<item_type>   users_feeder_type;
+        typedef parallel_do_feeder_impl<Body, Item> feeder_type;
 
-        item_type my_value;
-        parallel_do_feeder_impl<Body>& my_feeder;
+        Item my_value;
+        feeder_type& my_feeder;
 
-        do_iteration_task( const item_type& value, feeder_type& feeder ) : 
+        do_iteration_task( const Item& value, feeder_type& feeder ) : 
             my_value(value), my_feeder(feeder)
-        {
-        }
+        {}
 
         /*override*/ 
         task* execute()
         {
-            typedef  void (Body::*pfn_one_arg_t)(item_type) const;
-            typedef  void (Body::*pfn_two_args_t)(item_type, users_feeder_type&) const;
-
-            parallel_do_operator_selector<Body, pfn_one_arg_t, pfn_two_args_t>::call(*my_feeder.my_body, my_value, my_feeder);
+            parallel_do_operator_selector<Body, Item>::call(*my_feeder.my_body, my_value, my_feeder);
             return NULL;
         }
-        template<typename Body_> friend class parallel_do_feeder_impl;
+
+        template<typename Body_, typename Item_> friend class parallel_do_feeder_impl;
     }; // class do_iteration_task
 
-    template<typename Iterator, typename Body>
+    template<typename Iterator, typename Body, typename Item>
     class do_iteration_task_iter: public task
     {
-        typedef typename Body::argument_type    item_type;
-        typedef parallel_do_feeder_impl<Body>   feeder_type;
-        typedef parallel_do_feeder<item_type>   users_feeder_type;
+        typedef parallel_do_feeder_impl<Body, Item> feeder_type;
 
         Iterator my_iter;
-        parallel_do_feeder_impl<Body>& my_feeder;
+        feeder_type& my_feeder;
 
         do_iteration_task_iter( const Iterator& iter, feeder_type& feeder ) : 
             my_iter(iter), my_feeder(feeder)
@@ -135,29 +142,25 @@ namespace internal {
         /*override*/ 
         task* execute()
         {
-            typedef  void (Body::*pfn_one_arg_t)(item_type) const;
-            typedef  void (Body::*pfn_two_args_t)(item_type, users_feeder_type&) const;
-
-            parallel_do_operator_selector<Body, pfn_one_arg_t, pfn_two_args_t>::call(*my_feeder.my_body, *my_iter, my_feeder);
+            parallel_do_operator_selector<Body, Item>::call(*my_feeder.my_body, *my_iter, my_feeder);
             return NULL;
         }
-        template<typename Iterator_, typename Body_> friend class do_group_task_forward;    
-        template<typename Body_> friend class do_group_task_input;    
-        template<typename Iterator_, typename Body_> friend class do_task_iter;    
+
+        template<typename Iterator_, typename Body_, typename Item_> friend class do_group_task_forward;    
+        template<typename Body_, typename Item_> friend class do_group_task_input;    
+        template<typename Iterator_, typename Body_, typename Item_> friend class do_task_iter;    
     }; // class do_iteration_task_iter
 
     //! For internal use only.
     /** Implements new task adding procedure.
         @ingroup algorithms **/
-    template<class Body>
-    class parallel_do_feeder_impl : public parallel_do_feeder<typename Body::argument_type>
+    template<class Body, typename Item>
+    class parallel_do_feeder_impl : public parallel_do_feeder<Item>
     {
-        typedef typename Body::argument_type item_type;
-
         /*override*/ 
-        void internal_add( const item_type& item )
+        void internal_add( const Item& item )
         {
-            typedef do_iteration_task<Body> iteration_type;
+            typedef do_iteration_task<Body, Item> iteration_type;
 
             iteration_type& t = *new (task::self().allocate_additional_child_of(*my_barrier)) iteration_type(item, *this);
 
@@ -173,23 +176,24 @@ namespace internal {
     /** Unpacks a block of iterations.
         @ingroup algorithms */
     
-    template<typename Iterator,typename Body>
+    template<typename Iterator, typename Body, typename Item>
     class do_group_task_forward: public task
     {
         static const size_t max_arg_size = 4;         
 
-        parallel_do_feeder_impl<Body>& my_feeder;
+        typedef parallel_do_feeder_impl<Body, Item> feeder_type;
+
+        feeder_type& my_feeder;
         Iterator my_first;
         size_t my_size;
-        typedef typename Body::argument_type item_type;
         
-        do_group_task_forward( Iterator first, size_t size, parallel_do_feeder_impl<Body>& feeder ) 
+        do_group_task_forward( Iterator first, size_t size, feeder_type& feeder ) 
             : my_feeder(feeder), my_first(first), my_size(size)
         {}
 
         /*override*/ task* execute()
         {
-            typedef do_iteration_task_iter<Iterator, Body> iteration_type;
+            typedef do_iteration_task_iter<Iterator, Body, Item> iteration_type;
             __TBB_ASSERT( my_size>0, NULL );
             task_list list;
             task* t; 
@@ -206,26 +210,27 @@ namespace internal {
             return NULL;
         }
 
-        template<typename Iterator_, typename Body_> friend class do_task_iter;
+        template<typename Iterator_, typename Body_, typename _Item> friend class do_task_iter;
     }; // class do_group_task_forward
 
-    template<typename Body>
+    template<typename Body, typename Item>
     class do_group_task_input: public task
     {
         static const size_t max_arg_size = 4;         
-        typedef typename Body::argument_type item_type;
+        
+        typedef parallel_do_feeder_impl<Body, Item> feeder_type;
 
-        parallel_do_feeder_impl<Body>& my_feeder;
+        feeder_type& my_feeder;
         size_t my_size;
-        aligned_space<item_type,max_arg_size> my_arg;
+        aligned_space<Item, max_arg_size> my_arg;
 
-        do_group_task_input( parallel_do_feeder_impl<Body>& feeder ) 
+        do_group_task_input( feeder_type& feeder ) 
             : my_feeder(feeder), my_size(0)
         {}
 
         /*override*/ task* execute()
         {
-            typedef do_iteration_task_iter<typename Body::argument_type*, Body> iteration_type;
+            typedef do_iteration_task_iter<Item*, Body, Item> iteration_type;
             __TBB_ASSERT( my_size>0, NULL );
             task_list list;
             task* t; 
@@ -243,48 +248,62 @@ namespace internal {
 
         ~do_group_task_input(){
             for( size_t k=0; k<my_size; ++k)
-                (my_arg.begin() + k)->~item_type();
+                (my_arg.begin() + k)->~Item();
         }
 
-        template<typename Iterator_, typename Body_> friend class do_task_iter;
+        template<typename Iterator_, typename Body_, typename Item_> friend class do_task_iter;
     }; // class do_group_task_input
     
     //! For internal use only.
     /** Gets block of iterations and packages them into a do_group_task.
         @ingroup algorithms */
-    template<typename Iterator, typename Body>
+    template<typename Iterator, typename Body, typename Item>
     class do_task_iter: public task
     {
+        //typedef typename std::iterator_traits<Iterator>::value_type Item;
+        typedef parallel_do_feeder_impl<Body, Item> feeder_type;
+
     public:
-        do_task_iter( Iterator first, Iterator last , parallel_do_feeder_impl<Body>& feeder ) : 
+        do_task_iter( Iterator first, Iterator last , feeder_type& feeder ) : 
             my_first(first), my_last(last), my_feeder(feeder)
         {}
     
     private:
         Iterator my_first;
         Iterator my_last;
-        parallel_do_feeder_impl<Body>& my_feeder;
+        feeder_type& my_feeder;
 
+        /* Do not merge run(xxx) and run_xxx() methods. They are separated in order
+            to make sure that compilers will eliminate unused argument of type xxx
+            (that is will not put it on stack). The sole purpose of this argument 
+            is overload resolution.
+            
+            An alternative could be using template functions, but explicit specialization 
+            of member function templates is not supported for non specialized class 
+            templates. Besides template functions would always fall back to the least 
+            efficient variant (the one for input iterators) in case of iterators having 
+            custom tags derived from basic ones. */
         /*override*/ task* execute()
         {
-            return run( typename std::iterator_traits<Iterator>::iterator_category() );
+            typedef typename std::iterator_traits<Iterator>::iterator_category iterator_tag;
+            return run( (iterator_tag*)NULL );
         }
-        
-        inline task* run( std::input_iterator_tag ) { return run_for_input_iterator(); }
+
+        /** This is the most restricted variant that operates on input iterators or
+            iterators with unknown tags (tags not derived from the standard ones). **/
+        inline task* run( void* ) { return run_for_input_iterator(); }
         
         task* run_for_input_iterator() {
-            typedef do_group_task_input<Body> block_type;
-            typedef typename Body::argument_type item_type;
+            typedef do_group_task_input<Body, Item> block_type;
 
             block_type& t = *new( allocate_additional_child_of(*my_feeder.my_barrier) ) block_type(my_feeder);
-
             size_t k=0; 
             while( !(my_first == my_last) ) {
-                new (t.my_arg.begin() + k) item_type(*my_first);
+                new (t.my_arg.begin() + k) Item(*my_first);
                 ++my_first;
                 if( ++k==block_type::max_arg_size ) {
-                    // There might be more iterations.
-                    recycle_to_reexecute();
+                    if ( !(my_first == my_last) )
+                        recycle_to_reexecute();
                     break;
                 }
             }
@@ -297,36 +316,36 @@ namespace internal {
             }
         }
 
-        inline task* run( std::forward_iterator_tag ) { return run_for_forward_iterator(); }
+        inline task* run( std::forward_iterator_tag* ) { return run_for_forward_iterator(); }
 
         task* run_for_forward_iterator() {
-            typedef do_group_task_forward<Iterator,Body> block_type;
-            
+            typedef do_group_task_forward<Iterator, Body, Item> block_type;
+
             Iterator first = my_first;
             size_t k=0; 
             while( !(my_first==my_last) ) {
                 ++my_first;
                 if( ++k==block_type::max_arg_size ) {
-                    // There might be more iterations.
-                    recycle_to_reexecute();
+                    if ( !(my_first==my_last) )
+                        recycle_to_reexecute();
                     break;
                 }
             }
-            return k==0 ? NULL : new( allocate_additional_child_of(*my_feeder.my_barrier) ) block_type(first,k,my_feeder);
+            return k==0 ? NULL : new( allocate_additional_child_of(*my_feeder.my_barrier) ) block_type(first, k, my_feeder);
         }
         
-        inline task* run( std::random_access_iterator_tag ) { return run_for_random_access_iterator(); }
+        inline task* run( std::random_access_iterator_tag* ) { return run_for_random_access_iterator(); }
 
         task* run_for_random_access_iterator() {
-            typedef do_group_task_forward<Iterator,Body> block_type;
-            typedef do_iteration_task_iter<Iterator, Body> iteration_type;
+            typedef do_group_task_forward<Iterator, Body, Item> block_type;
+            typedef do_iteration_task_iter<Iterator, Body, Item> iteration_type;
             
             size_t k = static_cast<size_t>(my_last-my_first); 
             if( k > block_type::max_arg_size ) {
                 Iterator middle = my_first + k/2;
 
                 empty_task& c = *new( allocate_continuation() ) empty_task;
-                do_task_iter& b = *new( c.allocate_child() ) do_task_iter(middle,my_last,my_feeder);
+                do_task_iter& b = *new( c.allocate_child() ) do_task_iter(middle, my_last, my_feeder);
                 recycle_as_child_of(c);
 
                 my_last = middle;
@@ -338,7 +357,7 @@ namespace internal {
                 task* t; 
                 size_t k1=0; 
                 for(;;) {
-                    t = new( allocate_child() ) iteration_type( my_first, my_feeder );
+                    t = new( allocate_child() ) iteration_type(my_first, my_feeder);
                     ++my_first;
                     if( ++k1==k ) break;
                     list.push_back(*t);
@@ -350,6 +369,45 @@ namespace internal {
             return NULL;
         }
     }; // class do_task_iter
+
+    //! For internal use only.
+    /** Implements parallel iteration over a range.
+        @ingroup algorithms */
+    template<typename Iterator, typename Body, typename Item> 
+    void run_parallel_do( Iterator first, Iterator last, const Body& body )
+    {
+        typedef do_task_iter<Iterator, Body, Item> root_iteration_task;
+        parallel_do_feeder_impl<Body, Item> feeder;
+        feeder.my_body = &body;
+        feeder.my_barrier = new( task::allocate_root() ) empty_task();
+        __TBB_ASSERT(feeder.my_barrier, "root task allocation failed");
+
+        root_iteration_task &t = *new( feeder.my_barrier->allocate_child() ) root_iteration_task(first, last, feeder);
+
+        feeder.my_barrier->set_ref_count(2);
+        feeder.my_barrier->spawn_and_wait_for_all(t);
+
+        feeder.my_barrier->destroy(*feeder.my_barrier);
+    }
+
+    //! For internal use only.
+    /** Detects types of Body's operator function arguments.
+        @ingroup algorithms **/
+    template<typename Iterator, typename Body, typename Item> 
+    void select_parallel_do( Iterator first, Iterator last, const Body& body, void (Body::*)(Item) const )
+    {
+        run_parallel_do<Iterator, Body, typename strip<Item>::type>( first, last, body );
+    }
+
+    //! For internal use only.
+    /** Detects types of Body's operator function arguments.
+        @ingroup algorithms **/
+    template<typename Iterator, typename Body, typename Item, typename _Item> 
+    void select_parallel_do( Iterator first, Iterator last, const Body& body, void (Body::*)(Item, parallel_do_feeder<_Item>&) const )
+    {
+        run_parallel_do<Iterator, Body, typename strip<Item>::type>( first, last, body );
+    }
+
 } // namespace internal
 //! @endcond
 
@@ -358,45 +416,33 @@ namespace internal {
     Class \c Body implementing the concept of parallel_do body must define:
     - \code 
         B::operator()( 
-                B::argument_type& item,
-                parallel_do_feeder<B::argument_type>& feeder
+                cv_item_type item,
+                parallel_do_feeder<item_type>& feeder
         ) const
         
         OR
 
-        B::operator()( B::argument_type& item ) const
+        B::operator()( cv_item_type& item ) const
       \endcode                                                      Process item. 
                                                                     May be invoked concurrently  for the same \c this but different \c item.
                                                         
-    - \code B::argument_type \endcode                               Type of a work item.
-    - \code B::argument_type( const B::argument_type& ) \endcode 
+    - \code item_type( const item_type& ) \endcode 
                                                                     Copy a work item.
-    - \code ~B::argument_type() \endcode                            Destroy a work item
+    - \code ~item_type() \endcode                            Destroy a work item
 **/
 
 /** \name parallel_do
     See also requirements on \ref parallel_do_body_req "parallel_do Body". **/
 //@{
-
 //! Parallel iteration over a range, with optional addition of more work.
 /** @ingroup algorithms */
 template<typename Iterator, typename Body> 
 void parallel_do( Iterator first, Iterator last, const Body& body )
 {
-    using namespace internal;
-
-    parallel_do_feeder_impl<Body>  feeder;
-    feeder.my_body = &body;
-    feeder.my_barrier = new( task::allocate_root() ) empty_task();
-    __TBB_ASSERT(feeder.my_barrier, "root task allocation failed");
-
-    do_task_iter<Iterator,Body>& t = *new( feeder.my_barrier->allocate_child() ) do_task_iter<Iterator,Body>( first, last, feeder );
-
-    feeder.my_barrier->set_ref_count(2);
-    feeder.my_barrier->spawn_and_wait_for_all(t);
-
-    feeder.my_barrier->destroy(*feeder.my_barrier);
-} // parallel_do
+    if ( first == last )
+        return;
+    internal::select_parallel_do( first, last, body, &Body::operator() );
+}
 //@}
 
 } // namespace 

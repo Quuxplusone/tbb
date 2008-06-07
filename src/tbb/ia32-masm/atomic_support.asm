@@ -24,7 +24,6 @@
 ; invalidate any other reasons why the executable file might be covered by
 ; the GNU General Public License.
 
-; DO NOT EDIT - AUTOMATICALLY GENERATED FROM .s FILE
 .686
 .model flat,c
 .code 
@@ -157,19 +156,40 @@ __TBB_machine_cmpswp8:
 	ALIGN 4
 	PUBLIC c __TBB_machine_load8
 __TBB_machine_Load8:
+	; If location is on stack, compiler may have failed to align it correctly, so we do dynamic check.
+	mov ecx,4[esp]
+	test ecx,7
+	jne load_slow
+	; Load within a cache line
 	sub esp,12
-	mov ecx,16[esp]
 	fild qword ptr [ecx]
 	fistp qword ptr [esp]
 	mov eax,[esp]
 	mov edx,4[esp]
 	add esp,12
 	ret
+load_slow:
+	; Load is misaligned. Use cmpxchg8b.
+	push ebx
+	push edi
+	mov edi,ecx
+	xor eax,eax
+	xor ebx,ebx
+	xor ecx,ecx
+	xor edx,edx
+	lock cmpxchg8b qword ptr [edi]
+	pop edi
+	pop ebx
+	ret
+EXTRN __TBB_machine_store8_slow:PROC
 .code 
 	ALIGN 4
 	PUBLIC c __TBB_machine_store8
 __TBB_machine_Store8:
+	; If location is on stack, compiler may have failed to align it correctly, so we do dynamic check.
 	mov ecx,4[esp]
+	test ecx,7
+	jne __TBB_machine_store8_slow ;; tail call to tbb_misc.cpp
 	fild qword ptr 8[esp]
 	fistp qword ptr [ecx]
 	ret

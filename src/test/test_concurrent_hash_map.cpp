@@ -26,13 +26,27 @@
     the GNU General Public License.
 */
 
-#include "tbb/concurrent_hash_map.h"
+#ifndef TBB_PERFORMANCE_WARNINGS
+#define TBB_PERFORMANCE_WARNINGS 1
+#endif
+#include "tbb/tbb_stddef.h"
 #include "tbb/parallel_for.h"
 #include "tbb/blocked_range.h"
 #include "tbb/atomic.h"
 #include "tbb/tick_count.h"
 #include "harness.h"
 #include "harness_allocator.h"
+
+// hook performance warning
+#define runtime_warning hooked_warning
+bool bad_hashing = false;
+namespace tbb { namespace internal {
+    void hooked_warning( const char* format, ... ) {
+        ASSERT(bad_hashing, NULL);
+    }
+}}// namespace tbb::internal
+
+#include "tbb/concurrent_hash_map.h"
 
 class MyException : public std::bad_alloc {
 public:
@@ -70,8 +84,9 @@ protected:
     } my_state;
     void operator=( const MyData& );    // Deny acces
 public:
-    MyData() {
+    MyData(int i = 0) {
         my_state = LIVE;
+        data = i;
         if(MyDataCountLimit && MyDataCount + 1 >= MyDataCountLimit)
             throw MyException();
         ++MyDataCount;
@@ -110,6 +125,12 @@ public:
 
 class MyData2 : public MyData {
 public:
+    MyData2( ) {}
+    MyData2( const MyData& other ) {
+        ASSERT( other.my_state==LIVE, NULL );
+        ASSERT( my_state==LIVE, NULL );
+        data = other.data;
+    }
     void operator=( const MyData& other ) {
         ASSERT( other.my_state==LIVE, NULL );
         ASSERT( my_state==LIVE, NULL );
@@ -150,13 +171,10 @@ public:
 typedef local_counting_allocator<std::allocator<MyData> > MyAllocator;
 typedef tbb::concurrent_hash_map<MyKey,MyData,MyHashCompare,MyAllocator> MyTable;
 typedef tbb::concurrent_hash_map<MyKey,MyData2,MyHashCompare> MyTable2;
+typedef tbb::concurrent_hash_map<MyKey,MyData,YourHashCompare> YourTable;
 
 template<typename MyTable>
 inline void CheckAllocator(MyTable &table, size_t expected_allocs, size_t expected_frees, bool exact = true) {
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-    if(Verbose)
-        printf("skipping of checking allocators due to known problem of Platform SDK\n");
-#else
     size_t items_allocated = table.get_allocator().items_allocated, items_freed = table.get_allocator().items_freed;
     size_t allocations = table.get_allocator().allocations, frees = table.get_allocator().frees;
     if(Verbose)
@@ -169,7 +187,6 @@ inline void CheckAllocator(MyTable &table, size_t expected_allocs, size_t expect
         ASSERT( allocations >= expected_allocs, NULL); ASSERT( frees >= expected_frees, NULL);
         ASSERT( allocations == frees, NULL );
     }
-#endif
 }
 
 inline bool UseKey( size_t i ) {
@@ -178,20 +195,31 @@ inline bool UseKey( size_t i ) {
 
 struct Insert {
     static void apply( MyTable& table, int i ) {
-        MyTable::accessor a;    
         if( UseKey(i) ) {
-            table.insert( a, MyKey::make(i) );
-            if( i&1 )
-                (*a).second.set_value( i*i );
-            else
-                a->second.set_value(i*i);
+            if( i&4 ) {
+                MyTable::accessor a;
+                table.insert( a, MyKey::make(i) );
+                if( i&1 )
+                    (*a).second.set_value(i*i);
+                else
+                    a->second.set_value(i*i);
+            } else
+                if( i&1 ) {
+                    MyTable::accessor a;
+                    table.insert( a, std::make_pair(MyKey::make(i), MyData(i*i)) );
+                    ASSERT( (*a).second.value_of()==i*i, NULL );
+                } else {
+                    MyTable::const_accessor ca;
+                    table.insert( ca, std::make_pair(MyKey::make(i), MyData(i*i)) );
+                    ASSERT( ca->second.value_of()==i*i, NULL );
+                }
         }
     }
 };
 
 struct Find {
     static void apply( MyTable& table, int i ) {
-        MyTable::accessor a;    
+        MyTable::accessor a;
         const MyTable::accessor& ca = a;
         bool b = table.find( a, MyKey::make(i) );
         ASSERT( b==!a.empty(), NULL );
@@ -236,12 +264,10 @@ struct Erase {
         if(i&4) {
             if(i&8) {
                 MyTable::const_accessor a;
-                table.find( a, MyKey::make(i) );
-                b = table.erase( a );
+                b = table.find( a, MyKey::make(i) ) && table.erase( a );
             } else {
                 MyTable::accessor a;
-                table.find( a, MyKey::make(i) );
-                b = table.erase( a );
+                b = table.find( a, MyKey::make(i) ) && table.erase( a );
             }
         } else
             b = table.erase( MyKey::make(i) );
@@ -250,7 +276,44 @@ struct Erase {
     }
 };
 
-template<typename Op>
+static const int IE_SIZE = 2;
+tbb::atomic<YourTable::size_type> InsertEraseCount[IE_SIZE];
+
+struct InsertErase  {
+    static void apply( YourTable& table, int i ) {
+        if ( i%3 ) {
+            int key = i%IE_SIZE;
+            if ( table.insert( std::make_pair(MyKey::make(key), MyData2()) ) ) 
+                ++InsertEraseCount[key];
+        } else {
+            int key = i%IE_SIZE;
+            if( i&1 ) {
+                YourTable::accessor res;
+                if(table.find( res, MyKey::make(key) ) && table.erase( res ) )
+                    --InsertEraseCount[key];
+            } else {
+                YourTable::const_accessor res;
+                if(table.find( res, MyKey::make(key) ) && table.erase( res ) )
+                    --InsertEraseCount[key];
+            }
+        }
+    }
+};
+
+// Test for the deadlock discussed at:
+// http://softwarecommunity.intel.com/isn/Community/en-US/forums/permalink/30253302/30253302/ShowThread.aspx#30253302
+struct InnerInsert {
+    static void apply( YourTable& table, int i ) {
+        YourTable::accessor a1, a2;
+        if(i&1) __TBB_Yield();
+        table.insert( a1, MyKey::make(1) );
+        __TBB_Yield();
+        table.insert( a2, MyKey::make(1 + (1<<30)) ); // the same chain
+        table.erase( a2 ); // if erase by key it would lead to deadlock for single thread
+    }
+};
+
+template<typename Op, typename MyTable>
 class TableOperation {
     MyTable& my_table;
 public:
@@ -261,12 +324,12 @@ public:
     TableOperation( MyTable& table ) : my_table(table) {}
 };
 
-template<typename Op>
-void DoConcurrentOperations( MyTable& table, int n, const char* what, int nthread ) {
+template<typename Op, typename TableType>
+void DoConcurrentOperations( TableType& table, int n, const char* what, int nthread ) {
     if( Verbose ) 
         printf("testing %s with %d threads\n",what,nthread);
     tbb::tick_count t0 = tbb::tick_count::now();
-    tbb::parallel_for( tbb::blocked_range<int>(0,n,100), TableOperation<Op>(table) );
+    tbb::parallel_for( tbb::blocked_range<int>(0,n,100), TableOperation<Op,TableType>(table) );
     tbb::tick_count t1 = tbb::tick_count::now();
     if( Verbose )
         printf("time for %s = %g with %d threads\n",what,(t1-t0).seconds(),nthread);
@@ -378,26 +441,41 @@ void TestInsertFindErase( int nthread ) {
     ParallelTraverseTable(table,n,0);
     CheckAllocator(table, 0, 100);
 
-    DoConcurrentOperations<Insert>(table,n,"insert",nthread);
+    DoConcurrentOperations<Insert,MyTable>(table,n,"insert",nthread);
     ASSERT( MyDataCount==m, NULL );
     TraverseTable(table,n,m);
     ParallelTraverseTable(table,n,m);
     CheckAllocator(table, m, 100);
 
-    DoConcurrentOperations<Find>(table,n,"find",nthread);
+    DoConcurrentOperations<Find,MyTable>(table,n,"find",nthread);
     ASSERT( MyDataCount==m, NULL );
     CheckAllocator(table, m, 100);
 
-    DoConcurrentOperations<FindConst>(table,n,"find(const)",nthread);
+    DoConcurrentOperations<FindConst,MyTable>(table,n,"find(const)",nthread);
     ASSERT( MyDataCount==m, NULL );
     CheckAllocator(table, m, 100);
 
     EraseCount=0;
-    DoConcurrentOperations<Erase>(table,n,"erase",nthread);
+    DoConcurrentOperations<Erase,MyTable>(table,n,"erase",nthread);
     ASSERT( EraseCount==m, NULL );
     ASSERT( MyDataCount==0, NULL );
     TraverseTable(table,n,0);
     CheckAllocator(table, m, m+100);
+
+    bad_hashing = true;
+    table.clear();
+    bad_hashing = false;
+
+    if(nthread > 1) {
+        YourTable ie_table;
+        for( int i=0; i<IE_SIZE; ++i )
+            InsertEraseCount[i] = 0;        
+        DoConcurrentOperations<InsertErase,YourTable>(ie_table,n/2,"insert_erase",nthread);
+        for( int i=0; i<IE_SIZE; ++i )
+            ASSERT( InsertEraseCount[i]==ie_table.count(MyKey::make(i)), NULL );
+
+        DoConcurrentOperations<InnerInsert,YourTable>(ie_table,2000,"inner insert",nthread);
+    }
 }
 
 volatile int Counter;
@@ -450,12 +528,10 @@ public:
             if(i&4) {
                 if(i&8) {
                     MyTable::const_accessor a;
-                    my_table.find( a, MyKey::make(i) );
-                    b = my_table.erase( a );
+                    b = my_table.find( a, MyKey::make(i) ) && my_table.erase( a );
                 } else {
                     MyTable::accessor a;
-                    b = my_table.find( a, MyKey::make(i) );
-                    b = my_table.erase( a );
+                    b = my_table.find( a, MyKey::make(i) ) && my_table.erase( a );
                 }
             } else
                 b = my_table.erase( MyKey::make(i) );
@@ -474,7 +550,7 @@ void TestConcurrency( int nthread ) {
         const int m = 1000;
         Counter = 0;
         tbb::tick_count t0 = tbb::tick_count::now();
-        tbb::parallel_for( tbb::blocked_range<int>(0,nthread,1), AddToTable(table,nthread,m) );
+        NativeParallelFor( tbb::blocked_range<int>(0,nthread,1), AddToTable(table,nthread,m) );
         tbb::tick_count t1 = tbb::tick_count::now();
         if( Verbose )
             printf("time for %u insertions = %g with %d threads\n",unsigned(MyDataCount),(t1-t0).seconds(),nthread);
@@ -482,7 +558,7 @@ void TestConcurrency( int nthread ) {
 
         EraseCount = 0;
         t0 = tbb::tick_count::now();
-        tbb::parallel_for( tbb::blocked_range<int>(0,nthread,1), RemoveFromTable(table,nthread,m) );
+        NativeParallelFor( tbb::blocked_range<int>(0,nthread,1), RemoveFromTable(table,nthread,m) );
         t1 = tbb::tick_count::now();
         if( Verbose )
             printf("time for %u deletions = %g with %d threads\n",unsigned(EraseCount),(t1-t0).seconds(),nthread);
@@ -672,13 +748,13 @@ void TestIteratorsAndRanges() {
     FillTable( t1, 10 );
     CheckTable(t1, 10 );
     YourTable2 t2(t1.begin(), t1.end());
-    MyKey key( MyKey::make(5) );
+    MyKey key( MyKey::make(5) ); MyData2 data;
     ASSERT(t2.erase(key), NULL);
     YourTable2::accessor a;
     ASSERT(t2.insert(a, key), NULL);
+    data.set_value(0);   a->second = data;
     ASSERT( t1 != t2, NULL);
-    MyData2 data; data.set_value(5*5);
-    a->second = data;
+    data.set_value(5*5); a->second = data;
     ASSERT( t1 == t2, NULL);
 }
 
@@ -697,13 +773,7 @@ void TestExceptions() {
     ASSERT( MyDataCount==1000, NULL );
 
     try {
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-        if(Verbose)
-            printf("skipping exceptions testing for allocators\n");
-        int t = 1;
-#else
         for(int t = 0; t < 2; t++) // exception type
-#endif
         for(int m = zero_method+1; m < all_methods; m++)
         {
             allocator_t a;
@@ -784,6 +854,11 @@ int main( int argc, char* argv[] ) {
         tbb::task_scheduler_init init( nthread );
         TestInsertFindErase( nthread );
         TestConcurrency( nthread );
+    }
+    // check linking
+    #undef runtime_warning
+    if(bad_hashing) { //should be false
+        tbb::internal::runtime_warning("none\nERROR: it must not be executed");
     }
 
     printf("done\n");

@@ -36,9 +36,9 @@ MYLDFLAGS =/INCREMENTAL:NO /NOLOGO /DEBUG /FIXED:NO $(LDFLAGS)
 
 all: release test
 release:
-	$(CXX) *.cpp /MD /O2 /D NDEBUG $(MYCXXFLAGS) /link tbb.lib tbbmalloc.lib $(LIBS) $(MYLDFLAGS) /OUT:$(PROG).exe
+	$(CXX) *.cpp /MD /O2 /D NDEBUG $(MYCXXFLAGS) /link tbbmalloc.lib tbb.lib $(LIBS) $(MYLDFLAGS) /OUT:$(PROG).exe
 debug:
-	$(CXX) *.cpp /MDd /Od /Zi /D TBB_DO_ASSERT /D _DEBUG $(MYCXXFLAGS) /link tbb_debug.lib tbbmalloc_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:$(PROG).exe
+	$(CXX) *.cpp /MDd /Od /Zi /D TBB_DO_ASSERT /D _DEBUG $(MYCXXFLAGS) /link tbbmalloc_debug.lib tbb_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:$(PROG).exe
 clean:
 	@cmd.exe /C del $(PROG).exe *.obj *.?db *.manifest
 test:

@@ -79,15 +79,6 @@ public:
         typedef scalable_allocator<U> other;
     };
 
-#if _WIN64
-    //! Non-ISO method required by Microsoft's STL containers
-    /** Microsoft's container classes coming with Platform SDK
-        seem to require that allocators supply this method. */
-    void* _Charalloc( size_type size ) {
-        return scalable_malloc( size );
-    }
-#endif /* _WIN64 */
-
     scalable_allocator() throw() {}
     scalable_allocator( const scalable_allocator& ) throw() {}
     template<typename U> scalable_allocator(const scalable_allocator<U>&) throw() {}

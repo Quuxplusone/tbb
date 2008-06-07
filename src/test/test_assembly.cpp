@@ -169,7 +169,7 @@ static void TestCompareExchange() {
 // Workaround for a bug in GCC 4.3.0; and one more is below.
 #if __GNUC__==4&&__GNUC_MINOR__==3&&__GNUC_PATCHLEVEL__==0
                 intptr x;
-		        __TBB_store_with_release( x, a );
+                __TBB_store_with_release( x, a );
 #else
                 intptr x = a;
 #endif

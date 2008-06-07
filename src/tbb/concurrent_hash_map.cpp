@@ -36,7 +36,7 @@ bool hash_map_segment_base::internal_grow_predicate() const {
     // Intel(R) Thread Checker considers the following reads to be races, so we hide them in the 
     // library so that Intel(R) Thread Checker will ignore them.  The reads are used in a double-check
     // context, so the program is nonetheless correct despite the race.
-    return my_logical_size>=my_physical_size;
+    return my_logical_size >= my_physical_size && my_physical_size < internal::hash_map_base::max_physical_size;
 }
 
 } // namespace internal

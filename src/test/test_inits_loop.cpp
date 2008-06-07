@@ -80,7 +80,7 @@ int main( int argc, char * argv[] ) {
     MinThread = 3000;
     ParseCommandLine( argc, argv );
     if( MinThread <= 0 ) {
-        tbb::task_scheduler_init init( 2 ); // even number reuired for an error
+        tbb::task_scheduler_init init( 2 ); // even number required for an error
     } else {
         for(int i = 0; i<MinThread; i++)
             if(exec_test(argv[0])) {

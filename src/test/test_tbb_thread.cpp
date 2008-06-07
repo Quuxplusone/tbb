@@ -37,13 +37,6 @@ static tbb::atomic<int> sum;
 static tbb::atomic<int> BaseCount;
 static tbb::tbb_thread::id real_ids[THRDS+THRDS_DETACH];
 
-//workaround for old patform SDK
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-namespace std{
-    using ::printf;
-}
-#endif /* defined(_WIN64) && !defined(_CPPLIB_VER) */
-
 class Base {
     mutable int copy_throws;
     friend void RunTests();
@@ -166,7 +159,13 @@ void CheckExceptionSafety() {
                     ASSERT( !exception_caught||(i&((1<<(j+1))-1))!=0, NULL );
                 }
             }
+// Intel Compiler sometimes fails to destroy all implicitly generated copies 
+// of an object when a copy constructor throws an exception.
+// Problem was reported as Quad issue 482935.
+// This #if should be removed or tightened when the bug is fixed.
+#if !((_WIN32 || _WIN64) && defined(__INTEL_COMPILER))
             ASSERT( BaseCount==original_count, "object leak detected" );
+#endif
         }
     }
 }

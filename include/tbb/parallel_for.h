@@ -145,13 +145,6 @@ void parallel_for( const Range& range, const Body& body, affinity_partitioner& p
 }
 
 #if __TBB_EXCEPTIONS
-//! Parallel iteration over range with default partitioner and user-supplied context.
-/** @ingroup algorithms **/
-template<typename Range, typename Body>
-void parallel_for( const Range& range, const Body& body, task_group_context& context ) {
-    internal::start_for<Range,Body,simple_partitioner>::run(range, body, simple_partitioner(), context);
-}
-
 //! Parallel iteration over range with simple partitioner and user-supplied context.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>

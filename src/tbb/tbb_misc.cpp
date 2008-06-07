@@ -97,7 +97,7 @@ bool FillDynamicLinks( void* module, const DynamicLinkDescriptor descriptors[], 
     for ( ; k < n; ++k ) {
 #if _WIN32||_WIN64
         h[k] = (PointerToHandler) GetProcAddress( (HMODULE)module, descriptors[k].name );
-#elif !_STATIC
+#else
         h[k] = (PointerToHandler) dlsym( module, descriptors[k].name );
 #endif /* _WIN32||_WIN64 */
         if ( !h[k] )
@@ -154,6 +154,39 @@ void PrintExtraVersionInfo( const char* category, const char* description ) {
 } // namespace internal
  
 } // namespace tbb
+
+#if __TBB_x86_32
+
+#include "tbb/atomic.h"
+
+namespace tbb {
+namespace internal {
+
+//! Handle 8-byte store that crosses a cache line.
+extern "C" void __TBB_machine_store8_slow( volatile void *ptr, int64_t value ) {
+#if TBB_DO_ASSERT
+    // Report run-time warning unless we have already recently reported warning for that address.
+    const unsigned n = 4;
+    static atomic<void*> cache[n];
+    static atomic<unsigned> k;
+    for( unsigned i=0; i<n; ++i ) 
+        if( ptr==cache[i] ) 
+            goto done;
+    cache[(k++)%n] = const_cast<void*>(ptr);
+    runtime_warning( "atomic store on misaligned 8-byte location %p is slow", ptr );
+done:;
+#endif /* TBB_DO_ASSERT */
+    for( AtomicBackoff b;; b.pause() ) {
+        int64_t tmp = *(int64_t*)ptr;
+        if( __TBB_machine_cmpswp8(ptr,value,tmp)==tmp ) 
+            break;
+        b.pause();
+    }
+}
+
+} // namespace internal
+} // namespace tbb
+#endif /* __TBB_x86_32 */
 
 #if __TBB_ipf
 extern "C" intptr_t __TBB_machine_lockbyte( volatile unsigned char& flag ) {

@@ -32,23 +32,22 @@
 #------------------------------------------------------------------------------
 # Setting compiler flags.
 #------------------------------------------------------------------------------
-CPLUS = cl
+CPLUS = cl /nologo
 LINK_FLAGS = /link /nologo
 LIB_LINK_FLAGS=/link /nologo /DLL /MAP /DEBUG /fixed:no
 MS_CRT_KEY = /MD$(if $(findstring debug,$(cfg)),d)
 EH_FLAGS = /EHsc /GR
                
 ifeq ($(cfg), release)
-        CPLUS_FLAGS = /nologo $(MS_CRT_KEY) /O2 /Zi $(EH_FLAGS) /Zc:forScope /DDO_ITT_NOTIFY \
-                      /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE
+        CPLUS_FLAGS = $(MS_CRT_KEY) /O2 /Zi $(EH_FLAGS) /Zc:forScope
         ASM_FLAGS =
 ifeq (ia32,$(arch))
         CPLUS_FLAGS += /Oy
 endif
 endif
 ifeq ($(cfg), debug)
-        CPLUS_FLAGS = /nologo $(MS_CRT_KEY) /Od /Ob0 /Zi $(EH_FLAGS) /Zc:forScope \
-                      /DTBB_DO_ASSERT /DDO_ITT_NOTIFY
+        CPLUS_FLAGS = $(MS_CRT_KEY) /Od /Ob0 /Zi $(EH_FLAGS) /Zc:forScope \
+                      /DTBB_DO_ASSERT
         ASM_FLAGS = /DUSE_FRAME_POINTER
 endif
 
@@ -67,15 +66,17 @@ EXPORT_KEY = /DEF:
 ifeq ($(runtime),vc8)
         OPENMP_FLAG = /openmp
 endif
+ifeq ($(runtime),vc9)
+        OPENMP_FLAG = /openmp
+endif
 
 ifeq (em64t,$(arch))
-        ASM_FLAGS += /DEM64T=1
         CPLUS_FLAGS += /GS-
 endif
 
 
 
-CPLUS_FLAGS += /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE \
+CPLUS_FLAGS += /DDO_ITT_NOTIFY /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE \
         /D_WIN32_WINNT=$(_WIN32_WINNT)
 C_FLAGS = $(CPLUS_FLAGS) /TC
 #------------------------------------------------------------------------------
@@ -89,7 +90,7 @@ C_FLAGS = $(CPLUS_FLAGS) /TC
 ASSEMBLY_SOURCE=$(arch)-masm
 ifeq (em64t,$(arch))
     ASM=ml64
-    ASM_FLAGS += /c /Zi
+    ASM_FLAGS += /DEM64T=1 /c /Zi
     TBB_ASM.OBJ = atomic_support.obj
 else
     ASM=ml

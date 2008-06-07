@@ -41,24 +41,24 @@ cfg ?= release
 #------------------------------------------------------------------------------
 # Setting compiler flags.
 #------------------------------------------------------------------------------
-CPLUS = icl $(VCCOMPAT_FLAG)
+CPLUS = icl /nologo $(VCCOMPAT_FLAG)
 LINK_FLAGS = /link /nologo
-LIB_LINK_FLAGS=/nologo /link /nologo /DLL /MAP /DEBUG /fixed:no
+LIB_LINK_FLAGS= /link /nologo /DLL /MAP /DEBUG /fixed:no
 MS_CRT_KEY = /MD$(if $(findstring debug,$(cfg)),d)
 EH_FLAGS = /EHsc /GR
 
 ifeq ($(cfg), release)
-        CPLUS_FLAGS = /nologo $(MS_CRT_KEY) /O2 /Zi $(EH_FLAGS) /Zc:forScope
-        ASM_FLAGS =
+    CPLUS_FLAGS = $(MS_CRT_KEY) /O2 /Zi $(EH_FLAGS) /Zc:forScope
+    ASM_FLAGS =
 ifeq (ia32,$(arch))
-        CPLUS_FLAGS += /Oy
+    CPLUS_FLAGS += /Oy
 endif
 endif
 ifeq ($(cfg), debug)
-        CPLUS_FLAGS = /nologo $(MS_CRT_KEY) /O2 /Ob0 /Zi $(EH_FLAGS) /Zc:forScope \
+    CPLUS_FLAGS = $(MS_CRT_KEY) /Od /Ob0 /Zi $(EH_FLAGS) /Zc:forScope \
                       /DTBB_DO_ASSERT
-        LINK_FLAGS += libmmds.lib /NODEFAULTLIB:libmmdd.lib
-        ASM_FLAGS = /DUSE_FRAME_POINTER
+    LINK_FLAGS += libmmds.lib /NODEFAULTLIB:libmmdd.lib
+    ASM_FLAGS = /DUSE_FRAME_POINTER
 endif
 
 
@@ -74,8 +74,7 @@ DYLIB_KEY = /DLL
 EXPORT_KEY = /DEF:
 
 ifeq (em64t,$(arch))
-        ASM_FLAGS += /DEM64T=1
-        CPLUS_FLAGS += /GS-
+    CPLUS_FLAGS += /GS-
 endif
 
 ifneq (,$(codecov))
@@ -86,7 +85,7 @@ endif
 
 OPENMP_FLAG = /Qopenmp
 CPLUS_FLAGS += /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE \
-        /D_WIN32_WINNT=$(_WIN32_WINNT)
+               /D_WIN32_WINNT=$(_WIN32_WINNT)
 C_FLAGS = $(CPLUS_FLAGS) /TC
 
 VCVERSION:=$(runtime)
@@ -112,7 +111,7 @@ export VCCOMPAT_FLAG
 ASSEMBLY_SOURCE=$(arch)-masm
 ifeq (em64t,$(arch))
     ASM=ml64
-    ASM_FLAGS += /c /Zi
+    ASM_FLAGS += /DEM64T=1 /c /Zi
     TBB_ASM.OBJ = atomic_support.obj
 else
     ASM=ml
@@ -131,7 +130,6 @@ M_CPLUS_FLAGS = $(subst $(EH_FLAGS),/EHs-,$(CPLUS_FLAGS))
 #------------------------------------------------------------------------------
 # End of setting tbbmalloc data.
 #------------------------------------------------------------------------------
-
 
 #------------------------------------------------------------------------------
 # End of define compiler-specific variables.

@@ -258,6 +258,6 @@ void zero_fill(void* array, size_t N) {
         responsibility to do the appropriate cast before calling the function. **/
     template<typename T1, typename T2>
     const T1& max ( const T1& val1, const T2& val2 ) {
-        return val1 < val2 ? val1 : val2;
+        return val1 < val2 ? val2 : val1;
     }
 #endif /* !max */

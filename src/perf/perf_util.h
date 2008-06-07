@@ -76,21 +76,34 @@
 
 namespace util {
 
-typedef std::vector<tbb::tick_count>    cutoffs_t;
+typedef std::vector<double>    durations_t;
 
-    double average ( const cutoffs_t& start, const cutoffs_t& end, 
-                     double& variation_percent, double& std_dev_percent )
+    void trace_histogram ( const durations_t& t, char* histogramFileName )
     {
-        ASSERT (start.size() == end.size(), "");
-        size_t  n = start.size();
-        std::vector<double> t(n);
+        FILE* f = histogramFileName ? fopen(histogramFileName, "wt") : stdout;
+        size_t  n = t.size();
+        const size_t num_buckets = 100;
+        double  min_val = *std::min_element(t.begin(), t.end()),
+                max_val = *std::max_element(t.begin(), t.end()),
+                bucket_size = (max_val - min_val) / num_buckets;
+        std::vector<size_t> hist(num_buckets + 1, 0);
         for ( size_t i = 0; i < n; ++i )
-            t[i] = (end[i] - start[i]).seconds();
-        if ( n > 5 ) {
+            ++hist[size_t((t[i]-min_val)/bucket_size)];
+        fprintf (f, "Histogram: nvals = %u, min = %g, max = %g, nbuckets = %u\n", (unsigned)n, min_val, max_val, (unsigned)num_buckets);
+        double bucket = min_val;
+        for ( size_t i = 0; i <= num_buckets; ++i, bucket+=bucket_size )
+            fprintf (f, "%12g\t%u\n", bucket, (unsigned)hist[i]);
+        fclose(f);
+    }
+
+    double average ( const durations_t& d, double& variation_percent, double& std_dev_percent )
+    {
+        durations_t t = d;
+        if ( t.size() > 5 ) {
             t.erase(std::min_element(t.begin(), t.end()));
             t.erase(std::max_element(t.begin(), t.end()));
-            n -= 2;
         }
+        size_t  n = t.size();
         double  sum = 0,
                 min_val = *std::min_element(t.begin(), t.end()),
                 max_val = *std::max_element(t.begin(), t.end());
@@ -104,22 +117,26 @@ typedef std::vector<tbb::tick_count>    cutoffs_t;
         }
         std_dev = sqrt(std_dev / n);
         std_dev_percent = std_dev / avg * 100;
-        variation_percent = 100 * (max_val - min_val) / max_val;
+        variation_percent = 100 * (max_val - min_val) / avg;
         return avg;
     }
 
+    static int num_threads;
 
     static double   base = 0,
                     base_dev = 0,
                     base_dev_percent = 0;
 
     static char *empty_fmt = "";
+    static int rate_field_len = 11;
 
 #if !defined(ANCHOR_TYPE)
     #define ANCHOR_TYPE size_t
 #endif
 
     static ANCHOR_TYPE anchor = 0;
+    
+    static double sequential_time = 0;
 
 
 #define StartSimpleTiming(nOuter, nInner) {             \
@@ -142,26 +159,32 @@ typedef std::vector<tbb::tick_count>    cutoffs_t;
     StopSimpleTiming(util::base);
 
 
-#define StartTiming(nRuns, nOuter, nInner) {        \
-    size_t n = nRuns + 2;                           \
-    util::cutoffs_t  t1(n), t0(n);                  \
-    for ( size_t k = 0; k < n; ++k )  {             \
-        t0[k] = tbb::tick_count::now();             \
+#define StartTimingImpl(nRuns, nOuter, nInner)      \
+    tbb::tick_count t1, t0;                         \
+    for ( size_t k = 0; k < nRuns; ++k )  {         \
+        t0 = tbb::tick_count::now();                \
         for ( size_t l = 0; l < nOuter; ++l ) {     \
             for ( size_t i = 0; i < nInner; ++i ) {
 
+#define StartTiming(nRuns, nOuter, nInner) {        \
+    util::durations_t  t_(nRuns);                   \
+    StartTimingImpl(nRuns, nOuter, nInner)
+
+#define StartTimingEx(vDurations, nRuns, nOuter, nInner) {  \
+    util::durations_t  &t_ = vDurations;                    \
+    vDurations.resize(nRuns);                               \
+    StartTimingImpl(nRuns, nOuter, nInner)
 
 #define StopTiming(Avg, StdDev, StdDevPercent)      \
             }                                       \
             util::anchor += (ANCHOR_TYPE)l;         \
         }                                           \
-        t1[k] = tbb::tick_count::now();             \
+        t1 = tbb::tick_count::now();                \
+        t_[k] = (t1 - t0).seconds()/nrep;           \
     }                                               \
-    printf (util::empty_fmt, util::anchor);                                 \
-    Avg = util::average(t0, t1, StdDev, StdDevPercent);                     \
+    printf (util::empty_fmt, util::anchor);         \
+    Avg = util::average(t_, StdDev, StdDevPercent); \
 }
-
-//ASSERT (util::base_dev <= StdDev , "Overhead deviation is too high" );
 
 #define CalibrateTiming(nRuns, nOuter, nInner)      \
     StartTiming(nRuns, nOuter, nInner);             \
@@ -179,9 +202,10 @@ typedef std::vector<tbb::tick_count>    cutoffs_t;
     #define ONE_TEST_DURATION   0.01
 #endif
 
+#define no_histogram  ((char*)-1)
 
 inline 
-void RunTest ( const char* title, void (*pfn)() ) {
+double RunTestImpl ( const char* title, void (*pfn)(), char* histogramFileName = no_histogram ) {
     double  time = 0, variation = 0, deviation = 0;
     size_t nrep = 1;
     while (true) {
@@ -194,14 +218,57 @@ void RunTest ( const char* title, void (*pfn)() ) {
             break;
         nrep *= 2;
     }
-    
     nrep *= (size_t)ceil(ONE_TEST_DURATION/time);
-    CalibrateTiming(NRUNS, 1, nrep);
-    StartTiming(NRUNS, 1, nrep);
+    CalibrateTiming(NRUNS, 1, nrep);    // sets util::base
+    util::durations_t  t;
+    StartTimingEx(t, NRUNS, 1, nrep);
         pfn();
     StopTiming(time, variation, deviation);
-    printf ("%-32s %.2e  %-9u %1.6f    %1.6f    %2.1f         %2.1f\n", title, 
-            (time - util::base)/nrep, (unsigned)nrep, time - util::base, time, variation, deviation);
+    if ( histogramFileName != (char*)-1 )
+        util::trace_histogram(t, histogramFileName);
+    double clean_time = time - util::base;
+    if ( title ) {
+        // Deviation (in percent) is calulated for the Gross time
+        printf ("\n%-34s %.2e  %5.1f      ", title, clean_time, deviation);
+        if ( util::sequential_time != 0  )
+            //printf ("% .2e  ", clean_time - util::sequential_time);
+            printf ("% 10.1f      ", 100*(clean_time - util::sequential_time)/util::sequential_time);
+        else
+            printf ("%*s ", util::rate_field_len, "");
+        printf ("%-9u %1.6f    |", (unsigned)nrep, time * nrep);
+    }
+    return clean_time;
+}
+
+
+/// Runs the test function, does statistical processing, and, if title is nonzero, prints results.
+/** If histogramFileName is a string, the histogram of individual runs is generated and stored
+    in a file with the given name. If it is NULL then the histogram is printed on the console.
+    By default no histogram is generated. 
+    The histogram format is: "rate bucket start" "number of tests in this bucket". **/
+inline 
+void RunTest ( const char* title_fmt, size_t workload_param, void (*pfn_test)(), char* histogramFileName = no_histogram ) {
+    char title[1024];
+    sprintf(title, title_fmt, (long)workload_param);
+    RunTestImpl(title, pfn_test, histogramFileName);
+}
+
+inline 
+void CalcSequentialTime ( void (*pfn)() ) {
+    util::sequential_time = RunTestImpl(NULL, pfn) / util::num_threads;
+}
+
+inline 
+void ResetSequentialTime () {
+    util::sequential_time = 0;
+}
+
+
+inline void PrintTitle() {
+    //printf ("%-32s %-*s Std Dev,%%  %-*s  Repeats   Gross time  Infra time  | NRUNS = %u", 
+    //        "Test name", util::rate_field_len, "Rate", util::rate_field_len, "Overhead", NRUNS);
+    printf ("%-34s %-*s Std Dev,%%  Par.overhead,%%  Repeats   Gross time  | Nruns %u, Nthreads %d", 
+            "Test name", util::rate_field_len, "Rate", NRUNS, util::num_threads);
 }
 
 void Test();
@@ -210,22 +277,14 @@ inline
 int test_main( int argc, char* argv[] ) {
     ParseCommandLine( argc, argv );
     ASSERT (MinThread>=2, "Minimal number of threads must be 2 or more");
-// Boosting up test app priority improves results reproducibility (especially on Windows).
-#if _WIN32 || _WIN64
-    SetPriorityClass (GetCurrentProcess(), HIGH_PRIORITY_CLASS);
-#elif (__linux__ || __FreeBSD__) && defined(_POSIX_PRIORITY_SCHEDULING)
-    // Boosting up priority requires root privileges
-    setpriority(PRIO_PROCESS, 0, PRIO_MIN);
-    if ( errno && Verbose)
-        perror("Failed to boost priority");
-#else /* __APPLE__ */
-    setpriority(PRIO_PROCESS, 0, PRIO_MIN);
-    if ( errno && Verbose)
-        perror("Failed to boost priority");
-#endif /* OS */
+    char buf[128];
+    util::rate_field_len = 2 + sprintf(buf, "%.1e", 1.1);
     for ( int i = MinThread; i <= MaxThread; ++i ) {
         tbb::task_scheduler_init init (i);
+        util::num_threads = i;
+        PrintTitle();
         Test();
+        printf("\n");
     }
     printf("done\n");
     return 0;

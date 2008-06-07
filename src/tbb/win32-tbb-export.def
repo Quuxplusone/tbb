@@ -76,8 +76,10 @@ __TBB_machine_trylockbyte
 ; exception handling support
 ?allocate@allocate_root_with_context_proxy@internal@tbb@@QBEAAVtask@3@I@Z
 ?free@allocate_root_with_context_proxy@internal@tbb@@QBEXAAVtask@3@@Z
+?is_group_execution_cancelled@task_group_context@tbb@@QBE_NXZ
 ?cancel_group_execution@task_group_context@tbb@@QAE_NXZ
 ?reset@task_group_context@tbb@@QAEXXZ
+?init@task_group_context@tbb@@IAEXXZ
 ??1task_group_context@tbb@@QAE@XZ
 ?name@captured_exception@tbb@@UBEPBDXZ
 ?what@captured_exception@tbb@@UBEPBDXZ
@@ -88,6 +90,7 @@ __TBB_machine_trylockbyte
 ?get_initial_auto_partitioner_divisor@internal@tbb@@YAIXZ
 ?handle_perror@internal@tbb@@YAXHPBD@Z
 ?set_assertion_handler@tbb@@YAP6AXPBDH00@ZP6AX0H00@Z@Z
+?runtime_warning@internal@tbb@@YAXPBDZZ
 
 ; itt_notify.cpp
 ?itt_load_pointer_with_acquire_v3@internal@tbb@@YAPAXPBX@Z
@@ -126,7 +129,6 @@ __TBB_machine_trylockbyte
 ; spin_rw_mutex v3
 ?internal_upgrade@spin_rw_mutex_v3@tbb@@AAE_NXZ
 ?internal_downgrade@spin_rw_mutex_v3@tbb@@AAEXXZ
-?internal_itt_releasing@spin_rw_mutex_v3@tbb@@AAEXXZ
 ?internal_acquire_reader@spin_rw_mutex_v3@tbb@@AAEXXZ
 ?internal_acquire_writer@spin_rw_mutex_v3@tbb@@AAE_NXZ
 ?internal_release_reader@spin_rw_mutex_v3@tbb@@AAEXXZ
@@ -225,6 +227,7 @@ __TBB_machine_trylockbyte
 ?internal_start@tbb_thread_v3@internal@tbb@@AAEXP6GIPAX@Z0@Z
 ?allocate_closure_v3@internal@tbb@@YAPAXI@Z
 ?free_closure_v3@internal@tbb@@YAXPAX@Z
+?hardware_concurrency@tbb_thread_v3@internal@tbb@@SAIXZ
 ?thread_yield_v3@internal@tbb@@YAXXZ
 ?thread_sleep_v3@internal@tbb@@YAXABVinterval_t@tick_count@2@@Z
 ?move_v3@internal@tbb@@YAXAAVtbb_thread_v3@12@0@Z

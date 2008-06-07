@@ -44,11 +44,6 @@ static inline T CAS(volatile T &addr, T newv, T oldv) {
     return T(__TBB_CompareAndSwapW((volatile void *)&addr, (intptr_t)newv, (intptr_t)oldv));
 }
 
-//! Signal that write lock is released
-void spin_rw_mutex_v3::internal_itt_releasing() {
-    ITT_NOTIFY(sync_releasing, this);
-}
-
 //! Acquire write lock on the given mutex.
 bool spin_rw_mutex_v3::internal_acquire_writer()
 {

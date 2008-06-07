@@ -39,13 +39,6 @@
     #pragma warning (disable: 4267)
 #endif /* _MSC_VER && _Wp64 */
 
-//workaround for old patform SDK
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-namespace std{
-    using ::memset;
-}
-#endif /* defined(_WIN64) && !defined(_CPPLIB_VER) */
-
 namespace tbb {
 
 namespace internal {

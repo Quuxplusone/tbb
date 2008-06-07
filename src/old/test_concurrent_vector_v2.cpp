@@ -31,13 +31,6 @@
 #include <cstdlib>
 #include "../test/harness_assert.h"
 
-//workaround for old patform SDK
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-namespace std{
-    using ::printf;
-}
-#endif /* defined(_WIN64) && !defined(_CPPLIB_VER) */
-
 tbb::atomic<long> FooCount;
 
 //! Problem size

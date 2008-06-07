@@ -49,27 +49,22 @@ public:
 /** Use this futex-based implementation where possible, because it is the simplest and usually fastest. */
 class Gate {
 public:
-    typedef intptr state_t;
+    typedef intptr_t state_t;
 
     //! Get current state of gate
     state_t get_state() const {
         return state;
     }
     //! Update state=value if state==comparand (flip==false) or state!=comparand (flip==true)
-    void try_update( intptr value, intptr comparand, bool flip=false ) {
+    void try_update( intptr_t value, intptr_t comparand, bool flip=false ) {
         __TBB_ASSERT( comparand!=0 || value!=0, "either value or comparand must be non-zero" );
-        intptr old = state;
-        if( flip ) {
-            if( old==comparand ) 
-                return;
-            comparand = old;
-        } else {
-            if( old!=comparand )
-                return;
-        }   
-        old = state.compare_and_swap( value, comparand );
-        if( old==comparand && value!=0 )
-            futex_wakeup_all( &state );
+        state_t old_state = state;
+        // First test for condition without using atomic operation
+        if( flip ? old_state!=comparand : old_state==comparand ) {
+            // Now atomically retest condition and set.
+            if( state.compare_and_swap( value, old_state )==old_state && value!=0 )   
+                 futex_wakeup_all( &state );  // Update was successful and new state is not SNAPSHOT_EMPTY
+        }
     }
     //! Wait for state!=0.
     void wait() {
@@ -84,7 +79,7 @@ private:
 
 class Gate {
 public:
-    typedef intptr state_t;
+    typedef intptr_t state_t;
 private:
     //! If state==0, then thread executing wait() suspend until state becomes non-zero.
     state_t state;
@@ -107,7 +102,7 @@ public:
         return state;
     }
     //! Update state=value if state==comparand (flip==false) or state!=comparand (flip==true)
-    void try_update( intptr value, intptr comparand, bool flip=false ) {
+    void try_update( intptr_t value, intptr_t comparand, bool flip=false ) {
         __TBB_ASSERT( comparand!=0 || value!=0, "either value or comparand must be non-zero" );
         EnterCriticalSection( &critical_section );
         state_t old = state;
@@ -132,7 +127,7 @@ public:
 
 class Gate {
 public:
-    typedef intptr state_t;
+    typedef intptr_t state_t;
 private:
     //! If state==0, then thread executing wait() suspend until state becomes non-zero.
     state_t state;
@@ -155,7 +150,7 @@ public:
         return state;
     }
     //! Update state=value if state==comparand (flip==false) or state!=comparand (flip==true)
-    void try_update( intptr value, intptr comparand, bool flip=false ) {
+    void try_update( intptr_t value, intptr_t comparand, bool flip=false ) {
         __TBB_ASSERT( comparand!=0 || value!=0, "either value or comparand must be non-zero" );
         pthread_mutex_lock( &mutex );
         state_t old = state;

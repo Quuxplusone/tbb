@@ -40,8 +40,8 @@ LIBDL = -ldl
 TBB_NOSTRICT = 1
 
 CPLUS = g++ 
-LIB_LINK_FLAGS = -shared
-LIBS = -lpthread -lrt -ldl 
+LIB_LINK_FLAGS = -shared -Wl,-soname=$(BUILDING_LIBRARY)
+LIBS = -lpthread -lrt 
 C_FLAGS = $(CPLUS_FLAGS) -x c
 
 ifeq ($(cfg), release)

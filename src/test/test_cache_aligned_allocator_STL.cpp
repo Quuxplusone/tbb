@@ -43,17 +43,10 @@
 int main() {
     TestContainer<std::vector<int,tbb::cache_aligned_allocator<int> > >();
     TestContainer<std::vector<int,tbb::tbb_allocator<int> > >();    
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-    // Microsoft incorrectly typed the first argument to std::allocator<T>::deallocate
-    // as (void*), and depends upon this error in their early versions of list and deque.
-    printf("Warning: compatibility of cache_aligned_allocator with list and deque not tested\n"
-           "because they depend on error that Microsoft corrected later.\n");
-#else
     TestContainer<std::list<int,tbb::cache_aligned_allocator<int> > >();
     TestContainer<std::list<int,tbb::tbb_allocator<int> > >();
     TestContainer<std::deque<int,tbb::cache_aligned_allocator<int> > >();
     TestContainer<std::deque<int,tbb::tbb_allocator<int> > >();
-#endif /* _WIN64 */
     printf("done\n");
     return 0;
 }

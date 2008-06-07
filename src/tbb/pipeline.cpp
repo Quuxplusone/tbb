@@ -189,6 +189,7 @@ task* stage_task::execute() {
             if( (my_object = (*my_filter)(my_object)) ) {
                 my_token = my_pipeline.token_counter++;
                 my_token_ready = true;
+                ITT_NOTIFY( sync_releasing, &my_pipeline.input_tokens );
                 if( --my_pipeline.input_tokens>0 ) 
                     spawn( *new( allocate_additional_child_of(*my_pipeline.end_counter) ) stage_task( my_pipeline ) );
             } else {
@@ -198,6 +199,7 @@ task* stage_task::execute() {
         } else /*not is_serial*/ {
             if( my_pipeline.end_of_input )
                 return NULL;
+            ITT_NOTIFY( sync_releasing, &my_pipeline.input_tokens );
             if( --my_pipeline.input_tokens>0 )
                 spawn( *new( allocate_additional_child_of(*my_pipeline.end_counter) ) stage_task( my_pipeline ) );
             if( !(my_object = (*my_filter)(my_object)) ) {
@@ -236,9 +238,11 @@ task* stage_task::execute() {
         // The token must be injected before execute() returns, in order to prevent the
         // end_counter task's reference count from prematurely reaching 0.
         set_depth( my_pipeline.end_counter->depth()+1 ); 
-        if( ++my_pipeline.input_tokens==1 ) 
+        if( ++my_pipeline.input_tokens==1 ) {
+            ITT_NOTIFY( sync_acquired, &my_pipeline.input_tokens );
             if( !my_pipeline.end_of_input ) 
                 spawn( *new( allocate_additional_child_of(*my_pipeline.end_counter) ) stage_task( my_pipeline ) );
+        }
     }
     return next;
 }

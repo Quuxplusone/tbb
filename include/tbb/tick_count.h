@@ -82,6 +82,9 @@ public:
         interval_t& operator-=( const interval_t& i ) {value -= i.value; return *this;}
     };
     
+    //! Construct an absolute timestamp initialized to zero.
+    tick_count() : my_count(0) {};
+
     //! Return current time.
     static tick_count now();
     

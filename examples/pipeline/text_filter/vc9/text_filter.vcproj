@@ -32,7 +32,7 @@
 			<Tool
 				Name="VCCustomBuildTool"
 				Description="Constructing input.txt"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\doc\*.txt&quot;+&quot;$(TBB20_INSTALL_DIR)\doc\html\*.html&quot; input.txt &gt;NUL&#x0D;&#x0A;"
+				CommandLine="type ..\index.html &gt;input.txt&#x0D;&#x0A;for /L %%a in (1,1,500) do type ..\index.html &gt;&gt; input.txt"
 				Outputs="input.txt"
 			/>
 			<Tool
@@ -47,7 +47,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(TBB20_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;TBB_DO_ASSERT;_CRT_SECURE_NO_DEPRECATE"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
@@ -66,7 +66,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb_debug.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB20_INSTALL_DIR)\ia32\vc9\lib"
+				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\ia32\vc9\lib"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				RandomizedBaseAddress="1"
@@ -95,7 +95,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying tbb_debug.dll"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\ia32\vc9\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot;"
+				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\ia32\vc9\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -111,7 +111,7 @@
 			<Tool
 				Name="VCCustomBuildTool"
 				Description="Constructing input.txt"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\doc\*.txt&quot;+&quot;$(TBB20_INSTALL_DIR)\doc\html\*.html&quot; input.txt &gt;NUL&#x0D;&#x0A;"
+				CommandLine="type ..\index.html &gt;input.txt&#x0D;&#x0A;for /L %%a in (1,1,500) do type ..\index.html &gt;&gt; input.txt"
 				Outputs="input.txt"
 			/>
 			<Tool
@@ -125,7 +125,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="$(TBB20_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_DEPRECATE"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
@@ -143,7 +143,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB20_INSTALL_DIR)\ia32\vc9\lib"
+				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\ia32\vc9\lib"
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -173,7 +173,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying tbb.dll"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\ia32\vc9\bin\tbb.dll&quot; &quot;$(OutDir)&quot;"
+				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\ia32\vc9\bin\tbb.dll&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -189,7 +189,7 @@
 			<Tool
 				Name="VCCustomBuildTool"
 				Description="Constructing input.txt"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\doc\*.txt&quot;+&quot;$(TBB20_INSTALL_DIR)\doc\html\*.html&quot; input.txt &gt;NUL"
+				CommandLine="type ..\index.html &gt;input.txt&#x0D;&#x0A;for /L %%a in (1,1,500) do type ..\index.html &gt;&gt; input.txt"
 				Outputs="input.txt"
 			/>
 			<Tool
@@ -205,7 +205,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(TBB20_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN64;_DEBUG;_CONSOLE;TBB_DO_ASSERT;_CRT_SECURE_NO_DEPRECATE"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
@@ -224,7 +224,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb_debug.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB20_INSTALL_DIR)\em64t\vc9\lib"
+				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\em64t\vc9\lib"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				TargetMachine="17"
@@ -254,7 +254,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying tbb_debug.dll"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\em64t\vc9\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot;"
+				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\em64t\vc9\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -270,7 +270,7 @@
 			<Tool
 				Name="VCCustomBuildTool"
 				Description="Constructing input.txt"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\doc\*.txt&quot;+&quot;$(TBB20_INSTALL_DIR)\doc\html\*.html&quot; input.txt &gt;NUL"
+				CommandLine="type ..\index.html &gt;input.txt&#x0D;&#x0A;for /L %%a in (1,1,500) do type ..\index.html &gt;&gt; input.txt"
 				Outputs="input.txt"
 			/>
 			<Tool
@@ -285,7 +285,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="$(TBB20_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN64;NDEBUG;_CONSOLE;_CRT_SECURE_NO_DEPRECATE"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
@@ -303,7 +303,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB20_INSTALL_DIR)\em64t\vc9\lib"
+				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\em64t\vc9\lib"
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -334,7 +334,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying tbb.dll"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\em64t\vc9\bin\tbb.dll&quot; &quot;$(OutDir)&quot;"
+				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\em64t\vc9\bin\tbb.dll&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 	</Configurations>

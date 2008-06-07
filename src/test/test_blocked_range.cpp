@@ -118,13 +118,6 @@ void ParallelTest() {
 
 #include "tbb/task_scheduler_init.h"
 
-//workaround for old patform SDK
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-namespace std{
-    using ::printf;
-}
-#endif /* defined(_WIN64) && !defined(_CPPLIB_VER) */
-
 int main( int argc, char* argv[] ) {
     ParseCommandLine(argc,argv);
     SerialTest();

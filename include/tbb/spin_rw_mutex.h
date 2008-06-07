@@ -42,9 +42,6 @@ typedef spin_rw_mutex_v3 spin_rw_mutex;
 class spin_rw_mutex_v3 {
     //! @cond INTERNAL
 
-    //! Present so that 1.0 headers work with 1.1 dynamic library.
-    void internal_itt_releasing();
-
     //! Internal acquire write lock.
     bool internal_acquire_writer();
 

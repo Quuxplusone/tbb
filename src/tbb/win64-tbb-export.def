@@ -72,8 +72,10 @@ __TBB_machine_pause
 ; exception handling support
 ?allocate@allocate_root_with_context_proxy@internal@tbb@@QEBAAEAVtask@3@_K@Z
 ?free@allocate_root_with_context_proxy@internal@tbb@@QEBAXAEAVtask@3@@Z
+?is_group_execution_cancelled@task_group_context@tbb@@QEBA_NXZ
 ?cancel_group_execution@task_group_context@tbb@@QEAA_NXZ
 ?reset@task_group_context@tbb@@QEAAXXZ
+?init@task_group_context@tbb@@IEAAXXZ
 ??1task_group_context@tbb@@QEAA@XZ
 ?name@captured_exception@tbb@@UEBAPEBDXZ
 ?what@captured_exception@tbb@@UEBAPEBDXZ
@@ -84,6 +86,7 @@ __TBB_machine_pause
 ?get_initial_auto_partitioner_divisor@internal@tbb@@YA_KXZ
 ?handle_perror@internal@tbb@@YAXHPEBD@Z
 ?set_assertion_handler@tbb@@YAP6AXPEBDH00@ZP6AX0H00@Z@Z
+?runtime_warning@internal@tbb@@YAXPEBDZZ
 
 ; itt_notify.cpp
 ?itt_load_pointer_with_acquire_v3@internal@tbb@@YAPEAXPEBX@Z
@@ -122,7 +125,6 @@ __TBB_machine_pause
 ; spin_rw_mutex v3
 ?internal_upgrade@spin_rw_mutex_v3@tbb@@AEAA_NXZ
 ?internal_downgrade@spin_rw_mutex_v3@tbb@@AEAAXXZ
-?internal_itt_releasing@spin_rw_mutex_v3@tbb@@AEAAXXZ
 ?internal_acquire_reader@spin_rw_mutex_v3@tbb@@AEAAXXZ
 ?internal_acquire_writer@spin_rw_mutex_v3@tbb@@AEAA_NXZ
 ?internal_release_reader@spin_rw_mutex_v3@tbb@@AEAAXXZ
@@ -219,6 +221,7 @@ __TBB_machine_pause
 ?allocate_closure_v3@internal@tbb@@YAPEAX_K@Z
 ?detach@tbb_thread_v3@internal@tbb@@QEAAXXZ
 ?free_closure_v3@internal@tbb@@YAXPEAX@Z
+?hardware_concurrency@tbb_thread_v3@internal@tbb@@SAIXZ
 ?internal_start@tbb_thread_v3@internal@tbb@@AEAAXP6AIPEAX@Z0@Z
 ?join@tbb_thread_v3@internal@tbb@@QEAAXXZ
 ?move_v3@internal@tbb@@YAXAEAVtbb_thread_v3@12@0@Z

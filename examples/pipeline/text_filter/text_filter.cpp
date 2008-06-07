@@ -110,7 +110,7 @@ MyTransformFilter::MyTransformFilter() :
     MyBuffer& b = *static_cast<MyBuffer*>(item);
     int prev_char_is_space = b.begin()[-1]==' ';
     for( char* s=b.begin(); s!=b.end(); ++s ) {
-        if( prev_char_is_space && islower(*s) )
+        if( prev_char_is_space && islower((unsigned char)*s) )
             *s = toupper(*s);
         prev_char_is_space = isspace((unsigned char)*s);
     }

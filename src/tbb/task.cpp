@@ -61,6 +61,9 @@
    in the public header files. */
 #define private public
 #include "tbb/task.h"
+#if __TBB_EXCEPTIONS
+#include "tbb/tbb_exception.h"
+#endif /* __TBB_EXCEPTIONS */
 #undef private
 
 #include "tbb/task_scheduler_init.h"
@@ -74,7 +77,11 @@
 #if __TBB_SCHEDULER_OBSERVER
 #include "tbb/task_scheduler_observer.h"
 #include "tbb/spin_rw_mutex.h"
+#include "tbb/aligned_space.h"
 #endif /* __TBB_SCHEDULER_OBSERVER */
+#if __TBB_EXCEPTIONS
+#include "tbb/spin_mutex.h"
+#endif /* __TBB_EXCEPTIONS */
 
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
@@ -104,6 +111,15 @@
 #else
 #define GATHER_STATISTIC(x) ((void)0)
 #endif /* STATISTICS */
+
+#if __TBB_EXCEPTIONS
+// The standard offsetof macro does not work for us since its usage is restricted 
+// by POD-types only. Using 0x1000 (not NULL) is necessary to appease GCC.
+#define __TBB_offsetof(class_name, member_name) ((ptrdiff_t)&(reinterpret_cast<class_name*>(0x1000)->member_name) - 0x1000)
+// Returns address of the oject containing member with the given name and address
+#define __TBB_get_object_addr(class_name, member_name, member_addr) \
+    reinterpret_cast<class_name*>((char*)member_addr - __TBB_offsetof(class_name, member_name))
+#endif /* __TBB_EXCEPTIONS */
 
 namespace tbb {
 
@@ -312,7 +328,7 @@ class TaskPoolPrefix {
 
     friend class GenericScheduler;
     friend class TaskPool;
-};
+}; // class TaskPoolPrefix
 
 //! Pool of tasks, organized as a deque.
 class TaskPool {
@@ -509,7 +525,7 @@ class Arena {
 };
 
 //------------------------------------------------------------------------
-// Traits classes for scheduler
+//! Traits classes for scheduler
 //------------------------------------------------------------------------
 
 struct DefaultSchedulerTraits {
@@ -529,6 +545,46 @@ struct IntelSchedulerTraits {
 };
 
 //------------------------------------------------------------------------
+// Class __TBB_InitOnce
+//------------------------------------------------------------------------
+
+//! Class handles acquisition and release of global resources during startup and shutdown. 
+/** Currently, its job is to deal with initializing/deleting
+    OneTimeInitializationCriticalSection (on Windows only)
+    and allocating/freeing thread-local storage. */
+class __TBB_InitOnce {
+    static atomic<int> count;
+
+    //! Platform specific code to acquire resources.
+    static void acquire_resources();
+
+    //! Platform specific code to release resources.
+    static void release_resources();
+public:
+    //! Add initial reference to resources. 
+    /** We assume that dynamic loading of the library prevents any other threads from entering the library
+        until this constructor has finished running. */
+    __TBB_InitOnce() { add_ref(); }
+
+    //! Remove the initial reference to resources, and remove the extra reference from DoOneTimeInitializations if present.
+    /** This is not necessarily the last reference if other threads are still running . */
+    ~__TBB_InitOnce();
+
+    //! Add reference to resources.  If first reference added, acquire the resources.
+    static void add_ref() {
+        if( ++count==1 ) 
+            acquire_resources();
+    }
+    //! Remove reference to resources.  If last reference added, release the resources.
+    static void remove_ref() {
+        int k = --count;
+        __TBB_ASSERT(k>=0,"removed __TBB_InitOnce ref that was not added?"); 
+        if( k==0 ) 
+            release_resources();
+    }
+};
+
+//------------------------------------------------------------------------
 // Begin shared data layout.
 //
 // The follow global data items are read-only after initialization.
@@ -540,7 +596,8 @@ static mutex TheArenaMutex;
 
 #if __TBB_SCHEDULER_OBSERVER
 typedef spin_rw_mutex::scoped_lock task_scheduler_observer_mutex_scoped_lock;
-static spin_rw_mutex the_task_scheduler_observer_mutex;
+/** aligned_space used here to shut up warnings when mutex destructor is called while threads are still using it. */
+static aligned_space<spin_rw_mutex,1> the_task_scheduler_observer_mutex;
 static observer_proxy* global_first_observer_proxy;
 static observer_proxy* global_last_observer_proxy;
 #endif /* __TBB_SCHEDULER_OBSERVER */
@@ -565,17 +622,32 @@ namespace internal {
 //! Flag that is set to true after one-time initializations are done.
 static bool OneTimeInitializationsDone;
 
-#if USE_WINTHREAD
+//! Counter of references to TLS.
+atomic<int> __TBB_InitOnce::count;
+
+#if _WIN32||_WIN64
 static CRITICAL_SECTION OneTimeInitializationCriticalSection;
 //! Index for thread-local storage.
 /** The original version of TBB used __declspec(thread) for thread-local storage.
     Unfortunately, __declspec(thread) does not work on pre-Vista OSes for DLLs
     called from plug-ins. */
 static DWORD TLS_Index;
-#else
+#if __TBB_TASK_CPP_DIRECTLY_INCLUDED
+static __TBB_InitOnce __TBB_InitOnceHiddenInstance;
+#endif
+
+#else /* not Windows */
 static pthread_mutex_t OneTimeInitializationMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_key_t TLS_Key;
-#endif /* USE_WINTHREAD */
+#if (__linux__ || __APPLE__) && __GNUC__ && !(__INTEL_COMPILER && __TBB_ipf)
+// Use GCC-style attribute to set the highest initialization priority (the lowest possible number)
+// ICC for IA-64 has a bug in handling init_priority so skipping in this case
+static __TBB_InitOnce __TBB_InitOnceHiddenInstance __attribute__((init_priority (101)));
+#else
+static __TBB_InitOnce __TBB_InitOnceHiddenInstance;
+#endif
+
+#endif /* _WIN32||_WIN64 */
 
 //! Table of primes used by fast random-number generator.
 /** Also serves to keep anything else from being placed in the same
@@ -630,6 +702,35 @@ private:
 } the_statistics;
 #endif /* STATISTICS */
 
+#if __TBB_EXCEPTIONS
+    struct scheduler_list_node_t {
+        scheduler_list_node_t *my_prev,
+                              *my_next;
+    };
+
+    //! Head of the list of master thread schedulers.
+    static scheduler_list_node_t the_scheduler_list_head;
+
+    //! Mutex protecting access to the list of schedulers.
+    static mutex the_scheduler_list_mutex;
+
+//! Counter that is incremented whenever new cancellation signal is sent to a task group.
+/** Together with GenericScheduler::local_cancel_count forms cross-thread signaling
+    mechanism that allows to avoid locking at the hot path of normal execution flow.
+
+    When a descendant task group context is being registered or unregistered,
+    the global and local counters are compared. If they differ, it means that 
+    a cancellation signal is being propagated, and registration/deregistration
+    routines take slower branch that may block (at most one thread of the pool
+    can be blocked at any moment). Otherwise the control path is lock-free and fast. **/
+    static uintptr_t global_cancel_count = 0;
+
+    //! Context to be associated with dummy tasks of worker threads schedulers.
+    /** It is never used for its direct purpose, and is introduced solely for the sake 
+        of avoiding one extra conditional branch in the end of wait_for_all method. **/
+    static task_group_context dummy_context(task_group_context::isolated);
+#endif /* __TBB_EXCEPTIONS */
+
 //------------------------------------------------------------------------
 // End of shared data layout
 //------------------------------------------------------------------------
@@ -661,12 +762,9 @@ void DoOneTimeInitializations() {
 #endif /* USE_PTHREAD */
     // No fence required for load of OneTimeInitializationsDone, because we are inside a critical section.
     if( !OneTimeInitializationsDone ) {
+        __TBB_InitOnce::add_ref();
         if( GetBoolEnvironmentVariable("TBB_VERSION") )
             PrintVersion();
-#if USE_PTHREAD
-        // Create key for thread-local storage
-        status = pthread_key_create( &TLS_Key, NULL );
-#endif /* USE_PTHREAD */
         bool have_itt = false;
 #if DO_ITT_NOTIFY
         have_itt = InitializeITT();
@@ -676,6 +774,10 @@ void DoOneTimeInitializations() {
             SchedulerTraitsId = IntelSchedulerTraits::id;
         PrintExtraVersionInfo( "SCHEDULER",
                                SchedulerTraitsId==IntelSchedulerTraits::id ? "Intel" : "default" );
+#if __TBB_EXCEPTIONS
+        the_scheduler_list_head.my_next = &the_scheduler_list_head;
+        the_scheduler_list_head.my_prev = &the_scheduler_list_head;
+#endif /* __TBB_EXCEPTIONS */
         OneTimeInitializationsDone = true;
     }
 #if USE_PTHREAD
@@ -687,63 +789,81 @@ void DoOneTimeInitializations() {
 #endif /* USE_PTHREAD */
 }
 
+//------------------------------------------------------------------------
+// Methods of class __TBB_InitOnce
+//------------------------------------------------------------------------
+
+__TBB_InitOnce::~__TBB_InitOnce() { 
+    remove_ref();
+    // It is assumed that OneTimeInitializationsDone is not set after file-scope destructors start running,
+    // and thus no race on OneTimeInitializationsDone is possible.
+    if( __TBB_load_with_acquire(OneTimeInitializationsDone) ) {
+        // Remove reference that we added in DoOneTimeInitializations.
+        remove_ref();  
+    }
+} 
+
 #if _WIN32||_WIN64
-
-class __TBB_InitOnce {
-public:
-    __TBB_InitOnce() { initialize(); }
-    ~__TBB_InitOnce() { terminate(); }
-
-    static void initialize ()
-    {
-        TLS_Index = TlsAlloc();
-#if TBB_DO_ASSERT
-        if( TLS_Index==TLS_OUT_OF_INDEXES ) {
-            // Issue diagnostic here, not failing assertion, because client
-            // might want to test graceful recovery from this problem.
-            fprintf( stderr, "TBB failed to initialize: TLS is out of indices\n" );
-        }
-#endif /* TBB_DO_ASSERT */
+void __TBB_InitOnce::acquire_resources() {
+    TLS_Index = TlsAlloc();
+    if( TLS_Index!=TLS_OUT_OF_INDEXES ) {
         InitializeCriticalSection(&OneTimeInitializationCriticalSection);
-    }
-
-    static void terminate ()
-    {
-        DeleteCriticalSection(&OneTimeInitializationCriticalSection);
+    } else {
 #if TBB_DO_ASSERT
-        if( TlsGetValue(TLS_Index) ) {
-            fprintf( stderr, "TBB is unloaded while tbb::task_scheduler_init object is alive?" );
-        }
+        // Issue diagnostic here, not failing assertion, because client
+        // might want to test graceful recovery from this problem.
+        fprintf( stderr, "TBB failed to initialize: TLS is out of indices\n" );
 #endif /* TBB_DO_ASSERT */
-        TlsFree(TLS_Index);
-        TLS_Index = 0;
     }
-};
+}
 
-#if __TBB_TASK_CPP_DIRECTLY_INCLUDED
+void __TBB_InitOnce::release_resources() {
+    DeleteCriticalSection(&OneTimeInitializationCriticalSection);
+#if TBB_DO_ASSERT
+    if( TlsGetValue(TLS_Index) ) {
+        fprintf( stderr, "TBB is unloaded while tbb::task_scheduler_init object is alive?" );
+    }
+#endif /* TBB_DO_ASSERT */
+    TlsFree(TLS_Index);
+    TLS_Index = 0;
+}
 
-static __TBB_InitOnce __TBB_InitOnceHiddenInstance;
-
-#else /* !__TBB_TASK_CPP_DIRECTLY_INCLUDED */
-
-extern "C" bool WINAPI DllMain( HANDLE hinstDLL, DWORD reason, LPVOID lpvReserved );
-
+#if !__TBB_TASK_CPP_DIRECTLY_INCLUDED
 //! Windows "DllMain" that handles startup and shutdown of dynamic library.
-/** Currently, its job is to deal with initializing/deleting
-    OneTimeInitializationCriticalSection and allocating/freeing TLS_Index. */
+extern "C" bool WINAPI DllMain( HANDLE hinstDLL, DWORD reason, LPVOID lpvReserved );
 bool WINAPI DllMain( HANDLE hinstDLL, DWORD reason, LPVOID lpvReserved ) {
     switch( reason ) {
         case DLL_PROCESS_ATTACH:
-            __TBB_InitOnce::initialize();
+            __TBB_InitOnce::add_ref();
             break;
         case DLL_PROCESS_DETACH:
-            __TBB_InitOnce::terminate();
+            __TBB_InitOnce::remove_ref();
+            // It is assumed that OneTimeInitializationsDone is not set after DLL_PROCESS_DETACH,
+            // and thus no race on OneTimeInitializationsDone is possible.
+            if( __TBB_load_with_acquire(OneTimeInitializationsDone) ) {
+                // Remove reference that we added in DoOneTimeInitializations.
+                __TBB_InitOnce::remove_ref();
+            }
             break;
     }
     return true;
 }
-
 #endif /* !__TBB_TASK_CPP_DIRECTLY_INCLUDED */
+
+#else /* not Windows */
+void __TBB_InitOnce::acquire_resources() {
+    // Create key for thread-local storage
+    int status = pthread_key_create( &TLS_Key, NULL );
+    if( status )
+        handle_perror(status, "pthread_key_create");
+}
+
+void __TBB_InitOnce::release_resources() {
+    // Delete thread-local storage key
+    int status = pthread_key_delete( TLS_Key );
+    if( status )
+        handle_perror(status, "pthread_key_delete");
+}
 
 #endif /* _WIN32||_WIN64 */
 
@@ -826,6 +946,7 @@ class GenericScheduler: public scheduler {
     friend class allocate_root_proxy;
 #if __TBB_EXCEPTIONS
     friend class allocate_root_with_context_proxy;
+    friend class tbb::task_group_context;
 #endif /* __TBB_EXCEPTIONS */
 #if __TBB_SCHEDULER_OBSERVER
     friend class task_scheduler_observer_v3;
@@ -835,13 +956,6 @@ class GenericScheduler: public scheduler {
 
     //! If sizeof(task) is <=quick_task_size, it is handled on a free list instead of malloc'd.
     static const size_t quick_task_size = 256-task_prefix_reservation_size;
-
-#if __TBB_EXCEPTIONS
-    //! Context to be associated with dummy tasks of worker threads schedulers.
-    /** It is never used for its direct purpose, and is introduced solely for the sake 
-        of avoiding one extra conditional branch in the end of wait_for_all method. **/
-    static task_group_context dummy_context;
-#endif /* __TBB_EXCEPTIONS */
 
     //! Definitions for bits in task_prefix::extra_state
     enum internal_state_t {
@@ -866,7 +980,6 @@ class GenericScheduler: public scheduler {
     depth_type deepest;
 
     //! The physical number of slots in "array".
-    /** Read by thieves. */
     TaskPool::size_type array_size;
 
     //! Dummy slot used when scheduler is not in arena
@@ -910,6 +1023,27 @@ class GenericScheduler: public scheduler {
                 We want to give it the same affinity_id upon reentry, if practical.
       */
     affinity_id my_affinity_id;
+
+    //! True if this is assigned to thread local storage.
+    /** Located here because space is otherwise just padding after my_affinity_id. */
+    bool occupy_tls;
+
+    //! Register scheduler in thread local storage
+    void register_in_thread_local_storage() {
+        __TBB_ASSERT( !occupy_tls, NULL );  
+        occupy_tls = true;
+        __TBB_InitOnce::add_ref();
+        SetThreadSpecific(this);
+    }
+
+    //! Unregister scheduler from thread local storage
+    void unregister_from_thread_local_storage() {
+        if( occupy_tls ) {
+            SetThreadSpecific(NULL);
+            occupy_tls = false;
+            __TBB_InitOnce::remove_ref();
+        }
+    }
 
 #if __TBB_SCHEDULER_OBSERVER
     //! Last observer_proxy processed by this scheduler
@@ -1125,7 +1259,33 @@ public:
 
     //! Free a small task t that that was allocated by a different scheduler 
     void free_nonlocal_small_task( task& t ); 
-};
+
+#if __TBB_EXCEPTIONS
+    //! Padding isolating thread local members from members that can be written to by other threads.
+    char _padding1[NFS_MaxLineSize - sizeof(context_list_node_t)];
+
+    //! Head of the thread specific list of task group contexts.
+    context_list_node_t context_list_head;
+
+    //! Mutex protecting access to the list of task group contexts.
+    spin_mutex context_list_mutex;
+
+    //! Used to form the list of master thread schedulers.
+    scheduler_list_node_t my_node;
+
+    //! Thread local counter of cancellation requests.
+    /** When this counter equals global_cancel_count, the cancellation state known
+        to this thread is synchronized with the global cancellation state.
+        \sa #global_cancel_count **/
+    uintptr_t local_cancel_count;
+
+    //! Propagates cancellation request to all descendants of the argument context.
+    void propagate_cancellation ( task_group_context* ctx );
+
+    //! Propagates cancellation request to contexts registered by this scheduler.
+    void propagate_cancellation ();
+#endif /* __TBB_EXCEPTIONS */
+}; // class GenericScheduler
 
 #if __TBB_EXCEPTIONS
 //------------------------------------------------------------------------
@@ -1160,9 +1320,6 @@ public:
 //------------------------------------------------------------------------
 
 #if __TBB_EXCEPTIONS
-
-task_group_context GenericScheduler::dummy_context(task_group_context::isolated);
-
 inline task& GenericScheduler::allocate_task( size_t number_of_bytes, depth_type depth, task* parent, task_group_context* context ) {
 #else
 inline task& GenericScheduler::allocate_task( size_t number_of_bytes, depth_type depth, task* parent ) {
@@ -1261,10 +1418,15 @@ void GenericScheduler::free_nonlocal_small_task( task& t ) {
 }
 
 inline void GenericScheduler::mark_pool_full() {
-     // Double-check idiom
-     Gate::state_t snapshot = arena->prefix().gate.get_state();
-     if( snapshot!=SNAPSHOT_FULL && snapshot!=SNAPSHOT_PERMANENTLY_OPEN ) 
-         arena->prefix().gate.try_update( SNAPSHOT_FULL, SNAPSHOT_PERMANENTLY_OPEN, true );
+    // Double-check idiom that is deliberately sloppy about memory fences.
+    // Technically, to avoid missed wakeups, there should be a full memory fence between the point we 
+    // released the task pool (i.e. spawned task) and read the gate's state.  However, adding such a 
+    // fence might hurt overall performance more than it helps, because the fence would be executed 
+    // on every task pool release, even when stealing does not occur.  Since TBB allows parallelism, 
+    // but never promises parallelism, the missed wakeup is not a correctness problem.
+    Gate::state_t snapshot = arena->prefix().gate.get_state();
+    if( snapshot!=SNAPSHOT_FULL && snapshot!=SNAPSHOT_PERMANENTLY_OPEN ) 
+        arena->prefix().gate.try_update( SNAPSHOT_FULL, SNAPSHOT_PERMANENTLY_OPEN, true );
 }
 
 bool GenericScheduler::wait_while_pool_is_empty() {
@@ -1490,6 +1652,7 @@ GenericScheduler::GenericScheduler( Arena* arena_ ) :
     dummy_task(NULL),
     ref_count(1),
     my_affinity_id(0),
+    occupy_tls(false),
 #if __TBB_SCHEDULER_OBSERVER
     local_last_observer_proxy(NULL),
 #endif /* __TBB_SCHEDULER_OBSERVER */
@@ -1519,13 +1682,13 @@ GenericScheduler::GenericScheduler( Arena* arena_ ) :
     array_size = TaskPool::min_array_size;
 #if __TBB_EXCEPTIONS
     dummy_task = &allocate_task( sizeof(task), -1, NULL, NULL );
+    context_list_head.my_prev = &context_list_head;
+    context_list_head.my_next = &context_list_head;
 #else
     dummy_task = &allocate_task( sizeof(task), -1, NULL );
 #endif /* __TBB_EXCEPTIONS */
     dummy_task->prefix().ref_count = 2;
     __TBB_ASSERT( assert_okay(), "constructor error" );
-    // Register scheduler in thread local storage
-    SetThreadSpecific(this);
 }
 
 #if TBB_DO_ASSERT||TEST_ASSEMBLY_ROUTINES
@@ -1547,6 +1710,71 @@ bool GenericScheduler::assert_okay() const {
     return true;
 }
 #endif /* TBB_DO_ASSERT||TEST_ASSEMBLY_ROUTINES */
+
+#if __TBB_EXCEPTIONS
+
+void GenericScheduler::propagate_cancellation () {
+    spin_mutex::scoped_lock lock(context_list_mutex);
+    // Acquire fence is necessary to ensure that the subsequent node->my_next load 
+    // returned the correct value in case it was just inserted in another thread.
+    // The fence also ensures visibility of the correct my_parent value.
+    context_list_node_t *node = __TBB_load_with_acquire(context_list_head.my_next);
+    while ( node != &context_list_head ) {
+        task_group_context *ctx = __TBB_get_object_addr(task_group_context, my_node, node);
+            // The absence of acquire fence while reading my_cancellation_requested may result 
+            // in repeated traversals of the same parents chain if another group (precedent or 
+            // descendant) belonging to the tree being canceled sends cancellation request of 
+            // its own around the same time. I assume that such situations are less frequent 
+            // than uncontended cancellation, and cache coherency mechanisms are efficient enough 
+            // to deliver updated values most of the time.
+        if ( !ctx->my_cancellation_requested )
+            ctx->propagate_cancellation_from_ancestors();
+        node = node->my_next;
+    }
+}
+
+/** Propagates cancellation down the tree of dependent contexts by walking each 
+    thread's local list of contexts **/
+void GenericScheduler::propagate_cancellation ( task_group_context* ctx ) {
+    __TBB_ASSERT ( ctx->my_cancellation_requested, "No cancellation request in the context" );
+    // The whole propagation algorithm is under the lock in order to ensure correctness 
+    // in case of parallel cancellations at the different levels of the context tree.
+    // See the note 2 at the bottom of the file.
+    mutex::scoped_lock lock(the_scheduler_list_mutex);
+    // Advance global cancellation state
+    __TBB_FetchAndAddWrelease(&global_cancel_count, 1);
+    // First propagate to workers using arena to access their context lists
+    size_t num_workers = arena->prefix().number_of_workers;
+    for ( size_t i = 0; i < num_workers; ++i ) {
+        // No fence is necessary here since the context list of worker's scheduler 
+        // can contain anything of interest only after the first stealing was done
+        // by that worker. And doing it applies the necessary fence
+        GenericScheduler *s = arena->prefix().worker_list[i].scheduler;
+        // If the worker is in the middle of its startup sequence, skip it.
+        if ( s )
+            s->propagate_cancellation();
+    }
+    // Then propagate to masters using the global list of master's schedulers
+    scheduler_list_node_t *node = the_scheduler_list_head.my_next;
+    while ( node != &the_scheduler_list_head ) {
+        __TBB_get_object_addr(GenericScheduler, my_node, node)->propagate_cancellation();
+        node = node->my_next;
+    }
+    // Now sync up the local counters
+    for ( size_t i = 0; i < num_workers; ++i ) {
+        GenericScheduler *s = arena->prefix().worker_list[i].scheduler;
+        // If the worker is in the middle of its startup sequence, skip it.
+        if ( s )
+            s->local_cancel_count = global_cancel_count;
+    }
+    node = the_scheduler_list_head.my_next;
+    while ( node != &the_scheduler_list_head ) {
+        __TBB_get_object_addr(GenericScheduler, my_node, node)->local_cancel_count = global_cancel_count;
+        node = node->my_next;
+    }
+}
+#endif /* __TBB_EXCEPTIONS */
+
 
 void GenericScheduler::grow( TaskPool::size_type minimum_size ) {
     TBB_TRACE(("%p.grow(minimum_size=%lx)\n", this, minimum_size ));
@@ -1584,13 +1812,19 @@ void GenericScheduler::free_scheduler() {
     if( arena_slot!=&dummy_slot ) {
         leave_arena(/*compress=*/false);
     }
+    unregister_from_thread_local_storage();
 #if __TBB_EXCEPTIONS
     task_group_context* &context = dummy_task->prefix().context;
     // Only master thread's dummy task has a context
     if ( context != &dummy_context) {
-        __TBB_ASSERT (context->assert_unbound(), "master's dummy task context still has children");
+        //! \todo Add assertion that master's dummy task context does not have children
         context->task_group_context::~task_group_context();
         NFS_Free(context);
+        {
+            mutex::scoped_lock lock(the_scheduler_list_mutex);
+            my_node.my_next->my_prev = my_node.my_prev;
+            my_node.my_prev->my_next = my_node.my_next;
+        }
     }
 #endif /* __TBB_EXCEPTIONS */
     free_task<is_small_local>( *dummy_task );
@@ -1617,7 +1851,6 @@ void GenericScheduler::free_scheduler() {
 #endif /* STATISTICS */
     dummy_slot.task_pool->free_task_pool();
     dummy_slot.task_pool = NULL;
-    SetThreadSpecific( NULL );
     // Update small_task_count last.  Doing so sooner might cause another thread to free *this.
     __TBB_ASSERT( small_task_count>=k, "small_task_count corrupted" );
     if( __TBB_FetchAndAddW( &small_task_count, -k )==k ) 
@@ -1693,7 +1926,6 @@ void GenericScheduler::spawn( task& first, task*& next ) {
             parent->prefix().extra_state |= es_ref_count_active;
         }
 #endif /* TBB_DO_ASSERT */
-        __TBB_ASSERT( t->prefix().next!=first_ptr, "cyclic list will be created" );
         affinity_id dst_thread=t->prefix().affinity;
         __TBB_ASSERT( dst_thread==0 || is_version_3_task(*t), "backwards compatibility to TBB 2.0 tasks is broken" );
         if( dst_thread!=0 && dst_thread!=my_affinity_id ) {
@@ -2126,8 +2358,7 @@ exception_was_caught:
             // Try to steal a task from a random victim.
             size_t n = arena->prefix().limit;
             if( n>1 ) {
-                t = get_mailbox_task();
-                if( !t ) {
+                if( !my_affinity_id || !(t=get_mailbox_task()) ) {
                     size_t k = random.get() % (n-1);
                     ArenaSlot* victim = &arena->slot[k];
                     if( victim>=arena_slot )
@@ -2197,7 +2428,7 @@ fail:
     } catch ( tbb_exception& exc ) {
         if ( t->prefix().context->cancel_group_execution() ) {
             // We are the first to signal cancellation, so store the exception that caused it.
-            t->prefix().context->my_exception = exc.clone();
+            t->prefix().context->my_exception = exc.move();
         }
     } catch ( std::exception& exc ) {
         if ( t->prefix().context->cancel_group_execution() ) {
@@ -2232,10 +2463,10 @@ done:
             __TBB_store_with_release(parent_ctx->my_cancellation_requested, 0);
             __TBB_ASSERT(dummy_task->prefix().context == parent_ctx || !CANCELLATION_INFO_PRESENT(dummy_task), 
                          "Unexpected exception or cancellation data in the dummy task");
-            __TBB_ASSERT(dummy_task->prefix().context->assert_unbound(), NULL);
+            //! \todo Add assertion that master's dummy task context does not have children
         }
         if ( e )
-            e->throw_itself();
+            e->throw_self();
     }
     __TBB_ASSERT(!is_worker() || !CANCELLATION_INFO_PRESENT(dummy_task), 
                  "Worker's dummy task context modified");
@@ -2250,6 +2481,7 @@ void GenericScheduler::try_enter_arena() {
     __TBB_ASSERT( arena, NULL );
     __TBB_ASSERT( arena_slot, "arena_slot not set" );
     __TBB_ASSERT( arena_slot==&dummy_slot, "already in arena?" );
+    // Sync up the local cancellation state with the global one.
     unsigned n = arena->prefix().number_of_slots;
     unsigned j = unsigned(arena->prefix().limit);
     for( unsigned k=j; k<n; ++k ) {
@@ -2336,6 +2568,8 @@ GenericScheduler* GenericScheduler::create_worker( WorkerDescriptor& w ) {
     s->arena_slot = &slot;
 #if __TBB_EXCEPTIONS
     s->dummy_task->prefix().context = &dummy_context;
+    // Sync up the local cancellation state with the global one. No need for fence here.
+    s->local_cancel_count = global_cancel_count;
 #endif /* __TBB_EXCEPTIONS */
     s->attach_mailbox( i+1 );
     TaskPool* t = s->dummy_slot.task_pool;
@@ -2370,8 +2604,10 @@ GenericScheduler* GenericScheduler::create_worker( WorkerDescriptor& w ) {
         if( status )
             handle_perror(status,"pthread_detach");
 #endif /* USE_PTHREAD */
+        // Do not register scheduler in thread local storage, because the storage may be gone.
     } else {
         __TBB_ASSERT( w.scheduler==s, NULL );
+        s->register_in_thread_local_storage();
     }
     return s;
 }
@@ -2381,12 +2617,22 @@ GenericScheduler* GenericScheduler::create_master( Arena* arena ) {
     task& t = *s->dummy_task;
     s->innermost_running_task = &t;
     t.prefix().ref_count = 1;
+    s->register_in_thread_local_storage();
 #if __TBB_EXCEPTIONS
     // Context to be used by root tasks by default (if the user has not specified one).
     // Allocation is done by NFS allocator because we cannot reuse memory allocated 
     // for task objects since the free list is empty at the moment.
     t.prefix().context = new ( NFS_Allocate(sizeof(task_group_context), 1, NULL) ) task_group_context(task_group_context::isolated);
-    //printf("Master's context is %0x", t.prefix().context);
+    scheduler_list_node_t &node = s->my_node;
+    {
+        mutex::scoped_lock lock(the_scheduler_list_mutex);
+        node.my_next = the_scheduler_list_head.my_next;
+        node.my_prev = &the_scheduler_list_head;
+        the_scheduler_list_head.my_next->my_prev = &node;
+        the_scheduler_list_head.my_next = &node;
+    }
+    // Sync up the local cancellation state with the global one. No need for fence here.
+    s->local_cancel_count = global_cancel_count;
 #endif /* __TBB_EXCEPTIONS */
     __TBB_ASSERT( &task::self()==&t, NULL );
 #if __TBB_SCHEDULER_OBSERVER
@@ -2530,27 +2776,46 @@ task& allocate_root_with_context_proxy::allocate( size_t size ) const {
     __TBB_ASSERT( v, "thread did not activate a task_scheduler_init object?" );
     task_prefix& p = v->innermost_running_task->prefix();
     task& t = v->allocate_task( size, p.depth+1, NULL, &my_context );
-    if ( (intptr)my_context.my_parent == task_group_context::bound ) {
-        if ( v->innermost_running_task == v->dummy_task ) {
-            // We are in the innermost task dispatch loop of a master thread, and
-            // there is nothing to bind this context to. So treat it as isolated.
-            my_context.my_parent = NULL;
+    // The supported usage model prohibits concurrent initial binding. Thus we 
+    // do not need interlocked operations or fences here.
+    if ( my_context.my_kind == task_group_context::binding_required ) {
+        __TBB_ASSERT ( my_context.my_owner, "Context without owner" );
+        __TBB_ASSERT ( !my_context.my_parent, "Parent context set before initial binding" );
+        // If we are in the innermost task dispatch loop of a master thread, then
+        // there is nothing to bind this context to, and we skip the binding part.
+        if ( v->innermost_running_task != v->dummy_task ) {
+            // By not using the fence here we get faster code in case of normal execution 
+            // flow in exchange of a bit higher probability that in cases when cancellation 
+            // is in flight we will take deeper traversal branch. Normally cache coherency 
+            // mechanisms are efficient enough to deliver updated value most of the time.
+            uintptr_t local_count_snapshot = ((GenericScheduler*)my_context.my_owner)->local_cancel_count;
+            __TBB_store_with_release(my_context.my_parent, p.context);
+            uintptr_t global_count_snapshot = __TBB_load_with_acquire(global_cancel_count);
+            if ( local_count_snapshot == global_count_snapshot ) {
+                // It is possible that there is active cancellation request in our 
+                // parents chain. Fortunately the equality of the local and global 
+                // counters means that if this is the case it's already been propagated
+                // to our parent.
+                my_context.my_cancellation_requested = p.context->my_cancellation_requested;
+            }
+            else if ( !my_context.my_cancellation_requested ) {
+                // Another thread was propagating cancellation request at the moment 
+                // when we set our parent, but since we do not use locks we could've 
+                // been skipped. So we have to make sure that we get the cancellation 
+                // request if one of our ancestors has been canceled.
+                my_context.propagate_cancellation_from_ancestors();
+            }
         }
-        else {
-            // Bind this context to the one of the currently running task. Cancellation requests
-            // coming into the parent context will cancel tasks associated with this context too.
-            my_context.bind_to(*p.context);
-        }
+        my_context.my_kind = task_group_context::binding_completed;
     }
+    // else the context either has already been associated with its parent or is isolated
     return t;
 }
 
 void allocate_root_with_context_proxy::free( task& task ) const {
     internal::GenericScheduler* v = GetThreadSpecific();
     __TBB_ASSERT( v, "thread does not have initialized task_scheduler_init object?" );
-    /// \todo Possible design change: Check if the next comment is still valid
-    // No need to do anything here as long as we do not support ref counting for contexts.
-    // That is unbinding is performed by the context's destructor only.
+    // No need to do anything here as long as unbinding is performed by context destructor only.
     v->free_task<GenericScheduler::is_local>( task );
 }
 #endif /* __TBB_EXCEPTIONS */
@@ -2674,55 +2939,52 @@ inline
 void copy_string ( char*& dst, const char* src ) {
     if ( src ) {
         size_t len = strlen(src) + 1;
-        dst = (char*)malloc(len);
+        dst = (char*)allocate_via_handler_v3(len);
         strncpy (dst, src, len);
     }
     else
         dst = NULL;
 }
 
-captured_exception::captured_exception ( const captured_exception& src ) {
-    copy_string(const_cast<char*&>(my_exception_name), src.my_exception_name);
-    copy_string(const_cast<char*&>(my_exception_info), src.my_exception_info);
+void captured_exception::set ( const char* name, const char* info ) throw()
+{
+    copy_string(const_cast<char*&>(my_exception_name), name);
+    copy_string(const_cast<char*&>(my_exception_info), info);
 }
 
-captured_exception::captured_exception ( const char* name, const char* info, bool deepcopy ) { 
-    if ( deepcopy ) {
-        copy_string(const_cast<char*&>(my_exception_name), name);
-        copy_string(const_cast<char*&>(my_exception_info), info);
-    }
-    else {
-        my_exception_name = name;
-        my_exception_info = info;
-    }
+void captured_exception::clear () throw() {
+    deallocate_via_handler_v3 (const_cast<char*>(my_exception_name));
+    deallocate_via_handler_v3 (const_cast<char*>(my_exception_info));
 }
 
-captured_exception::~captured_exception () throw() {
-    free (const_cast<char*>(my_exception_name));
-    free (const_cast<char*>(my_exception_info));
-}
-
-tbb_exception* captured_exception::clone () throw() {
-    captured_exception *e = (captured_exception*)malloc(sizeof(captured_exception));
+captured_exception* captured_exception::move () throw() {
+    captured_exception *e = (captured_exception*)allocate_via_handler_v3(sizeof(captured_exception));
     if ( e ) {
-        new (e) captured_exception(my_exception_name, my_exception_info, false);
+        new (e) captured_exception();
+        e->my_exception_name = my_exception_name;
+        e->my_exception_info = my_exception_info;
+        e->my_dynamic = true;
         my_exception_name = my_exception_info = NULL;
     }
     return e;
 }
 
-bool captured_exception::destroy () throw() {
-    this->captured_exception::~captured_exception();
-    free (this);
-    return true;
+void captured_exception::destroy () throw() {
+    __TBB_ASSERT ( my_dynamic, "Method destroy can be used only on objects created by clone or allocate" );
+    if ( my_dynamic ) {
+        this->captured_exception::~captured_exception();
+        deallocate_via_handler_v3 (this);
+    }
 }
 
 captured_exception* captured_exception::allocate ( const char* name, const char* info )
 {
-    void *e = malloc(sizeof(captured_exception));
-    if ( e )
+    captured_exception *e = (captured_exception*)allocate_via_handler_v3(sizeof(captured_exception));
+    if ( e ) {
         new (e) captured_exception(name, info);
-    return (captured_exception*)e;
+        e->my_dynamic = true;
+    }
+    return e;
 }
 
 const char* captured_exception::name() const throw() {
@@ -2738,96 +3000,91 @@ const char* captured_exception::what() const throw() {
 //------------------------------------------------------------------------
 
 task_group_context::~task_group_context () {
-    // The second part of the condition means that the context was constructed 
-    // to be bound but the actual binding has not happened.
-    if ( my_parent && (intptr_t)my_parent != bound)
-        unbind();
+    if ( my_kind != isolated ) {
+        __TBB_ASSERT ( my_owner == GetThreadSpecific(), "Task group context is destructed by the wrong thread" );
+        GenericScheduler *s = (GenericScheduler*)my_owner;
+        my_node.my_next->my_prev = my_node.my_prev;
+        // By not using the fence here we get faster code in case of normal execution 
+        // flow in exchange for a bit higher probability that in cases when cancellation 
+        // is in flight we will take the branch containing the lock. Normally cache 
+        // coherency mechanisms are efficient enough to deliver updated value most 
+        // of the time.
+        uintptr_t local_count_snapshot = s->local_cancel_count;
+        __TBB_store_with_release( my_node.my_prev->my_next, my_node.my_next );
+        if ( local_count_snapshot != __TBB_load_with_acquire(global_cancel_count) ) {
+            // Another thread was propagating cancellation request when we removed
+            // ourselves from the list. We must ensure that it does not access us 
+            // when this destructor finishes. We'll be able to acquire the lock 
+            // below only after the other thread finishes with us.
+            spin_mutex::scoped_lock lock(s->context_list_mutex);
+        }
+    }
     if ( my_exception )
         my_exception->destroy();
 }
 
-bool task_group_context::cancel_group_execution () {
-    if ( my_cancellation_requested  || __TBB_CompareAndSwapW(&my_cancellation_requested, 1, 0) )
-        return false; // This task tree has already been canceled
-    task_group_context* prev_ctx = this;
-    __TBB_LockByte(my_mutex);
-    task_group_context* next_ctx = my_first_child;
-    while ( next_ctx ) {
-        next_ctx->cancel_group_execution();
-        __TBB_LockByte(next_ctx->my_mutex);
-        __TBB_store_with_release(prev_ctx->my_mutex, 0);
-        prev_ctx = next_ctx;
-        next_ctx = next_ctx->my_next_sibling;
+void task_group_context::init () {
+    __TBB_ASSERT ( sizeof(task_group_context) == 2 * NFS_MaxLineSize, "Context class has wrong size - check padding and members alignment" );
+    __TBB_ASSERT ( (uintptr_t(this) & (sizeof(my_cancellation_requested) - 1)) == 0, "Context is improperly aligned" );
+    __TBB_ASSERT ( my_kind == isolated || my_kind == bound, "Context can be created only as isolated or bound" );
+    my_parent = NULL;
+    my_cancellation_requested = 0;
+    my_exception = NULL;
+    if ( my_kind == bound ) {
+        GenericScheduler *s = GetThreadSpecific();
+        my_owner = s;
+        __TBB_ASSERT ( my_owner, "Thread has not activated a task_scheduler_init object?" );
+        // Backward links are used by this thread only, thus no fences are necessary
+        my_node.my_prev = &s->context_list_head;
+        s->context_list_head.my_next->my_prev = &my_node;
+        // The only operation on the thread local list of contexts that may be performed 
+        // concurrently is its traversal by another thread while propagating cancellation
+        // request. Therefore the release fence below is necessary to ensure that the new 
+        // value of my_node.my_next is visible to the traversing thread 
+        // after it reads new value of v->context_list_head.my_next.
+        my_node.my_next = s->context_list_head.my_next;
+        __TBB_store_with_release(s->context_list_head.my_next, &my_node);
     }
-    __TBB_store_with_release(prev_ctx->my_mutex, 0);
+}
+
+bool task_group_context::cancel_group_execution () {
+    __TBB_ASSERT ( my_cancellation_requested == 0 || my_cancellation_requested == 1, "Invalid cancellation state");
+    if ( my_cancellation_requested || __TBB_CompareAndSwapW(&my_cancellation_requested, 1, 0) ) {
+        // This task group has already been canceled
+        return false;
+    }
+    GetThreadSpecific()->propagate_cancellation(this);
     return true;
 }
 
-void task_group_context::bind_to ( task_group_context& parent ) {
-    // Several threads may concurrently try to bind the same context to their parent task's context
-    intptr_t cur_parent = __TBB_CompareAndSwapW( &my_parent, (intptr_t)&parent, task_group_context::bound );
-    if ( cur_parent != task_group_context::bound )  {
-        // Already bound
-        __TBB_ASSERT (assert_parent_is_valid(parent), NULL);
-        __TBB_ASSERT (cur_parent == (intptr_t)&parent, "Inconsistent usage of bound context: attempt to bind to different parents");
-        return;
-    }
-    __TBB_LockByte(parent.my_mutex);
-    __TBB_ASSERT(!(my_first_child || my_prev_sibling || my_next_sibling), 
-                "context being bound is supposed to be new one and not have children or siblings");
-    my_prev_sibling = &parent;
-    task_group_context *head = parent.my_first_child;
-    if ( head )  {
-        // Since the parent (this) is locked we can safely operate with its first child 
-        // because it cannot be removed and removals of list items next to it affect 
-        // only its my_next_sibling member.
-        __TBB_ASSERT(head->my_prev_sibling == head->my_parent, "Context's first child has previous sibling");
-        head->my_prev_sibling = this;
-        my_next_sibling = head;
-    }
-    parent.my_first_child = this;
-    my_cancellation_requested = parent.my_cancellation_requested;
-    __TBB_store_with_release(parent.my_mutex, 0);    // release mutex
+bool task_group_context::is_group_execution_cancelled () const {
+    return __TBB_load_with_acquire(my_cancellation_requested) != 0;
 }
 
-void task_group_context::unbind () {
-    __TBB_LockByte(my_prev_sibling->my_mutex);
-    __TBB_LockByte(my_mutex);
-    /// \todo Possible design change: 
-    // Assertion is OK as long as we unbind from the context's destructor only.
-    // Otherwise it might be necessary to replace it with "if(!my_parent)" condition.
-    __TBB_ASSERT(my_parent, "Attempt to unbind isolated context");
-    __TBB_ASSERT(my_prev_sibling, "For a bound context my_prev_sibling must always be nonzero");
-    __TBB_ASSERT(!my_first_child, "Context being unbound should not have children still bound to it");
-    if ( my_next_sibling ) {
-        // As long as this context is locked my_next_sibling cannot be deleted concurrently, 
-        // and and the only other method that could modify my_next_sibling->my_prev_sibling
-        // field is bind_to when my_next_sibling is the first child, which is not the case 
-        // at the moment. Therefore it is safe to modify my_next_sibling->my_prev_sibling.
-        my_next_sibling->my_prev_sibling = my_prev_sibling;
-    }
-    if ( my_prev_sibling != my_parent )
-        my_prev_sibling->my_next_sibling = my_next_sibling;
-    else {
-        __TBB_ASSERT(my_parent->my_first_child == this, NULL);
-        my_parent->my_first_child = my_next_sibling;
-    }
-    my_mutex = 0;   // release mutex
-    __TBB_store_with_release(my_prev_sibling->my_mutex, 0);   // release mutex
-    /// \todo Possible design change:
-    // If context unbinding stops being done in its destructor only, uncomment the following line
-    //my_prev_sibling = my_next_sibling = NULL;
-}
-
+// IMPORTANT: It is assumed that this method is not used concurrently!
 void task_group_context::reset () {
-    // It is assumed that this method is not used concurrently
-    __TBB_ASSERT (!my_mutex, "Context is still in use and locked");
-    __TBB_ASSERT (!(my_prev_sibling || my_next_sibling || my_first_child), "Context is still in use");
+    //! \todo Add assertion that this context does not have children
+    // No fences are necessary since this context can be accessed from another thread
+    // only after stealing happened (which means necessary fences were used).
     if ( my_exception )  {
         my_exception->destroy();
         my_exception = NULL;
     }
     my_cancellation_requested = 0;
+}
+
+void task_group_context::propagate_cancellation_from_ancestors () {
+    task_group_context *parent = my_parent;
+    while ( parent && !parent->my_cancellation_requested )
+        parent = parent->my_parent;
+    if ( parent ) {
+        // One of our ancestor groups was canceled. Cancel all its descendants.
+        task_group_context *ctx = this;
+        do {
+            __TBB_store_with_release(ctx->my_cancellation_requested, 1);
+            ctx = ctx->my_parent;
+        } while ( ctx != parent );
+    }
 }
 
 #endif /* __TBB_EXCEPTIONS */
@@ -3003,7 +3260,7 @@ observer_proxy::observer_proxy( task_scheduler_observer_v3& tso ) : next(NULL), 
     gc_ref_count = 1;
     {
         // Append to the global list
-        task_scheduler_observer_mutex_scoped_lock lock(the_task_scheduler_observer_mutex,/*is_writer=*/true);
+        task_scheduler_observer_mutex_scoped_lock lock(the_task_scheduler_observer_mutex.begin()[0],/*is_writer=*/true);
         observer_proxy* p = global_last_observer_proxy;
         prev = p;
         if( p ) 
@@ -3045,7 +3302,7 @@ void observer_proxy::remove_ref_slow() {
     __TBB_ASSERT( r==1, NULL );
     // Reference count might go to zero
     {
-        task_scheduler_observer_mutex_scoped_lock lock(the_task_scheduler_observer_mutex,/*is_writer=*/true);
+        task_scheduler_observer_mutex_scoped_lock lock(the_task_scheduler_observer_mutex.begin()[0],/*is_writer=*/true);
         r = --gc_ref_count;
         if( !r ) {
             remove_from_list();
@@ -3068,7 +3325,7 @@ observer_proxy* observer_proxy::process_list( observer_proxy* local_last, bool i
         task_scheduler_observer* tso=NULL;
         // Hold lock on list only long enough to advance to next proxy in list.
         { 
-            task_scheduler_observer_mutex_scoped_lock lock(the_task_scheduler_observer_mutex,/*is_writer=*/false);
+            task_scheduler_observer_mutex_scoped_lock lock(the_task_scheduler_observer_mutex.begin()[0],/*is_writer=*/false);
             do {
                 if( local_last && local_last->observer ) {
                     // 2 = 1 for observer and 1 for local_last
@@ -3153,7 +3410,7 @@ void task_scheduler_observer_v3::observe( bool state ) {
             my_proxy = NULL;
             __TBB_ASSERT( proxy->gc_ref_count>=1, "reference for observer missing" );
             {
-                task_scheduler_observer_mutex_scoped_lock lock(the_task_scheduler_observer_mutex,/*is_writer=*/true);
+                task_scheduler_observer_mutex_scoped_lock lock(the_task_scheduler_observer_mutex.begin()[0],/*is_writer=*/true);
                 proxy->observer = NULL;
             }
             proxy->remove_ref_slow();
@@ -3168,3 +3425,5 @@ void task_scheduler_observer_v3::observe( bool state ) {
 #endif /* __TBB_SCHEDULER_OBSERVER */
 
 } // namespace tbb
+
+

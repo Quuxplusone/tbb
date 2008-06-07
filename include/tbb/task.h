@@ -32,14 +32,7 @@
 #include "tbb_stddef.h"
 
 #if __TBB_EXCEPTIONS
-#if __APPLE__
-#include <cstdlib>
-#else
-#include <malloc.h>
-#endif
-#include <exception>
-#include <typeinfo>
-#include <new>
+#include "tbb/cache_aligned_allocator.h"
 #endif /* __TBB_EXCEPTIONS */
 
 namespace tbb {
@@ -48,6 +41,7 @@ class task;
 class task_list;
 #if __TBB_EXCEPTIONS
 class task_group_context;
+class tbb_exception;
 #endif /* __TBB_EXCEPTIONS */
 
 //! @cond INTERNAL
@@ -77,7 +71,10 @@ namespace internal {
     typedef unsigned short affinity_id;
 
 #if __TBB_EXCEPTIONS
-    template<typename T> class CustomScheduler;
+    struct context_list_node_t {
+        context_list_node_t *my_prev,
+                            *my_next;
+    };
 
     class allocate_root_with_context_proxy {
         task_group_context& my_context;
@@ -191,202 +188,76 @@ namespace internal {
 
 #if __TBB_EXCEPTIONS
 
-//! Interface to be implemented by all exceptions TBB recognizes and propagates across the threads.
-/** If an unhandled exception of the type derived from tbb::tbb_exception is intercepted
-    by the TBB scheduler in one of the worker threads, it is delivered to and re-thrown in
-    the root thread. The root thread is the thread that has started the outermost algorithm 
-    or root task sharing the same task_group_context with the guilty algorithm/task (the one
-    that threw the exception first).
-    
-    Note: when documentation mentions workers with respect to exception handling, 
-    masters are implied as well, because they are completely equivalent in this context.
-    Consequently a root thread can be master or worker thread. 
-
-    NOTE: In case of nested algorithms or complex task hierarchies when the nested 
-    levels share (explicitly or by means of implicit inheritance) the task group 
-    context of the outermost level, the exception may be (re-)thrown multiple times 
-    (ultimately - in each worker on each nesting level) before reaching the root 
-    thread at the outermost level. IMPORTANT: if you intercept an exception derived 
-    from this class on a nested level, you must re-throw it in the catch block by means
-    of the "throw;" operator. 
-    
-    TBB provides two implementations of this interface: tbb::captured_exception and 
-    template class tbb::movable_exception. See their declarations for more info. **/
-class tbb_exception : public std::exception {
-public:
-    //! Creates and returns pointer to the deep copy of this exception object. 
-    /** Move semantics is allowed. **/
-    virtual tbb_exception* clone () throw() = 0;
-    
-    //! Destroys objects created by the clone() method.
-    /** Frees memory and calls destructor for this exception object. 
-        Must and can be used only on objects created by the clone method. 
-        Returns true in case of success. One of the reasons to fail is the fact 
-        that this object was not created by the clone() method. **/
-    virtual bool destroy () throw() = 0;
-
-    //! Throws this exception object.
-    /** Make sure that if you have several levels of derivation from this interface
-        you implement or override this method on the most derived level. The implementation 
-        is as simple as "throw *this;". Failure to do this will result in exception 
-        of a base class type being thrown. **/
-    virtual void throw_itself () = 0;
-
-    //! Returns RTTI name of the originally intercepted exception
-    virtual const char* name() const throw() = 0;
-
-    //! Returns the result of originally intercepted exception's what() method.
-    virtual const char* what() const throw() = 0;
-};
-
-//! This class is used by TBB to propagate information about unhandled exceptions into the root thread.
-/** Exception of this type is thrown by TBB in the root thread (thread that started a parallel 
-    algorithm ) if an unhandled exception was intercepted during the algorithm execution in one 
-    of the workers.
-    \sa tbb::tbb_exception **/
-class captured_exception : public tbb_exception
-{
-public:
-    ~captured_exception () throw();
-
-    /*override*/ 
-    const char* name() const throw();
-
-    /*override*/ 
-    const char* what() const throw();
-
-protected:
-    captured_exception ( const captured_exception& src );
-
-    captured_exception ( const char* name, const char* info, bool deepcopy = true );
-
-    static captured_exception* allocate ( const char* name, const char* info );
-
-    /*override*/ 
-    tbb_exception* clone () throw();
-    
-    /*override*/ 
-    bool destroy () throw();
-
-    /*override*/ 
-    void throw_itself () { throw *this; }
-
-protected:
-    template<typename T> friend class internal::CustomScheduler;
-
-    const char* my_exception_name;
-    const char* my_exception_info;
-};
-
-//! Template that can be used to implement exception that transfers arbitrary ExceptionData to the root thread
-/** Code using TBB can instantiate this template with an arbitrary ExceptionData type 
-    and throw this exception object. Such exceptions are intercepted by the TBB scheduler
-    and delivered to the root thread (). 
-    \sa tbb::tbb_exception **/
-template<typename ExceptionData>
-class movable_exception : public tbb_exception
-{
-    typedef movable_exception<ExceptionData> self_type;
-public:
-    const ExceptionData  my_exception_data;
-
-    movable_exception ( const ExceptionData& data ) 
-        : my_exception_data(data)
-        , my_cloned(false)
-        , my_exception_name(typeid(self_type).name())
-    {}
-
-    movable_exception ( const movable_exception& src ) throw () 
-        : my_exception_data(src.my_exception_data)
-        , my_cloned(false)
-        , my_exception_name(src.my_exception_name)
-    {}
-
-    ~movable_exception () throw() {}
-
-    /*override*/ const char* name() const throw() { return my_exception_name; }
-
-    /*override*/ const char* what() const throw() { return "tbb::movable_exception"; }
-
-protected:
-    /*override*/ 
-    tbb_exception* clone () throw() {
-        void* e = malloc(sizeof(movable_exception));
-        if ( e ) {
-            new (e) movable_exception(*this);
-            ((movable_exception*)e)->my_cloned = true;
-        }
-        return (movable_exception*)e;
-    }
-    /*override*/ 
-    bool destroy () throw() {
-        if ( my_cloned ) {
-            this->movable_exception<ExceptionData>::~movable_exception();
-            free(this);
-            return true;
-        }
-        return false;
-    }
-    /*override*/ 
-    void throw_itself () {
-        throw *this;
-    }
-
-protected:
-    bool my_cloned;
-    // We rely on the fact that RTTI names are static string constants.
-    const char* my_exception_name;
-};
 
 //! Used to form groups of tasks 
 /** @ingroup task_scheduling 
     The context services explicit cancellation requests from user code, and unhandled 
     exceptions intercepted during tasks execution. Intercepting an exception results 
-    in generating internal cancellation requests. 
+    in generating internal cancellation requests (which is processed in exactly the 
+    same way as external ones). 
 
     The context is associated with one or more root tasks and defines the cancellation 
-    group that includes all the children of the corresponding root task(s). Association 
+    group that includes all the descendants of the corresponding root task(s). Association 
     is established when a context object is passed as an argument to the task::allocate_root()
     method. See task_group_context::task_group_context for more details.
     
     The context can be bound to another one, and other contexts can be bound to it,
     forming a tree-like structure: parent -> this -> children. Arrows here designate
     cancellation propagation direction. If a task in a cancellation group is canceled
-    all the other tasks in this group and groups bound to it (as children) get canceled too.*/
+    all the other tasks in this group and groups bound to it (as children) get canceled too. **/
 class task_group_context : internal::no_copy
 {
-    typedef task_group_context self_type;
-    
-    // If mutex_type definition changes, object layout will be affected!
-    typedef unsigned char  mutex_type;
+public:
+    enum kind_type {
+        isolated,
+        bound
+    };
+
+private:
+    union {
+        //! Flavor of this context: bound or isolated.
+        kind_type my_kind;
+        uintptr_t _my_kind_aligner;
+    };
 
     //! Pointer to the context of the parent cancellation group. NULL for isolated contexts.
-    self_type  *my_parent;
+    task_group_context *my_parent;
 
-    //! Pointer to the context of the first subordinate cancellation group.
-    self_type  *my_first_child;
+    //! Used to form the thread specific list of contexts without additional memory allocation.
+    /** A context is included into the list of the current thread when its binding to 
+        its parent happens. Any context can be present in the list of one thread only. **/
+    internal::context_list_node_t my_node;
 
-    //! Pointer to the context of my_parent's previous subordinate cancellation group.
-    /** If this == my_parent->my_first_child, then my_prev_sibling == my_parent.
-        This allows to simplify locking in binding/unbinding routines. **/
-    self_type  *my_prev_sibling;
-
-    //! Pointer to the context of my_parent's next subordinate cancellation group.
-    self_type  *my_next_sibling;
-
-    tbb_exception    *my_exception;
-
-    volatile intptr_t  my_cancellation_requested;
-
-    mutex_type  my_mutex;
+    //! Leading padding protecting accesses to frequently used members from false sharing.
+    /** Read accesses to the field my_cancellation_requested are on the hot path inside
+        the scheduler. This padding ensures that this field never shares the same cache 
+        line with a local variable that is frequently written to. **/
+    char _leading_padding[internal::NFS_MaxLineSize - 2 * sizeof(uintptr_t)- sizeof(void*) - sizeof(internal::context_list_node_t)];
     
-    char  my_version;
+    //! Specifies whether cancellation was request for this task group.
+    uintptr_t my_cancellation_requested;
+    
+    //! Version for run-time checks.
+    /** Run-time version checks may become necessary in the scheduler implementation
+        if in the future the meaning of the existing members will be changed or 
+        new members requiring non-zero initialization. **/
+    uintptr_t  my_version;
+
+    //! Pointer to the exception being propagated across this task group.
+    tbb_exception *my_exception;
+
+    //! Scheduler that registered this context in its thread specific list.
+    /** This field is not terribly necessary, but it allows to get a small performance 
+        benefit by getting us rid of using thread local storage. We do not care 
+        about extra memory it takes since this data structure is excessively padded anyway. **/
+    void *my_owner;
+
+    //! Trailing padding protecting accesses to frequently used members from false sharing
+    /** \sa _leading_padding **/
+    char _trailing_padding[internal::NFS_MaxLineSize - sizeof(intptr_t) - 2 * sizeof(void*)];
 
 public:
-    typedef intptr_t kind_t;
 
-    static const kind_t isolated = kind_t(0);
-    static const kind_t bound = ~kind_t(0);
 
     //! Default & binding constructor.
     /** By default a bound context is created. That is this context will be bound 
@@ -394,18 +265,24 @@ public:
         method. Cancellation requests passed to the parent context are propagated
         to all the contexts bound to it.
 
-        If self_type::isolated is used as the argument, then the tasks associated
-        with this context will never be affected by events in any other context. */
-    task_group_context ( kind_t relation_with_parent = bound )
-        : my_parent(reinterpret_cast<self_type*>(relation_with_parent))
-        , my_first_child(NULL)
-        , my_prev_sibling(NULL)
-        , my_next_sibling(NULL)
-        , my_exception(NULL)
-        , my_cancellation_requested(false)
-        , my_mutex(0)
+        If task_group_context::isolated is used as the argument, then the tasks associated
+        with this context will never be affected by events in any other context.
+        
+        Creating isolated context is involves much less overhead, but they have limited
+        utility. Normally when an exception occur in an algorithm that has nested
+        algorithms running one would want all the nested ones canceled as well. Such
+        behavior requires nested algorithms to use bound contexts.
+        
+        There is one good place where using isolated algorithms is beneficial. It is
+        a master thread. That is if a particular algorithm is invoked directly from
+        the master thread (not from a TBB task), supplying it with explicitly 
+        created isolated context will result in a faster algorithm startup. */
+    task_group_context ( kind_type relation_with_parent = bound )
+        : my_kind(relation_with_parent)
         , my_version(0)
-    {}
+    {
+        init();
+    }
 
     ~task_group_context ();
 
@@ -414,46 +291,39 @@ public:
         this context have already finished, you must be extremely careful to not invalidate 
         the context while it is still in use somewhere in the task hierarchy.
         
-        It is assumed that this method is not used concurrently!
+        IMPORTANT: It is assumed that this method is not used concurrently!
 
-        The method does not change the kind of the context and its parent if the latter is set. **/ 
+        The method does not change the context's parent if it is set. **/ 
     void reset ();
 
     //! Initiates cancellation of all tasks in this cancellation group and its subordinate groups.
-    /** \return false if cancellation has already been requested, true otherwise. **/
+    /** \return false if cancellation has already been requested, true otherwise. 
+
+        Note that canceling never fails. When false is returned, it just means that 
+        another thread (or this one) has already sent cancellation request to this
+        context or to one of its ancestors (if this context is bound). It is guaranteed
+        that when this method is called on the same context, true may be returned by 
+        at most one invocation. **/
     bool cancel_group_execution ();
 
     //! Returns true if the context received cancellation request.
-    bool execution_cancelled () const { return my_cancellation_requested != 0; }
+    bool is_group_execution_cancelled () const;
 
-#if TBB_DO_ASSERT
-    bool assert_okay () const {
-        /// \todo Implement it.
-        return true;
-    }
-    bool assert_unbound () const {
-        bool bound_to_another = my_parent || my_prev_sibling || my_next_sibling;
-        __TBB_ASSERT (!bound_to_another, "context still has parent or siblings");
-        __TBB_ASSERT (!my_first_child, "context still has children");
-        return  !(bound_to_another || my_first_child);
-    }
-
-    bool assert_parent_is_valid ( const self_type& parent ) {
-        /// \todo Implement it.
-        // Make sure that ultimate parent of my_parent is the same as for "parent" argument
-        // Assert: "Attempt to bind already bound asynch context to another hierarchy"
-        return true;
-    }
-#endif /* TBB_DO_ASSERT */
+protected:
+    //! Out-of-line part of the constructor. 
+    /** Separated to facilitate future support for backward binary compatibility. **/
+    void init ();
 
 private:
     friend class task;
-    friend class internal::scheduler;
     friend class internal::allocate_root_with_context_proxy;
-    template<typename T> friend class internal::CustomScheduler;
 
-    void bind_to ( self_type& parent );
-    void unbind ();
+    static const kind_type binding_required = bound;
+    static const kind_type binding_completed = kind_type(bound+1);
+
+    //! Checks if any of the ancestors has a cancellation request outstanding, 
+    //! and propagates it back to descendants.
+    void propagate_cancellation_from_ancestors ();
 }; // class task_group_context
 
 #endif /* __TBB_EXCEPTIONS */
@@ -566,6 +436,9 @@ public:
         p.state = allocated;
         p.parent = &new_parent;
         p.depth = new_parent.prefix().depth+1;
+#if __TBB_EXCEPTIONS
+        p.context = new_parent.prefix().context;
+#endif /* __TBB_EXCEPTIONS */
     }
 
     //! Schedule this for reexecution after current execute() returns.
@@ -715,7 +588,7 @@ public:
     bool cancel_group_execution () { return prefix().context->cancel_group_execution(); }
 
     //! Returns true if the context received cancellation request.
-    bool is_cancelled () const { return prefix().context->execution_cancelled(); }
+    bool is_cancelled () const { return prefix().context->is_group_execution_cancelled(); }
 #endif /* __TBB_EXCEPTIONS */
 
 private:
@@ -730,7 +603,8 @@ private:
     friend class internal::allocate_additional_child_of_proxy;
 
     //! Get reference to corresponding task_prefix.
-    internal::task_prefix& prefix() const {
+    /** Version tag prevents loader on Linux from using the wrong symbol in debug builds. **/
+    internal::task_prefix& prefix( internal::version_tag* = NULL ) const {
         return reinterpret_cast<internal::task_prefix*>(const_cast<task*>(this))[-1];
     }
 }; // class task

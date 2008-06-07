@@ -264,7 +264,8 @@ public:
     }
 };
 
-#if WORDSIZE == 4
+#if __TBB_WORDSIZE == 4
+// Plaforms with 32-bit hardware require special effort for 64-bit loads and stores.
 #if defined(__INTEL_COMPILER)||!defined(_MSC_VER)||_MSC_VER>=1400
 
 template<>
@@ -290,7 +291,7 @@ inline atomic_impl<unsigned __TBB_LONG_LONG,unsigned __TBB_LONG_LONG,1>::value_t
 }
 
 #endif /* defined(__INTEL_COMPILER)||!defined(_MSC_VER)||_MSC_VER>=1400 */
-#endif
+#endif /* __TBB_WORDSIZE==4 */
 
 } /* Internal */
 //! @endcond
@@ -305,6 +306,7 @@ struct atomic {
 #define __TBB_DECL_ATOMIC(T) \
     template<> struct atomic<T>: internal::atomic_impl<T,T,1> {  \
         T operator=( T rhs ) {return store_with_release(rhs);}  \
+        atomic<T>& operator=( const atomic<T>& rhs ) {store_with_release(rhs); return *this;}  \
     };
 
 #if defined(__INTEL_COMPILER)||!defined(_MSC_VER)||_MSC_VER>=1400
@@ -332,6 +334,7 @@ template<typename T> struct atomic<T*>: internal::atomic_impl<T*,ptrdiff_t,sizeo
         // "this" required here in strict ISO C++ because store_with_release is a dependent name
         return this->store_with_release(rhs);
     }
+    atomic<T*>& operator=( const atomic<T*> rhs ) {this->store_with_release(rhs); return *this;}
     T* operator->() const {
         return (*this);
     }
@@ -371,6 +374,11 @@ public:
         __TBB_store_with_release(my_value,rhs);
         return rhs;
     }
+
+    atomic<void*>& operator=( const atomic<void*>& rhs ) {
+        __TBB_store_with_release(my_value,rhs);
+        return *this;
+    }
 };
 
 template<>
@@ -405,6 +413,11 @@ public:
     value_type operator=( value_type rhs ) {
         __TBB_store_with_release(my_value,rhs);
         return rhs;
+    }
+
+    atomic<bool>& operator=( const atomic<bool>& rhs ) {
+        __TBB_store_with_release(my_value,rhs);
+        return *this;
     }
 };
 

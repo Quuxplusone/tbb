@@ -60,7 +60,8 @@ CXXFLAGS += -L$(TBBLIBSPATH) -arch i386 -mmacosx-version-min=10.4 -msse3 -ftree-
 LIBS += -framework OpenGL -framework AGL -framework Carbon
 APPRES = $(NAME).app/Contents/Resources
 EXE = ./$(NAME).app/Contents/MacOS/$(NAME)
-PBXCP = /System/Library/PrivateFrameworks/DevToolsCore.framework/Resources/pbxcp -resolve-src-symlinks -exclude .DS_Store -exclude CVS
+# look in /System and /Developer (for Xcode 3)
+PBXCP = $(wildcard /[SD]*/Library/PrivateFrameworks/DevToolsCore.framework/Resources/pbxcp) -resolve-src-symlinks -exclude .DS_Store -exclude CVS -exclude .svn
 else # ! Mac
 UI=con
 EXE=./$(NAME)

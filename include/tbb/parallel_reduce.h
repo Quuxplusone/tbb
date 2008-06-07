@@ -316,13 +316,6 @@ void parallel_reduce( const Range& range, Body& body, affinity_partitioner& part
 }
 
 #if __TBB_EXCEPTIONS
-//! Parallel iteration with reduction, default partitioner and user-supplied context.
-/** @ingroup algorithms **/
-template<typename Range, typename Body>
-void parallel_reduce( const Range& range, Body& body, task_group_context& context ) {
-    internal::start_reduce<Range,Body,simple_partitioner>::run( range, body, context );
-}
-
 //! Parallel iteration with reduction, simple partitioner and user-supplied context.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>

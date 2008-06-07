@@ -127,7 +127,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cat /usr/include/*.h >$TARGET_BUILD_DIR/input.txt";
+			shellScript = "cat ../../index.html >$TARGET_BUILD_DIR/input.txt; for ((a=1; a <= 500 ; a++)); do cat ../../index.html >>$TARGET_BUILD_DIR/input.txt; done";
 		};
 /* End PBXShellScriptBuildPhase section */
 

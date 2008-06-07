@@ -33,11 +33,15 @@ tbb_root="$PWD" # to make it unsensible
 cd "$bin_dir"   # to EOL encoding
 [ "`uname`" = "Darwin" ] && dll_path="DYLD_LIBRARY_PATH" || dll_path="LD_LIBRARY_PATH" #
 custom_exp="$CXXFLAGS" #
-if [ -z "$TBB_CUSTOM_VARS" ]; then #
+if [ -z "$TBB_CUSTOM_VARS_SH" ]; then #
 custom_exp_sh="" #
 else #
-custom_exp_csh="setenv $TBB_CUSTOM_VARS" #
-custom_exp_sh="export $TBB_CUSTOM_VARS" #
+custom_exp_sh="export $TBB_CUSTOM_VARS_SH" #
+fi #
+if [ -z "$TBB_CUSTOM_VARS_CSH" ]; then #
+custom_exp_csh="" #
+else #
+custom_exp_csh="setenv $TBB_CUSTOM_VARS_CSH" #
 fi #
 if [ -z "$1" ]; then # custom tbb_build_dir, can't make with TBB_INSTALL_DIR
 [ -f ./tbbvars.sh ] || cat >./tbbvars.sh <<EOF
@@ -85,12 +89,12 @@ EOF
 else # make with TBB_INSTALL_DIR
 [ -f ./tbbvars.sh ] || cat >./tbbvars.sh <<EOF
 #!/bin/sh
-[ -z "\${TBB20_INSTALL_DIR}" ] && export TBB20_INSTALL_DIR="${tbb_root}" #
-tbb_bin="\${TBB20_INSTALL_DIR}/build/$1" #
+[ -z "\${TBB21_INSTALL_DIR}" ] && export TBB21_INSTALL_DIR="${tbb_root}" #
+tbb_bin="\${TBB21_INSTALL_DIR}/build/$1" #
 if [ -z "\$CPATH" ]; then #
-    export CPATH="\${TBB20_INSTALL_DIR}/include" #
+    export CPATH="\${TBB21_INSTALL_DIR}/include" #
 else #
-    export CPATH="\${TBB20_INSTALL_DIR}/include:\$CPATH" #
+    export CPATH="\${TBB21_INSTALL_DIR}/include:\$CPATH" #
 fi #
 if [ -z "\$LIBRARY_PATH" ]; then #
     export LIBRARY_PATH="\${tbb_bin}" #
@@ -106,14 +110,14 @@ ${custom_exp_sh} #
 EOF
 [ -f ./tbbvars.csh ] || cat >./tbbvars.csh <<EOF
 #!/bin/csh
-if (! \$?TBB20_INSTALL_DIR) then #
-    setenv TBB20_INSTALL_DIR "${tbb_root}" #
+if (! \$?TBB21_INSTALL_DIR) then #
+    setenv TBB21_INSTALL_DIR "${tbb_root}" #
 endif #
-setenv tbb_bin "\${TBB20_INSTALL_DIR}/build/$1" #
+setenv tbb_bin "\${TBB21_INSTALL_DIR}/build/$1" #
 if (! \$?CPATH) then #
-    setenv CPATH "\${TBB20_INSTALL_DIR}/include" #
+    setenv CPATH "\${TBB21_INSTALL_DIR}/include" #
 else #
-    setenv CPATH "\${TBB20_INSTALL_DIR}/include:\$CPATH" #
+    setenv CPATH "\${TBB21_INSTALL_DIR}/include:\$CPATH" #
 endif #
 if (! \$?LIBRARY_PATH) then #
     setenv LIBRARY_PATH "\${tbb_bin}" #

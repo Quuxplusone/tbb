@@ -53,13 +53,6 @@
 #endif /* _OPENMP */
 
 
-//workaround for old patform SDK
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-namespace std{
-    using ::printf;
-}
-#endif /* defined(_WIN64) && !defined(_CPPLIB_VER) */
-
 // This test deliberately avoids a "using tbb" statement,
 // so that the error of putting types in the wrong namespace will be caught.
 
@@ -239,6 +232,32 @@ void TestReaderWriterLock( const char * mutex_name ) {
     }
 }
 
+/** Test try_acquire_reader functionality of a non-reenterable reader-writer mutex */
+template<typename M>
+void TestTryAcquireReader_OneThread( const char * mutex_name ) {
+    M tested_mutex;
+    typename M::scoped_lock lock1;
+    if( M::is_rw_mutex ) {
+        if( lock1.try_acquire(tested_mutex, false) )
+            lock1.release();
+        else
+            std::printf("ERROR for %s: try_acquire failed though it should not\n", mutex_name);
+	{
+            typename M::scoped_lock lock2(tested_mutex, false);
+            if( lock1.try_acquire(tested_mutex) )
+                std::printf("ERROR for %s: try_acquire succeeded though it should not\n", mutex_name);
+	    lock2.release();
+	    lock2.acquire(tested_mutex, true);
+            if( lock1.try_acquire(tested_mutex, false) )
+                std::printf("ERROR for %s: try_acquire succeeded though it should not\n", mutex_name);
+	}
+        if( lock1.try_acquire(tested_mutex, false) )
+            lock1.release();
+        else
+            std::printf("ERROR for %s: try_acquire failed though it should not\n", mutex_name);
+    }
+}
+
 /** Test try_acquire functionality of a non-reenterable mutex */
 template<typename M>
 void TestTryAcquire_OneThread( const char * mutex_name ) {
@@ -266,7 +285,7 @@ void TestTryAcquire_OneThread( const char * mutex_name ) {
         lock1.release();
     else
         std::printf("ERROR for %s: try_acquire failed though it should not\n", mutex_name);
-}
+} 
 
 
 const int RecurN = 4;
@@ -376,6 +395,8 @@ int main( int argc, char * argv[] ) {
             TestTryAcquire_OneThread<tbb::recursive_mutex>( "Recursive Mutex" );
             TestTryAcquire_OneThread<tbb::spin_rw_mutex>("Spin RW Mutex"); // only tests try_acquire for writers
             TestTryAcquire_OneThread<tbb::queuing_rw_mutex>("Queuing RW Mutex"); // only tests try_acquire for writers
+            TestTryAcquireReader_OneThread<tbb::spin_rw_mutex>("Spin RW Mutex"); 
+            TestTryAcquireReader_OneThread<tbb::queuing_rw_mutex>("Queuing RW Mutex"); 
 
             TestReaderWriterLock<tbb::queuing_rw_mutex>( "Queuing RW Mutex" );
             TestReaderWriterLock<tbb::spin_rw_mutex>( "Spin RW Mutex" );

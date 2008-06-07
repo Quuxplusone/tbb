@@ -32,8 +32,10 @@
 // as well in order to avoid dependency on the library.
 
 // include headers for required function declarations
-#include <cstdio>
 #include <cstdlib>
+#include <stdio.h>
+#include <string.h>
+#include <stdarg.h>
 #if _WIN32||_WIN64
 #include <crtdbg.h>
 #endif
@@ -72,4 +74,20 @@ namespace tbb {
             }
         }
     }
+
+#if defined(_MSC_VER)&&_MSC_VER<1400
+#   define vsnprintf _vsnprintf
+#endif
+
+    namespace internal {
+        //! Report a runtime warning.
+        void runtime_warning( const char* format, ... )
+        {
+            char str[1024]; memset(str, 0, 1024);
+            va_list args; va_start(args, format);
+            vsnprintf( str, 1024-1, format, args);
+            fprintf( stderr, "TBB Warning: %s\n", str);
+        }
+    } // namespace internal
+
 } /* namespace tbb */

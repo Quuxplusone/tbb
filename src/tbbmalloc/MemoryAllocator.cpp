@@ -138,6 +138,132 @@ static inline void  setThreadMallocTLS( void * newvalue ) {
 
 /*********** End code to provide thread ID and a TLS pointer **********/
 
+/********** Various numeric parameters controlling allocations ********/
+
+/*
+ * There are bins for all 8 byte aligned objects less than this segregated size; 8 bins in total
+ */
+static const uint32_t maxSmallObjectSize = 64;
+
+/*
+ * There are 4 bins between each couple of powers of 2 [64-128-256-...]
+ * from maxSmallObjectSize till this size; 16 bins in total
+ */
+static const uint32_t maxSegregatedObjectSize = 1024;
+
+/*
+ * And there are 5 bins with the following allocation sizes: 1792, 2688, 3968, 5376, 8064.
+ * They selected to fit 9, 6, 4, 3, and 2 sizes per a block, and also are multiples of 128.
+ * If sizeof(Block) changes from 128, these sizes require close attention!
+ */
+static const uint32_t fittingSize1 = 1792;
+static const uint32_t fittingSize2 = 2688;
+static const uint32_t fittingSize3 = 3968;
+static const uint32_t fittingSize4 = 5376;
+static const uint32_t fittingSize5 = 8064;
+
+/*
+ * Objects of this size and larger are considered large objects.
+ */
+static const uint32_t minLargeObjectSize = fittingSize5 + 1;
+
+/*
+ * This number of bins in the TLS that leads to blocks that we can allocate in.
+ */
+static const uint32_t numBlockBinLimit = 32;
+static const uint32_t numBlockBins = 29;
+
+/*
+ * blockSize - the size of a block, it must be larger than maxSegregatedObjectSize.
+ * we may well want to play around with this, a 4K page size is another interesting size.
+ *
+ */
+static const uintptr_t blockSize = 16384;
+
+/*
+ * Get virtual memory in pieces of this size: 0x0100000 is 1 megabyte decimal
+ */
+static size_t mmapRequestSize = 0x0100000;
+
+/********** End of numeric parameters controlling allocations *********/
+
+/********* The data structures and global objects        **************/
+
+typedef struct FreeObject *FreeObjectPtr;
+
+struct FreeObject {
+    FreeObjectPtr  next;
+};
+
+/*
+ * The following constant is used to define the size of struct Block, the block header.
+ * The intent is to have the size of a Block multiple of the cache line size, this allows us to
+ * get good alignment at the cost of some overhead equal to the amount of padding included in the Block.
+  */
+
+#define ALIGNED_SIZE 64 // 64 is a common size of a cache line
+
+typedef struct Block* BlockPtr;
+
+/* The 'next' field in the block header has to maintain some invariants:
+ *   it needs to be on a 16K boundary and the first field in the block.
+ *   Any value stored there needs to have the lower 14 bits set to 0
+ *   so that various assert work. This means that if you want to smash this memory
+ *   for debugging purposes you will need to obey this invariant.
+ * The total size of the header needs to be a power of 2 to simplify
+ * the alignement requirements. For now it is a 128 byte structure.
+ * To avoid false sharing, the fields changed only locally are separated 
+ * from the fields changed by foreign threads.
+ * Changing the size of the block header would require to change
+ * some bin allocation sizes, in particular "fitting" sizes (see above).
+ */
+
+struct LocalBlockFields {
+    BlockPtr     next;     /* This field needs to be on a 16K boundary and the first field in the block
+                              so non-blocking LifoQueues will work. */
+    BlockPtr     previous; /* Use double linked list to speed up removal */
+    unsigned int objectSize;
+    unsigned int owner;
+    FreeObject  *bumpPtr;         /* bump pointer moves from the end to the beginning of a block */
+    FreeObject  *freeList;
+    unsigned int allocatedCount;  /* Number of objects allocated (obviously by the owning thread) */
+    unsigned int isFull;
+};
+
+struct Block : public LocalBlockFields {
+    size_t       __pad_local_fields[(ALIGNED_SIZE-sizeof(LocalBlockFields))/sizeof(size_t)];
+    FreeObject  *publicFreeList;
+    BlockPtr     nextPrivatizable;
+    size_t       __pad_public_fields[(ALIGNED_SIZE-2*sizeof(void*))/sizeof(size_t)];
+};
+
+struct Bin {
+    BlockPtr  activeBlk;
+    BlockPtr  mailbox;
+    MallocMutex mailLock;
+};
+
+/*
+ * The size of the TLS should be enough to hold twice as many as numBlockBinLimit pointers
+ * the first sequence of pointers is for lists of blocks to allocate from
+ * the second sequence is for lists of blocks that have non-empty publicFreeList
+ */
+static const uint32_t tlsSize = numBlockBinLimit * sizeof(Bin);
+
+/*
+ * This is a lifo queue that one can init, push or pop from */
+static LifoQueue freeBlockQueue;
+
+/*
+ * When a block that is not completely free is returned for reuse by other threads
+ * this is where the block goes.
+ *
+ */
+
+static char globalBinSpace[sizeof(LifoQueue)*numBlockBinLimit];
+static LifoQueue* globalSizeBins = (LifoQueue*)globalBinSpace;
+
+/********* End of the data structures                    **************/
 
 /*********** Code to acquire memory from the OS or other executive ****************/
 
@@ -146,18 +272,6 @@ static inline void  setThreadMallocTLS( void * newvalue ) {
 #else
 /* assume MapMemory and UnmapMemory are customized */
 #endif
-
-/*
- * Get memory in pieces of this size. 0x0100000;is 1 megabyte decimal
- *
- */
-
-static size_t mmapRequestSize = 0x0100000;
-
-/*
- * Objects of this size and larger are considered large objects.
- */
-static const uint32_t minLargeObjectSize = 8129; // 8128 is the biggest size to be held in a bin
 
 /*
  * Returns 0 if failure for any reason
@@ -191,123 +305,7 @@ static void returnMemory(void *area, size_t bytes)
 
 /********* End memory acquisition code ********************************/
 
-/********* The data structures                           **************/
-
-typedef struct FreeObject *FreeObjectPtr;
-
-struct FreeObject {
-    FreeObjectPtr  next;
-};
-
-/*
- * The intent is to have the size of a Block multiple of the cache line size, this allows us to
- * get good alignment at the cost of some overhead equal to the amount of padding included in the Block.
- *
- */
-
-#define CACHE_LINE_SIZE 64
-
-typedef struct Block *BlockPtr;
-
-/* The next field in this structure has to maintain some invariants.
- *   it needs to be on a 16K boundary and the first field in the block.
- *   Any value stored there needs to have the lower 14 bits set to 0
- *   so that various assert work. This means that if you want to smash this memory
- *   for debugging purposes you will need to obey this invariant.
- * The total size of this structure needs to be a power of 2 to simplify
- * the alignement requirements. For now it is a 64 byte structure.
- * Moreover, changing the size would require to change some bin allocation sizes,
- * in particular "fitting" sizes (see below).
- */
-
-struct Block {
-    BlockPtr     next;     /* This field needs to be on a 16K boundary and the first field in the block
-                              so non-blocking LifoQueues will work. */
-    BlockPtr     previous; /* Use double linked list to speed up removal */
-    unsigned int objectSize;
-    unsigned int owner;
-    FreeObject  *bumpPtr;         /* bump pointer moves from the end to the beginning of a block */
-    FreeObject  *freeList;
-    FreeObject  *publicFreeList;
-    BlockPtr     nextPrivatizable;
-    unsigned int allocatedCount;  /* Number of objects allocated (obviously by the owning thread) */
-    unsigned int isFull;
-#if !( __ARCH_x86_64 || __ARCH_ipf )
-#define BLOCK_IS_PADDED 1
-    void        *pad1;    /* Pad so bytesForObjects is at 64 bytes to help with alignment */
-    void        *pad2;
-    void        *pad3;
-    void        *pad4;
-    void        *pad5;
-    void        *pad6;
-#endif
-};
-
-struct Bin {
-    BlockPtr  activeBlk;
-    BlockPtr  mailbox;
-    MallocMutex mailLock;
-};
-
-/********* End of the data structures                    **************/
-
-
 /********* Now some rough utility code to deal with indexing the size bins. **************/
-
-/*
- * There are bins for all 8 byte aligned objects less than this segregated size; 8 bins in total
- */
-static const uint32_t maxSmallObjectSize = 64;
-
-/*
- * There are 4 bins between each couple of powers of 2 [64-128-256-...]
- * from maxSmallObjectSize till this size; 16 bins in total
- */
-static const uint32_t maxSegregatedObjectSize = 1024;
-
-/*
- * And there are 5 bins with the following allocation sizes: 1600, 2688, 4032, 5440, 8128.
- * They selected to fit 10, 6, 4, 3, and 2 sizes per a block, and also are multiples of 64.
- * If sizeof(Block) changes from 64, these sizes require close attention!
- */
-static const uint32_t fittingSize1 = 1600;
-static const uint32_t fittingSize2 = 2688;
-static const uint32_t fittingSize3 = 4032;
-static const uint32_t fittingSize4 = 5440;
-static const uint32_t fittingSize5 = 8128;
-
-/*
- * This number of bins in the TLS that leads to blocks that we can allocate in.
- */
-static const uint32_t numBlockBinLimit = 32;
-static const uint32_t numBlockBins = 29;
-
-/*
- * The size of the TLS should be enough to hold twice as many as numBlockBinLimit pointers
- * the first sequence of pointers is for lists of blocks to allocate from
- * the second sequence is for lists of blocks that have non-empty publicFreeList
- */
-static const uint32_t tlsSize = numBlockBinLimit * sizeof(Bin);
-
-/*
- * blockSize - the size of a block, it must be larger than maxSegregatedObjectSize.
- * we may well want to play around with this, a 4K page size is another interesting size.
- *
- */
-static const uintptr_t blockSize = 16384;
-
-/*
- * This is a lifo queue that one can init, push or pop from */
-static LifoQueue freeBlockQueue;
-
-/*
- * When a block that is not completely free is returned for reuse by other threads
- * this is where the block goes.
- *
- */
-
-static char globalBinSpace[sizeof(LifoQueue)*numBlockBinLimit];
-static LifoQueue* globalSizeBins = (LifoQueue*)globalBinSpace;
 
 /*
  * Given a number return the highest non-zero bit in it. It is intended to work with 32-bit values only.
@@ -487,43 +485,6 @@ static int mallocBigBlock()
     TRACEF("in mallocBigBlock returning 1\n");
     return 1;
 }
-
-/**************** Some forward references ******************/
-static void *bootStrapMalloc(size_t size);
-extern "C" void mallocThreadShutdownNotification(void*);
-/**************** End Forward references  ******************/
-
-/*
- * Obviously this needs to be called before malloc is available.
- */
-/*  THIS IS DONE ON-DEMAND ON FIRST MALLOC, SO ASSUME MANUAL CALL TO IT IS NOT REQUIRED  */
-static void initMemoryManager()
-{
-    int result;
-    /* Hard code this size to 64 so that we get natural alignement for several useful sizes.. */
-    TRACEF("sizeof(Block) is %d (expected 64); sizeof(uintptr_t) is %d\n", sizeof(Block), sizeof(uintptr_t));
-    MALLOC_ASSERT( CACHE_LINE_SIZE == sizeof(Block), ASSERT_TEXT );
-
-// Create keys for thread-local storage and for thread id
-// TODO: add error handling
-#if USE_WINTHREAD
-    TLS_pointer_key = TlsAlloc();
-    Tid_key = TlsAlloc();
-#else
-    int status = pthread_key_create( &TLS_pointer_key, mallocThreadShutdownNotification );
-    status = pthread_key_create( &Tid_key, NULL );
-//    if( status )
-//        HandlePerror(status,"pthread_key_create");
-#endif /* USE_WINTHREAD */
-    // no more necessary: lifoQueueInit(&freeBlockQueue);
-    TRACEF("Asking for a mallocBigBlock\n");
-    result = mallocBigBlock();
-    if (!result) {
-        printf ("initMemoryManager cannot access sufficient memory to initialize; aborting \n");
-        exit(0);
-    }
-}
-
 
 /*
  * The malloc routines themselves need to be able to occasionally malloc some space,
@@ -983,14 +944,6 @@ static void initEmptyBlock(Block *block, size_t size)
     block->isFull = 0;
     block->objectSize = allocatedSize;
     block->owner = getThreadId();
-#if BLOCK_IS_PADDED
-    block->pad1 = 0;
-    block->pad2 = 0;
-    block->pad3 = 0;
-    block->pad4 = 0;
-    block->pad5 = 0;
-    block->pad6 = 0;
-#endif /* BLOCK_IS_PADDED */
     TRACEF ("Empty block %p is initialized, owner is %d, objectSize is %d, bumpPtr is %p\n",
         block, block->owner, block->objectSize, block->bumpPtr);
   }
@@ -1113,15 +1066,12 @@ static inline void *mallocLargeObject (size_t size)
 
     // TODO: can the requestedSize be optimized somehow?
     size_t requestedSize = size + sizeof(LargeObjectHeader) + blockSize;
-    /* errno should be tested because some Linux versions have a known issue
-       of returning non-NULL even if there is no memory */
-    errno = 0;
 #if USE_MALLOC_FOR_LARGE_OBJECT
     unalignedArea = malloc(requestedSize);
 #else
     unalignedArea = getMemory(requestedSize);
 #endif /* USE_MALLOC_FOR_LARGE_OBJECT */
-    if (!unalignedArea || errno) {
+    if (!unalignedArea) {
         /* We can't get any more memory from the OS or executive so return 0 */
         return 0;
     }
@@ -1159,34 +1109,6 @@ static inline unsigned int getLargeObjectSize(void *object)
     LargeObjectHeader *header;
     header = (LargeObjectHeader *)((uintptr_t)object & ~(blockSize - 1));
     return header->objectSize;
-}
-
-//! Value indicating state of package initialization.
-/* 0 = initialization not started.
-   1 = initialization started but not finished.
-   2 = initialization finished.
-   In theory, we only need values 0 and 2.  But value 1 is nonetheless useful for
-   detecting errors in the double-check pattern. */
-static volatile int mallocInitialized;   // implicitly initialized to 0
-static MallocMutex initAndShutMutex;
-
-//! Ensures that initMemoryManager() is called once and only once.
-/** Does not return until initMemoryManager() has been completed by a thread.
-    There is no need to call this routine if mallocInitialized==2 . */
-static void checkInitialization()
-{
-    MallocMutex::scoped_lock lock( initAndShutMutex );
-    if(mallocInitialized!=2) {
-        MALLOC_ASSERT(mallocInitialized==0, ASSERT_TEXT);
-        mallocInitialized = 1;
-        initMemoryManager();
-#ifdef  MALLOC_EXTRA_INITIALIZATION
-        MALLOC_EXTRA_INITIALIZATION;
-#endif /* MALLOC_EXTRA_INITIALIZATION */
-        MALLOC_ASSERT(mallocInitialized==1, ASSERT_TEXT);
-        mallocInitialized = 2;
-    }
-    MALLOC_ASSERT(mallocInitialized==2, ASSERT_TEXT); /* It can't be 0 or I would have initialized it */
 }
 
 static FreeObject *allocateFromFreeList(Block *mallocBlock)
@@ -1263,6 +1185,64 @@ inline void* set_errno_if_NULL(void* arg)
 using namespace ThreadingSubstrate;
 using namespace ThreadingSubstrate::Internal;
 
+//! Value indicating state of package initialization.
+/* 0 = initialization not started.
+   1 = initialization started but not finished.
+   2 = initialization finished.
+   In theory, we only need values 0 and 2.  But value 1 is nonetheless useful for
+   detecting errors in the double-check pattern. */
+static int mallocInitialized;   // implicitly initialized to 0
+static MallocMutex initAndShutMutex;
+
+extern "C" void mallocThreadShutdownNotification(void*);
+
+/*
+ * Obviously this needs to be called before malloc is available.
+ */
+/*  THIS IS DONE ON-DEMAND ON FIRST MALLOC, SO ASSUME MANUAL CALL TO IT IS NOT REQUIRED  */
+static void initMemoryManager()
+{
+    int result;
+    TRACEF("sizeof(Block) is %d (expected 128); sizeof(uintptr_t) is %d\n", sizeof(Block), sizeof(uintptr_t));
+    MALLOC_ASSERT( 2*ALIGNED_SIZE == sizeof(Block), ASSERT_TEXT );
+
+// Create keys for thread-local storage and for thread id
+// TODO: add error handling
+#if USE_WINTHREAD
+    TLS_pointer_key = TlsAlloc();
+    Tid_key = TlsAlloc();
+#else
+    int status = pthread_key_create( &TLS_pointer_key, mallocThreadShutdownNotification );
+    status = pthread_key_create( &Tid_key, NULL );
+#endif /* USE_WINTHREAD */
+    // no more necessary: lifoQueueInit(&freeBlockQueue);
+    TRACEF("Asking for a mallocBigBlock\n");
+    result = mallocBigBlock();
+    if (!result) {
+        printf ("The memory manager cannot access sufficient memory to initialize; aborting \n");
+        exit(0);
+    }
+}
+
+//! Ensures that initMemoryManager() is called once and only once.
+/** Does not return until initMemoryManager() has been completed by a thread.
+    There is no need to call this routine if mallocInitialized==2 . */
+static void checkInitialization()
+{
+    MallocMutex::scoped_lock lock( initAndShutMutex );
+    if(mallocInitialized!=2) {
+        MALLOC_ASSERT(mallocInitialized==0, ASSERT_TEXT);
+        mallocInitialized = 1;
+        initMemoryManager();
+#ifdef  MALLOC_EXTRA_INITIALIZATION
+        MALLOC_EXTRA_INITIALIZATION;
+#endif /* MALLOC_EXTRA_INITIALIZATION */
+        MALLOC_ASSERT(mallocInitialized==1, ASSERT_TEXT);
+        mallocInitialized = 2;
+    }
+    MALLOC_ASSERT(mallocInitialized==2, ASSERT_TEXT); /* It can't be 0 or I would have initialized it */
+}
+
 /*
  * When a thread is shuting down this routine should be called to remove all the thread ids
  * from the malloc blocks and replace them with a NULL thread id.
@@ -1284,8 +1264,8 @@ extern "C" void mallocThreadShutdownNotification(void* arg)
     unsigned int index;
 
     {
-        MallocMutex::scoped_lock lock( ThreadingSubstrate::Internal::initAndShutMutex );
-        if ( ThreadingSubstrate::Internal::mallocInitialized == 0 ) return;
+        MallocMutex::scoped_lock lock( initAndShutMutex );
+        if ( mallocInitialized == 0 ) return;
     }
 
     TRACEF("Thread id %d blocks return start %d\n", getThreadId(),  threadGoingDownCount++);

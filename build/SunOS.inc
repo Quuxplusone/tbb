@@ -52,10 +52,10 @@ MAKE_VERSIONS=bash $(tbb_root)/build/version_info_sunos.sh $(CPLUS) $(CPLUS_FLAG
 MAKE_TBBVARS=bash $(tbb_root)/build/generate_tbbvars.sh
 
 ifeq ($(compiler),suncc)
-        export TBB_CUSTOM_VARS=CXXFLAGS="-I$(CWD)/include -library=stlport4 $(CXXFLAGS) -M$(CWD)/build/suncc.map.pause"
+        export TBB_CUSTOM_VARS_SH=CXXFLAGS="-I$(CWD)/include -library=stlport4 $(CXXFLAGS) -M$(CWD)/build/suncc.map.pause"
+        export TBB_CUSTOM_VARS_CSH=CXXFLAGS "-I$(CWD)/include -library=stlport4 $(CXXFLAGS) -M$(CWD)/build/suncc.map.pause"
 endif
 	
-
 ifdef LD_LIBRARY_PATH
         export LD_LIBRARY_PATH := .:$(LD_LIBRARY_PATH)
 else

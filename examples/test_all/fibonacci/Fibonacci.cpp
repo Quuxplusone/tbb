@@ -28,12 +28,18 @@
 
 /* Example program that computes Fibonacci numbers in different ways.
    Arguments are: [ Number [Threads [Repeats]]]
-   The defaults are Number=100 Threads=1:4 Repeats=1.
+   The defaults are Number=500 Threads=1:4 Repeats=1.
 
    The point of this program is to check that the library is working properly.
    Most of the computations are deliberately silly and not expected to
    show any speedup on multiprocessors.
 */
+
+// enable assertions
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+
 #include <cstdio>
 #include <cstdlib>
 #include <cassert>
@@ -175,7 +181,7 @@ value SharedSerialFib(int n)
     return SharedB;
 }
 
-// *** Serial shared by concurrent hash *** //
+// *** Serial shared by concurrent hash map *** //
 
 //! Hash comparer
 struct IntHashCompare {
@@ -202,11 +208,9 @@ public:
                 assert(0);
             }
             value sum = f1->second + f2->second;
-            NumbersTable::accessor fsum;
-            if(Fib.insert(fsum, i)) // inserting. is new element?
-                fsum->second = sum; // new, assign value
-            else
-                assert( fsum->second == sum ); // no, check value
+            NumbersTable::const_accessor fsum;
+            Fib.insert(fsum, make_pair(i, sum)); // inserting
+            assert( fsum->second == sum ); // check value
         }
         return 0;
     }
@@ -216,20 +220,17 @@ public:
 value ConcurrentHashSerialFib(int n)
 {
     NumbersTable Fib; 
-    {   // We need to declare the accessor in a local block before using its values outside the block.
-        NumbersTable::accessor fref;
-        bool okay;
-        okay = Fib.insert(fref, 0); assert(okay); fref->second = 0; // assign initial values
-        okay = Fib.insert(fref, 1); assert(okay); fref->second = 1;
-        // Lifetime of fref ends here, which implicitly releases the write lock on what it points to.
-    }
+    bool okay;
+    okay = Fib.insert( make_pair(0, 0) ); assert(okay); // assign initial values
+    okay = Fib.insert( make_pair(1, 1) ); assert(okay);
+
     task_list list;
     // allocate tasks
     list.push_back(*new(task::allocate_root()) ConcurrentHashSerialFibTask(Fib, n));
     list.push_back(*new(task::allocate_root()) ConcurrentHashSerialFibTask(Fib, n));
     task::spawn_root_and_wait(list);
     NumbersTable::const_accessor fresult;
-    bool okay = Fib.find( fresult, n );
+    okay = Fib.find( fresult, n );
     assert(okay);
     return fresult->second;
 }
@@ -514,28 +515,33 @@ void IntRange::set_from_string( const char* s ) {
 //! Tick count for start
 static tick_count t0;
 
+//! Verbose output flag
+static bool Verbose = false;
+
 typedef value (*MeasureFunc)(int);
 //! Measure ticks count in loop [2..n]
 value Measure(const char *name, MeasureFunc func, int n)
 {
     value result;
-    printf(name); t0 = tick_count::now();
+    if(Verbose) printf(name);
+    t0 = tick_count::now();
     for(int number = 2; number <= n; number++)
         result = func(number);
-    printf("\t- in %f msec\n", (tick_count::now() - t0).seconds()*1000);
+    if(Verbose) printf("\t- in %f msec\n", (tick_count::now() - t0).seconds()*1000);
     return result;
 }
 
 //! program entry
 int main(int argc, char* argv[])
 {
-    int NumbersCount = argc>1 ? strtol(argv[1],0,0) : 100;
+    if(argc>1) Verbose = true;
+    int NumbersCount = argc>1 ? strtol(argv[1],0,0) : 500;
     IntRange NThread(1,4);// Number of threads to use.
     if(argc>2) NThread.set_from_string(argv[2]);
     unsigned long ntrial = argc>3? (unsigned long)strtoul(argv[3],0,0) : 1;
     value result, sum;
 
-    printf("Fibonacci numbers example. Generating %d numbers..\n",  NumbersCount);
+    if(Verbose) printf("Fibonacci numbers example. Generating %d numbers..\n",  NumbersCount);
 
     result = Measure("Serial loop", SerialFib, NumbersCount);
     sum = Measure("Serial matrix", SerialMatrixFib, NumbersCount); assert(result == sum);
@@ -543,9 +549,10 @@ int main(int argc, char* argv[])
     sum = Measure("Serial queue", SerialQueueFib, NumbersCount); assert(result == sum);
     // now in parallel
     for( unsigned long i=0; i<ntrial; ++i ) {
-        for(int threads = NThread.low; threads <= NThread.high; threads++)
+        for(int threads = NThread.low; threads <= NThread.high; threads *= 2)
         {
-            task_scheduler_init scheduler_init(threads); printf("Threads number is %d\n", threads);
+            task_scheduler_init scheduler_init(threads);
+            if(Verbose) printf("\nThreads number is %d\n", threads);
 
             sum = Measure("Shared serial (mutex)\t", SharedSerialFib<mutex>, NumbersCount); assert(result == sum);
             sum = Measure("Shared serial (spin_mutex)", SharedSerialFib<spin_mutex>, NumbersCount); assert(result == sum);
@@ -559,11 +566,12 @@ int main(int argc, char* argv[])
         }
 
     #ifdef __GNUC__
-        printf("Fibonacci number #%d modulo 2^64 is %lld\n\n", NumbersCount, result);
+        if(Verbose) printf("Fibonacci number #%d modulo 2^64 is %lld\n\n", NumbersCount, result);
     #else
-        printf("Fibonacci number #%d modulo 2^64 is %I64d\n\n", NumbersCount, result);
+        if(Verbose) printf("Fibonacci number #%d modulo 2^64 is %I64d\n\n", NumbersCount, result);
     #endif
     }
+    if(!Verbose) printf("TEST PASSED\n");
     return 0;
 }
 

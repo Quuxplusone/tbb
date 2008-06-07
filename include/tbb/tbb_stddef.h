@@ -29,12 +29,20 @@
 #ifndef __TBB_tbb_stddef_H
 #define __TBB_tbb_stddef_H
 
-// Please define version number here:
+// Marketing-driven product version
 #define TBB_VERSION_MAJOR 2
-#define TBB_VERSION_MINOR 0
+#define TBB_VERSION_MINOR 1
 
-#define TBB_INTERFACE_VERSION 3010
+// Engineering-focused interface version
+#define TBB_INTERFACE_VERSION 3011
 #define TBB_INTERFACE_VERSION_MAJOR TBB_INTERFACE_VERSION/1000
+
+// The oldest major interface version still supported
+// To be used in SONAME, manifests, etc.
+#define TBB_COMPATIBLE_INTERFACE_VERSION 2
+
+#define __TBB_STRING_AUX(x) #x
+#define __TBB_STRING(x) __TBB_STRING_AUX(x)
 
 // We do not need defines below for resource processing on windows
 #if !defined RC_INVOKED
@@ -108,7 +116,7 @@
 #       define __TBB_x86_64 1
 #   elif __ia64__
 #       define __TBB_ipf 1
-#   elif __i386__
+#   elif __i386__||__i386  // __i386 is for Sun OS
 #       define __TBB_x86_32 1
 #   else
 #       define __TBB_generic_arch 1
@@ -116,15 +124,19 @@
 #endif
 
 #if _WIN32||_WIN64
-// define the parts of stdint.h that are needed 
-typedef __int8 int8_t;
-typedef __int16 int16_t;
-typedef __int32 int32_t;
-typedef __int64 int64_t;
-typedef unsigned __int8 uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
+// define the parts of stdint.h that are needed, but put them inside tbb::internal 
+namespace tbb {
+namespace internal {
+    typedef __int8 int8_t;
+    typedef __int16 int16_t;
+    typedef __int32 int32_t;
+    typedef __int64 int64_t;
+    typedef unsigned __int8 uint8_t;
+    typedef unsigned __int16 uint16_t;
+    typedef unsigned __int32 uint32_t;
+    typedef unsigned __int64 uint64_t;
+} // namespace internal
+} // namespace tbb
 #else
 #include <stdint.h>
 #endif
@@ -200,6 +212,9 @@ typedef size_t uintptr;
     but it happens to be for all platforms of interest. */
 typedef std::ptrdiff_t intptr;
 
+//! Report a runtime warning.
+void runtime_warning( const char* format, ... );
+
 #if TBB_DO_ASSERT
 //! Set p to invalid pointer value.
 template<typename T>
@@ -223,24 +238,19 @@ public:
     no_copy() {}
 };
 
+// Struct to be used as a version tag for inline functions.
+/** Version tag can be necessary to prevent loader on Linux from using the wrong 
+    symbol in debug builds (when inline functions are compiled as out-of-line). **/
+struct version_tag_v3 {};
+
+typedef version_tag_v3 version_tag;
+
 } // internal
 //! @endcond
 
 } // tbb
 
-// tbbmalloc should be able to compile without exception handling support
 #if defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__SUNPRO_CC)
-#include <stdexcept>
-
-namespace tbb {
-//! Exception for concurrent containers
-class bad_last_alloc : public std::bad_alloc {
-public:
-    virtual const char *what() const throw() { return "bad allocation in previous or concurrent attempt"; }
-    virtual ~bad_last_alloc() throw() {}
-};
-} // tbb
-
 #ifndef __TBB_EXCEPTIONS
 #define __TBB_EXCEPTIONS 1
 #endif /* __TBB_EXCEPTIONS */
@@ -250,6 +260,10 @@ public:
 #ifndef __TBB_SCHEDULER_OBSERVER
 #define __TBB_SCHEDULER_OBSERVER 1
 #endif /* __TBB_SCHEDULER_OBSERVER */
+
+#ifndef TBB_PERFORMANCE_WARNINGS
+#define TBB_PERFORMANCE_WARNINGS TBB_DO_ASSERT
+#endif /* TBB_PERFORMANCE_WARNINGS */
 
 #endif /* RC_INVOKED */
 #endif /* __TBB_tbb_stddef_H */

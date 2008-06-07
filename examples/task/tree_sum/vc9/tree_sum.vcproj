@@ -44,7 +44,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(TBB20_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;TBB_DO_ASSERT"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
@@ -63,7 +63,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb_debug.lib tbbmalloc_debug.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB20_INSTALL_DIR)\ia32\vc9\lib"
+				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\ia32\vc9\lib"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				RandomizedBaseAddress="1"
@@ -92,7 +92,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying tbb_debug.dll and tbbmalloc_debug.dll"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\ia32\vc9\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot; &amp;&amp; copy &quot;$(TBB20_INSTALL_DIR)\ia32\vc9\bin\tbbmalloc_debug.dll&quot; &quot;$(OutDir)&quot;"
+				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\ia32\vc9\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot; &amp;&amp; copy &quot;$(TBB21_INSTALL_DIR)\ia32\vc9\bin\tbbmalloc_debug.dll&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -119,7 +119,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="$(TBB20_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
@@ -137,7 +137,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb.lib tbbmalloc.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB20_INSTALL_DIR)\ia32\vc9\lib"
+				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\ia32\vc9\lib"
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -167,7 +167,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying tbb.dll and tbbmalloc.dll"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\ia32\vc9\bin\tbb.dll&quot; &quot;$(OutDir)&quot; &amp;&amp; copy &quot;$(TBB20_INSTALL_DIR)\ia32\vc9\bin\tbbmalloc.dll&quot; &quot;$(OutDir)&quot;"
+				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\ia32\vc9\bin\tbb.dll&quot; &quot;$(OutDir)&quot; &amp;&amp; copy &quot;$(TBB21_INSTALL_DIR)\ia32\vc9\bin\tbbmalloc.dll&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -196,7 +196,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(TBB20_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN64;_DEBUG;_CONSOLE;TBB_DO_ASSERT"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
@@ -215,7 +215,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb_debug.lib tbbmalloc_debug.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB20_INSTALL_DIR)\em64t\vc9\lib"
+				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\em64t\vc9\lib"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				TargetMachine="17"
@@ -245,7 +245,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying tbb_debug.dll and tbbmalloc_debug.dll"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\em64t\vc9\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot; &amp;&amp; copy &quot;$(TBB20_INSTALL_DIR)\em64t\vc9\bin\tbbmalloc_debug.dll&quot; &quot;$(OutDir)&quot;"
+				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\em64t\vc9\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot; &amp;&amp; copy &quot;$(TBB21_INSTALL_DIR)\em64t\vc9\bin\tbbmalloc_debug.dll&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -273,7 +273,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="$(TBB20_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN64;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
@@ -291,7 +291,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb.lib tbbmalloc.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB20_INSTALL_DIR)\em64t\vc9\lib"
+				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\em64t\vc9\lib"
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -322,7 +322,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying tbb.dll and tbbmalloc.dll"
-				CommandLine="copy &quot;$(TBB20_INSTALL_DIR)\em64t\vc9\bin\tbb.dll&quot; &quot;$(OutDir)&quot; &amp;&amp; copy &quot;$(TBB20_INSTALL_DIR)\em64t\vc9\bin\tbbmalloc.dll&quot; &quot;$(OutDir)&quot;"
+				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\em64t\vc9\bin\tbb.dll&quot; &quot;$(OutDir)&quot; &amp;&amp; copy &quot;$(TBB21_INSTALL_DIR)\em64t\vc9\bin\tbbmalloc.dll&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 	</Configurations>

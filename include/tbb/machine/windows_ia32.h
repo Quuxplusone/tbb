@@ -85,7 +85,7 @@ struct __TBB_machine_load_store<T,8> {
     }
 
     static inline void store_with_release(T &location, T value) {
-        __TBB_machine_store8((volatile void *)&location,(int64_t)value);
+        __TBB_machine_store8((volatile void *)&location,(__int64)value);
     }
 };
 

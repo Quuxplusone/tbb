@@ -33,10 +33,10 @@ PROG=tree_sum
 all:	release test
 
 release: *.cpp
-	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbb -ltbbmalloc $(LIBS)
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbbmalloc -ltbb $(LIBS)
 
 debug: *.cpp
-	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug -ltbbmalloc_debug $(LIBS)
+	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o $(PROG) $^ -ltbbmalloc_debug -ltbb_debug $(LIBS)
 
 clean:
 	rm -f $(PROG) *.o *.d

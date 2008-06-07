@@ -205,9 +205,9 @@ void TestOperations( T i, T j, T k ) {
 }
 
 template<typename T>
-void TestLoadAndStoreFences( const char* name );
+void TestParallel( const char* name );
 
-bool MemoryFenceError;
+bool ParallelError;
 
 template<typename T>
 struct AlignmentChecker {
@@ -243,7 +243,7 @@ void TestAtomicInteger( const char* name ) {
         TestOperations<T>(T(1L<<k),T(~(1L<<k)),T(1-(1L<<k)));
         TestOperations<T>(T(-1L<<k),T(~(-1L<<k)),T(1-(-1L<<k)));
     }
-    TestLoadAndStoreFences<T>( name );
+    TestParallel<T>( name );
 }
 #if _MSC_VER && !defined(__INTEL_COMPILER)
 #pragma warning( pop )
@@ -283,7 +283,7 @@ void TestAtomicPointer() {
     TestOperations<T*>(&array[500],&array[250],&array[750]);
     TestOperations<void*>(&array[500],&array[250],&array[750]);
     TestIndirection<T>();
-    TestLoadAndStoreFences<T*>( "pointer" );
+    TestParallel<T*>( "pointer" );
 }
 
 // Specialization for void*
@@ -291,13 +291,13 @@ template<>
 void TestAtomicPointer<void*>() {
     void* array[1000];
     TestOperations<void*>(&array[500],&array[250],&array[750]);
-    TestLoadAndStoreFences<void*>( "pointer" );
+    TestParallel<void*>( "pointer" );
 }
 
 void TestAtomicBool() {
     TestOperations<bool>(true,true,false);
     TestOperations<bool>(false,false,true);
-    TestLoadAndStoreFences<bool>( "bool" );
+    TestParallel<bool>( "bool" );
 }
 
 template<unsigned N>
@@ -335,7 +335,7 @@ int main( int argc, char* argv[] ) {
     TestAtomicPointer<ArrayElement<8> >();
     TestAtomicPointer<void*>();
     TestAtomicBool();
-    ASSERT( !MemoryFenceError, NULL );
+    ASSERT( !ParallelError, NULL );
     printf("done\n");
     return 0;
 }
@@ -415,11 +415,11 @@ public:
                 if( flag ) {
                     if( flag!=(T)-1 ) {
                         printf("ERROR: flag!=(T)-1 k=%d i=%d trial=%x type=%s (atomicity problem?)\n", k, i, trial, name );
-                        MemoryFenceError = true;
+                        ParallelError = true;
                     } 
                     if( message!=(T)-1 ) {
                         printf("ERROR: message!=(T)-1 k=%d i=%d trial=%x type=%s (memory fence problem?)\n", k, i, trial, name );
-                        MemoryFenceError = true;
+                        ParallelError = true;
                     }
                     s->message = 0; 
                     s->flag = 0;
@@ -463,4 +463,119 @@ void TestLoadAndStoreFences( const char* name ) {
         }
         delete[] fam;
     }
+}
+
+//! Sparse set of values of integral type T.
+/** Set is designed so that if a value is read or written non-atomically, 
+    the resulting intermediate value is likely to not be a member of the set. */
+template<typename T>
+class SparseValueSet {
+    T factor;
+public:
+    SparseValueSet() {
+        // Compute factor such that:
+        // 1. It has at least one 1 in most of its bytes.
+        // 2. The bytes are typically different.
+        // 3. When multiplied by any value <=127, the product does not overflow.
+        factor = 0;
+        for( unsigned i=0; i<sizeof(T)*8-7; i+=7 ) 
+            factor |= (T)1<<i;
+     }
+     //! Get ith member of set
+     T get( int i ) const {
+         // Create multiple of factor.  The & prevents overflow of the product.
+         return (i&0x7F)*factor;
+     }        
+     //! True if set contains x
+     bool contains( T x ) const {
+         // True if 
+         return (x%factor)==0;
+     }
+};
+
+//! Specialization for pointer types.  The pointers are random and should not be dereferenced.
+template<typename T>
+class SparseValueSet<T*> {
+    SparseValueSet<ptrdiff_t> my_set;
+public:
+    T* get( int i ) const {return reinterpret_cast<T*>(my_set.get(i));} 
+    bool contains( T* x ) const {return my_set.contains(reinterpret_cast<ptrdiff_t>(x));}
+};
+
+//! Specialization for bool.  
+/** Checking bool for atomic read/write is pointless in practice, because 
+    there is no way to *not* atomically read or write a bool value. */
+template<>
+class SparseValueSet<bool> {
+public:
+    bool get( int i ) const {return i&1;}
+    bool contains( bool ) const {return true;}
+};
+
+template<typename T>
+class HammerAssignment {
+    tbb::atomic<T>& x;
+    const char* name;
+    SparseValueSet<T> set;
+public:   
+    HammerAssignment( tbb::atomic<T>& x_, const char* name_ ) : x(x_), name(name_) {}
+    void operator()( const tbb::blocked_range<int>& range ) const {
+        const int n = 1000000;
+        if( range.begin() ) {
+            tbb::atomic<T> z;
+            AssertSameType( z=x, z );    // Check that return type from assignment is correct
+            for( int i=0; i<n; ++i ) {
+                // Read x atomically into z.
+                z = x;
+                if( !set.contains(z) ) {
+                    printf("ERROR: assignment of atomic<%s> is not atomic\n", name);
+                    ParallelError = true;
+                    return;
+                }
+            }
+        } else {
+            tbb::atomic<T> y;
+            for( int i=0; i<n; ++i ) {
+                // Get pseudo-random value. 
+                y = set.get(i);
+                // Write y atomically into x.
+                x = y;
+            }
+        }
+    }
+};
+
+template<typename T>
+void TestAssignment( const char* name ) {
+    tbb::atomic<T> x;
+    x = 0;
+    NativeParallelFor( tbb::blocked_range<int>(0,2,1), HammerAssignment<T>( x, name ) );
+#if __TBB_x86_32 && (__linux__ || __FreeBSD__ || _WIN32)
+    if( sizeof(T)==8 ) {
+        // Some compilers for IA-32 fail to provide 8-byte alignment of objects on the stack, 
+        // even if the object specifies 8-byte alignment.  On such platforms, the IA-32 implementation 
+        // of atomic<long long> and atomic<unsigned long long> use different tactics depending upon 
+        // whether the object is properly aligned or not.  The following abusive test ensures that we
+        // cover both the proper and improper alignment cases, one with the x above and the other with 
+        // the y below, perhaps not respectively.
+
+        // Allocate space big enough to always contain 8-byte locations that are aligned and misaligned.
+        char raw_space[15];
+        // Set delta to 0 if x is aligned, 4 otherwise.
+        uintptr_t delta = ((reinterpret_cast<uintptr_t>(&x)&7) ? 0 : 4); 
+        // y crosses 8-byte boundary if and only if x does not cross.
+        tbb::atomic<T>& y = *reinterpret_cast<tbb::atomic<T>*>((reinterpret_cast<uintptr_t>(&raw_space[7+delta])&~7u) - delta);
+        // Assertion checks that y really did end up somewhere inside "raw_space".
+        __TBB_ASSERT( raw_space<=reinterpret_cast<char*>(&y), "y starts before raw_space" );
+        __TBB_ASSERT( reinterpret_cast<char*>(&y+1) <= raw_space+sizeof(raw_space), "y starts after raw_space" );
+        y = 0;
+        NativeParallelFor( tbb::blocked_range<int>(0,2,1), HammerAssignment<T>( y, name ) );
+    }
+#endif /* __TBB_x86_32 && (__linux__ || __FreeBSD__ || _WIN32) */
+}
+
+template<typename T>
+void TestParallel( const char* name ) {
+    TestLoadAndStoreFences<T>(name);
+    TestAssignment<T>(name);
 }

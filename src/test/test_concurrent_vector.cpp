@@ -28,18 +28,12 @@
 
 #include "tbb/concurrent_vector.h"
 #include "tbb/cache_aligned_allocator.h"
+#include "tbb/tbb_exception.h"
 #include <cstdio>
 #include <cstdlib>
 #include <stdexcept>
 #include "harness_assert.h"
 #include "harness_allocator.h"
-
-//workaround for old patform SDK
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-namespace std{
-    using ::printf;
-}
-#endif /* defined(_WIN64) && !defined(_CPPLIB_VER) */
 
 static bool known_issue_verbose = false;
 #define KNOWN_ISSUE(msg) if(!known_issue_verbose) known_issue_verbose = true, printf(msg)
@@ -874,6 +868,7 @@ int main( int argc, char* argv[] ) {
     if( MinThread<1 ) {
         std::printf("ERROR: MinThread=%d, but must be at least 1\n",MinThread); MinThread = 1;
     }
+    known_issue_verbose = !Verbose;
 
     TestIteratorTraits<tbb::concurrent_vector<Foo>::iterator,Foo>();
     TestIteratorTraits<tbb::concurrent_vector<Foo>::const_iterator,const Foo>();
@@ -890,7 +885,12 @@ int main( int argc, char* argv[] ) {
     TestComparison();
     TestFindPrimes();
     TestSort();
+#if __GLIBC__==2&&__GLIBC_MINOR__==3
+    printf("Warning: Exception safety test is skipped due to a known issue.\n");
+#else
     TestExceptions();
+#endif
+
     if( Verbose ) 
         std::printf("sizeof(concurrent_vector<int>) == %d\n", (int)sizeof(tbb::concurrent_vector<int>));
     std::printf("done\n");

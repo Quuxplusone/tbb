@@ -42,6 +42,10 @@
 #include <stdexcept>
 #include <tbb/atomic.h>
 
+#if __SUNPRO_CC
+using std::printf;
+#endif
+
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
     #pragma warning (push)
@@ -60,15 +64,9 @@ public:
     typedef typename base_alloc_t::value_type value_type;
     typedef typename base_alloc_t::size_type size_type;
     typedef typename base_alloc_t::difference_type difference_type;
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-    template<typename U> struct rebind {
-        typedef static_counting_allocator<base_alloc_t,count_t> other;
-    };
-#else
     template<typename U> struct rebind {
         typedef static_counting_allocator<typename base_alloc_t::template rebind<U>::other,count_t> other;
     };
-#endif
 
     static size_t max_items;
     static count_t items_allocated;
@@ -153,15 +151,9 @@ public:
     typedef typename base_alloc_t::value_type value_type;
     typedef typename base_alloc_t::size_type size_type;
     typedef typename base_alloc_t::difference_type difference_type;
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-    template<typename U> struct rebind {
-        typedef local_counting_allocator<base_alloc_t,count_t> other;
-    };
-#else
     template<typename U> struct rebind {
         typedef local_counting_allocator<typename base_alloc_t::template rebind<U>::other,count_t> other;
     };
-#endif
 
     count_t items_allocated;
     count_t items_freed;

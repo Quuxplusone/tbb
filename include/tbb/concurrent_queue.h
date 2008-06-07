@@ -231,11 +231,7 @@ class concurrent_queue: public internal::concurrent_queue_base_v3 {
     template<typename Container, typename Value> friend class internal::concurrent_queue_iterator;
 
     //! allocator type
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-    typedef tbb_allocator<char> page_allocator_type;
-#else
     typedef typename A::template rebind<char>::other page_allocator_type;
-#endif
     page_allocator_type my_allocator;
 
     //! Class used to ensure exception-safety of method "pop" 
@@ -297,11 +293,7 @@ public:
     //! Construct empty queue
     concurrent_queue(const allocator_type  &a = allocator_type()) : 
         concurrent_queue_base_v3( sizeof(T) )
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-#   pragma message ("Workaround for MS PSDK for Win64: allocator::rebind doesn't work")
-#else
             , my_allocator( a )
-#endif
     {
     }
 
@@ -355,11 +347,7 @@ public:
     }
 
     //! return allocator object
-#if defined(_WIN64) && !defined(_CPPLIB_VER)
-    allocator_type get_allocator() const { return allocator_type(); }
-#else
     allocator_type get_allocator() const { return this->my_allocator; }
-#endif
 
     //! clear the queue and release all resources (i.e., pages)
     void clear() ;

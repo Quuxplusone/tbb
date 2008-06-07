@@ -31,9 +31,8 @@ PROG=Text_Filter
 
 # The C++ compiler options
 CXX = cl.exe
-MYCXXFLAGS = /TP /EHsc /W3 /nologo $(TBB_SECURITY_SWITCH) /D _CONSOLE /D _MBCS /D WIN32 $(CXXFLAGS)
+MYCXXFLAGS = /TP /EHsc /W3 /nologo $(TBB_SECURITY_SWITCH) /D _CONSOLE /D _MBCS /D WIN32 /D _CRT_SECURE_NO_DEPRECATE $(CXXFLAGS)
 MYLDFLAGS =/INCREMENTAL:NO /NOLOGO /DEBUG /FIXED:NO $(LDFLAGS)
-MYCXXFLAGS += /D _CRT_SECURE_NO_DEPRECATE
 
 all: release test
 release:
@@ -44,8 +43,7 @@ clean:
 	@cmd.exe /C del $(PROG).exe input.txt output.txt *.obj *.?db *.manifest
 input.txt:
 	@echo Constructing input.txt
-	@-cmd.exe /C "copy %WINDIR%\*.log input.txt >NUL"
+	@cmd.exe /C "@type index.html >input.txt"
+	@-cmd.exe /C "for /L %%a in (1,1,500) do @type index.html >> input.txt"
 test: input.txt
-	$(PROG) input.txt output.txt 1
-	$(PROG) input.txt output.txt 2
-	$(PROG) input.txt output.txt 4
+	$(PROG) input.txt output.txt

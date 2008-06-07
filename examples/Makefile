@@ -40,7 +40,7 @@ include ../build/common.inc
 ifneq ($(firstword is_abs_path$(subst /, ,$(tbb_root))),is_abs_path)
     # also changes related variables like work_dir
     override tbb_root := $(CWD)$(SLASH)..
-    export TBB20_INSTALL_DIR := $(tbb_root)
+    export TBB21_INSTALL_DIR := $(tbb_root)
 endif
 
 ifeq ($(tbb_os),windows)

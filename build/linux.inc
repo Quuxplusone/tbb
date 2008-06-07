@@ -72,14 +72,21 @@ endif
 OBJ = o
 DLL = so
 LIBEXT = so
+SONAME_SUFFIX =$(shell grep TBB_COMPATIBLE_INTERFACE_VERSION $(tbb_root)/include/tbb/tbb_stddef.h | egrep -o [0-9.]+)
 
-TBB.DEF = 
-TBB.DLL = libtbb$(DEBUG_SUFFIX).$(DLL)
+def_prefix = $(if $(findstring 32,$(arch)),lin32,$(if $(findstring 64,$(arch)),lin64,lin64ipf))
+TBB.DEF = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.def
+
+EXPORT_KEY = -Wl,--version-script,
+TBB.DLL = $(TBB_NO_VERSION.DLL).$(SONAME_SUFFIX)
 TBB.LIB = $(TBB.DLL)
-LINK_TBB.LIB = $(TBB.LIB)
+TBB_NO_VERSION.DLL=libtbb$(DEBUG_SUFFIX).$(DLL)
+LINK_TBB.LIB = $(TBB_NO_VERSION.DLL)
 
-MALLOC.DLL = libtbbmalloc$(DEBUG_SUFFIX).$(DLL)
-MALLOC.LIB = $(MALLOC.DLL)
+MALLOC_NO_VERSION.DLL = libtbbmalloc$(DEBUG_SUFFIX).$(DLL)
+MALLOC.DEF = $(MALLOC_ROOT)/lin-tbbmalloc-export.def
+MALLOC.DLL = $(MALLOC_NO_VERSION.DLL).$(SONAME_SUFFIX)
+MALLOC.LIB = $(MALLOC_NO_VERSION.DLL)
 
 TBB_NOSTRICT=1
 

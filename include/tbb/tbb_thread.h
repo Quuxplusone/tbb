@@ -40,8 +40,8 @@
 #endif // _WIN32||_WIN64
 
 #include <iosfwd>
+#include <exception>             // Need std::terminate from here.
 #include "tbb_stddef.h"
-#include "task_scheduler_init.h"
 #include "tick_count.h"
 
 namespace tbb {
@@ -162,9 +162,7 @@ namespace internal {
         native_handle_type native_handle() { return my_handle; }
     
         //! The number of hardware thread contexts.
-        static unsigned hardware_concurrency() { 
-            return task_scheduler_init::default_num_threads();
-        }
+        static unsigned hardware_concurrency();
     private:
         native_handle_type my_handle; 
 #if _WIN32||_WIN64

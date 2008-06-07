@@ -42,4 +42,4 @@ debug:
 clean:
 	@cmd.exe /C del $(PROG).exe *.obj *.?db *.manifest
 test:
-	$(PROG) 500
+	$(PROG)

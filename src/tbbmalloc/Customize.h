@@ -35,9 +35,6 @@
 #define mallocThreadShutdownNotification __TBB_mallocThreadShutdownNotification
 #define mallocProcessShutdownNotification __TBB_mallocProcessShutdownNotification
 
-//! Same function as InitializeITT but performs initialization in tbbmalloc
-#define InitializeITT __TBB_mallocInitializeITT
-
 extern "C" void mallocThreadShutdownNotification(void *);
 extern "C" void mallocProcessShutdownNotification(void);
 
@@ -98,11 +95,11 @@ inline intptr_t AtomicCompareExchange( volatile intptr_t& location, intptr_t new
 namespace tbb {
 namespace internal {
 
-void DoOneTimeInitializations();
+void MallocInitializeITT();
 
 inline void init_tbbmalloc() {
 #if DO_ITT_NOTIFY
-    InitializeITT();
+    MallocInitializeITT();
 #endif
 }
 

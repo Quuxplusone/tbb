@@ -38,6 +38,7 @@ tbbmalloc: tbbmalloc_release tbbmalloc_debug
 test: tbbmalloc_test_release test_release tbbmalloc_test_debug test_debug
 
 test_no_depends: tbbmalloc_test_release_no_depends test_release_no_depends tbbmalloc_test_debug_no_depends test_debug_no_depends
+	@echo done
 
 release: tbb_release tbbmalloc_release
 release: $(call cross_cfg,tbbmalloc_test_release) $(call cross_cfg,test_release)
@@ -66,6 +67,9 @@ endif
 native_examples: tbb tbbmalloc
 	$(MAKE) -C $(examples_root) -r -f Makefile tbb_root=.. compiler=$(native_compiler) tbb_build_prefix=$(tbb_build_prefix) debug test
 	$(MAKE) -C $(examples_root) -r -f Makefile tbb_root=.. compiler=$(native_compiler) tbb_build_prefix=$(tbb_build_prefix) clean release test
+
+../examples/% examples/%::
+	$(MAKE) -C $(examples_root) -r -f Makefile tbb_root=.. $(subst examples/,,$(subst ../,,$@))
 
 debug_%:: cfg?=debug
 test_% stress_% time_%:: cfg?=release

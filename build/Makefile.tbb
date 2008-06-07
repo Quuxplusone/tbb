@@ -28,7 +28,7 @@
 # Define rules for making the TBB shared library.
 #------------------------------------------------------------------------------
 
-tbb_root ?= "$(TBB20_INSTALL_DIR)"
+tbb_root ?= "$(TBB21_INSTALL_DIR)"
 BUILDING_PHASE=1
 include $(tbb_root)/build/common.inc
 DEBUG_SUFFIX=$(findstring _debug,_$(cfg))
@@ -98,8 +98,14 @@ LIB_LINK_FLAGS += $(EXPORT_KEY)tbb.def
 $(TBB.DLL): tbb.def
 endif
 
-$(TBB.DLL): $(TBB.OBJ) $(TBB.RES) tbbvars
+$(TBB.DLL): BUILDING_LIBRARY = $(TBB.DLL)
+$(TBB.DLL): $(TBB.OBJ) $(TBB.RES) tbbvars $(TBB_NO_VERSION.DLL)
 	$(LIB_LINK_CMD) $(LIB_OUTPUT_KEY)$(TBB.DLL) $(TBB.OBJ) $(TBB.RES) $(LIB_LINK_LIBS) $(LIB_LINK_FLAGS)
+
+ifneq (,$(TBB_NO_VERSION.DLL))
+$(TBB_NO_VERSION.DLL):
+	echo "INPUT ($(TBB.DLL))" > $(TBB_NO_VERSION.DLL)
+endif
 
 #clean:
 #	$(RM) *.$(OBJ) *.$(DLL) *.res *.map *.ilk *.pdb *.exp *.manifest *.tmp *.d core core.*[0-9][0-9]

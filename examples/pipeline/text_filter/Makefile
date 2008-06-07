@@ -42,7 +42,7 @@ clean:
 	rm -f $(PROG) *.o *.d input.txt output.txt
 
 test:
-	cat /usr/include/*.h >input.txt
-	./$(PROG) input.txt output.txt 1
-	./$(PROG) input.txt output.txt 2
-	./$(PROG) input.txt output.txt 4
+	@echo Constructing input.txt
+	@cat index.html > input.txt
+	@-csh -c "repeat 500 cat index.html >> input.txt" 2>/dev/null
+	./$(PROG) input.txt output.txt

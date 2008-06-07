@@ -43,8 +43,8 @@
 #include "harness.h"
 #include "harness_trace.h"
 
-#define NUM_CHILD_TASKS                 128
-#define NUM_ROOT_TASKS                  16
+#define NUM_CHILD_TASKS                 256
+#define NUM_ROOT_TASKS                  32
 #define NUM_ROOTS_IN_GROUP              8
 #define EXCEPTION_DESCR "Test exception"
 
@@ -139,6 +139,9 @@ volatile bool g_throw_exception = true;
 volatile bool g_no_exception = true;
 volatile bool g_unknown_exception = false;
 volatile bool g_task_was_cancelled = false;
+tbb::atomic<int> g_tasks_started;
+int g_tasks_wait_limit = 0;
+const int c_timeout = 50000;
 
 bool    g_exception_in_master = false;
 bool    g_solitary_exception = true;
@@ -154,7 +157,8 @@ void reset_globals () {
     g_no_exception = true;
     g_unknown_exception = false;
     g_task_was_cancelled = false;
-    //g_num_tasks_when_last_exception = 0;
+    g_tasks_started = 0;
+    g_tasks_wait_limit = g_num_threads;
 }
 
 intptr num_tasks () { return g_master->get_task_node_count(true); }
@@ -162,17 +166,25 @@ intptr num_tasks () { return g_master->get_task_node_count(true); }
 void throw_test_exception ( intptr throw_threshold ) {
     if ( !g_throw_exception  ||  g_exception_in_master ^ (internal::GetThreadSpecific() == g_master) )
         return; 
+    while ( g_cur_stat.existed() < throw_threshold )
+        yield_if_singlecore();
     if ( !g_solitary_exception ) {
         TRACE ("About to throw one of multiple test_exceptions... :");
         throw test_exception(EXCEPTION_DESCR);
     }
-    while ( g_cur_stat.existed() < throw_threshold )
-        yield_if_singlecore();
     if ( __TBB_CompareAndSwapW(&g_exception_thrown, 1, 0) == 0 ) {
         g_exc_stat = g_cur_stat;
         TRACE ("About to throw solitary test_exception... :");
         throw solitary_test_exception(EXCEPTION_DESCR);
     }
+}
+
+// Default timeout value (50000) translates to 20-50 ms on most of the modern architectures
+inline void wait_for_exception_with_timeout ( int timeout = 50000 ) {
+    int wait_count = 0;
+    while ( g_no_exception && (++wait_count < timeout) ) __TBB_Yield();
+    if ( wait_count == timeout )
+        TRACE("wait_for_exception_with_timeout: wait failed\n");
 }
 
 #define TRY()   \
@@ -205,12 +217,12 @@ void throw_test_exception ( intptr throw_threshold ) {
 
 #define ASSERT_TEST_POSTCOND()   \
     ASSERT (g_cur_stat.existed() >= g_cur_stat.executed(), "Total number of tasks is less than executed");  \
-    ASSERT (!g_cur_stat.existing(), "Not all tasks objects have been destroyed")
+    
 
 class my_base_task : public tbb::task
 {
-    task* execute () {
-        task* t = NULL;
+    tbb::task* execute () {
+        tbb::task* t = NULL;
         try { t = do_execute(); } 
         catch ( ... ) { g_cur_stat.inc_executed(); throw; }
         g_cur_stat.inc_executed();
@@ -220,18 +232,19 @@ protected:
     my_base_task ( bool throw_exception = true ) : my_throw(throw_exception) { g_cur_stat.inc_existed(); }
     ~my_base_task () { g_cur_stat.dec_existing(); }
 
-    virtual task* do_execute () = 0;
+    virtual tbb::task* do_execute () = 0;
 
     bool my_throw;
 }; // class my_base_task
 
 class my_leaf_task : public my_base_task
 {
-    task* do_execute () {
+    tbb::task* do_execute () {
+        ++g_tasks_started;
         if ( my_throw )
             throw_test_exception(NUM_CHILD_TASKS/2);
         if ( !g_throw_exception )
-            util::sleep(0);
+            __TBB_Yield();
         return NULL;
     }
 public:
@@ -240,17 +253,23 @@ public:
 
 class my_simple_root_task : public my_base_task
 {
-    task* do_execute () {
+    tbb::task* do_execute () {
         set_ref_count(NUM_CHILD_TASKS + 1);
         for ( size_t i = 0; i < NUM_CHILD_TASKS; ++i ) {
             my_leaf_task &t = *new( allocate_child() ) my_leaf_task(my_throw);
             spawn(t);
             __TBB_Yield();
         }
+//        ++g_tasks_started;
         if ( g_exception_in_master  ^  (internal::GetThreadSpecific() == g_master) )
         {
             // Make absolutely sure that worker threads on multicore machines had a chance to steal something
-            util::sleep(10);
+//            util::sleep(10);
+            int n = 0;
+//            while ( (++n < c_timeout) && (g_tasks_started < g_tasks_wait_limit) ) __TBB_Yield();
+            while ( (++n < c_timeout) && !g_tasks_started ) __TBB_Yield();
+            if ( n == c_timeout )
+                TRACE("my_simple_root_task: wait failed\n");
         }
         wait_for_all();
         return NULL;
@@ -269,12 +288,16 @@ void Test1 () {
     ASSERT (!g_cur_stat.existing() && !g_cur_stat.existed() && !g_cur_stat.executed(), 
             "something wrong with the task accounting");
     r.set_ref_count(NUM_CHILD_TASKS + 1);
-    for ( size_t i = 0; i < NUM_CHILD_TASKS; ++i ) {
+    for ( int i = 0; i < NUM_CHILD_TASKS; ++i ) {
         my_leaf_task &t = *new( r.allocate_child() ) my_leaf_task;
         r.spawn(t);
         // Make sure that worker threads on multicore machines had a chance to steal something
-        util::sleep(20);
-        //__TBB_Yield();
+//        util::sleep(1);
+        int n = 0;
+//        while ( ++n < c_timeout && g_no_exception && g_tasks_started < min (i + 1, g_num_threads - 1) ) __TBB_Yield();
+        while ( ++n < c_timeout && !g_tasks_started ) __TBB_Yield();
+        if ( n == c_timeout )
+            TRACE("Test1: wait failed\n");
     }
     TRY();
         r.wait_for_all();
@@ -322,22 +345,22 @@ void Test3 ()
 
 class my_root_with_context_launcher_task : public my_base_task
 {
-    tbb::task_group_context::kind_t my_context_kind;
+    tbb::task_group_context::kind_type my_context_kind;
  
-    task* do_execute () {
+    tbb::task* do_execute () {
         tbb::task_group_context  ctx (tbb::task_group_context::isolated);
         my_simple_root_task &r = *new( allocate_root(ctx) ) my_simple_root_task;
         TRY();
             spawn_root_and_wait(r);
-            util::sleep(20);    // Give a child of our siblings a chance to throw the test exception
+            // Give a child of our siblings a chance to throw the test exception
+            wait_for_exception_with_timeout();
         CATCH();
-        // The check may fail if the machine is overloaded
-        ASSERT_WARNING (!g_no_exception, "no exception occurred");
+        ASSERT_WARNING (!g_no_exception, "no exception occurred - machine overloaded?");
         ASSERT (!g_unknown_exception, "unknown exception was caught");
         return NULL;
     }
 public:
-    my_root_with_context_launcher_task ( tbb::task_group_context::kind_t ctx_kind = tbb::task_group_context::isolated ) : my_context_kind(ctx_kind) {}
+    my_root_with_context_launcher_task ( tbb::task_group_context::kind_type ctx_kind = tbb::task_group_context::isolated ) : my_context_kind(ctx_kind) {}
 };
 
 /** Allocates and spawns a bunch of roots, which allocate and spawn new root with 
@@ -366,7 +389,7 @@ void Test4 () {
 
 class my_root_with_context_group_launcher_task : public my_base_task
 {
-    task* do_execute () {
+    tbb::task* do_execute () {
         tbb::task_group_context  ctx (tbb::task_group_context::isolated);
         tbb::task_list  tl;
         for ( size_t i = 0; i < NUM_ROOT_TASKS; ++i ) {
@@ -375,7 +398,8 @@ class my_root_with_context_group_launcher_task : public my_base_task
         }
         TRY();
             spawn_root_and_wait(tl);
-            util::sleep(20);    // Give worker a chance to throw exception
+            // Give worker a chance to throw exception
+            wait_for_exception_with_timeout();
         CATCH_AND_ASSERT();
         return NULL;
     }
@@ -407,7 +431,7 @@ void Test5 () {
 
 class my_throwing_root_with_context_launcher_task : public my_base_task
 {
-    task* do_execute () {
+    tbb::task* do_execute () {
         tbb::task_group_context  ctx (tbb::task_group_context::bound);
         my_simple_root_task &r = *new( allocate_root(ctx) ) my_simple_root_task(false);
         TRY();
@@ -432,7 +456,7 @@ class my_bound_hierarchy_launcher_task : public my_base_task
         }
     }
 
-    task* do_execute () {
+    tbb::task* do_execute () {
         tbb::task_group_context  ctx (tbb::task_group_context::isolated);
         tbb::task_list tl;
         alloc_roots(ctx, tl);
@@ -514,7 +538,7 @@ void Test7 () {
 
 class my_bound_hierarchy_launcher_task_2 : public my_base_task
 {
-    task* do_execute () {
+    tbb::task* do_execute () {
         tbb::task_group_context  ctx;
         tbb::task_list  tl;
         for ( size_t i = 0; i < NUM_ROOT_TASKS; ++i ) {
@@ -562,7 +586,7 @@ class my_cancellation_root_task : public my_base_task
     tbb::task_group_context &my_ctx_to_cancel;
     intptr              my_cancel_threshold;
 
-    task* do_execute () {
+    tbb::task* do_execute () {
         while ( g_cur_stat.executed() < my_cancel_threshold )
             yield_if_singlecore();
         my_ctx_to_cancel.cancel_group_execution();
@@ -579,7 +603,7 @@ class my_calculation_root_task : public my_base_task
 {
     tbb::task_group_context &my_ctx;
 
-    task* do_execute () {
+    tbb::task* do_execute () {
         tbb::task::spawn_root_and_wait( *new( tbb::task::allocate_root(my_ctx) ) my_simple_root_task );
         return NULL;
     }
@@ -593,6 +617,7 @@ void Test9 () {
     TRACEP ("");
     reset_globals();
     g_throw_exception = false;
+    g_tasks_wait_limit = g_num_threads - 1;
     intptr  threshold = NUM_CHILD_TASKS / 4;
     tbb::task_group_context  ctx;
     tbb::task_list  tl;
@@ -605,7 +630,7 @@ void Test9 () {
     // g_exc_stat contains statistics snapshot at the moment right after cancellation signal sending
     TRACE ("Threshold %d; executed: after cancellation signal %d, total %d", threshold, g_exc_stat.executed(), g_cur_stat.executed());
     // 2 - root tasks in the calculation branch
-    ASSERT_WARNING (g_exc_stat.executed() - threshold <= g_num_threads + 2, "too many tasks executed between reaching threshold and statistics cutoff");
+    //ASSERT_WARNING (g_exc_stat.executed() - threshold <= g_num_threads + 2, "too many tasks executed between reaching threshold and statistics cutoff");
     // 3 - all root tasks 
     ASSERT (g_cur_stat.executed() <= g_exc_stat.executed() + g_num_threads + 3, "Too many tasks were executed after cancellation");
 } // void Test9 ()
@@ -658,7 +683,8 @@ class my_leaf_task_with_movable_exceptions : public my_base_task
 {
     bool my_int_as_data;
 
-    task* do_execute () {
+    tbb::task* do_execute () {
+        ++g_tasks_started;
         if ( g_solitary_exception )
             throw_movable_exception<int>(NUM_CHILD_TASKS/2, g_int_exception_data);
         else {
@@ -678,12 +704,16 @@ void Test10 () {
     ASSERT (!g_cur_stat.existing() && !g_cur_stat.existed() && !g_cur_stat.executed(), 
             "something wrong with the task accounting");
     r.set_ref_count(NUM_CHILD_TASKS + 1);
-    for ( size_t i = 0; i < NUM_CHILD_TASKS; ++i ) {
+    for ( int i = 0; i < NUM_CHILD_TASKS; ++i ) {
         my_leaf_task_with_movable_exceptions &t = *new( r.allocate_child() ) my_leaf_task_with_movable_exceptions;
         r.spawn(t);
         // Make sure that worker threads on multicore machines had a chance to steal something
-        util::sleep(20);
-        //__TBB_Yield();
+//        util::sleep(20);
+//        __TBB_Yield();
+        int n = 0;
+        while ( ++n < c_timeout && !g_tasks_started ) __TBB_Yield();
+        if ( n == c_timeout )
+            TRACE("Test10: wait failed\n");
     }
     TRY()
         r.wait_for_all();
@@ -694,12 +724,12 @@ void Test10 () {
         ASSERT (strcmp(e.what(), "tbb::movable_exception") == 0, "Unexpected original exception info ");
         if ( g_solitary_exception ) {
             solitary_movable_exception& me = dynamic_cast<solitary_movable_exception&>(e);
-            ASSERT (me.my_exception_data == g_int_exception_data, "Unexpected solitary movable_exception data");
+            ASSERT (me.data() == g_int_exception_data, "Unexpected solitary movable_exception data");
         }
         else {
             multiple_movable_exception& me = dynamic_cast<multiple_movable_exception&>(e);
-            ASSERT (me.my_exception_data.my_int == g_int_exception_data, "Unexpected multiple movable_exception int data");
-            ASSERT (me.my_exception_data.my_string == g_string_exception_data, "Unexpected multiple movable_exception string data");
+            ASSERT (me.data().my_int == g_int_exception_data, "Unexpected multiple movable_exception int data");
+            ASSERT (me.data().my_string == g_string_exception_data, "Unexpected multiple movable_exception string data");
         }
         if ( g_solitary_exception ) {
             g_exc_stat.trace("stat at throw moment:");
@@ -721,10 +751,11 @@ void Test10 () {
 void TestExceptionHandling ()
 {
     TRACE ("Number of threads %d", g_num_threads);
-
+    {
     tbb::task_scheduler_init init (g_num_threads);
     g_master = internal::GetThreadSpecific();
 
+    util::sleep(20);
     Test1();
     Test2();
     Test3();
@@ -735,6 +766,9 @@ void TestExceptionHandling ()
     Test8();
     Test9();
     Test10();
+    util::sleep(20);
+    }
+    ASSERT (!g_cur_stat.existing(), "Not all tasks objects have been destroyed");
     // The following assertion must hold true because if the dummy context is not cleaned up 
     // properly none of the tasks after Test1 completion will be executed.
     ASSERT (g_cur_stat.executed(), "Scheduler's dummy task context has not been cleaned up properly");
@@ -754,9 +788,9 @@ int main(int argc, char* argv[]) {
     MinThread = std::min<int>(MinThread, MaxThread);
     ASSERT (MinThread>=2, "Minimal number of threads must be 2 or more");
 #if __TBB_EXCEPTIONS
-    int step = std::max<int>(MaxThread - MinThread, 1);
+    int step = max(MaxThread - MinThread, 1);
     for ( g_num_threads = MinThread; g_num_threads <= MaxThread; g_num_threads += step ) {
-        g_max_concurrency = std::min<int>(g_num_threads, tbb::task_scheduler_init::default_num_threads());
+        g_max_concurrency = min(g_num_threads, tbb::task_scheduler_init::default_num_threads());
         for ( size_t j = 0; j < 2; ++j ) {
             g_solitary_exception = (j & 2) == 1;
             TestExceptionHandling();
@@ -768,4 +802,5 @@ int main(int argc, char* argv[]) {
 #endif /* __TBB_EXCEPTIONS */
     return 0;
 }
+
 

@@ -314,6 +314,45 @@ void TestAlignment() {
 }
 
 //------------------------------------------------------------------------
+// Test for recursing on left while spawning on right
+//------------------------------------------------------------------------
+
+int Fib( int n );
+
+struct RightFibTask: public tbb::task {
+    int* y;
+    const int n;
+    RightFibTask( int* y_, int n_ ) : y(y_), n(n_) {}
+    task* execute() {
+        *y = Fib(n-1);
+        return 0;
+    } 
+};
+
+int Fib( int n ) {
+    if( n<2 ) {
+        return n;
+    } else {
+        int y;
+        tbb::task* root_task = new( tbb::task::allocate_root() ) tbb::empty_task;
+        root_task->set_ref_count(2);
+        root_task->spawn( *new( root_task->allocate_child() ) RightFibTask(&y,n) );
+        int x = Fib(n-2);
+        root_task->wait_for_all();
+        tbb::task::self().destroy(*root_task);
+        return y+x;
+    }
+}
+
+void TestLeftRecursion( int p ) {
+    tbb::task_scheduler_init init(p);
+    int sum = 0; 
+    for( int i=0; i<100; ++i )
+        sum +=Fib(10);
+    ASSERT( sum==5500, NULL );
+}
+
+//------------------------------------------------------------------------
 int main(int argc, char* argv[]) {
     srand(2);
     MinThread = 1;
@@ -325,6 +364,7 @@ int main(int argc, char* argv[]) {
         TestSpawnChildren( p );
         TestSpawnRootList( p );
         TestSafeContinuation( p );
+        TestLeftRecursion( p );
         TestAffinity( p );
     }
     printf("done\n");
