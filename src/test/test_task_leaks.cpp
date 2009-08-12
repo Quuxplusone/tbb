@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -54,7 +54,7 @@ class ChangeProducer: public tbb::task {
 public:
     /*override*/ tbb::task* execute() {
         if( is_stolen_task() ) {
-            Producer = GetThreadSpecific();
+            Producer = internal::Governor::local_scheduler();
         }
         return NULL;
     }
@@ -70,7 +70,7 @@ public:
     /*override*/ tbb::task* execute() {
         if( my_depth>0 ) {
             int child_count = my_child_count;
-            scheduler* my_sched = GetThreadSpecific();
+            scheduler* my_sched = internal::Governor::local_scheduler();
             tbb::task& c  = *new( tbb::task::allocate_continuation() ) tbb::empty_task;
             c.set_ref_count( child_count );
             recycle_as_child_of(c);
@@ -100,7 +100,15 @@ public:
 };
 
 #include "harness_memory.h"
+#if _MSC_VER==1500 && !defined(__INTEL_COMPILER)
+    // VS2008/VC9 seems to have an issue
+    #pragma warning( push )
+    #pragma warning( disable: 4985 )
+#endif
 #include <math.h>
+#if _MSC_VER==1500 && !defined(__INTEL_COMPILER)
+    #pragma warning( pop )
+#endif
 
 void RunTaskGenerators( int i ) {
     tbb::task* dummy_root;
@@ -115,7 +123,7 @@ void RunTaskGenerators( int i ) {
     else
         dummy_root->spawn( *new( dummy_root->allocate_child() ) ChangeProducer );
     if( i==260 && !Producer ) {
-        fprintf(stderr, "Warning: producer has not changed after 10 attempts; running on a single core?\n");
+        REPORT("Warning: producer has not changed after 10 attempts; running on a single core?\n");
     }
     for( int j=0; j<100; ++j ) {
         tbb::task& t = *new( tbb::task::allocate_root() ) TaskGenerator(/*child_count=*/4, /*depth=*/6);
@@ -130,7 +138,7 @@ void RunTaskGenerators( int i ) {
     number of threads. */
 void TestTaskReclamation() {
     if( Verbose )
-        printf("testing task reclamation\n");
+        REPORT("testing task reclamation\n");
 
     size_t initial_amount_of_memory = 0;
     double task_count_sum = 0;
@@ -139,9 +147,9 @@ void TestTaskReclamation() {
 
     tbb::task_scheduler_init init (MinThread);
     if( Verbose )
-        printf("Starting with %d threads\n", MinThread);
+        REPORT("Starting with %d threads\n", MinThread);
     // For now, the master will produce "additional" tasks; later a worker will replace it;
-    Producer  = GetThreadSpecific();
+    Producer  = internal::Governor::local_scheduler();
     int N = 20;
     // First N iterations fill internal buffers and collect initial statistics
     for( int i=0; i<N; ++i ) {
@@ -152,55 +160,53 @@ void TestTaskReclamation() {
         if( m-initial_amount_of_memory > 0)
             initial_amount_of_memory = m;
 
-        tbb::internal::intptr n = GetThreadSpecific()->get_task_node_count( /*count_arena_workers=*/true );
+        intptr_t n = internal::Governor::local_scheduler()->get_task_node_count( /*count_arena_workers=*/true );
         task_count_sum += n;
         task_count_sum_square += n*n;
 
         if( Verbose )
-            printf( "Consumed %ld bytes and %ld objects (iteration=%d)\n", long(m), long(n), i );
+            REPORT( "Consumed %ld bytes and %ld objects (iteration=%d)\n", long(m), long(n), i );
     }
     // Calculate statistical values
     average = task_count_sum / N;
     sigma   = sqrt( (task_count_sum_square - task_count_sum*task_count_sum/N)/N );
     if( Verbose )
-        printf("Average task count: %g, sigma: %g, sum: %g, square sum:%g \n", average, sigma, task_count_sum, task_count_sum_square);
+        REPORT("Average task count: %g, sigma: %g, sum: %g, square sum:%g \n", average, sigma, task_count_sum, task_count_sum_square);
 
     int error_count = 0;
     for( int i=0; i<500; ++i ) {
         // These iterations check for excessive memory use and unreasonable task count
         RunTaskGenerators( i );
 
-        tbb::internal::intptr n = GetThreadSpecific()->get_task_node_count( /*count_arena_workers=*/true );
+        intptr_t n = internal::Governor::local_scheduler()->get_task_node_count( /*count_arena_workers=*/true );
         size_t m = GetMemoryUsage();
 
         if( (m-initial_amount_of_memory > 0) && (n > average+4*sigma) ) {
             ++error_count;
             // Use 4*sigma interval (for normal distribution, 3*sigma contains ~99% of values).
             // Issue a warning for the first couple of times, then errors
-            printf( "%s: possible leak of up to %ld bytes; currently %ld cached task objects (iteration=%d)\n",
+            REPORT( "%s: possible leak of up to %ld bytes; currently %ld cached task objects (iteration=%d)\n",
                     error_count>3?"Error":"Warning", static_cast<unsigned long>(m-initial_amount_of_memory), long(n), i );
             initial_amount_of_memory = m;
             if( error_count>5 ) break;
         } else {
             if( Verbose )
-                printf( "Consumed %ld bytes and %ld objects (iteration=%d)\n", long(m), long(n), i );
+                REPORT( "Consumed %ld bytes and %ld objects (iteration=%d)\n", long(m), long(n), i );
         }
     }
 }
 
-//------------------------------------------------------------------------
-
+__TBB_TEST_EXPORT
 int main(int argc, char* argv[]) {
-    srand(2);
     MinThread = -1;
     ParseCommandLine( argc, argv );
     if( !GetMemoryUsage() ) {
         if( Verbose )
-            printf("GetMemoryUsage is not implemented for this platform\n");
-        printf("skip\n");
+            REPORT("GetMemoryUsage is not implemented for this platform\n");
+        REPORT("skip\n");
     } else {
         TestTaskReclamation();
-        printf("done\n");
+        REPORT("done\n");
     }
     return 0;
 }

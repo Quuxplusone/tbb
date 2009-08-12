@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -86,6 +86,7 @@ class simple_root_task : public tbb::task
             simple_leaf_task &t = *new( allocate_child() ) simple_leaf_task;
             spawn(t);
         }
+        wait_for_all();
         return NULL;
     }
 };
@@ -121,6 +122,7 @@ class children_launcher_task : public tbb::task
             simple_leaf_task &t = *new( allocate_child() ) simple_leaf_task;
             spawn(t);
         }
+        wait_for_all();
         return NULL;
     }
 };

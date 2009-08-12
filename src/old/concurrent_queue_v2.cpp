@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,14 +30,13 @@
 #include "tbb/cache_aligned_allocator.h"
 #include "tbb/spin_mutex.h"
 #include "tbb/atomic.h"
-#include "../tbb/tbb_misc.h"
 #include <cstring>
 #include <stdio.h>
 
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
     #pragma warning (disable: 4267)
-#endif /* _MSC_VER && _Wp64 */
+#endif
 
 #define RECORD_EVENTS 0
 
@@ -64,7 +63,7 @@ struct micro_queue {
 
     spin_mutex page_mutex;
     
-    class push_finalizer {
+    class push_finalizer: no_copy {
         ticket my_ticket;
         micro_queue& my_queue;
     public:
@@ -78,7 +77,7 @@ struct micro_queue {
 
     void push( const void* item, ticket k, concurrent_queue_base& base );
 
-    class pop_finalizer {
+    class pop_finalizer: no_copy {
         ticket my_ticket;
         micro_queue& my_queue;
         page* my_page; 
@@ -144,10 +143,10 @@ public:
 };
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning( push )
-// unary minus operator applied to unsigned type, result still unsigned
-#pragma warning( disable: 4146 )
-#endif /* _MSC_VER && !defined(__INTEL_COMPILER) */
+    // unary minus operator applied to unsigned type, result still unsigned
+    #pragma warning( push )
+    #pragma warning( disable: 4146 )
+#endif
 
 //------------------------------------------------------------------------
 // micro_queue
@@ -164,7 +163,7 @@ void micro_queue::push( const void* item, ticket k, concurrent_queue_base& base 
     }
     {
         push_finalizer finalizer( *this, k+concurrent_queue_rep::n_queue ); 
-        SpinwaitUntilEq( tail_counter, k );
+        spin_wait_until_eq( tail_counter, k );
         if( p ) {
             spin_mutex::scoped_lock lock( page_mutex );
             if( page* q = tail_page )
@@ -183,8 +182,8 @@ void micro_queue::push( const void* item, ticket k, concurrent_queue_base& base 
 
 bool micro_queue::pop( void* dst, ticket k, concurrent_queue_base& base ) {
     k &= -concurrent_queue_rep::n_queue;
-    SpinwaitUntilEq( head_counter, k );
-    SpinwaitWhileEq( tail_counter, k );
+    spin_wait_until_eq( head_counter, k );
+    spin_wait_while_eq( tail_counter, k );
     page& p = *head_page;
     __TBB_ASSERT( &p, NULL );
     size_t index = (k/concurrent_queue_rep::n_queue & base.items_per_page-1);
@@ -200,8 +199,8 @@ bool micro_queue::pop( void* dst, ticket k, concurrent_queue_base& base ) {
 }
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning( pop )
-#endif /* _MSC_VER && !defined(__INTEL_COMPILER) */
+    #pragma warning( pop )
+#endif
 
 //------------------------------------------------------------------------
 // concurrent_queue_base
@@ -239,7 +238,7 @@ void concurrent_queue_base::internal_push( const void* src ) {
     concurrent_queue_rep::ticket k  = r.tail_counter++;
     ptrdiff_t e = my_capacity;
     if( e<concurrent_queue_rep::infinite_capacity ) {
-        ExponentialBackoff backoff;
+        atomic_backoff backoff;
         for(;;) {
             if( (ptrdiff_t)(k-r.head_counter)<e ) break;
             backoff.pause();
@@ -261,7 +260,7 @@ bool concurrent_queue_base::internal_pop_if_present( void* dst ) {
     concurrent_queue_rep& r = *my_rep;
     concurrent_queue_rep::ticket k;
     do {
-        ExponentialBackoff backoff;
+        atomic_backoff backoff;
         for(;;) {
             k = r.head_counter;
             if( r.tail_counter<=k ) {
@@ -281,7 +280,7 @@ bool concurrent_queue_base::internal_pop_if_present( void* dst ) {
 
 bool concurrent_queue_base::internal_push_if_not_full( const void* src ) {
     concurrent_queue_rep& r = *my_rep;
-    ExponentialBackoff backoff;
+    atomic_backoff backoff;
     concurrent_queue_rep::ticket k;
     for(;;) {
         k = r.tail_counter;
@@ -311,7 +310,7 @@ void concurrent_queue_base::internal_set_capacity( ptrdiff_t capacity, size_t /*
 //------------------------------------------------------------------------
 // concurrent_queue_iterator_rep
 //------------------------------------------------------------------------
-class  concurrent_queue_iterator_rep {
+class  concurrent_queue_iterator_rep: no_assign {
 public:
     typedef concurrent_queue_rep::ticket ticket;
     ticket head_counter;   

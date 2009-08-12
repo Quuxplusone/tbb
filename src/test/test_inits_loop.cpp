@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,8 +26,6 @@
     the GNU General Public License.
 */
 
-#include <stdio.h>
-
 #if __APPLE__
 
 #include "harness.h"
@@ -44,39 +42,38 @@ bool exec_test(const char *self) {
     int status = 1;
     pid_t p = fork();
     if(p < 0) {
-        printf("fork error: errno=%d: %s\n", errno, strerror(errno));
+        REPORT("fork error: errno=%d: %s\n", errno, strerror(errno));
         return true;
     }
     else if(p) { // parent
         if(waitpid(p, &status, 0) != p) {
-            printf("wait error: errno=%d: %s\n", errno, strerror(errno));
+            REPORT("wait error: errno=%d: %s\n", errno, strerror(errno));
             return true;
         }
         if(WIFEXITED(status)) {
             if(!WEXITSTATUS(status)) return false; // ok
-            else printf("child has exited with return code 0x%x\n", WEXITSTATUS(status));
+            else REPORT("child has exited with return code 0x%x\n", WEXITSTATUS(status));
         } else {
-            printf("child error 0x%x:%s%s ", status, WIFSIGNALED(status)?" signalled":"",
+            REPORT("child error 0x%x:%s%s ", status, WIFSIGNALED(status)?" signalled":"",
                 WIFSTOPPED(status)?" stopped":"");
             if(WIFSIGNALED(status))
-                printf("%s%s", sys_siglist[WTERMSIG(status)], WCOREDUMP(status)?" core dumped":"");
+                REPORT("%s%s", sys_siglist[WTERMSIG(status)], WCOREDUMP(status)?" core dumped":"");
             if(WIFSTOPPED(status))
-                printf("with %d stop-code", WSTOPSIG(status));
-            printf("\n");
+                REPORT("with %d stop-code", WSTOPSIG(status));
+            REPORT("\n");
         }
     }
     else { // child
         // reproduces error much often
         execl(self, self, "0", NULL);
-        printf("exec fails %s: %d: %s\n", self, errno, strerror(errno));
+        REPORT("exec fails %s: %d: %s\n", self, errno, strerror(errno));
         exit(2);
     }
     return true;
 }
-#endif /* __APPLE__ */
 
+__TBB_TEST_EXPORT
 int main( int argc, char * argv[] ) {
-#if __APPLE__
     MinThread = 3000;
     ParseCommandLine( argc, argv );
     if( MinThread <= 0 ) {
@@ -84,14 +81,24 @@ int main( int argc, char * argv[] ) {
     } else {
         for(int i = 0; i<MinThread; i++)
             if(exec_test(argv[0])) {
-                printf("ERROR: execution fails at %d-th iteration!\n", i);
+                REPORT("ERROR: execution fails at %d-th iteration!\n", i);
                 exit(1);
             }
 
-        printf("done\n");
+        REPORT("done\n");
     }
-#else
-        printf("skip\n");
-#endif
     return 0;
 }
+
+#else /* !__APPLE__ */
+
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#include "harness.h"
+
+__TBB_TEST_EXPORT
+int main() {
+    REPORT("skip\n");
+    return 0;
+}
+
+#endif /* !__APPLE__ */

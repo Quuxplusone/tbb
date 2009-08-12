@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,57 +26,84 @@
     the GNU General Public License.
 */
 
-#define MByte 1048576 //1MB
+const int MByte = 1048576; //1MB
+
+/* _WIN32_WINNT should be defined at the very beginning, 
+   because other headers might include <windows.h>
+*/
 
 #if _WIN32 || _WIN64
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500
 #include <windows.h>
+#include <stdio.h>
+#include "harness_report.h"
+
 void limitMem( int limit )
 {
+    static HANDLE hJob = NULL;
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION jobInfo;
+
     jobInfo.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_PROCESS_MEMORY;
-    jobInfo.ProcessMemoryLimit = limit*MByte;
-    HANDLE hJob = CreateJobObject(NULL, NULL);
-    AssignProcessToJobObject(hJob, GetCurrentProcess());
-    SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, &jobInfo, sizeof(jobInfo));
+    jobInfo.ProcessMemoryLimit = limit? limit*MByte : 2*1024LL*MByte;
+    if (NULL == hJob) {
+        if (NULL == (hJob = CreateJobObject(NULL, NULL))) {
+            REPORT("Can't assign create job object: %ld\n", GetLastError());
+            exit(1);
+        }
+        if (0 == AssignProcessToJobObject(hJob, GetCurrentProcess())) {
+            REPORT("Can't assign process to job object: %ld\n", GetLastError());
+            exit(1);
+        }
+    }
+    if (0 == SetInformationJobObject(hJob, JobObjectExtendedLimitInformation, 
+                                     &jobInfo, sizeof(jobInfo))) {
+        REPORT("Can't set limits: %ld\n", GetLastError());
+        exit(1);
+    }
 }
 #else
 #include <sys/resource.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+#include <sys/types.h>  // uint64_t on FreeBSD, needed for rlim_t
+#include "harness_report.h"
+
 void limitMem( int limit )
 {
     rlimit rlim;
-    rlim.rlim_cur = limit*MByte;
-    rlim.rlim_max = limit*MByte;
-    setrlimit(RLIMIT_AS,&rlim);
+    rlim.rlim_cur = limit? limit*MByte : (rlim_t)RLIM_INFINITY;
+    rlim.rlim_max = (rlim_t)RLIM_INFINITY;
+    int ret = setrlimit(RLIMIT_AS,&rlim);
+    if (0 != ret) {
+        REPORT("Can't set limits: errno %d\n", errno);
+        exit(1);
+    }
 }
 #endif 
 
 #include <time.h>
 #include <errno.h>
 #include <vector>
-#include "tbb/scalable_allocator.h"
-
-/* to avoid dependency on TBB shared library, the following macro should be
-   defined to non-zero _before_ including any TBB or test harness headers.
-   Also tbb_assert_impl.h from src/tbb should be included right after */
 #define __TBB_NO_IMPLICIT_LINKAGE 1
-#include "../tbb/tbb_assert_impl.h"
+#include "tbb/scalable_allocator.h"
+#include "tbb/tbb_machine.h"
 
-#include "tbb/blocked_range.h"
 #include "harness.h"
+#include "harness_barrier.h"
+#if __linux__
+#include <stdint.h> // uintptr_t
+#endif
+#if _WIN32 || _WIN64
+#include <malloc.h> // _aligned_(malloc|free|realloc)
+#endif
 
-#pragma pack(1)
-
-#define COUNT_ELEM_CALLOC 2
-#define COUNT_TESTS 1000
-
-#define COUNT_ELEM 50000
-#define MAX 1000
-#define APPROACHES 100
-#define COUNTEXPERIMENT 10000
-#define MB 25
-#define MB_MAX 500
+const size_t COUNT_ELEM_CALLOC = 2;
+const int COUNT_TESTS = 1000;
+const int COUNT_ELEM = 50000;
+const size_t MAX_SIZE = 1000;
+const int COUNTEXPERIMENT = 10000;
 
 const char strError[]="failed";
 const char strOk[]="done";
@@ -91,636 +118,834 @@ typedef void* TestMalloc(size_t size);
 typedef void* TestCalloc(size_t num, size_t size);
 typedef void* TestRealloc(void* memblock, size_t size);
 typedef void  TestFree(void* memblock);
+typedef int   TestPosixMemalign(void **memptr, size_t alignment, size_t size);
+typedef void* TestAlignedMalloc(size_t size, size_t alignment);
+typedef void* TestAlignedRealloc(void* memblock, size_t size, size_t alignment);
+typedef void  TestAlignedFree(void* memblock);
 
-TestMalloc* Tmalloc;
-TestCalloc* Tcalloc;
+TestMalloc*  Tmalloc;
+TestCalloc*  Tcalloc;
 TestRealloc* Trealloc;
-TestFree* Tfree;
+TestFree*    Tfree;
+TestAlignedFree* Taligned_free;
+// call alignment-related function via pointer and check result's alignment
+int   Tposix_memalign(void **memptr, size_t alignment, size_t size);
+void* Taligned_malloc(size_t size, size_t alignment);
+void* Taligned_realloc(void* memblock, size_t size, size_t alignment);
 
+// pointers to alignment-related functions used while testing
+TestPosixMemalign*  Rposix_memalign;
+TestAlignedMalloc*  Raligned_malloc;
+TestAlignedRealloc* Raligned_realloc;
 
+bool error_occurred = false;
+
+#if __APPLE__
+// Tests that use the variable are skipped on Mac OS* X
+#else
+static bool perProcessLimits = true;
+#endif
+
+const size_t POWERS_OF_2 = 20;
+
+#if __linux__  && __ia64__
+/* Can't use Intel compiler intrinsic due to internal error reported by
+   10.1 compiler */
+pthread_mutex_t counter_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+int32_t __TBB_machine_fetchadd4__TBB_full_fence (volatile void *ptr, int32_t value)
+{
+    pthread_mutex_lock(&counter_mutex);
+    int32_t result = *(int32_t*)ptr;
+    *(int32_t*)ptr = result + value;
+    pthread_mutex_unlock(&counter_mutex);
+    return result;
+}
+
+void __TBB_machine_pause(int32_t /*delay*/) {}
+
+#elif (_WIN32||_WIN64) && defined(_M_AMD64)
+
+void __TBB_machine_pause(__int32 /*delay*/ ) {}
+
+#endif
 
 struct MemStruct
 {
-  void* Pointer;
-  UINT Size;
+    void* Pointer;
+    UINT Size;
+
+    MemStruct() : Pointer(NULL), Size(0) {}
+    MemStruct(void* Pointer, UINT Size) : Pointer(Pointer), Size(Size) {}
 };
 
-class CMemTest
+class CMemTest: NoAssign
 {
-  UINT CountErrors;
-public:
-  bool FullLog;
+    UINT CountErrors;
+    int total_threads;
+    bool FullLog;
+    Harness::SpinBarrier *limitBarrier;
+    static bool firstTime;
 
-  CMemTest();
-  CMemTest(bool verb);
-  void ReallocParam(); // realloc with different parameters
-  void InvariantDataRealloc(); //realloc does not change data
-  void NULLReturn(UINT MinSize, UINT MaxSize); // NULL pointer + check errno
-  void UniquePointer(); // unique pointer - check with padding
-  void AddrArifm(); // unique pointer - check with pointer arithmetic
-  void Free_NULL(); // 
-  void Zerofilling(); // check if arrays are zero-filled
-  void RunAllTests();
-  ~CMemTest() {};
+public:
+    CMemTest(int total_threads, Harness::SpinBarrier *limitBarrier,
+             bool isVerbose=false) :
+        CountErrors(0), total_threads(total_threads), limitBarrier(limitBarrier)
+        {
+            srand((UINT)time(NULL));
+            FullLog=isVerbose;
+            rand();
+        }
+    void InvariantDataRealloc(bool aligned); //realloc does not change data
+    void NULLReturn(UINT MinSize, UINT MaxSize); // NULL pointer + check errno
+    void UniquePointer(); // unique pointer - check with padding
+    void AddrArifm(); // unique pointer - check with pointer arithmetic
+    bool ShouldReportError();
+    void Free_NULL(); // 
+    void Zerofilling(); // check if arrays are zero-filled
+    void TestAlignedParameters();
+    void RunAllTests(int total_threads);
+    ~CMemTest() {}
+};
+
+class Limit {
+    int limit;
+public:
+    Limit(int limit) : limit(limit) {}
+    void operator() () const {
+        limitMem(limit);
+    }
 };
 
 int argC;
 char** argV;
 
-struct RoundRobin {
+struct RoundRobin: NoAssign {
     const long number_of_threads;
-	mutable CMemTest test;
-    RoundRobin( long p ) : number_of_threads(p) ,test() {}
+    mutable CMemTest test;
 
-    void operator()( const tbb::blocked_range<long> &r ) const 
-    {
-        test.FullLog=Verbose;
-        test.RunAllTests();
-    }
+    RoundRobin( long p, Harness::SpinBarrier *limitBarrier, bool verbose ) :
+        number_of_threads(p), test(p, limitBarrier, verbose) {}
+    void operator()( int /*id*/ ) const 
+        {
+            test.RunAllTests(number_of_threads);
+        }
 };
 
+bool CMemTest::firstTime = true;
 
-
-int main(int argc, char* argv[])
+static void setSystemAllocs()
 {
-	argC=argc;
-	argV=argv;
-	MaxThread = MinThread = 1;
-  Tmalloc=scalable_malloc;
-  Trealloc=scalable_realloc;
-  Tcalloc=scalable_calloc;
-  Tfree=scalable_free;
-  // check if we were called to test standard behavior
-  for (int i=1; i< argc; i++) {
-    if (strcmp((char*)*(argv+i),"-s")==0)
+    Tmalloc=malloc;
+    Trealloc=realloc;
+    Tcalloc=calloc;
+    Tfree=free;
+#if _WIN32 || _WIN64
+    Raligned_malloc=_aligned_malloc;
+    Raligned_realloc=_aligned_realloc;
+    Taligned_free=_aligned_free;
+    Rposix_memalign=0;
+#elif  __APPLE__ || __sun //  Max OS X and Solaris don't have posix_memalign
+    Raligned_malloc=0;
+    Raligned_realloc=0;
+    Taligned_free=0;
+    Rposix_memalign=0;
+#else 
+    Raligned_malloc=0;
+    Raligned_realloc=0;
+    Taligned_free=0;
+    Rposix_memalign=posix_memalign;
+#endif
+}
+
+// check that realloc works as free and as malloc
+void ReallocParam()
+{
+    const int ITERS = 1000;
+    int i;
+    void *bufs[ITERS];
+
+    bufs[0] = Trealloc(NULL, 30*MByte);
+    ASSERT(bufs[0], "Can't get memory to start the test.");
+  
+    for (i=1; i<ITERS; i++)
     {
-      argC--;
-      Tmalloc=malloc;
-      Trealloc=realloc;
-      Tcalloc=calloc;
-      Tfree=free;
-      break;
+        bufs[i] = Trealloc(NULL, 30*MByte);
+        if (NULL == bufs[i])
+            break;
     }
-  }
-  ParseCommandLine( argC, argV );
-  limitMem( 500*MaxThread );
-  //-------------------------------------
-   for( int p=MaxThread; p>=MinThread; --p ) {
-        limitMem( 500*p );
-        if( Verbose ) printf("testing with %d threads\n", p );
-        NativeParallelFor( tbb::blocked_range<long>(0,p,1), RoundRobin(p) );
+    ASSERT(i<ITERS, "Limits should be decreased for the test to work.");
+  
+    Trealloc(bufs[0], 0);
+    /* There is a race for the free space between different threads at 
+       this point. So, have to run the test sequentially.
+    */
+    bufs[0] = Trealloc(NULL, 30*MByte);
+    ASSERT(bufs[0], NULL);
+  
+    for (int j=0; j<i; j++)
+        Trealloc(bufs[j], 0);
+}
+
+__TBB_TEST_EXPORT
+int main(int argc, char* argv[]) {
+    argC=argc;
+    argV=argv;
+    MaxThread = MinThread = 1;
+    Tmalloc=scalable_malloc;
+    Trealloc=scalable_realloc;
+    Tcalloc=scalable_calloc;
+    Tfree=scalable_free;
+    Rposix_memalign=scalable_posix_memalign;
+    Raligned_malloc=scalable_aligned_malloc;
+    Raligned_realloc=scalable_aligned_realloc;
+    Taligned_free=scalable_aligned_free;
+
+    // check if we were called to test standard behavior
+    for (int i=1; i< argc; i++) {
+        if (strcmp((char*)*(argv+i),"-s")==0)
+        {
+            setSystemAllocs();
+            argC--;
+            break;
+        }
     }
-    printf("done\n");
-  return 0;
+
+    ParseCommandLine( argC, argV );
+#if __linux__
+    /* According to man pthreads 
+       "NPTL threads do not share resource limits (fixed in kernel 2.6.10)".
+       Use per-threads limits for affected systems.
+     */
+    if ( LinuxKernelVersion() < 2*1000000 + 6*1000 + 10)
+        perProcessLimits = false;
+#endif    
+    //-------------------------------------
+#if __APPLE__
+    /* Skip due to lack of memory limit enforcing under Mac OS X. */
+#else
+    limitMem(200);
+    ReallocParam();
+    limitMem(0);
+#endif
+    for( int p=MaxThread; p>=MinThread; --p ) {
+        if( Verbose )
+            REPORT("testing with %d threads\n", p );
+        Harness::SpinBarrier *barrier = new Harness::SpinBarrier(p);
+        NativeParallelFor( p, RoundRobin(p, barrier, Verbose) );
+        delete barrier;
+    }
+    if( !error_occurred ) REPORT("done\n");
+    return 0;
 }
 
 struct TestStruct
 {
-  DWORD field1:2;
-  DWORD field2:6;
-  double field3;
-  UCHAR field4[100];
-  TestStruct* field5;
+    DWORD field1:2;
+    DWORD field2:6;
+    double field3;
+    UCHAR field4[100];
+    TestStruct* field5;
 //  std::string field6;
-  std::vector<int> field7;
-  double field8;
-  bool IzZero()
-  {
-    UCHAR *tmp;
-    tmp=(UCHAR*)this;
-    bool b=true;
-    for (int i=0; i<(int)sizeof(TestStruct); i++)
-      if (tmp[i]) b=false;
-    return b;
-  }
+    std::vector<int> field7;
+    double field8;
+    bool IzZero()
+        {
+            UCHAR *tmp;
+            tmp=(UCHAR*)this;
+            bool b=true;
+            for (int i=0; i<(int)sizeof(TestStruct); i++)
+                if (tmp[i]) b=false;
+            return b;
+        }
 };
 
+int Tposix_memalign(void **memptr, size_t alignment, size_t size)
+{
+    int ret = Rposix_memalign(memptr, alignment, size);
+    if (0 == ret)
+        ASSERT(0==((uintptr_t)*memptr & (alignment-1)),
+               "allocation result should be aligned");
+    return ret;
+}
+void* Taligned_malloc(size_t size, size_t alignment)
+{
+    void *ret = Raligned_malloc(size, alignment);
+    if (0 != ret)
+        ASSERT(0==((uintptr_t)ret & (alignment-1)),
+               "allocation result should be aligned");
+    return ret;
+}
+void* Taligned_realloc(void* memblock, size_t size, size_t alignment)
+{
+    void *ret = Raligned_realloc(memblock, size, alignment);
+    if (0 != ret)
+        ASSERT(0==((uintptr_t)ret & (alignment-1)),
+               "allocation result should be aligned");
+    return ret;
+}
 
-CMemTest::CMemTest()
-{
-  time_t zzz;
-  srand((UINT)time(&zzz));
-  FullLog=false;
-  rand();
-}
-CMemTest::CMemTest(bool verb)
-{
-  time_t zzz;
-  srand((UINT)time(&zzz));
-  FullLog=verb;
-  rand();
+inline size_t choose_random_alignment() {
+    return sizeof(void*)<<(rand() % POWERS_OF_2);
 }
 
-void CMemTest::InvariantDataRealloc()
+void CMemTest::InvariantDataRealloc(bool aligned)
 {
-  UINT size, sizeMin;
-  CountErrors=0;
-  if (FullLog) printf("\nInvariant data by realloc....");
-  UCHAR* pchar;
-  sizeMin=size=rand()%MAX+10;
-  pchar=(UCHAR*)Trealloc(NULL,size);
-  for (UINT k=0; k<size; k++)
-    pchar[k]=(UCHAR)k%255+1;
-  for (UINT i=0; i<COUNTEXPERIMENT; i++)
-  {
-    size=rand()%MAX+10;
-    sizeMin=size<sizeMin ? size : sizeMin;
-    pchar=(UCHAR*)Trealloc(pchar,size);
-    for (UINT k=0; k<sizeMin; k++)
-      if (pchar[k] != (UCHAR)k%255+1)
-      {
-        CountErrors++;
-        if (FullLog)
-        {
-          printf("stand '%c', must stand '%c'\n",pchar[k],(UCHAR)k%255+1);
-          printf("error: data changed (at %d, SizeMin=%d)\n",k,sizeMin);
-        }
-      }
-  }
-  Trealloc(pchar,0);
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
-  //printf("end check\n");
-}
-void CMemTest::ReallocParam()
-{
-  TestStruct *TSold, *TSnew;
-  CountErrors=0;
-  UINT CountTry=0;
-  if (FullLog) printf("\nrealloc with different params....");
-  //
-  for (UINT i=0; i<COUNTEXPERIMENT; i++)
-  {
-    TSnew=(TestStruct*)Tmalloc(sizeof(TestStruct)); // allocate memory
-    TSold=TSnew;  // store address
-    Tfree(TSnew); // free memory
-    TSnew=(TestStruct*)Tmalloc(sizeof(TestStruct));
-    while (TSnew != TSold)
+    size_t size, sizeMin;
+    CountErrors=0;
+    if (FullLog) REPORT("\nInvariant data by realloc....");
+    UCHAR* pchar;
+    sizeMin=size=rand()%MAX_SIZE+10;
+    pchar = aligned?
+        (UCHAR*)Taligned_realloc(NULL,size,choose_random_alignment())
+        : (UCHAR*)Trealloc(NULL,size);
+    if (NULL == pchar)
+        return;
+    for (size_t k=0; k<size; k++)
+        pchar[k]=(UCHAR)k%255+1;
+    for (int i=0; i<COUNTEXPERIMENT; i++)
     {
-      CountTry++;
-      TSold=TSnew;
-      Tfree(TSnew);
-      TSnew=(TestStruct*)Tmalloc(sizeof(TestStruct));
+        size=rand()%MAX_SIZE+10;
+        UCHAR *pcharNew = aligned?
+            (UCHAR*)Taligned_realloc(pchar,size, choose_random_alignment())
+            : (UCHAR*)Trealloc(pchar,size);
+        if (NULL == pcharNew)
+            continue;
+        pchar = pcharNew;
+        sizeMin=size<sizeMin ? size : sizeMin;
+        for (size_t k=0; k<sizeMin; k++)
+            if (pchar[k] != (UCHAR)k%255+1)
+            {
+                CountErrors++;
+                if (ShouldReportError())
+                {
+                    REPORT("stand '%c', must stand '%c'\n",pchar[k],(UCHAR)k%255+1);
+                    REPORT("error: data changed (at %llu, SizeMin=%llu)\n",
+                           (long long unsigned)k,(long long unsigned)sizeMin);
+                }
+            }
     }
-    TSold=TSnew;
-    Trealloc(TSnew,0); //realloc should work as free
-    TSnew=NULL;
-    TSnew=(TestStruct*)Trealloc(NULL,sizeof(TestStruct)); //realloc should work as malloc
-    if (TSold == TSnew)
-    {
-/*     if (FullLog)
-      {
-        printf("CountTry: %d\n", CountTry);
-        printf("realloc ok\n");
-      }
-*/
-    }
+    if (aligned)
+        Taligned_realloc(pchar,0,choose_random_alignment());
     else
-    {
-      CountErrors++;
-      if (FullLog) printf("realloc error");
-    }
-  }
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
+        Trealloc(pchar,0);
+    if (CountErrors) REPORT("%s\n",strError);
+    else if (FullLog) REPORT("%s\n",strOk);
+    error_occurred |= ( CountErrors>0 ) ;
+    //REPORT("end check\n");
+}
+
+struct PtrSize {
+    void  *ptr;
+    size_t size;
+};
+
+static int cmpAddrs(const void *p1, const void *p2)
+{
+    const PtrSize *a = (const PtrSize *)p1;
+    const PtrSize *b = (const PtrSize *)p2;
+
+    return a->ptr < b->ptr ? -1 : ( a->ptr == b->ptr ? 0 : 1);
 }
 
 void CMemTest::AddrArifm()
 {
-  int* MasPointer[COUNT_ELEM];
-  UINT MasCountElem[COUNT_ELEM];
-  DWORD count;
-  int* tmpAddr;
-  UINT j;
-  UINT CountZero=0;
-  CountErrors=0;
-  if (FullLog) printf("\nUnique pointer using Address arithmetics\n");
-  if (FullLog) printf("malloc....");
-  for (UINT i=0; i<COUNT_ELEM; i++)
-  {
-    count=rand()%MAX;
-    if (count == 0)
-      CountZero++;
-    tmpAddr=(int*)Tmalloc(count*sizeof(int));
-    for (j=0; j<i; j++) // find a place for the new address
-    {
-      if (*(MasPointer+j)>tmpAddr) break;
-    }
-    for (UINT k=i; k>j; k--)
-    {
-      MasPointer[k]=MasPointer[k-1];
-      MasCountElem[k]=MasCountElem[k-1];
-    }
-    MasPointer[j]=tmpAddr;
-    MasCountElem[j]=count*sizeof(int);/**/
-  }
-  if (FullLog) printf("Count zero: %d\n",CountZero);
-  for (int i=0; i<COUNT_ELEM-1; i++)
-  {
-    if ((uintptr_t)MasPointer[i]+MasCountElem[i] > (uintptr_t)MasPointer[i+1])
-    {
-      CountErrors++;
-//      if (FullLog) printf("intersection detect at 0x%x between %d element(int) and 0x%x\n"
-//      ,(MasPointer+i),MasCountElem[i],(MasPointer+i+1));
-    }
-  }
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
-  //----------------------------------------------------------------
-  CountErrors=0;
-  if (FullLog) printf("realloc....");
-  for (UINT i=0; i<COUNT_ELEM; i++)
-  {
-    count=MasCountElem[i]*2;
-    if (count == 0)
-      CountZero++;
-    tmpAddr=(int*)Trealloc(MasPointer[i],count);
-    for (j=0; j<i; j++) // find a place for the new address
-    {
-      if (*(MasPointer+j)>tmpAddr) break;
-    }
-    for (UINT k=i; k>j; k--)
-    {
-      MasPointer[k]=MasPointer[k-1];
-      MasCountElem[k]=MasCountElem[k-1];
-    }
-    MasPointer[j]=tmpAddr;
-    MasCountElem[j]=count;//*sizeof(int);/**/
-  }
-  if (FullLog) printf("Count zero: %d\n",CountZero);
+    PtrSize *arr = (PtrSize*)Tmalloc(COUNT_ELEM*sizeof(PtrSize));
 
-  // now we have a sorted array of pointers
-  for (int i=0; i<COUNT_ELEM-1; i++)
-  {
-    if ((uintptr_t)MasPointer[i]+MasCountElem[i] > (uintptr_t)MasPointer[i+1])
+    if (FullLog) REPORT("\nUnique pointer using Address arithmetics\n");
+    if (FullLog) REPORT("malloc....");
+    ASSERT(arr, NULL);
+    for (int i=0; i<COUNT_ELEM; i++)
     {
-      CountErrors++;
-//      if (FullLog) printf("intersection detect at 0x%x between %d element(int) and 0x%x\n"
-//      ,(MasPointer+i),MasCountElem[i],(MasPointer+i+1));
+        arr[i].size=rand()%MAX_SIZE;
+        arr[i].ptr=Tmalloc(arr[i].size);
     }
-  }
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
-  for (int i=0; i<COUNT_ELEM; i++)
-  {
-    Tfree(MasPointer[i]);
-  }
-  //-------------------------------------------
-  CountErrors=0;
-  if (FullLog) printf("calloc....");
-  for (UINT i=0; i<COUNT_ELEM; i++)
-  {
-    count=rand()%MAX;
-    if (count == 0)
-      CountZero++;
-    tmpAddr=(int*)Tcalloc(count*sizeof(int),2);
-    for (j=0; j<i; j++) // find a place for the new address
-    {
-      if (*(MasPointer+j)>tmpAddr) break;
-    }
-    for (UINT k=i; k>j; k--)
-    {
-      MasPointer[k]=MasPointer[k-1];
-      MasCountElem[k]=MasCountElem[k-1];
-    }
-    MasPointer[j]=tmpAddr;
-    MasCountElem[j]=count*sizeof(int)*2;/**/
-  }
-  if (FullLog) printf("Count zero: %d\n",CountZero);
+    qsort(arr, COUNT_ELEM, sizeof(PtrSize), cmpAddrs);
 
-  // now we have a sorted array of pointers
-  for (int i=0; i<COUNT_ELEM-1; i++)
-  {
-    if ((uintptr_t)MasPointer[i]+MasCountElem[i] > (uintptr_t)MasPointer[i+1])
+    for (int i=0; i<COUNT_ELEM-1; i++)
     {
-      CountErrors++;
-//      if (FullLog) printf("intersection detect at 0x%x between %d element(int) and 0x%x\n"
-//      ,(MasPointer+i),MasCountElem[i],(MasPointer+i+1));
+        if (NULL!=arr[i].ptr && NULL!=arr[i+1].ptr)
+            ASSERT((uintptr_t)arr[i].ptr+arr[i].size <= (uintptr_t)arr[i+1].ptr,
+                   "intersection detected");
     }
-  }
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
-  for (int i=0; i<COUNT_ELEM; i++)
-  {
-    Tfree(MasPointer[i]);
-  }
+    //----------------------------------------------------------------
+    if (FullLog) REPORT("realloc....");
+    for (int i=0; i<COUNT_ELEM; i++)
+    {
+        size_t count=arr[i].size*2;
+        void *tmpAddr=Trealloc(arr[i].ptr,count);
+        if (NULL!=tmpAddr) {
+            arr[i].ptr = tmpAddr;
+            arr[i].size = count;
+        } else if (count==0) { // becasue realloc(..., 0) works as free
+            arr[i].ptr = NULL;
+            arr[i].size = 0;
+        }
+    }
+    qsort(arr, COUNT_ELEM, sizeof(PtrSize), cmpAddrs);
+
+    for (int i=0; i<COUNT_ELEM-1; i++)
+    {
+        if (NULL!=arr[i].ptr && NULL!=arr[i+1].ptr)
+            ASSERT((uintptr_t)arr[i].ptr+arr[i].size <= (uintptr_t)arr[i+1].ptr,
+                   "intersection detected");
+    }
+    for (int i=0; i<COUNT_ELEM; i++)
+    {
+        Tfree(arr[i].ptr);
+    }
+    //-------------------------------------------
+    if (FullLog) REPORT("calloc....");
+    for (int i=0; i<COUNT_ELEM; i++)
+    {
+        arr[i].size=rand()%MAX_SIZE;
+        arr[i].ptr=Tcalloc(arr[i].size,1);
+    }
+    qsort(arr, COUNT_ELEM, sizeof(PtrSize), cmpAddrs);
+
+    for (int i=0; i<COUNT_ELEM-1; i++)
+    {
+        if (NULL!=arr[i].ptr && NULL!=arr[i+1].ptr)
+            ASSERT((uintptr_t)arr[i].ptr+arr[i].size <= (uintptr_t)arr[i+1].ptr,
+                   "intersection detected");
+    }
+    for (int i=0; i<COUNT_ELEM; i++)
+    {
+        Tfree(arr[i].ptr);
+    }
+    Tfree(arr);
 }
 
 void CMemTest::Zerofilling()
 {
-  TestStruct* TSMas;
-  int CountElement;
-  CountErrors=0;
-  if (FullLog) printf("\nzeroings elements of array....");
-  //test struct
-  for (int i=0; i<COUNTEXPERIMENT; i++)
-  {
-    CountElement=rand()%MAX;
-    TSMas=(TestStruct*)Tcalloc(CountElement,sizeof(TestStruct));
-    for (int j=0; j<CountElement; j++)
+    TestStruct* TSMas;
+    size_t CountElement;
+    CountErrors=0;
+    if (FullLog) REPORT("\nzeroings elements of array....");
+    //test struct
+    for (int i=0; i<COUNTEXPERIMENT; i++)
     {
-      if (!TSMas->IzZero())
-      {
-        CountErrors++;
-        if (FullLog) printf("detect nonzero element at TestStruct\n");
-      }
+        CountElement=rand()%MAX_SIZE;
+        TSMas=(TestStruct*)Tcalloc(CountElement,sizeof(TestStruct));
+        if (NULL == TSMas)
+            continue;
+        for (size_t j=0; j<CountElement; j++)
+        {
+            if (!(TSMas+j)->IzZero())
+            {
+                CountErrors++;
+                if (ShouldReportError()) REPORT("detect nonzero element at TestStruct\n");
+            }
+        }
+        Tfree(TSMas);
     }
-    Tfree(TSMas);
-  }
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
+    if (CountErrors) REPORT("%s\n",strError);
+    else if (FullLog) REPORT("%s\n",strOk);
+    error_occurred |= ( CountErrors>0 ) ;
 }
 
-
+// As several threads concurrently trying to push to memory limits, adding to 
+// vectors may have intermittent failures.  
+void reliablePushBack(std::vector<MemStruct> *vec, const MemStruct &mStruct)
+{
+    for (int i=0; i<10000; i++) {
+        try {
+            vec->push_back(mStruct);
+        } catch(std::bad_alloc) {
+            continue;
+        }
+        return;
+    }
+    ASSERT(0, "Unable to get free memory.");
+}
 
 void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize)
 {
-  std::vector<MemStruct> PointerList;
-  MemStruct MStruct;
-  void *tmp=Tmalloc(MByte);
-  CountErrors=0;
-  int CountNULL;
-  if (FullLog) printf("\nNULL return & check errno:\n");
-  UINT i=0;
-  UINT Size;
-  BYTE *zer;
-  /* //----------------------------------------------
-  float mb=0;
-  UINT mbInd=0;
-  if (FullLog)
-  {
-    printf("0");
-    for (i=0; i<MB_MAX/MB; i++)
-      printf(" ");
-    printf("500Mb");
-    for (i=0; i<MB_MAX/MB-4; i++)
-      printf(" ");
-    printf("1Gb\n");
-  }
-  */ //----------------------------------------------
-  while(tmp != NULL)
-  {
-    Size=rand()%(MaxSize-MinSize)+MinSize;
-  /* //----------------------------------------------
-    if (FullLog)
-    {
-      mb+=((float)Size)/MByte;
-      if (mb > mbInd)
-      {
-        printf(".");
-        mbInd+=MB;
-      }
-    }
-  */ //----------------------------------------------
-    tmp=Tmalloc(Size);
-    if (tmp != NULL)
-    {
-      zer=(BYTE*)tmp;
-      for (UINT k=0; k<Size; k++)
-        zer[k]=0;
-      MStruct.Pointer=tmp;
-      MStruct.Size=Size;
-      PointerList.push_back(MStruct);
-    }
-    i++;
-  }
-  if (FullLog) printf("\n");
-
-  // preparation complete, now running tests
-  // malloc
-  if (FullLog) printf("malloc....");
-  CountNULL = 0;
-  while (CountNULL==0)
-   for (int j=0; j<COUNT_TESTS; j++)
-  {
-    Size=rand()%(MaxSize-MinSize)+MinSize;
-    errno = 0;
-    tmp=Tmalloc(Size);
-    if (tmp == NULL)
-    {
-      CountNULL++;
-      if (errno != ENOMEM) {
-        CountErrors++;
-        if (FullLog) printf("NULL returned, error: errno != ENOMEM\n");
-      }
-    }
-    else
-    {
-      if (errno != 0) {
-        CountErrors++;
-        if (FullLog) printf("valid pointer returned, error: errno not kept\n");
-      }      
-      zer=(BYTE*)tmp;
-      for (UINT k=0; k<Size; k++)
-        zer[k]=0;
-      MStruct.Pointer=tmp;
-      MStruct.Size=Size;
-      PointerList.push_back(MStruct);
-      i++;
-    }
-  }
-  if (FullLog) printf("end malloc\n");
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
-  CountErrors=0;
-  //calloc
-  if (FullLog) printf("calloc....");
-  CountNULL = 0;
-  while (CountNULL==0)
-   for (int j=0; j<COUNT_TESTS; j++)
-  {
-    Size=rand()%(MaxSize-MinSize)+MinSize;
-    errno = 0;
-    tmp=Tcalloc(COUNT_ELEM_CALLOC,Size);
-    if (tmp == NULL)
-    {
-      CountNULL++;
-      if (errno != ENOMEM) {
-        CountErrors++;
-        if (FullLog) printf("NULL returned, error: errno != ENOMEM\n");
-      }
-    }
-    else
-    {
-      if (errno != 0) {
-        CountErrors++;
-        if (FullLog) printf("valid pointer returned, error: errno not kept\n");
-      }      
-      MStruct.Pointer=tmp;
-      MStruct.Size=Size;
-      PointerList.push_back(MStruct);
-      i++;
-    }
-  }
-  if (FullLog) printf("end calloc\n");
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
-  CountErrors=0;
-  if (FullLog) printf("realloc....");
-  CountNULL = 0;
-  while (CountNULL==0)
-   for (i=0;i<COUNT_TESTS && i<PointerList.size();i++)
-  {
-    errno = 0;
-    tmp=Trealloc(PointerList[i].Pointer,PointerList[i].Size*2);
-    if (PointerList[i].Pointer == tmp) // the same place
-    {
-      if (errno != 0) {
-        CountErrors++;
-        if (FullLog) printf("valid pointer returned, error: errno not kept\n");
-      }      
-      PointerList[i].Size *= 2;
-    }
-    else if (tmp != PointerList[i].Pointer && tmp != NULL) // another place
-    {
-      if (errno != 0) {
-        CountErrors++;
-        if (FullLog) printf("valid pointer returned, error: errno not kept\n");
-      }      
-      PointerList[i].Pointer = tmp;
-      PointerList[i].Size *= 2;
-    }
-    else if (tmp == NULL)
-    {
-      CountNULL++;
-      if (errno != ENOMEM)
-      {
-        CountErrors++;
-        if (FullLog) printf("NULL returned, error: errno != ENOMEM\n");
-      }
-      // check data integrity
-      zer=(BYTE*)PointerList[i].Pointer;
-      for (UINT k=0; k<PointerList[i].Size; k++)
-        if (zer[k] != 0)
+    std::vector<MemStruct> PointerList;
+    void *tmp;
+    CountErrors=0;
+    int CountNULL;
+    if (FullLog) REPORT("\nNULL return & check errno:\n");
+    UINT Size;
+    do {
+        Size=rand()%(MaxSize-MinSize)+MinSize;
+        tmp=Tmalloc(Size);
+        if (tmp != NULL)
         {
-          CountErrors++;
-          if (FullLog) printf("NULL returned, error: data changed\n");
+            memset(tmp, 0, Size);
+            reliablePushBack(&PointerList, MemStruct(tmp, Size));
         }
+    } while(tmp != NULL);
+    if (FullLog) REPORT("\n");
+
+    // preparation complete, now running tests
+    // malloc
+    if (FullLog) REPORT("malloc....");
+    CountNULL = 0;
+    while (CountNULL==0)
+        for (int j=0; j<COUNT_TESTS; j++)
+        {
+            Size=rand()%(MaxSize-MinSize)+MinSize;
+            errno = ENOMEM+j+1;
+            tmp=Tmalloc(Size);
+            if (tmp == NULL)
+            {
+                CountNULL++;
+                if (errno != ENOMEM) {
+                    CountErrors++;
+                    if (ShouldReportError()) REPORT("NULL returned, error: errno (%d) != ENOMEM\n", errno);
+                }
+            }
+            else
+            {
+                // Technically, if malloc returns a non-NULL pointer, it is allowed to set errno anyway.
+                // However, on most systems it does not set errno.
+                bool known_issue = false;
+#if __linux__
+                if( errno==ENOMEM ) known_issue = true;
+#endif /* __linux__ */
+                if (errno != ENOMEM+j+1 && !known_issue) {
+                    CountErrors++;
+                    if (ShouldReportError()) REPORT("error: errno changed to %d though valid pointer was returned\n", errno);
+                }      
+                memset(tmp, 0, Size);
+                reliablePushBack(&PointerList, MemStruct(tmp, Size));
+            }
+        }
+    if (FullLog) REPORT("end malloc\n");
+    if (CountErrors) REPORT("%s\n",strError);
+    else if (FullLog) REPORT("%s\n",strOk);
+    error_occurred |= ( CountErrors>0 ) ;
+
+    CountErrors=0;
+    //calloc
+    if (FullLog) REPORT("calloc....");
+    CountNULL = 0;
+    while (CountNULL==0)
+        for (int j=0; j<COUNT_TESTS; j++)
+        {
+            Size=rand()%(MaxSize-MinSize)+MinSize;
+            errno = ENOMEM+j+1;
+            tmp=Tcalloc(COUNT_ELEM_CALLOC,Size);  
+            if (tmp == NULL)
+            {
+                CountNULL++;
+                if (errno != ENOMEM) {
+                    CountErrors++;
+                    if (ShouldReportError()) REPORT("NULL returned, error: errno(%d) != ENOMEM\n", errno);
+                }
+            }
+            else
+            {
+                // Technically, if calloc returns a non-NULL pointer, it is allowed to set errno anyway.
+                // However, on most systems it does not set errno.
+                bool known_issue = false;
+#if __linux__
+                if( errno==ENOMEM ) known_issue = true;
+#endif /* __linux__ */
+                if (errno != ENOMEM+j+1 && !known_issue) {
+                    CountErrors++;
+                    if (ShouldReportError()) REPORT("error: errno changed to %d though valid pointer was returned\n", errno);
+                }      
+                reliablePushBack(&PointerList, MemStruct(tmp, Size));
+            }
+        }
+    if (FullLog) REPORT("end calloc\n");
+    if (CountErrors) REPORT("%s\n",strError);
+    else if (FullLog) REPORT("%s\n",strOk);
+    error_occurred |= ( CountErrors>0 ) ;
+    CountErrors=0;
+    if (FullLog) REPORT("realloc....");
+    CountNULL = 0;
+    if (PointerList.size() > 0)
+        while (CountNULL==0)
+            for (size_t i=0; i<(size_t)COUNT_TESTS && i<PointerList.size(); i++)
+            {
+                errno = 0;
+                tmp=Trealloc(PointerList[i].Pointer,PointerList[i].Size*2);
+                if (PointerList[i].Pointer == tmp) // the same place
+                {
+                    bool known_issue = false;
+#if __linux__
+                    if( errno==ENOMEM ) known_issue = true;
+#endif /* __linux__ */
+                    if (errno != 0 && !known_issue) {
+                        CountErrors++;
+                        if (ShouldReportError()) REPORT("valid pointer returned, error: errno not kept\n");
+                    }      
+                    PointerList[i].Size *= 2;
+                }
+                else if (tmp != PointerList[i].Pointer && tmp != NULL) // another place
+                {
+                    bool known_issue = false;
+#if __linux__
+                    if( errno==ENOMEM ) known_issue = true;
+#endif /* __linux__ */
+                    if (errno != 0 && !known_issue) {
+                        CountErrors++;
+                        if (ShouldReportError()) REPORT("valid pointer returned, error: errno not kept\n");
+                    }      
+                    PointerList[i].Pointer = tmp;
+                    PointerList[i].Size *= 2;
+                }
+                else if (tmp == NULL)
+                {
+                    CountNULL++;
+                    if (errno != ENOMEM)
+                    {
+                        CountErrors++;
+                        if (ShouldReportError()) REPORT("NULL returned, error: errno(%d) != ENOMEM\n", errno);
+                    }
+                    // check data integrity
+                    BYTE *zer=(BYTE*)PointerList[i].Pointer;
+                    for (UINT k=0; k<PointerList[i].Size; k++)
+                        if (zer[k] != 0)
+                        {
+                            CountErrors++;
+                            if (ShouldReportError()) REPORT("NULL returned, error: data changed\n");
+                        }
+                }
+            }
+    if (FullLog) REPORT("realloc end\n");
+    if (CountErrors) REPORT("%s\n",strError);
+    else if (FullLog) REPORT("%s\n",strOk);
+    error_occurred |= ( CountErrors>0 ) ;
+    for (UINT i=0; i<PointerList.size(); i++)
+    {
+        Tfree(PointerList[i].Pointer);
     }
-  }
-  if (FullLog) printf("realloc end\n");
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
-  for (UINT i=0; i<PointerList.size(); i++)
-  {
-    Tfree(PointerList[i].Pointer);
-  }
 }
 
 
 void CMemTest::UniquePointer()
 {
-  CountErrors=0;
-  int* MasPointer[COUNT_ELEM];
-  UINT MasCountElem[COUNT_ELEM];
-  if (FullLog) printf("\nUnique pointer using 0\n");
-  //
-  //-------------------------------------------------------
-  //malloc
-  for (int i=0; i<COUNT_ELEM; i++)
-  {
-    MasCountElem[i]=rand()%MAX;
-    MasPointer[i]=(int*)Tmalloc(MasCountElem[i]*sizeof(int));
-    for (UINT j=0; j<MasCountElem[i]; j++)
-      *(MasPointer[i]+j)=0;
-  }
-  if (FullLog) printf("malloc....");
-  for (UINT i=0; i<COUNT_ELEM-1; i++)
-  {
-    for (UINT j=0; j<MasCountElem[i]; j++)
+    CountErrors=0;
+    int **MasPointer = (int **)Tmalloc(sizeof(int*)*COUNT_ELEM);
+    size_t *MasCountElem = (size_t*)Tmalloc(sizeof(size_t)*COUNT_ELEM);
+    if (FullLog) REPORT("\nUnique pointer using 0\n");
+    ASSERT(MasCountElem && MasPointer, NULL);
+    //
+    //-------------------------------------------------------
+    //malloc
+    for (int i=0; i<COUNT_ELEM; i++)
     {
-      if (*(*(MasPointer+i)+j)!=0)
-      {
-        CountErrors++;
-//        if (FullLog) printf("error, detect 1 with 0x%x\n",(*(MasPointer+i)+j));
-      }
-      *(*(MasPointer+i)+j)+=1;
+        MasCountElem[i]=rand()%MAX_SIZE;
+        MasPointer[i]=(int*)Tmalloc(MasCountElem[i]*sizeof(int));
+        if (NULL == MasPointer[i])
+            MasCountElem[i]=0;
+        for (UINT j=0; j<MasCountElem[i]; j++)
+            *(MasPointer[i]+j)=0;
     }
-  }
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
-  //----------------------------------------------------------
-  //calloc
-  for (int i=0; i<COUNT_ELEM; i++)
-    Tfree(MasPointer[i]);
-  CountErrors=0;
-  for (long i=0; i<COUNT_ELEM; i++)
-  {
-    MasPointer[i]=(int*)Tcalloc(MasCountElem[i]*sizeof(int),2);
-  }
-  if (FullLog) printf("calloc....");
-  for (int i=0; i<COUNT_ELEM-1; i++)
-  {
-    for (UINT j=0; j<*(MasCountElem+i); j++)
+    if (FullLog) REPORT("malloc....");
+    for (UINT i=0; i<COUNT_ELEM-1; i++)
     {
-      if (*(*(MasPointer+i)+j)!=0)
-      {
-        CountErrors++;
-//        if (FullLog) printf("error, detect 1 with 0x%x\n",(*(MasPointer+i)+j));
-      }
-      *(*(MasPointer+i)+j)+=1;
+        for (UINT j=0; j<MasCountElem[i]; j++)
+        {
+            if (*(*(MasPointer+i)+j)!=0)
+            {
+                CountErrors++;
+                if (ShouldReportError()) REPORT("error, detect 1 with 0x%p\n",(*(MasPointer+i)+j));
+            }
+            *(*(MasPointer+i)+j)+=1;
+        }
     }
-  }
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
-  //---------------------------------------------------------
-  //realloc
-  CountErrors=0;
-  for (UINT i=0; i<COUNT_ELEM; i++)
-  {
-    MasCountElem[i]*=2;
-    *(MasPointer+i)=(int*)Trealloc(*(MasPointer+i),MasCountElem[i]*sizeof(int));
-    for (UINT j=0; j<MasCountElem[i]; j++)
-      *(*(MasPointer+i)+j)=0;
-  }
-  if (FullLog) printf("realloc....");
-  for (int i=0; i<COUNT_ELEM-1; i++)
-  {
-    for (UINT j=0; j<*(MasCountElem+i); j++)
+    if (CountErrors) REPORT("%s\n",strError);
+    else if (FullLog) REPORT("%s\n",strOk);
+    error_occurred |= ( CountErrors>0 ) ;
+    //----------------------------------------------------------
+    //calloc
+    for (int i=0; i<COUNT_ELEM; i++)
+        Tfree(MasPointer[i]);
+    CountErrors=0;
+    for (long i=0; i<COUNT_ELEM; i++)
     {
-      if (*(*(MasPointer+i)+j)!=0)
-      {
-        CountErrors++;
-      }
-      *(*(MasPointer+i)+j)+=1;
+        MasPointer[i]=(int*)Tcalloc(MasCountElem[i]*sizeof(int),2);
+        if (NULL == MasPointer[i])
+            MasCountElem[i]=0;
     }
-  }
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
-  for (int i=0; i<COUNT_ELEM; i++)
-    Tfree(MasPointer[i]);
+    if (FullLog) REPORT("calloc....");
+    for (int i=0; i<COUNT_ELEM-1; i++)
+    {
+        for (UINT j=0; j<*(MasCountElem+i); j++)
+        {
+            if (*(*(MasPointer+i)+j)!=0)
+            {
+                CountErrors++;
+                if (ShouldReportError()) REPORT("error, detect 1 with 0x%p\n",(*(MasPointer+i)+j));
+            }
+            *(*(MasPointer+i)+j)+=1;
+        }
+    }
+    if (CountErrors) REPORT("%s\n",strError);
+    else if (FullLog) REPORT("%s\n",strOk);
+    error_occurred |= ( CountErrors>0 ) ;
+    //---------------------------------------------------------
+    //realloc
+    CountErrors=0;
+    for (int i=0; i<COUNT_ELEM; i++)
+    {
+        MasCountElem[i]*=2;
+        *(MasPointer+i)=
+            (int*)Trealloc(*(MasPointer+i),MasCountElem[i]*sizeof(int));
+        if (NULL == MasPointer[i])
+            MasCountElem[i]=0;
+        for (UINT j=0; j<MasCountElem[i]; j++)
+            *(*(MasPointer+i)+j)=0;
+    }
+    if (FullLog) REPORT("realloc....");
+    for (int i=0; i<COUNT_ELEM-1; i++)
+    {
+        for (UINT j=0; j<*(MasCountElem+i); j++)
+        {
+            if (*(*(MasPointer+i)+j)!=0)
+            {
+                CountErrors++;
+            }
+            *(*(MasPointer+i)+j)+=1;
+        }
+    }
+    if (CountErrors) REPORT("%s\n",strError);
+    else if (FullLog) REPORT("%s\n",strOk);
+    error_occurred |= ( CountErrors>0 ) ;
+    for (int i=0; i<COUNT_ELEM; i++)
+        Tfree(MasPointer[i]);
+    Tfree(MasCountElem);
+    Tfree(MasPointer);
+}
+
+bool CMemTest::ShouldReportError()
+{
+    if (FullLog)
+        return true;
+    else
+        if (firstTime) {
+            firstTime = false;
+            return true;
+        } else
+            return false;
 }
 
 void CMemTest::Free_NULL()
 {
-  CountErrors=0;
-  if (FullLog) printf("\ncall free with parameter NULL....");
-  for (UINT i=0; i<COUNTEXPERIMENT; i++)
-  {
-    Tfree(NULL);
-    if (errno != 0)
+    CountErrors=0;
+    if (FullLog) REPORT("\ncall free with parameter NULL....");
+    errno = 0;
+    for (int i=0; i<COUNTEXPERIMENT; i++)
     {
-      CountErrors++;
-      if (FullLog) printf("error is found by a call free with parameter NULL\n");
+        Tfree(NULL);
+        if (errno != 0)
+        {
+            CountErrors++;
+            if (ShouldReportError()) REPORT("error is found by a call free with parameter NULL\n");
+        }
     }
-  }
-  if (CountErrors) printf("%s\n",strError);
-  else if (FullLog) printf("%s\n",strOk);
+    if (CountErrors) REPORT("%s\n",strError);
+    else if (FullLog) REPORT("%s\n",strOk);
+    error_occurred |= ( CountErrors>0 ) ;
 }
 
-void CMemTest::RunAllTests()
+void CMemTest::TestAlignedParameters()
 {
-  Zerofilling();
-  Free_NULL();
-  InvariantDataRealloc();
-  ReallocParam();
+    void *memptr;
+    int ret;
+
+    if (Rposix_memalign) {
+        // alignment isn't power of 2
+        for (int bad_align=3; bad_align<16; bad_align++)
+            if (bad_align&(bad_align-1)) {
+                ret = Tposix_memalign(NULL, bad_align, 100);
+                ASSERT(EINVAL==ret, NULL);
+            }
+    
+        memptr = &ret;
+        ret = Tposix_memalign(&memptr, 5*sizeof(void*), 100);
+        ASSERT(memptr == &ret,
+               "memptr should not be changed after unsuccesful call");
+        ASSERT(EINVAL==ret, NULL);
+    
+        // alignment is power of 2, but not a multiple of sizeof(void *),
+        // we expect that sizeof(void*) > 2
+        ret = Tposix_memalign(NULL, 2, 100);
+        ASSERT(EINVAL==ret, NULL);
+    }
+    if (Raligned_malloc) {
+        // alignment isn't power of 2
+        for (int bad_align=3; bad_align<16; bad_align++)
+            if (bad_align&(bad_align-1)) {
+                memptr = Taligned_malloc(100, bad_align);
+                ASSERT(NULL==memptr, NULL);
+                ASSERT(EINVAL==errno, NULL);
+            }
+    
+        // size is zero
+        memptr = Taligned_malloc(0, 16);
+        ASSERT(NULL==memptr, "size is zero, so must return NULL");
+        ASSERT(EINVAL==errno, NULL);
+    }
+    if (Taligned_free) {
+        // NULL pointer is OK to free
+        errno = 0;
+        Taligned_free(NULL);
+        /* As there is no return value for free, strictly speaking we can't 
+           check errno here. But checked implementations obey the assertion.
+        */
+        ASSERT(0==errno, NULL);
+    }
+    if (Raligned_realloc) {
+        for (int i=1; i<20; i++) {
+            // checks that calls work correctly in presence of non-zero errno
+            errno = i;
+            void *ptr = Taligned_malloc(i*10, 128);
+            ASSERT(NULL!=ptr, NULL);
+            ASSERT(0!=errno, NULL);
+            // if size is zero and pointer is not NULL, works like free
+            memptr = Taligned_realloc(ptr, 0, 64);
+            ASSERT(NULL==memptr, NULL);
+            ASSERT(0!=errno, NULL);
+        }
+        // alignment isn't power of 2
+        for (int bad_align=3; bad_align<16; bad_align++)
+            if (bad_align&(bad_align-1)) {
+                void *ptr = &bad_align;
+                memptr = Taligned_realloc(&ptr, 100, bad_align);
+                ASSERT(NULL==memptr, NULL);
+                ASSERT(&bad_align==ptr, NULL);
+                ASSERT(EINVAL==errno, NULL);
+            }
+    }
+}
+
+void CMemTest::RunAllTests(int total_threads)
+{
+    Limit limit_200M(200*total_threads), no_limit(0);
+
+    Zerofilling();
+    Free_NULL();
+    InvariantDataRealloc(/*aligned=*/false);
+    if (Raligned_realloc)
+        InvariantDataRealloc(/*aligned=*/true);
+    TestAlignedParameters();
 #if __APPLE__
-  printf("Warning: skipping some tests (known issue on Mac OS* X)\n");
-  return;
+    REPORT("Warning: skipping some tests (known issue on Mac OS* X)\n");
 #else
-  UniquePointer();
-  AddrArifm();
-  NULLReturn(1*MByte,100*MByte);
+    UniquePointer();
+    AddrArifm();
+    /* There is a bug in the specific verion of GLIBC (2.5-12) shipped 
+       with RHEL5 that leads to erroneous working of the test 
+       on Intel64 and IPF systems when setrlimit-related part is enabled.
+       Switching to GLIBC 2.5-18 from RHEL5.1 resolved the issue.
+     */
+    if (perProcessLimits)
+        limitBarrier->wait(limit_200M);
+    else
+        limitMem(200);
+#if !__TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
+    NULLReturn(1*MByte,100*MByte);
 #endif
-  if (FullLog) printf("All tests ended\nclearing memory....");
+    if (perProcessLimits)
+        limitBarrier->wait(no_limit);
+    else
+        limitMem(0);
+#endif
+    if (FullLog) REPORT("All tests ended\nclearing memory...");
 }

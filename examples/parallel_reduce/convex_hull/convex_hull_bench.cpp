@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -208,11 +208,11 @@ typedef tbb::blocked_range<size_t> range_t;
 typedef tbb::concurrent_vector<point_t> pointVec_t;
 
 void appendVector(const point_t* src, size_t srcSize, pointVec_t& dest) {
-    std::copy(src, src + srcSize, dest.begin() + dest.grow_by(srcSize));
+    std::copy(src, src + srcSize, dest.grow_by(srcSize));
 }
 
 void appendVector(const pointVec_t& src, pointVec_t& dest) {
-    std::copy(src.begin(), src.end(), dest.begin() + dest.grow_by(src.size()));
+    std::copy(src.begin(), src.end(), dest.grow_by(src.size()));
 }
 
 #else // USE STD::VECTOR - include spin_mutex.h and lock vector operations
@@ -303,7 +303,8 @@ template<typename BodyType>
 void initialize(pointVec_t &points) {
     points.clear();
 
-    tbb::parallel_for(range_t(0, cfg::MAXPOINTS, BodyType::grainSize), BodyType(points));
+    tbb::parallel_for(range_t(0, cfg::MAXPOINTS, BodyType::grainSize),
+                      BodyType(points), tbb::simple_partitioner());
 }
 
 class FindXExtremum {
@@ -492,7 +493,8 @@ template <typename BodyType>
 point_t divide(const pointVec_t &P, pointVec_t &P_reduced,
               const point_t &p1, const point_t &p2) {
     BodyType body(p1, p2, P, P_reduced);
-    tbb::parallel_reduce(range_t(0, P.size(), BodyType::grainSize), body);
+    tbb::parallel_reduce(range_t(0, P.size(), BodyType::grainSize),
+                         body, tbb::simple_partitioner() );
 
     if(util::VERBOSE) {
         std::stringstream ss;

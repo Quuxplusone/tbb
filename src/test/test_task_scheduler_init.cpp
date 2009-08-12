@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,6 +28,7 @@
 
 #include "tbb/task_scheduler_init.h"
 #include <cstdlib>
+#include "harness_assert.h"
 
 //! Test that task::initialize and task::terminate work when doing nothing else.
 /** maxthread is treated as the "maximum" number of worker threads. */
@@ -36,20 +37,26 @@ void InitializeAndTerminate( int maxthread ) {
         switch( i&3 ) {
             default: {
                 tbb::task_scheduler_init init( std::rand() % maxthread + 1 );
+                ASSERT(init.is_active(), NULL);
                 break;
             }
             case 0: {   
                 tbb::task_scheduler_init init;
+                ASSERT(init.is_active(), NULL);
                 break;
             }
             case 1: {
                 tbb::task_scheduler_init init( tbb::task_scheduler_init::automatic );
+                ASSERT(init.is_active(), NULL);
                 break;
             }
             case 2: {
                 tbb::task_scheduler_init init( tbb::task_scheduler_init::deferred );
+                ASSERT(!init.is_active(), "init should not be active; initialization was deferred");
                 init.initialize( std::rand() % maxthread + 1 );
+                ASSERT(init.is_active(), NULL);
                 init.terminate();
+                ASSERT(!init.is_active(), "init should not be active; it was terminated");
                 break;
             }
         }
@@ -59,21 +66,19 @@ void InitializeAndTerminate( int maxthread ) {
 #include <cstdio>
 #include <stdexcept>
 #include "harness.h"
-#include "tbb/blocked_range.h"
 
 #if _WIN64
 namespace std {      // 64-bit Windows compilers have not caught up with 1998 ISO C++ standard
     using ::srand;
-    using ::printf;
 }
 #endif /* _WIN64 */
 
 struct ThreadedInit {
-    void operator()( const tbb::blocked_range<long>& r ) const {
+    void operator()( int ) const {
         try {
             InitializeAndTerminate(MaxThread);
         } catch( std::runtime_error& error ) {
-            std::printf("ERROR: %s\n", error.what() );
+            REPORT("ERROR: %s\n", error.what() );
         }
     }
 };
@@ -83,7 +88,7 @@ struct ThreadedInit {
 #include <tchar.h>
 #endif /* _MSC_VER */
 
-//! Test driver
+__TBB_TEST_EXPORT
 int main(int argc, char* argv[]) {
 #if _MSC_VER && !__TBB_NO_IMPLICIT_LINKAGE
     #ifdef _DEBUG
@@ -101,12 +106,12 @@ int main(int argc, char* argv[]) {
     try {
         InitializeAndTerminate(MaxThread);
     } catch( std::runtime_error& error ) {
-        std::printf("ERROR: %s\n", error.what() );
+        REPORT("ERROR: %s\n", error.what() );
     }
     for( int p=MinThread; p<=MaxThread; ++p ) {
-        if( Verbose ) printf("testing with %d threads\n", p );
-        NativeParallelFor( tbb::blocked_range<long>(0,p,1), ThreadedInit() );
+        if( Verbose ) REPORT("testing with %d threads\n", p );
+        NativeParallelFor( p, ThreadedInit() );
     }
-    std::printf("done\n");
+    REPORT("done\n");
     return 0;
 }

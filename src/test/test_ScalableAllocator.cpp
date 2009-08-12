@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,12 +28,6 @@
 
 // Test whether scalable_allocator complies with the requirements in 20.1.5 of ISO C++ Standard (1998).
 
-/* to avoid dependency on TBB shared library, the following macro should be
-   defined to non-zero _before_ including any TBB or test harness headers.
-   Also tbb_assert_impl.h from src/tbb should be included right after */
-#define __TBB_NO_IMPLICIT_LINKAGE 1
-#include "../tbb/tbb_assert_impl.h"
-
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 
 #include "tbb/scalable_allocator.h"
@@ -45,9 +39,9 @@
 #include <windows.h>
 #endif /* _MSC_VER */
 
-int main(void)
-{
-#if _MSC_VER && !__TBB_NO_IMPLICIT_LINKAGE
+__TBB_TEST_EXPORT
+int main() {
+#if _MSC_VER && !__TBBMALLOC_NO_IMPLICIT_LINKAGE
     #ifdef _DEBUG
         ASSERT(!GetModuleHandle("tbbmalloc.dll") && GetModuleHandle("tbbmalloc_debug.dll"),
             "debug application links with non-debug tbbmalloc library");
@@ -55,8 +49,8 @@ int main(void)
         ASSERT(!GetModuleHandle("tbbmalloc_debug.dll") && GetModuleHandle("tbbmalloc.dll"),
             "non-debug application links with debug tbbmalloc library");
     #endif
-#endif /* _MSC_VER && !__TBB_NO_IMPLICIT_LINKAGE */
+#endif /* _MSC_VER && !__TBBMALLOC_NO_IMPLICIT_LINKAGE */
     int result = TestMain<tbb::scalable_allocator<void> >();
-    printf("done\n");
+    REPORT("done\n");
     return result;
 }

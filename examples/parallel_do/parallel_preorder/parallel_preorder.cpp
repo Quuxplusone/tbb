@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,6 +34,7 @@
 #include <vector>
 #include <algorithm>
 #include <cstring>
+#include <cstdio>
 #include "Graph.h"
 
 using namespace std;
@@ -169,7 +170,11 @@ int main( int argc, char* argv[] ) {
     if (PauseFlag) {
         printf ("Press return key to exit");
         char c;
-        scanf("%c", &c);
+        int n = scanf("%c", &c);
+        if( n!=1 ) {
+            fprintf(stderr,"Fatal error: unexpected end of input\n");
+            exit(1);
+        }
     }
 
     return 0;

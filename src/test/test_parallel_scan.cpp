@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -97,12 +97,12 @@ class Accumulator: BodyId {
 public:
 #if PRINT_DEBUG
     void print() const {
-        printf("%d [%ld..%ld)\n", id,my_range.begin(),my_range.end() );
+        REPORT("%d [%ld..%ld)\n", id,my_range.begin(),my_range.end() );
     }
 #endif /* PRINT_DEBUG */
     ~Accumulator() {
 #if PRINT_DEBUG
-        printf("%d [%ld..%ld) destroyed\n",id,my_range.begin(),my_range.end() ); 
+        REPORT("%d [%ld..%ld) destroyed\n",id,my_range.begin(),my_range.end() ); 
 #endif /* PRINT_DEBUG */
         // Clear self as first action of destructor, to indicate that object is not fully constructed.
         self = 0;
@@ -113,25 +113,25 @@ public:
     {
         ++NumberOfLiveAccumulator;
 #if PRINT_DEBUG
-        printf("%d forked from %d\n",id,a.id);
+        REPORT("%d forked from %d\n",id,a.id);
 #endif /* PRINT_DEBUG */
         Snooze(true);
         // Set self as last action of constructor, to indicate that object is fully constructed.
         self = this;
     }
     template<typename Tag> 
-    void operator()( const Range& r, Tag tag ) {
+    void operator()( const Range& r, Tag /*tag*/ ) {
         Snooze(true);
 #if PRINT_DEBUG
         if( my_range.empty() )
-            printf("%d computing %s [%ld..%ld)\n",id,tag.is_final_scan()?"final":"lookahead",r.begin(),r.end() );
+            REPORT("%d computing %s [%ld..%ld)\n",id,Tag::is_final_scan()?"final":"lookahead",r.begin(),r.end() );
         else
-            printf("%d computing %s [%ld..%ld) [%ld..%ld)\n",id,tag.is_final_scan()?"final":"lookahead",my_range.begin(),my_range.end(),r.begin(),r.end());
+            REPORT("%d computing %s [%ld..%ld) [%ld..%ld)\n",id,Tag::is_final_scan()?"final":"lookahead",my_range.begin(),my_range.end(),r.begin(),r.end());
 #endif /* PRINT_DEBUG */
-        ASSERT( !tag.is_final_scan() || (my_range.begin()==0 && my_range.end()==r.begin()) || (my_range.empty() && r.begin()==0), NULL );
+        ASSERT( !Tag::is_final_scan() || (my_range.begin()==0 && my_range.end()==r.begin()) || (my_range.empty() && r.begin()==0), NULL );
         for( long i=r.begin(); i<r.end(); ++i ) {
             my_total += my_array[i];
-            if( tag.is_final_scan() ) {
+            if( Tag::is_final_scan() ) {
                 ASSERT( AddendHistory[i]<USED_FINAL, "addend used 'finally' twice?" );
                 AddendHistory[i] |= USED_FINAL;
                 my_sum[i] = my_total;
@@ -150,7 +150,7 @@ public:
     }
     void reverse_join( const Accumulator& left ) {
 #if PRINT_DEBUG
-        printf("reverse join %d [%ld..%ld) %d [%ld..%ld)\n",
+        REPORT("reverse join %d [%ld..%ld) %d [%ld..%ld)\n",
                left.id,left.my_range.begin(),left.my_range.end(),
                id,my_range.begin(),my_range.end());
 #endif /* PRINT_DEBUG */
@@ -179,7 +179,8 @@ public:
 static void VerifySum( long start_index, long finish_index, int sum, int line ) {
     int expected = TriangularSum( finish_index ) - TriangularSum( start_index );
     if( expected!=sum ) {
-        printf("line %d: sum[%ld..%ld] should be = %d, but was computed as %d\n", line, start_index, finish_index, expected, sum );
+        REPORT( "line %d: sum[%ld..%ld] should be = %d, but was computed as %d\n",
+                line, start_index, finish_index, expected, sum );
         abort();
     }
 }
@@ -199,7 +200,7 @@ void TestAccumulator( int mode, int nthread ) {
         Accumulator<T> acc( addend, sum );
         tbb::tick_count t0 = tbb::tick_count::now();
 #if PRINT_DEBUG
-        printf("--------- mode=%d range=[0..%ld)\n",mode,n);
+        REPORT("--------- mode=%d range=[0..%ld)\n",mode,n);
 #endif /* PRINT_DEBUG */
         ScanIsRunning = true;
 
@@ -217,14 +218,14 @@ void TestAccumulator( int mode, int nthread ) {
 
         ScanIsRunning = false;
 #if PRINT_DEBUG
-        printf("=========\n");
+        REPORT("=========\n");
 #endif /* PRINT_DEBUG */
         Snooze(false);
         tbb::tick_count t1 = tbb::tick_count::now();
         long used_once_count = 0;
         for( long i=0; i<n; ++i ) 
             if( !(AddendHistory[i]&USED_FINAL) ) {
-                printf("failed to use addend[%ld] %s\n",i,AddendHistory[i]&USED_NONFINAL?"(but used nonfinal)":"");
+                REPORT("failed to use addend[%ld] %s\n",i,AddendHistory[i]&USED_NONFINAL?"(but used nonfinal)":"");
             }
         for( long i=0; i<n; ++i ) {
             VerifySum( 0, i, sum[i], __LINE__ );
@@ -235,7 +236,7 @@ void TestAccumulator( int mode, int nthread ) {
         else
             ASSERT( acc.my_total==0, NULL );
         if( Verbose ) 
-            printf("time [n=%ld] = %g\tused_once%% = %g\tnthread=%d\n",n,(t1-t0).seconds(), n==0 ? 0 : 100.0*used_once_count/n,nthread);
+            REPORT("time [n=%ld] = %g\tused_once%% = %g\tnthread=%d\n",n,(t1-t0).seconds(), n==0 ? 0 : 100.0*used_once_count/n,nthread);
     }
     delete[] addend;
     delete[] sum;
@@ -249,6 +250,7 @@ static void TestScanTags() {
 #include "tbb/task_scheduler_init.h"
 #include "harness_cpu.h"
 
+__TBB_TEST_EXPORT
 int main(int argc, char* argv[]) {
     // Default is to run on two threads.
     MinThread = MaxThread = 2;
@@ -269,6 +271,6 @@ int main(int argc, char* argv[]) {
             ASSERT( NumberOfLiveAccumulator==0, NULL );
         }
     }
-    printf("done\n");
+    REPORT("done\n");
     return 0;
 }

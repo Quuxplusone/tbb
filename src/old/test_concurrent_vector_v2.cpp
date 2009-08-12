@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -434,7 +434,7 @@ void TestConcurrentGrowBy( int nthread ) {
     }
     delete[] found;
     if( nthread>1 && inversions<m/10 )
-        std::printf("WARNING: not much concurrency in TestConcurrentGrowBy\n");
+        std::printf("Warning: not much concurrency in TestConcurrentGrowBy\n");
 }
 
 //! Test the assignment operator

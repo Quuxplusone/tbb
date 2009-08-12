@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -48,7 +48,7 @@
 using namespace std;
 
 #if _DEBUG
-char *faceNames[] = { "North", "East", "South", "West" };
+const char *faceNames[] = { "North", "East", "South", "West" };
 #endif
 
 /** 
@@ -481,6 +481,9 @@ bool GenerateMap(Polygon_map_t **newMap, int xSize, int ySize, int gNPolygons, c
         }
     }
 #endif  // _DEBUG
+    free(tempMap);
+    free(validPolys);
+    free(validSide);
     return true;
 }
 
@@ -553,6 +556,7 @@ void CheckPolygonMap(Polygon_map_t *checkMap) {
             }
         }
     }
+    free(cArray);
 }
 
 bool CompOnePolygon(RPolygon *p1, RPolygon *p2) {
@@ -602,6 +606,8 @@ bool ComparePolygonMaps(Polygon_map_t *map1, Polygon_map_t *map2) {
             is_ok = false;
         }
     }
+    delete t1;
+    delete t2;
     return is_ok;
 }
 

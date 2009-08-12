@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -39,33 +39,33 @@ class spin_rw_mutex {
     //! @cond INTERNAL
 
     //! Present so that 1.0 headers work with 1.1 dynamic library.
-    static void internal_itt_releasing(spin_rw_mutex *);
+    static void __TBB_EXPORTED_FUNC internal_itt_releasing(spin_rw_mutex *);
 
     //! Internal acquire write lock.
-    static bool internal_acquire_writer(spin_rw_mutex *);
+    static bool __TBB_EXPORTED_FUNC internal_acquire_writer(spin_rw_mutex *);
 
     //! Out of line code for releasing a write lock.  
     /** This code is has debug checking and instrumentation for Intel(R) Thread Checker and Intel(R) Thread Profiler. */
-    static void internal_release_writer(spin_rw_mutex *);
+    static void __TBB_EXPORTED_FUNC internal_release_writer(spin_rw_mutex *);
 
     //! Internal acquire read lock.
-    static void internal_acquire_reader(spin_rw_mutex *);
+    static void __TBB_EXPORTED_FUNC internal_acquire_reader(spin_rw_mutex *);
 
     //! Internal upgrade reader to become a writer.
-    static bool internal_upgrade(spin_rw_mutex *);
+    static bool __TBB_EXPORTED_FUNC internal_upgrade(spin_rw_mutex *);
 
     //! Out of line code for downgrading a writer to a reader.   
     /** This code is has debug checking and instrumentation for Intel(R) Thread Checker and Intel(R) Thread Profiler. */
-    static void internal_downgrade(spin_rw_mutex *);
+    static void __TBB_EXPORTED_FUNC internal_downgrade(spin_rw_mutex *);
 
     //! Internal release read lock.
-    static void internal_release_reader(spin_rw_mutex *);
+    static void __TBB_EXPORTED_FUNC internal_release_reader(spin_rw_mutex *);
 
     //! Internal try_acquire write lock.
-    static bool internal_try_acquire_writer(spin_rw_mutex *);
+    static bool __TBB_EXPORTED_FUNC internal_try_acquire_writer(spin_rw_mutex *);
 
     //! Internal try_acquire read lock.
-    static bool internal_try_acquire_reader(spin_rw_mutex *);
+    static bool __TBB_EXPORTED_FUNC internal_try_acquire_reader(spin_rw_mutex *);
 
     //! @endcond
 public:

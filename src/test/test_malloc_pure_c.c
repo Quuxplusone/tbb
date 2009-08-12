@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -39,8 +39,7 @@
  *  can be used from pure C programs; also some regression checks are done
  */
 
-int main(void)
-{
+int main(void) {
     size_t i, j;
     void *p1, *p2;
     for( i=0; i<=1<<16; ++i) {
@@ -74,6 +73,7 @@ int main(void)
         p1 = scalable_realloc(p2, i);
         p2 = scalable_malloc(i);
     }
+    scalable_free(p1);
     scalable_free(p2);
     printf("done\n");
     return 0;

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -53,10 +53,19 @@ public:
 };
 
 void GenericScheduler::test_assembly_routines() {
+    __TBB_ASSERT( assert_okay(), NULL );
+#if __TBB_TASK_DEQUE
     try_enter_arena();
-    mark_pool_full();
+    ASSERT( arena_slot->task_pool == dummy_slot.task_pool, "entering arena must not lock the task pool" );
+    arena->mark_pool_full();
+    acquire_task_pool();
     release_task_pool();
-    ASSERT( assert_okay(), NULL );
+    acquire_task_pool();    // leave_arena requires the pool to be locked
+    leave_arena();
+#else /* !__TBB_TASK_DEQUE */
+    try_enter_arena();
+    arena->mark_pool_full();
+    release_task_pool();
     long steal_count = 0;
     long get_count = 0;
     const depth_type n = 5;
@@ -75,15 +84,15 @@ void GenericScheduler::test_assembly_routines() {
                     for( int insert=0; insert<2; ++insert ) 
                         // Loop over whether to steal or get
                         for( int steal=0; steal<2; ++steal ) {
-                            ASSERT( assert_okay(), NULL );
+                            __TBB_ASSERT( assert_okay(), NULL );
                             task** array = dummy_slot.task_pool->array;  
                             for( depth_type k=0; k<array_size_proxy; ++k )
                                 array[k] = NULL;
                             dummy_slot.task_pool->prefix().steal_begin = s;
-                            ASSERT( assert_okay(), NULL );
+                            __TBB_ASSERT( assert_okay(), NULL );
 
                             TestTask& w = *new( task::allocate_root() ) TestTask("w");
-                            ASSERT( assert_okay(), NULL );
+                            __TBB_ASSERT( assert_okay(), NULL );
                             if( d>=0 ) {
                                 w.prefix().depth = int(d);
                                 w.prefix().next = NULL;
@@ -93,22 +102,22 @@ void GenericScheduler::test_assembly_routines() {
                             deepest = d;
                             arena_slot->steal_end = 2*d;
 
-                            ASSERT( assert_okay(), NULL );
+                            __TBB_ASSERT( assert_okay(), NULL );
                             TestTask& x = *new( task::allocate_root() ) TestTask("x");
                             TestTask& y = *new( task::allocate_root() ) TestTask("y");
                             TestTask& z = *new( task::allocate_root() ) TestTask("z");
-                            ASSERT( assert_okay(), NULL );
+                            __TBB_ASSERT( assert_okay(), NULL );
                             x.prefix().next = &y;
                             y.prefix().next = &z;       
                             z.prefix().next = NULL;
                             ASSERT( x.prefix().next==&y, NULL );
                             for( task* p=&x; p; p=p->prefix().next ) 
                                 p->prefix().depth = int(i);
-                            ASSERT( assert_okay(), NULL );
+                            __TBB_ASSERT( assert_okay(), NULL );
                             z.prefix().next = (task*)(void*)-1;
                             if( insert ) {
                                 spawn( x, z.prefix().next );
-                                ASSERT( assert_okay(), NULL );
+                                __TBB_ASSERT( assert_okay(), NULL );
                                 depth_type expected_deepest = d>=i ? d : i;
                                 ASSERT( deepest==expected_deepest, NULL );
                                 depth_type expected_shallowest = i<=s ? i : s;
@@ -128,10 +137,10 @@ void GenericScheduler::test_assembly_routines() {
                                         break;
                                     }
                                 }
-                                ASSERT( assert_okay(), NULL );
+                                __TBB_ASSERT( assert_okay(), NULL );
                                 task* t = steal_task( *arena_slot, limit );
                                 ASSERT( (arena_slot->steal_end&1)==0, "forgot to release lock?" );
-                                ASSERT( assert_okay(), NULL );
+                                __TBB_ASSERT( assert_okay(), NULL );
                                 ASSERT( t==expected_task, NULL );       
                                 shallowest = dummy_slot.task_pool->prefix().steal_begin;
                                 ASSERT( shallowest==expected_shallowest, NULL );        
@@ -145,24 +154,25 @@ void GenericScheduler::test_assembly_routines() {
                                         break;
                                     }
                                 }
-                                ASSERT( assert_okay(), NULL );
+                                __TBB_ASSERT( assert_okay(), NULL );
                                 task* t = get_task( limit );
                                 ASSERT( (arena_slot->steal_end&1)==0, "forgot to release lock?" );
-                                ASSERT( assert_okay(), NULL );
+                                __TBB_ASSERT( assert_okay(), NULL );
                                 ASSERT( t==expected_task, NULL );       
                                 ++get_count;
                             }
                         }
     ASSERT( array_size-array_size_proxy==0, NULL ); // check for any side effects affecting array_size
     if( Verbose )
-        printf("%ld successful gets and %ld successful steals\n", get_count, steal_count );
+        REPORT("%ld successful gets and %ld successful steals\n", get_count, steal_count );
+#endif /* !__TBB_TASK_DEQUE */
 }
 
 //! Test __TBB_CompareAndSwapW
 static void TestCompareExchange() {
     ASSERT( intptr(-10)<10, "intptr not a signed integral type?" ); 
     if( Verbose ) 
-        printf("testing __TBB_CompareAndSwapW\n");
+        REPORT("testing __TBB_CompareAndSwapW\n");
     for( intptr a=-10; a<10; ++a )
         for( intptr b=-10; b<10; ++b )
             for( intptr c=-10; c<10; ++c ) {
@@ -187,7 +197,7 @@ static void TestAtomicCounter() {
     // "canary" is a value used to detect illegal overwrites.
     const internal::reference_count canary = ~(internal::uintptr)0/3;
     if( Verbose ) 
-        printf("testing __TBB_FetchAndIncrement\n");
+        REPORT("testing __TBB_FetchAndIncrement\n");
     struct {
         internal::reference_count prefix, i, suffix;
     } x;
@@ -202,7 +212,7 @@ static void TestAtomicCounter() {
         ASSERT( j==k, NULL );
     }
     if( Verbose ) 
-        printf("testing __TBB_FetchAndDecrement\n");
+        REPORT("testing __TBB_FetchAndDecrement\n");
     x.i = 10;
     for( int k=10; k>0; --k ) {
         internal::reference_count j = __TBB_FetchAndDecrementWrelease((volatile void *)&x.i);
@@ -215,7 +225,7 @@ static void TestAtomicCounter() {
 
 static void TestTinyLock() {
     if( Verbose ) 
-        printf("testing __TBB_LockByte\n");
+        REPORT("testing __TBB_LockByte\n");
     unsigned char flags[16];
     for( int i=0; i<16; ++i )
         flags[i] = i;
@@ -231,7 +241,7 @@ static void TestTinyLock() {
 
 static void TestLog2() {
     if( Verbose ) 
-        printf("testing __TBB_Log2\n");
+        REPORT("testing __TBB_Log2\n");
     for( uintptr_t i=1; i; i<<=1 ) {
         for( uintptr_t j=1; j<1<<16; ++j ) {
             if( uintptr_t k = i*j ) {
@@ -246,7 +256,7 @@ static void TestLog2() {
 
 static void TestPause() {
     if( Verbose ) 
-        printf("testing __TBB_Pause\n");
+        REPORT("testing __TBB_Pause\n");
     __TBB_Pause(1);
 }
 
@@ -256,6 +266,7 @@ static void TestPause() {
 
 using namespace tbb;
 
+__TBB_TEST_EXPORT
 int main( int argc, char* argv[] ) {
     try {
         ParseCommandLine( argc, argv );
@@ -268,13 +279,13 @@ int main( int argc, char* argv[] ) {
         task_scheduler_init init(1);
 
         if( Verbose ) 
-            printf("testing __TBB_(scheduler assists)\n");
-        GenericScheduler* scheduler = GetThreadSpecific();
+            REPORT("testing __TBB_(scheduler assists)\n");
+        GenericScheduler* scheduler = internal::Governor::local_scheduler();
         scheduler->test_assembly_routines();
 
     } catch(...) {
         ASSERT(0,"unexpected exception");
     }
-    printf("done\n");
+    REPORT("done\n");
     return 0;
 }

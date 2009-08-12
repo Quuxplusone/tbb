@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -28,6 +28,7 @@
 
 # Just specify your program basename
 PROG=Pover
+ARGS=
 
 # The C++ compiler options
 CXX = cl.exe
@@ -44,7 +45,7 @@ ARCHA = $(ARCH0:\vc7.1-=)
 ARCHB = $(ARCHA:\vc8-=)
 ARCHC = $(ARCHB:\vc9-=)
 ARCH3 = $(ARCHC:ia32=x86)
-ARCH4 = $(ARCH3:em64t=AMD64)
+ARCH4 = $(ARCH3:intel64=AMD64)
 XARCH = $(ARCH4:-=x86)
 
 MAKEINC = ../../common/gui/Makefile.win
@@ -53,8 +54,8 @@ all: release test
 release:
 	@$(MAKE) -f $(MAKEINC) UI=$(UI) CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS)" LFLAGS="$(LDFLAGS) tbb.lib tbbmalloc.lib $(LIBS)" XARCH=$(XARCH) RCNAME=pover SOURCE=*.cpp EXE=$(PROG).exe build_one
 debug:
-	@$(MAKE) -f $(MAKEINC) UI=$(UI) DEBUG=_debug CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS) /D TBB_DO_ASSERT" LFLAGS="$(LDFLAGS) tbb_debug.lib tbbmalloc_debug.lib $(LIBS)" XARCH=$(XARCH) RCNAME=pover SOURCE=*.cpp EXE=$(PROG).exe build_one
+	@$(MAKE) -f $(MAKEINC) UI=$(UI) DEBUG=_debug CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS) /D TBB_USE_DEBUG" LFLAGS="$(LDFLAGS) tbb_debug.lib tbbmalloc_debug.lib $(LIBS)" XARCH=$(XARCH) RCNAME=pover SOURCE=*.cpp EXE=$(PROG).exe build_one
 clean:
 	@cmd.exe /C del $(PROG).exe *.obj *.?db *.manifest vc7.1\pover.res
 test:
-	$(PROG)
+	$(PROG) $(ARGS)

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -86,7 +86,9 @@ void DestroyOverlay()
         g_pClipper->Release();
     if (g_pDDSOverlay) {
         g_pImg = 0; LPDIRECTDRAWSURFACE7 pDDSOverlay(g_pDDSOverlay);
-        g_pDDSOverlay = NULL; Sleep(0); pDDSOverlay->Release(); // be sure nobody uses old value
+        g_pDDSOverlay = NULL;
+        YIELD_TO_THREAD();
+        pDDSOverlay->Release(); // be sure nobody uses old value
     }
 }
 
@@ -196,7 +198,7 @@ DWORD DDColorMatch(IDirectDrawSurface7 * pdds, COLORREF rgb)
     // Now lock the surface so we can read back the converted color
     ddsd.dwSize = sizeof(ddsd);
     while ((hres = pdds->Lock(NULL, &ddsd, 0, NULL)) == DDERR_WASSTILLDRAWING)
-        Sleep(0);
+        YIELD_TO_THREAD();
     if (hres == DD_OK) {
         dw = *(DWORD *) ddsd.lpSurface;                 // Get DWORD
         if (ddsd.ddpfPixelFormat.dwRGBBitCount < 32)
@@ -485,12 +487,16 @@ DWORD WINAPI thread_vsync(LPVOID lpParameter)
     BOOL vblank = false;
     while(g_video && g_video->running) {
         while(!vblank && g_video && g_video->running) {
-            Sleep(0); LPDIRECTDRAW7 pDD(g_pDD); if(pDD) pDD->GetVerticalBlankStatus(&vblank);
+            YIELD_TO_THREAD();
+            LPDIRECTDRAW7 pDD(g_pDD);
+            if(pDD) pDD->GetVerticalBlankStatus(&vblank);
         }
         LPDIRECTDRAWSURFACE7 pDDSOverlay(g_pDDSOverlay);
         if(pDDSOverlay) pDDSOverlay->UpdateOverlay(&g_rcSrc, g_pDDSPrimary, &g_rcDst, g_OverlayFlags | DDOVER_REFRESHALL, &g_OverlayFX);
         do {
-            Sleep(1); LPDIRECTDRAW7 pDD(g_pDD); if(pDD) pDD->GetVerticalBlankStatus(&vblank);
+            Sleep(1);
+            LPDIRECTDRAW7 pDD(g_pDD);
+            if(pDD) pDD->GetVerticalBlankStatus(&vblank);
         } while(vblank && g_video && g_video->running);
         while(g_video && !g_video->updating && g_video->running) Sleep(10);
     }
@@ -535,11 +541,11 @@ bool video::init_window(int sizex, int sizey)
         g_pImg[i] = c; // clear surface
     ShowWindow(g_hAppWnd, SW_SHOW);
     g_hVSync = CreateThread (
-	    NULL,				// LPSECURITY_ATTRIBUTES security_attrs
-	    0,					// SIZE_T stacksize
-	    (LPTHREAD_START_ROUTINE) thread_vsync,
-	    this,               // argument
-	    0, 0);
+        NULL,          // LPSECURITY_ATTRIBUTES security_attrs
+        0,             // SIZE_T stacksize
+        (LPTHREAD_START_ROUTINE) thread_vsync,
+        this,               // argument
+        0, 0);
     SetPriorityClass(g_hVSync, IDLE_PRIORITY_CLASS); // questionable
     return true;
 fail:

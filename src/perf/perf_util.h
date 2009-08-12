@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -208,7 +208,7 @@ inline
 double RunTestImpl ( const char* title, void (*pfn)(), char* histogramFileName = no_histogram ) {
     double  time = 0, variation = 0, deviation = 0;
     size_t nrep = 1;
-    while (true) {
+    for (;;) {
         CalibrateTiming(NRUNS, 1, nrep);
         StartTiming(NRUNS, 1, nrep);
         pfn();
@@ -228,7 +228,7 @@ double RunTestImpl ( const char* title, void (*pfn)(), char* histogramFileName =
         util::trace_histogram(t, histogramFileName);
     double clean_time = time - util::base;
     if ( title ) {
-        // Deviation (in percent) is calulated for the Gross time
+        // Deviation (in percent) is calculated for the Gross time
         printf ("\n%-34s %.2e  %5.1f      ", title, clean_time, deviation);
         if ( util::sequential_time != 0  )
             //printf ("% .2e  ", clean_time - util::sequential_time);
@@ -275,8 +275,9 @@ void Test();
 
 inline
 int test_main( int argc, char* argv[] ) {
+    MinThread = 1;
+    MaxThread = tbb::task_scheduler_init::default_num_threads();
     ParseCommandLine( argc, argv );
-    ASSERT (MinThread>=2, "Minimal number of threads must be 2 or more");
     char buf[128];
     util::rate_field_len = 2 + sprintf(buf, "%.1e", 1.1);
     for ( int i = MinThread; i <= MaxThread; ++i ) {

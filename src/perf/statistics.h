@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -168,7 +168,7 @@ public:
     void SetStatisticFormula(const char *name, const char *formula);
 
     //! Data output
-    void Print(int dataOutput);
+    void Print(int dataOutput, const char *ModeName = "Mode");
 
 private:
     Sorting SortMode;

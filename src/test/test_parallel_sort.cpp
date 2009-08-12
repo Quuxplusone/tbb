@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,8 +26,6 @@
     the GNU General Public License.
 */
 
-#include "harness_assert.h"
-#include "harness.h"
 #include <math.h>
 #include <algorithm>
 #include <iterator>
@@ -36,18 +34,18 @@
 #include <cstring>
 #include <exception>
 
-#include "tbb/task_scheduler_init.h"
 #include "tbb/parallel_sort.h"
+#include "tbb/task_scheduler_init.h"
 #include "tbb/concurrent_vector.h"
+#include "harness.h"
 
-/** Has tighly controlled interface so that we can verify
+/** Has tightly controlled interface so that we can verify
     that parallel_sort uses only the required interface. */
 class Minimal {
     int val;
 public:
     Minimal() {}
     void set_val(int i) { val = i; }
-    int get_val(int i) { return val; }
     static bool CompareWith (const Minimal &a, const Minimal &b) { 
         return (a.val < b.val);
     }
@@ -79,7 +77,7 @@ bool Validate<std::string *>(std::string * a, std::string * b, size_t n) {
     for (size_t i = 0; i < n; i++) {
         if ( Verbose && a[i] != b[i]) {
           for (size_t j = 0; j < n; j++) {
-              printf("a[%llu] == %s and b[%llu] == %s\n", static_cast<unsigned long long>(j), a[j].c_str(), static_cast<unsigned long long>(j), b[j].c_str());
+              REPORT("a[%llu] == %s and b[%llu] == %s\n", static_cast<unsigned long long>(j), a[j].c_str(), static_cast<unsigned long long>(j), b[j].c_str());
           }
         }
         ASSERT( a[i] == b[i], NULL );
@@ -339,7 +337,7 @@ bool parallel_sortTest(size_t n, RandomAccessIterator iter, RandomAccessIterator
     init_iter(iter, sorted_list, n, local_comp, true);
     do {
         if ( Verbose) 
-            printf("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(), 
+            REPORT("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(), 
                    static_cast<unsigned long long>(current_p), static_cast<unsigned long long>(n));
         if (comp != NULL) {
             tbb::parallel_sort(iter, iter + n, local_comp );
@@ -348,7 +346,7 @@ bool parallel_sortTest(size_t n, RandomAccessIterator iter, RandomAccessIterator
          }
         if (!Validate(iter, sorted_list, n)) 
             passed = false;
-        if ( Verbose ) printf("passed\n");
+        if ( Verbose ) REPORT("passed\n");
     } while (init_iter(iter, sorted_list, n, local_comp, false));
     return passed;
 }
@@ -363,14 +361,14 @@ bool parallel_sortTest(size_t n, Minimal * iter, Minimal * sorted_list, const Mi
     init_iter(iter, sorted_list, n, *compare, true);
     do {
         if ( Verbose) 
-            printf("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(),
+            REPORT("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(),
                     static_cast<unsigned long long>(current_p), static_cast<unsigned long long>(n));
 
         tbb::parallel_sort(iter, iter + n, *compare );
 
         if (!Validate(iter, sorted_list, n))
             passed = false;
-        if ( Verbose ) printf("passed\n");
+        if ( Verbose ) REPORT("passed\n");
     } while (init_iter(iter, sorted_list, n, *compare, false));
     return passed;
 }
@@ -386,14 +384,14 @@ bool parallel_sortTest(size_t n, tbb::concurrent_vector<Minimal>::iterator iter,
     init_iter(iter, sorted_list, n, *compare, true);
     do {
         if ( Verbose) 
-            printf("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(),
+            REPORT("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(),
                     static_cast<unsigned long long>(current_p), static_cast<unsigned long long>(n));
     
         tbb::parallel_sort(iter, iter + n, *compare );
 
         if (!Validate(iter, sorted_list, n))
             passed = false;
-        if ( Verbose ) printf("passed\n");
+        if ( Verbose ) REPORT("passed\n");
     } while (init_iter(iter, sorted_list, n, *compare, false));
     return passed;
 }
@@ -402,8 +400,8 @@ bool parallel_sortTest(size_t n, tbb::concurrent_vector<Minimal>::iterator iter,
 /*! Minimal, float and string types are used.  All interfaces to parallel_sort that are usable
     by each type are tested.
 */
-void Flog( int nthread ) {
-    // For eacg type create: 
+void Flog() {
+    // For each type create: 
     // the list to be sorted by parallel_sort (array) 
     // the list to be sort by STL sort (array_2)
     // and a less function object
@@ -414,18 +412,20 @@ void Flog( int nthread ) {
     Minimal *minimal_array_2 = new Minimal[N];
     MinimalCompare minimal_less;
 
+#if !__TBB_FLOATING_POINT_BROKEN
     float *float_array = new float[N];
     float *float_array_2 = new float[N];
     std::less<float> float_less;
-
-    std::string *string_array = new std::string[N];
-    std::string *string_array_2 = new std::string[N];
-    std::less<std::string> string_less;
 
     tbb::concurrent_vector<float> float_cv1;
     tbb::concurrent_vector<float> float_cv2;
     float_cv1.grow_to_at_least(N);
     float_cv2.grow_to_at_least(N);
+#endif /* !__TBB_FLOATING_POINT_BROKEN */
+
+    std::string *string_array = new std::string[N];
+    std::string *string_array_2 = new std::string[N];
+    std::less<std::string> string_less;
 
     tbb::concurrent_vector<Minimal> minimal_cv1;
     tbb::concurrent_vector<Minimal> minimal_cv2;
@@ -442,6 +442,7 @@ void Flog( int nthread ) {
     parallel_sortTest(9999, minimal_array, minimal_array_2, &minimal_less);
     parallel_sortTest(50000, minimal_array, minimal_array_2, &minimal_less);
 
+#if !__TBB_FLOATING_POINT_BROKEN
     current_type = "float (no less)";
     parallel_sortTest(0, float_array, float_array_2, static_cast<std::less<float> *>(NULL)); 
     parallel_sortTest(1, float_array, float_array_2, static_cast<std::less<float> *>(NULL)); 
@@ -455,6 +456,21 @@ void Flog( int nthread ) {
     parallel_sortTest(10, float_array, float_array_2, &float_less); 
     parallel_sortTest(9999, float_array, float_array_2, &float_less); 
     parallel_sortTest(50000, float_array, float_array_2, &float_less); 
+
+    current_type = "concurrent_vector<float> (no less)";
+    parallel_sortTest(0, float_cv1.begin(), float_cv2.begin(), static_cast<std::less<float> *>(NULL));
+    parallel_sortTest(1, float_cv1.begin(), float_cv2.begin(), static_cast<std::less<float> *>(NULL));
+    parallel_sortTest(10, float_cv1.begin(), float_cv2.begin(), static_cast<std::less<float> *>(NULL));
+    parallel_sortTest(9999, float_cv1.begin(), float_cv2.begin(), static_cast<std::less<float> *>(NULL));
+    parallel_sortTest(50000, float_cv1.begin(), float_cv2.begin(), static_cast<std::less<float> *>(NULL));
+
+    current_type = "concurrent_vector<float> (less)";
+    parallel_sortTest(0, float_cv1.begin(), float_cv2.begin(), &float_less);
+    parallel_sortTest(1, float_cv1.begin(), float_cv2.begin(), &float_less);
+    parallel_sortTest(10, float_cv1.begin(), float_cv2.begin(), &float_less);
+    parallel_sortTest(9999, float_cv1.begin(), float_cv2.begin(), &float_less);
+    parallel_sortTest(50000, float_cv1.begin(), float_cv2.begin(), &float_less);
+#endif /* !__TBB_FLOATING_POINT_BROKEN */
 
     current_type = "string (no less)";
     parallel_sortTest(0, string_array, string_array_2, static_cast<std::less<std::string> *>(NULL));
@@ -470,20 +486,6 @@ void Flog( int nthread ) {
     parallel_sortTest(9999, string_array, string_array_2, &string_less);
     parallel_sortTest(50000, string_array, string_array_2, &string_less);
 
-    current_type = "concurrent_vector<float> (no less)";
-    parallel_sortTest(0, float_cv1.begin(), float_cv2.begin(), static_cast<std::less<float> *>(NULL));
-    parallel_sortTest(1, float_cv1.begin(), float_cv2.begin(), static_cast<std::less<float> *>(NULL));
-    parallel_sortTest(10, float_cv1.begin(), float_cv2.begin(), static_cast<std::less<float> *>(NULL));
-    parallel_sortTest(9999, float_cv1.begin(), float_cv2.begin(), static_cast<std::less<float> *>(NULL));
-    parallel_sortTest(50000, float_cv1.begin(), float_cv2.begin(), static_cast<std::less<float> *>(NULL));
-
-    current_type = "concurrent_vector<float> (less)";
-    parallel_sortTest(0, float_cv1.begin(), float_cv2.begin(), &float_less);
-    parallel_sortTest(1, float_cv1.begin(), float_cv2.begin(), &float_less);
-    parallel_sortTest(10, float_cv1.begin(), float_cv2.begin(), &float_less);
-    parallel_sortTest(9999, float_cv1.begin(), float_cv2.begin(), &float_less);
-    parallel_sortTest(50000, float_cv1.begin(), float_cv2.begin(), &float_less);
-
     current_type = "concurrent_vector<Minimal> (less)";
     parallel_sortTest(0, minimal_cv1.begin(), minimal_cv2.begin(), &minimal_less);
     parallel_sortTest(1, minimal_cv1.begin(), minimal_cv2.begin(), &minimal_less);
@@ -494,8 +496,10 @@ void Flog( int nthread ) {
     delete [] minimal_array;
     delete [] minimal_array_2;
 
+#if !__TBB_FLOATING_POINT_BROKEN
     delete [] float_array;
     delete [] float_array_2;
+#endif /* !__TBB_FLOATING_POINT_BROKEN */
 
     delete [] string_array;
     delete [] string_array_2;
@@ -504,24 +508,24 @@ void Flog( int nthread ) {
 #include <cstdio>
 #include "harness_cpu.h"
 
-//! Parses the command line and iterates over the number of threads, calling Flog
+__TBB_TEST_EXPORT
 int main( int argc, char* argv[] ) {
     ParseCommandLine(argc,argv);
     if( MinThread<1 ) {
-        printf("Usage: number of threads must be positive\n");
+        REPORT("Usage: number of threads must be positive\n");
         exit(1);
     }
     for( int p=MinThread; p<=MaxThread; ++p ) {
         if( p>0 ) {
             tbb::task_scheduler_init init( p );
             current_p = p;
-            Flog(p);
+            Flog();
 
             // Test that all workers sleep when no work
             TestCPUUserTime(p);
         }
     } 
-    printf("done\n");
+    REPORT("done\n");
     return 0;
 }
 

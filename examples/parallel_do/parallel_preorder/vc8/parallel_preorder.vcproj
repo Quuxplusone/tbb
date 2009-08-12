@@ -43,8 +43,8 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;TBB_DO_ASSERT"
+				AdditionalIncludeDirectories="$(TBB22_INSTALL_DIR)\include"
+				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;TBB_USE_DEBUG"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
 				Detect64BitPortabilityProblems="true"
@@ -63,7 +63,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb_debug.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\ia32\vc8\lib"
+				AdditionalLibraryDirectories="$(TBB22_INSTALL_DIR)\ia32\vc8\lib"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				TargetMachine="1"
@@ -92,8 +92,8 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				Description="Copying tbb_debug.dll"
-				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\ia32\vc8\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot;"
+				Description="Copying DLLs and PDBs"
+				CommandLine="copy &quot;$(TBB22_INSTALL_DIR)\ia32\vc8\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot;&#x0D;&#x0A; copy  &quot;$(TBB22_INSTALL_DIR)\ia32\vc8\bin\tbb_debug.pdb&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -122,8 +122,8 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
-				PreprocessorDefinitions="WIN64;_DEBUG;_CONSOLE;TBB_DO_ASSERT"
+				AdditionalIncludeDirectories="$(TBB22_INSTALL_DIR)\include"
+				PreprocessorDefinitions="WIN64;_DEBUG;_CONSOLE;TBB_USE_DEBUG"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
 				DebugInformationFormat="3"
@@ -141,7 +141,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb_debug.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\em64t\vc8\lib"
+				AdditionalLibraryDirectories="$(TBB22_INSTALL_DIR)\intel64\vc8\lib"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				TargetMachine="17"
@@ -170,8 +170,8 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				Description="Copying tbb_debug.dll"
-				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\em64t\vc8\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot;"
+				Description="Copying DLLs and PDBs"
+				CommandLine="copy &quot;$(TBB22_INSTALL_DIR)\intel64\vc8\bin\tbb_debug.dll&quot; &quot;$(OutDir)&quot;&#x0D;&#x0A; copy  &quot;$(TBB22_INSTALL_DIR)\intel64\vc8\bin\tbb_debug.pdb&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -198,11 +198,12 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB22_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
 				Detect64BitPortabilityProblems="true"
+				DebugInformationFormat="3"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -217,7 +218,8 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\ia32\vc8\lib"
+				AdditionalLibraryDirectories="$(TBB22_INSTALL_DIR)\ia32\vc8\lib"
+				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -247,8 +249,8 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				Description="Copying tbb.dll"
-				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\ia32\vc8\bin\tbb.dll&quot; &quot;$(OutDir)&quot;"
+				Description="Copying DLLs and PDBs"
+				CommandLine="copy &quot;$(TBB22_INSTALL_DIR)\ia32\vc8\bin\tbb.dll&quot; &quot;$(OutDir)&quot;&#x0D;&#x0A; copy &quot;$(TBB22_INSTALL_DIR)\ia32\vc8\bin\tbb.pdb&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -276,10 +278,11 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="$(TBB21_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="$(TBB22_INSTALL_DIR)\include"
 				PreprocessorDefinitions="WIN64;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
+				DebugInformationFormat="3"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -294,7 +297,8 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB21_INSTALL_DIR)\em64t\vc8\lib"
+				AdditionalLibraryDirectories="$(TBB22_INSTALL_DIR)\intel64\vc8\lib"
+				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -324,8 +328,8 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				Description="Copying tbb.dll"
-				CommandLine="copy &quot;$(TBB21_INSTALL_DIR)\em64t\vc8\bin\tbb.dll&quot; &quot;$(OutDir)&quot;"
+				Description="Copying DLLs and PDBs"
+				CommandLine="copy &quot;$(TBB22_INSTALL_DIR)\intel64\vc8\bin\tbb.dll&quot; &quot;$(OutDir)&quot;&#x0D;&#x0A; copy  &quot;$(TBB22_INSTALL_DIR)\intel64\vc8\bin\tbb.pdb&quot; &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 	</Configurations>

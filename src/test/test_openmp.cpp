@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -112,13 +112,19 @@ void SerialConvolve( T c[], const T a[], int m, const T b[], int n ) {
 
 using namespace tbb;
 
-class InnerBody {
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+    // Suppress overzealous warning about short+=short
+    #pragma warning( push )
+    #pragma warning( disable: 4244 )
+#endif
+
+class InnerBody: NoAssign {
     const T* my_a;
     const T* my_b;
     const int i;
 public:
     T sum;
-    InnerBody( T c[], const T a[], const T b[], int i ) :
+    InnerBody( T /*c*/[], const T a[], const T b[], int i ) :
         my_a(a), my_b(b), sum(0), i(i)
     {}
     InnerBody( InnerBody& x, split ) :
@@ -132,10 +138,14 @@ public:
     }
 };
 
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+    #pragma warning( pop )
+#endif
+
 //! Test OpenMMP loop around TBB loop
 void OpenMP_TBB_Convolve( T c[], const T a[], int m, const T b[], int n ) {
     if( Verbose )
-        printf("testing OpenMP loop around TBB loop\n");
+        REPORT("testing OpenMP loop around TBB loop\n");
 #pragma omp parallel 
     {
         task_scheduler_init init;
@@ -150,7 +160,7 @@ void OpenMP_TBB_Convolve( T c[], const T a[], int m, const T b[], int n ) {
     }
 }
 
-class OuterBody {
+class OuterBody: NoAssign {
     const T* my_a;
     const T* my_b;
     T* my_c;
@@ -177,7 +187,7 @@ public:
 //! Test TBB loop around OpenMP loop
 void TBB_OpenMP_Convolve( T c[], const T a[], int m, const T b[], int n ) {
     if( Verbose )
-        printf("testing TBB loop around OpenMP loop\n");
+        REPORT("testing TBB loop around OpenMP loop\n");
     parallel_for( blocked_range<int>(0,m+n-1,10), OuterBody( c, a, m, b, n ) );
 }
 
@@ -186,9 +196,10 @@ void TBB_OpenMP_Convolve( T c[], const T a[], int m, const T b[], int n ) {
 const int M = 17*17;
 const int N = 13*13;
 
+__TBB_TEST_EXPORT
 int main( int argc, char* argv[] ) {
 #ifdef _PGO_INSTRUMENT
-    printf("Warning: test_openmp.exe has problems if compiled with -prof-genx; skipping\n");
+    REPORT("Warning: test_openmp.exe has problems if compiled with -prof-genx; skipping\n");
     return 0;
 #endif
     ParseCommandLine(argc,argv);
@@ -198,8 +209,8 @@ int main( int argc, char* argv[] ) {
         T b[N];
         for( int m=1; m<=M; m*=17 ) {
             for( int n=1; n<=M; n*=13 ) {
-                for( int i=0; i<m; ++i ) a[i] = 1+i/5;
-                for( int i=0; i<n; ++i ) b[i] = 1+i/7;
+                for( int i=0; i<m; ++i ) a[i] = T(1+i/5);
+                for( int i=0; i<n; ++i ) b[i] = T(1+i/7);
                 T expected[M+N];
                 SerialConvolve( expected, a, m, b, n );
                 task_scheduler_init init(p);
@@ -210,7 +221,9 @@ int main( int argc, char* argv[] ) {
                         case 0: 
                             TBB_OpenMP_Convolve( actual, a, m, b, n ); 
                             break;
-                        case 1: OpenMP_TBB_Convolve( actual, a, m, b, n ); break;
+                        case 1: 
+                            OpenMP_TBB_Convolve( actual, a, m, b, n ); 
+                            break;
                     }
                     for( int i=0; i<m+n-1; ++i ) {
                         ASSERT( actual[i]==expected[i], NULL );
@@ -219,6 +232,6 @@ int main( int argc, char* argv[] ) {
             }
         } 
     }
-    printf("done\n");
+    REPORT("done\n");
     return 0;
 }

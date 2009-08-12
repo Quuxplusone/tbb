@@ -1,4 +1,4 @@
-// Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+// Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 //
 // This file is part of Threading Building Blocks.
 //
@@ -45,7 +45,7 @@
 #define ENDL "\r\n"
 #include "tbb/tbb_version.h"
 
-#define TBBMALLOC_VERNUMBERS 1, 0, __TBB_VERSION_YMD
+#define TBBMALLOC_VERNUMBERS TBB_VERSION_MAJOR, TBB_VERSION_MINOR, __TBB_VERSION_YMD
 #define TBBMALLOC_VERSION __TBB_STRING(TBBMALLOC_VERNUMBERS)
 
 /////////////////////////////////////////////////////////////////////////////
@@ -59,6 +59,13 @@
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 #pragma code_page(1252)
 #endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+// manifest integration
+#ifdef TBB_MANIFEST
+#include "winuser.h"
+2 RT_MANIFEST tbbmanifest.exe.manifest
+#endif
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -88,7 +95,7 @@ BEGIN
 //what is it?            VALUE "InternalName", "tbbmalloc\0"
             VALUE "LegalCopyright", "Copyright (C) 2006\0"
             VALUE "LegalTrademarks", "\0"
-#ifndef TBB_DO_ASSERT
+#ifndef TBB_USE_DEBUG
             VALUE "OriginalFilename", "tbbmalloc.dll\0"
 #else
             VALUE "OriginalFilename", "tbbmalloc_debug.dll\0"

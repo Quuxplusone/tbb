@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,85 +31,277 @@
 
 #include <stdexcept>
 #include <iterator>
-#include <utility>      // Need std::pair from here
+#include <utility>      // Need std::pair
+#include <cstring>      // Need std::memset
+#include <string>
 #include "tbb_stddef.h"
 #include "cache_aligned_allocator.h"
 #include "tbb_allocator.h"
 #include "spin_rw_mutex.h"
 #include "atomic.h"
 #include "aligned_space.h"
-#if TBB_PERFORMANCE_WARNINGS
+#if TBB_USE_PERFORMANCE_WARNINGS
 #include <typeinfo>
 #endif
 
 namespace tbb {
 
-template<typename Key, typename T, typename HashCompare, typename A = tbb_allocator<std::pair<Key, T> > >
+template<typename T> struct tbb_hash_compare;
+template<typename Key, typename T, typename HashCompare = tbb_hash_compare<Key>, typename A = tbb_allocator<std::pair<Key, T> > >
 class concurrent_hash_map;
 
 //! @cond INTERNAL
 namespace internal {
+    //! ITT instrumented routine that loads pointer from location pointed to by src.
+    void* __TBB_EXPORTED_FUNC itt_load_pointer_with_acquire_v3( const void* src );
+    //! ITT instrumented routine that stores src into location pointed to by dst.
+    void __TBB_EXPORTED_FUNC itt_store_pointer_with_release_v3( void* dst, void* src );
+    //! Routine that loads pointer from location pointed to by src without causing ITT to report a race.
+    void* __TBB_EXPORTED_FUNC itt_load_pointer_v3( const void* src );
+
+    //! Type of a hash code.
+    typedef size_t hashcode_t;
     //! base class of concurrent_hash_map
     class hash_map_base {
     public:
-        // Mutex types for each layer of the container
-        typedef spin_rw_mutex node_mutex_t;
-        typedef spin_rw_mutex chain_mutex_t;
-        typedef spin_rw_mutex segment_mutex_t;
-
+        //! Size type
+        typedef size_t size_type;
         //! Type of a hash code.
         typedef size_t hashcode_t;
-        //! Log2 of n_segment
-        static const size_t n_segment_bits = 6;
-        //! Number of segments 
-        static const size_t n_segment = size_t(1)<<n_segment_bits; 
-        //! Maximum size of array of chains
-        static const size_t max_physical_size = size_t(1)<<(8*sizeof(hashcode_t)-n_segment_bits);
+        //! Segment index type
+        typedef size_t segment_index_t;
+        //! Node base type
+        struct node_base : no_copy {
+            //! Mutex type
+            typedef spin_rw_mutex mutex_t;
+            //! Scoped lock type for mutex
+            typedef mutex_t::scoped_lock scoped_t;
+            //! Next node in chain
+            node_base *next;
+            mutex_t mutex;
+        };
+        //! Incompleteness flag value
+#       define __TBB_rehash_req reinterpret_cast<node_base*>(1)
+        //! Rehashed empty bucket flag
+#       define __TBB_empty_rehashed reinterpret_cast<node_base*>(0)
+        //! Bucket type
+        struct bucket : no_copy {
+            //! Mutex type for buckets
+            typedef spin_rw_mutex mutex_t;
+            //! Scoped lock type for mutex
+            typedef mutex_t::scoped_lock scoped_t;
+            mutex_t mutex;
+            node_base *node_list;
+        };
+        //! Count of segments in the first block
+        static size_type const embedded_block = 1;
+        //! Count of segments in the first block
+        static size_type const embedded_buckets = 1<<embedded_block;
+        //! Count of segments in the first block
+        static size_type const first_block = 8; //including embedded_block. perfect with bucket size 16, so the allocations are power of 4096
+        //! Size of a pointer / table size
+        static size_type const pointers_per_table = sizeof(segment_index_t) * 8; // one segment per bit
+        //! Segment pointer
+        typedef bucket *segment_ptr_t;
+        //! Segment pointers table type
+        typedef segment_ptr_t segments_table_t[pointers_per_table];
+        //! Hash mask = sum of allocated segments sizes - 1
+        atomic<hashcode_t> my_mask;
+        //! Segment pointers table. Also prevents false sharing between my_mask and my_size
+        segments_table_t my_table;
+        //! Size of container in stored items
+        atomic<size_type> my_size; // It must be in separate cache line from my_mask due to performance effects
+        //! Zero segment
+        bucket my_embedded_segment[embedded_buckets];
+
+        //! Constructor
+        hash_map_base() {
+            std::memset( this, 0, pointers_per_table*sizeof(segment_ptr_t) // 32*4=128   or 64*8=512
+                + sizeof(my_size) + sizeof(my_mask)  // 4+4 or 8+8
+                + embedded_buckets*sizeof(bucket) ); // n*8 or n*16
+            for( size_type i = 0; i < embedded_block; i++ ) // fill the table
+                my_table[i] = my_embedded_segment + segment_base(i);
+            my_mask = embedded_buckets - 1;
+            __TBB_ASSERT( embedded_block <= first_block, "The first block number must include embedded blocks");
+        }
+
+        //! @return segment index of given index in the array
+        static segment_index_t segment_index_of( size_type index ) {
+            return segment_index_t( __TBB_Log2( index|1 ) );
+        }
+
+        //! @return the first array index of given segment
+        static segment_index_t segment_base( segment_index_t k ) {
+            return (segment_index_t(1)<<k & ~segment_index_t(1));
+        }
+
+        //! @return segment size except for @arg k == 0
+        static size_type segment_size( segment_index_t k ) {
+            return size_type(1)<<k; // fake value for k==0
+        }
+        
+        //! @return true if @arg ptr is valid pointer
+        static bool is_valid( void *ptr ) {
+            return ptr > reinterpret_cast<void*>(1);
+        }
+
+        //! Initialize buckets
+        static void init_buckets( segment_ptr_t ptr, size_type sz, bool is_initial ) {
+            if( is_initial ) std::memset(ptr, 0, sz*sizeof(bucket) );
+            else for(size_type i = 0; i < sz; i++, ptr++) {
+                    *reinterpret_cast<intptr_t*>(&ptr->mutex) = 0;
+                    ptr->node_list = __TBB_rehash_req;
+                }
+        }
+        
+        //! Add node @arg n to bucket @arg b
+        static void add_to_bucket( bucket *b, node_base *n ) {
+            n->next = b->node_list;
+            b->node_list = n; // its under lock and flag is set
+        }
+
+        //! Exception safety helper
+        struct enable_segment_failsafe {
+            segment_ptr_t *my_segment_ptr;
+            enable_segment_failsafe(segments_table_t &table, segment_index_t k) : my_segment_ptr(&table[k]) {}
+            ~enable_segment_failsafe() {
+                if( my_segment_ptr ) *my_segment_ptr = 0; // indicate no allocation in progress
+            }
+        };
+
+        //! Enable segment
+        void enable_segment( segment_index_t k, bool is_initial = false ) {
+            __TBB_ASSERT( k, "Zero segment must be embedded" );
+            enable_segment_failsafe watchdog( my_table, k );
+            cache_aligned_allocator<bucket> alloc;
+            size_type sz;
+            __TBB_ASSERT( !is_valid(my_table[k]), "Wrong concurrent assignment");
+            if( k >= first_block ) {
+                sz = segment_size( k );
+                segment_ptr_t ptr = alloc.allocate( sz );
+                init_buckets( ptr, sz, is_initial );
+#if TBB_USE_THREADING_TOOLS
+                // TODO: actually, fence and notification are unneccessary here and below
+                itt_store_pointer_with_release_v3( my_table + k, ptr );
+#else
+                my_table[k] = ptr;// my_mask has release fence
+#endif
+                sz <<= 1;// double it to get entire capacity of the container
+            } else { // the first block
+                __TBB_ASSERT( k == embedded_block, "Wrong segment index" );
+                sz = segment_size( first_block );
+                segment_ptr_t ptr = alloc.allocate( sz - embedded_buckets );
+                init_buckets( ptr, sz - embedded_buckets, is_initial );
+                ptr -= segment_base(embedded_block);
+                for(segment_index_t i = embedded_block; i < first_block; i++) // calc the offsets
+#if TBB_USE_THREADING_TOOLS
+                    itt_store_pointer_with_release_v3( my_table + i, ptr + segment_base(i) );
+#else
+                    my_table[i] = ptr + segment_base(i);
+#endif
+            }
+#if TBB_USE_THREADING_TOOLS
+            itt_store_pointer_with_release_v3( &my_mask, (void*)(sz-1) );
+#else
+            my_mask = sz - 1;
+#endif
+            watchdog.my_segment_ptr = 0;
+        }
+
+        //! Get bucket by (masked) hashcode
+        bucket *get_bucket( hashcode_t h ) const throw() { // TODO: add throw() everywhere?
+            segment_index_t s = segment_index_of( h );
+            h -= segment_base(s);
+            segment_ptr_t seg = my_table[s];
+            __TBB_ASSERT( is_valid(seg), "hashcode must be cut by valid mask for allocated segments" );
+            return &seg[h];
+        }
+
+        //! Check for mask race
+        // Splitting into two functions should help inlining
+        inline bool check_mask_race( const hashcode_t h, hashcode_t &m ) const {
+            hashcode_t m_now, m_old = m;
+#if TBB_USE_THREADING_TOOLS
+            m_now = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
+#else
+            m_now = my_mask;
+#endif
+            if( m_old != m_now )
+                return check_rehashing_collision( h, m_old, m = m_now );
+            return false;
+        }
+
+        //! Process mask race, check for rehashing collision
+        bool check_rehashing_collision( const hashcode_t h, hashcode_t m_old, hashcode_t m ) const {
+            __TBB_ASSERT(m_old != m, NULL); // TODO?: m arg could be optimized out by passing h = h&m
+            if( (h & m_old) != (h & m) ) { // mask changed for this hashcode, rare event
+                // condition above proves that 'h' has some other bits set beside 'm_old'
+                // find next applicable mask after m_old    //TODO: look at bsl instruction
+                for( ++m_old; !(h & m_old); m_old <<= 1 ); // at maximum few rounds depending on the first block size
+                m_old = (m_old<<1) - 1; // get full mask from a bit
+                __TBB_ASSERT((m_old&(m_old+1))==0 && m_old <= m, NULL);
+                // check whether it is rehashing/ed
+#if TBB_USE_THREADING_TOOLS
+                if( itt_load_pointer_with_acquire_v3(&( get_bucket(h & m_old)->node_list )) != __TBB_rehash_req )
+#else
+                if( __TBB_load_with_acquire(get_bucket( h & m_old )->node_list) != __TBB_rehash_req )
+#endif
+                    return true;
+            }
+            return false;
+        }
+
+        //! Insert a node and check for load factor. @return segment index to enable.
+        segment_index_t insert_new_node( bucket *b, node_base *n, hashcode_t mask ) {
+            size_type sz = ++my_size; // prefix form is to enforce allocation after the first item inserted
+            add_to_bucket( b, n );
+            // check load factor
+            if( sz >= mask ) { // TODO: add custom load_factor 
+                segment_index_t new_seg = segment_index_of( mask+1 );
+                __TBB_ASSERT( is_valid(my_table[new_seg-1]), "new allocations must not publish new mask until segment has allocated");
+#if TBB_USE_THREADING_TOOLS
+                if( !itt_load_pointer_v3(my_table+new_seg)
+#else
+                if( !my_table[new_seg]
+#endif
+				  && __TBB_CompareAndSwapW(&my_table[new_seg], 1, 0) == 0 )
+                    return new_seg; // The value must be processed
+            }
+            return 0;
+        }
+
+        //! Prepare enough segments for number of buckets
+        void reserve(size_type buckets) {
+            if( !buckets-- ) return;
+            bool is_initial = !my_size;
+            for( size_type m = my_mask; buckets > m; m = my_mask )
+                enable_segment( segment_index_of( m+1 ), is_initial );
+        }
+        //! Swap hash_map_bases
+        void internal_swap(hash_map_base &table) {
+            std::swap(this->my_mask, table.my_mask);
+            std::swap(this->my_size, table.my_size);
+            for(size_type i = 0; i < embedded_buckets; i++)
+                std::swap(this->my_embedded_segment[i].node_list, table.my_embedded_segment[i].node_list);
+            for(size_type i = embedded_block; i < pointers_per_table; i++)
+                std::swap(this->my_table[i], table.my_table[i]);
+        }
     };
 
     template<typename Iterator>
     class hash_map_range;
-
-    struct hash_map_segment_base {
-        //! Mutex that protects this segment
-        hash_map_base::segment_mutex_t my_mutex;
-
-        // Number of nodes
-        atomic<size_t> my_logical_size;
-
-        // Size of chains
-        /** Always zero or a power of two */
-        size_t my_physical_size;
-
-        //! True if my_logical_size>=my_physical_size.
-        /** Used to support Intel(R) Thread Checker. */
-        bool internal_grow_predicate() const;
-    };
 
     //! Meets requirements of a forward iterator for STL */
     /** Value is either the T or const T type of the container.
         @ingroup containers */ 
     template<typename Container, typename Value>
     class hash_map_iterator
-#if defined(_WIN64) && defined(_MSC_VER) 
-        // Ensure that Microsoft's internal template function _Val_type works correctly.
         : public std::iterator<std::forward_iterator_tag,Value>
-#endif /* defined(_WIN64) && defined(_MSC_VER) */
     {
+        typedef Container map_type;
         typedef typename Container::node node;
-        typedef typename Container::chain chain;
-
-        //! concurrent_hash_map over which we are iterating.
-        Container* my_table;
-
-        //! Pointer to node that has current item
-        node* my_node;
-
-        //! Index into hash table's array for current item
-        size_t my_array_index;
-
-        //! Index of segment that has array for current item
-        size_t my_segment_index;
+        typedef hash_map_base::node_base node_base;
+        typedef hash_map_base::bucket bucket;
 
         template<typename C, typename T, typename U>
         friend bool operator==( const hash_map_iterator<C,T>& i, const hash_map_iterator<C,U>& j );
@@ -126,18 +318,20 @@ namespace internal {
         template<typename I>
         friend class internal::hash_map_range;
 
-        void advance_to_next_node() {
-            size_t i = my_array_index+1;
-            do {
-                while( i<my_table->my_segment[my_segment_index].my_physical_size ) {
-                    my_node = my_table->my_segment[my_segment_index].my_array[i].node_list;
-                    if( my_node ) goto done;
-                    ++i;
+        void advance_to_next_bucket() { // TODO?: refactor to iterator_base class
+            size_t k = my_index+1;
+            while( my_bucket && k <= my_map->my_mask ) {
+                // Following test uses 2's-complement wizardry
+                if( k& (k-2) ) // not the begining of a segment
+                    ++my_bucket;
+                else my_bucket = my_map->get_bucket( k );
+                my_node = static_cast<node*>( my_bucket->node_list );
+                if( hash_map_base::is_valid(my_node) ) {
+                    my_index = k; return;
                 }
-                i = 0;
-            } while( ++my_segment_index<my_table->n_segment );
-        done:
-            my_array_index = i;
+                ++k;
+            }
+            my_bucket = 0; my_node = 0; my_index = k; // the end
         }
 #if !defined(_MSC_VER) || defined(__INTEL_COMPILER)
         template<typename Key, typename T, typename HashCompare, typename A>
@@ -145,18 +339,31 @@ namespace internal {
 #else
     public: // workaround
 #endif
-        hash_map_iterator( const Container& table, size_t segment_index, size_t array_index=0, node* b=NULL );
+        //! concurrent_hash_map over which we are iterating.
+        const Container *my_map;
+
+        //! Index in hash table for current item
+        size_t my_index;
+
+        //! Pointer to bucket
+        const bucket *my_bucket;
+
+        //! Pointer to node that has current item
+        node *my_node;
+
+        hash_map_iterator( const Container &map, size_t index, const bucket *b, node_base *n );
+
     public:
         //! Construct undefined iterator
         hash_map_iterator() {}
-        hash_map_iterator( const hash_map_iterator<Container,typename Container::value_type>& other ) :
-            my_table(other.my_table),
-            my_node(other.my_node),
-            my_array_index(other.my_array_index),
-            my_segment_index(other.my_segment_index)
+        hash_map_iterator( const hash_map_iterator<Container,typename Container::value_type> &other ) :
+            my_map(other.my_map),
+            my_index(other.my_index),
+            my_bucket(other.my_bucket),
+            my_node(other.my_node)
         {}
         Value& operator*() const {
-            __TBB_ASSERT( my_node, "iterator uninitialized or at end of container?" );
+            __TBB_ASSERT( hash_map_base::is_valid(my_node), "iterator uninitialized or at end of container?" );
             return my_node->item;
         }
         Value* operator->() const {return &operator*();}
@@ -168,55 +375,41 @@ namespace internal {
             operator++();
             return result;
         }
-
-        // STL support
-
-        typedef ptrdiff_t difference_type;
-        typedef Value value_type;
-        typedef Value* pointer;
-        typedef Value& reference;
-        typedef const Value& const_reference;
-        typedef std::forward_iterator_tag iterator_category;
     };
 
     template<typename Container, typename Value>
-    hash_map_iterator<Container,Value>::hash_map_iterator( const Container& table, size_t segment_index, size_t array_index, node* b ) : 
-        my_table(const_cast<Container*>(&table)),
-        my_node(b),
-        my_array_index(array_index),
-        my_segment_index(segment_index)
+    hash_map_iterator<Container,Value>::hash_map_iterator( const Container &map, size_t index, const bucket *b, node_base *n ) :
+        my_map(&map),
+        my_index(index),
+        my_bucket(b),
+        my_node( static_cast<node*>(n) )
     {
-        if( segment_index<my_table->n_segment ) {
-            if( !my_node ) {
-                chain* first_chain = my_table->my_segment[segment_index].my_array;
-                if( first_chain ) my_node = first_chain[my_array_index].node_list;
-            }
-            if( !my_node ) advance_to_next_node();
-        }
+        if( b && !hash_map_base::is_valid(n) )
+            advance_to_next_bucket();
     }
 
     template<typename Container, typename Value>
     hash_map_iterator<Container,Value>& hash_map_iterator<Container,Value>::operator++() {
-        my_node=my_node->next;
-        if( !my_node ) advance_to_next_node();
+        my_node = static_cast<node*>( my_node->next );
+        if( !my_node ) advance_to_next_bucket();
         return *this;
     }
 
     template<typename Container, typename T, typename U>
     bool operator==( const hash_map_iterator<Container,T>& i, const hash_map_iterator<Container,U>& j ) {
-        return i.my_node==j.my_node;
+        return i.my_node == j.my_node && i.my_map == j.my_map;
     }
 
     template<typename Container, typename T, typename U>
     bool operator!=( const hash_map_iterator<Container,T>& i, const hash_map_iterator<Container,U>& j ) {
-        return i.my_node!=j.my_node;
+        return i.my_node != j.my_node || i.my_map != j.my_map;
     }
 
     //! Range class used with concurrent_hash_map
     /** @ingroup containers */ 
     template<typename Iterator>
     class hash_map_range {
-    private:
+        typedef typename Iterator::map_type map_type;
         Iterator my_begin;
         Iterator my_end;
         mutable Iterator my_midpoint;
@@ -229,7 +422,6 @@ namespace internal {
         typedef std::size_t size_type;
         typedef typename Iterator::value_type value_type;
         typedef typename Iterator::reference reference;
-        typedef typename Iterator::const_reference const_reference;
         typedef typename Iterator::difference_type difference_type;
         typedef Iterator iterator;
 
@@ -246,6 +438,8 @@ namespace internal {
             my_grainsize(r.my_grainsize)
         {
             r.my_end = my_begin = r.my_midpoint;
+            __TBB_ASSERT( !empty(), "Splitting despite the range is not divisible" );
+            __TBB_ASSERT( !r.empty(), "Splitting despite the range is not divisible" );
             set_midpoint();
             r.set_midpoint();
         }
@@ -257,14 +451,27 @@ namespace internal {
             my_midpoint(r.my_midpoint),
             my_grainsize(r.my_grainsize)
         {}
+#if TBB_DEPRECATED
         //! Init range with iterators and grainsize specified
         hash_map_range( const Iterator& begin_, const Iterator& end_, size_type grainsize = 1 ) : 
             my_begin(begin_), 
-            my_end(end_), 
-            my_grainsize(grainsize) 
+            my_end(end_),
+            my_grainsize(grainsize)
         {
+            if(!my_end.my_index && !my_end.my_bucket) // end
+                my_end.my_index = my_end.my_map->my_mask + 1;
             set_midpoint();
             __TBB_ASSERT( grainsize>0, "grainsize must be positive" );
+        }
+#endif
+        //! Init range with container and grainsize specified
+        hash_map_range( const map_type &map, size_type grainsize = 1 ) : 
+            my_begin( Iterator( map, 0, map.my_embedded_segment, map.my_embedded_segment->node_list ) ),
+            my_end( Iterator( map, map.my_mask + 1, 0, 0 ) ),
+            my_grainsize( grainsize )
+        {
+            __TBB_ASSERT( grainsize>0, "grainsize must be positive" );
+            set_midpoint();
         }
         const Iterator& begin() const {return my_begin;}
         const Iterator& end() const {return my_end;}
@@ -274,23 +481,55 @@ namespace internal {
 
     template<typename Iterator>
     void hash_map_range<Iterator>::set_midpoint() const {
-        size_t n = my_end.my_segment_index-my_begin.my_segment_index;
-        if( n>1 || (n==1 && my_end.my_array_index>0) ) {
-            // Split by groups of segments
-            my_midpoint = Iterator(*my_begin.my_table,(my_end.my_segment_index+my_begin.my_segment_index)/2u);
+        // Split by groups of nodes
+        size_t m = my_end.my_index-my_begin.my_index;
+        if( m > my_grainsize ) {
+            m = my_begin.my_index + m/2u;
+            hash_map_base::bucket *b = my_begin.my_map->get_bucket(m);
+            my_midpoint = Iterator(*my_begin.my_map,m,b,b->node_list);
         } else {
-            // Split by groups of nodes
-            size_t m = my_end.my_array_index-my_begin.my_array_index;
-            if( m>my_grainsize ) {
-                my_midpoint = Iterator(*my_begin.my_table,my_begin.my_segment_index,m/2u);
-            } else {
-                my_midpoint = my_end;
-            }
+            my_midpoint = my_end;
         }
-        __TBB_ASSERT( my_midpoint.my_segment_index<=my_begin.my_table->n_segment, NULL );
-    }  
+        __TBB_ASSERT( my_begin.my_index <= my_midpoint.my_index,
+            "my_begin is after my_midpoint" );
+        __TBB_ASSERT( my_midpoint.my_index <= my_end.my_index,
+            "my_midpoint is after my_end" );
+        __TBB_ASSERT( my_begin != my_midpoint || my_begin == my_end,
+            "[my_begin, my_midpoint) range should not be empty" );
+    }
 } // namespace internal
 //! @endcond
+
+//! Hash multiplier
+static const size_t hash_multiplier = sizeof(size_t)==4? 2654435769U : 11400714819323198485ULL;
+//! Hasher functions
+template<typename T>
+inline static size_t tbb_hasher( const T& t ) {
+    return static_cast<size_t>( t ) * hash_multiplier;
+}
+template<typename P>
+inline static size_t tbb_hasher( P* ptr ) {
+    size_t const h = reinterpret_cast<size_t>( ptr );
+    return (h >> 3) ^ h;
+}
+template<typename E, typename S, typename A>
+inline static size_t tbb_hasher( const std::basic_string<E,S,A>& s ) {
+    size_t h = 0;
+    for( const E* c = s.c_str(); *c; c++ )
+        h = static_cast<size_t>(*c) ^ (h * hash_multiplier);
+    return h;
+}
+template<typename F, typename S>
+inline static size_t tbb_hasher( const std::pair<F,S>& p ) {
+    return tbb_hasher(p.first) ^ tbb_hasher(p.second);
+}
+
+//! hash_compare - default argument
+template<typename T>
+struct tbb_hash_compare {
+    static size_t hash( const T& t ) { return tbb_hasher(t); }
+    static bool equal( const T& a, const T& b ) { return a == b; }
+};
 
 //! Unordered map from Key to T.
 /** concurrent_hash_map is associative container with concurrent access.
@@ -302,6 +541,9 @@ namespace internal {
     - Hash function is not permitted to throw an exception. User-defined types Key and T are forbidden from throwing an exception in destructors.
     - If exception happens during insert() operations, it has no effect (unless exception raised by HashCompare::hash() function during grow_segment).
     - If exception happens during operator=() operation, the container can have a part of source items, and methods size() and empty() can return wrong results.
+
+@par Changes since TBB 2.1
+    - Replaced internal algorithm and data structure. Patent is pending.
 
 @par Changes since TBB 2.0
     - Fixed exception-safety
@@ -318,7 +560,7 @@ namespace internal {
     - Added global functions: operator==(), operator!=(), and swap() 
 
     @ingroup containers */
-template<typename Key, typename T, typename HashCompare, typename A>
+template<typename Key, typename T, typename HashCompare, typename Allocator>
 class concurrent_hash_map : protected internal::hash_map_base {
     template<typename Container, typename Value>
     friend class internal::hash_map_iterator;
@@ -326,19 +568,11 @@ class concurrent_hash_map : protected internal::hash_map_base {
     template<typename I>
     friend class internal::hash_map_range;
 
-    struct node;
-    friend struct node;
-    typedef typename A::template rebind<node>::other node_allocator_type;
-
 public:
-    class const_accessor;
-    friend class const_accessor;
-    class accessor;
-
     typedef Key key_type;
     typedef T mapped_type;
     typedef std::pair<const Key,T> value_type;
-    typedef size_t size_type;
+    typedef internal::hash_map_base::size_type size_type;
     typedef ptrdiff_t difference_type;
     typedef value_type *pointer;
     typedef const value_type *const_pointer;
@@ -348,17 +582,110 @@ public:
     typedef internal::hash_map_iterator<concurrent_hash_map,const value_type> const_iterator;
     typedef internal::hash_map_range<iterator> range_type;
     typedef internal::hash_map_range<const_iterator> const_range_type;
-    typedef A allocator_type;
+    typedef Allocator allocator_type;
 
+protected:
+    friend class const_accessor;
+    struct node;
+    typedef typename Allocator::template rebind<node>::other node_allocator_type;
+    node_allocator_type my_allocator;
+    HashCompare my_hash_compare;
+
+    struct node : public node_base {
+        value_type item;
+        node( const Key &key ) : item(key, T()) {}
+        node( const Key &key, const T &t ) : item(key, t) {}
+        // exception-safe allocation, see C++ Standard 2003, clause 5.3.4p17
+        void *operator new( size_t /*size*/, node_allocator_type &a ) {
+            void *ptr = a.allocate(1);
+            if(!ptr) throw std::bad_alloc();
+            return ptr;
+        }
+        // match placement-new form above to be called if exception thrown in constructor
+        void operator delete( void *ptr, node_allocator_type &a ) {return a.deallocate(static_cast<node*>(ptr),1); }
+    };
+
+    void delete_node( node_base *n ) {
+        my_allocator.destroy( static_cast<node*>(n) );
+        my_allocator.deallocate( static_cast<node*>(n), 1);
+    }
+
+    node *search_bucket( const key_type &key, bucket *b ) const {
+        node *n = static_cast<node*>( b->node_list );
+        while( is_valid(n) && !my_hash_compare.equal(key, n->item.first) )
+            n = static_cast<node*>( n->next );
+        __TBB_ASSERT(n != __TBB_rehash_req, "Search can be executed only for rehashed bucket");
+        return n;
+    }
+
+    //! bucket accessor is to find, rehash, acquire a lock, and access a bucket
+    class bucket_accessor : public bucket::scoped_t {
+        bool my_is_writer; // TODO: use it from base type
+        bucket *my_b;
+    public:
+        bucket_accessor( concurrent_hash_map *base, const hashcode_t h, bool writer = false ) { acquire( base, h, writer ); }
+        //! find a bucket by maksed hashcode, optionally rehash, and acquire the lock
+        inline void acquire( concurrent_hash_map *base, const hashcode_t h, bool writer = false ) {
+            my_b = base->get_bucket( h );
+#if TBB_USE_THREADING_TOOLS
+            // TODO: actually, notification is unneccessary here, just hiding double-check
+            if( itt_load_pointer_with_acquire_v3(&my_b->node_list) == __TBB_rehash_req
+#else
+            if( __TBB_load_with_acquire(my_b->node_list) == __TBB_rehash_req
+#endif
+                && try_acquire( my_b->mutex, /*write=*/true ) )
+            {
+                if( my_b->node_list == __TBB_rehash_req ) base->rehash_bucket( my_b, h ); //recursive rehashing
+                my_is_writer = true;
+            }
+            else bucket::scoped_t::acquire( my_b->mutex, /*write=*/my_is_writer = writer );
+            __TBB_ASSERT( my_b->node_list != __TBB_rehash_req, NULL);
+        }
+        //! check whether bucket is locked for write
+        bool is_writer() { return my_is_writer; }
+        //! get bucket pointer
+        bucket *operator() () { return my_b; }
+        // TODO: optimize out
+        bool upgrade_to_writer() { my_is_writer = true; return bucket::scoped_t::upgrade_to_writer(); }
+    };
+
+    // TODO refactor to hash_base
+    void rehash_bucket( bucket *b_new, const hashcode_t h ) {
+        __TBB_ASSERT( *(intptr_t*)(&b_new->mutex), "b_new must be locked (for write)");
+        __TBB_ASSERT( h > 1, "The lowermost buckets can't be rehashed" );
+        __TBB_store_with_release(b_new->node_list, __TBB_empty_rehashed); // mark rehashed
+        hashcode_t mask = ( 1u<<__TBB_Log2( h ) ) - 1; // get parent mask from the topmost bit
+
+        bucket_accessor b_old( this, h & mask );
+
+        mask = (mask<<1) | 1; // get full mask for new bucket
+        __TBB_ASSERT( (mask&(mask+1))==0 && (h & mask) == h, NULL );
+    restart:
+        for( node_base **p = &b_old()->node_list, *n = __TBB_load_with_acquire(*p); is_valid(n); n = *p ) {
+            hashcode_t c = my_hash_compare.hash( static_cast<node*>(n)->item.first );
+            if( (c & mask) == h ) {
+                if( !b_old.is_writer() )
+                    if( !b_old.upgrade_to_writer() ) {
+                        goto restart; // node ptr can be invalid due to concurrent erase
+                    }
+                *p = n->next; // exclude from b_old
+                add_to_bucket( b_new, n );
+            } else p = &n->next; // iterate to next item
+        }
+    }
+
+public:
+    
+    class accessor;
     //! Combines data access, locking, and garbage collection.
     class const_accessor {
-        friend class concurrent_hash_map;
+        friend class concurrent_hash_map<Key,T,HashCompare,Allocator>;
         friend class accessor;
-        void operator=( const accessor& ) const; // Deny access
-        const_accessor( const accessor& );       // Deny access
+        void operator=( const accessor & ) const; // Deny access
+        const_accessor( const accessor & );       // Deny access
     public:
         //! Type of value
-        typedef const std::pair<const Key,T> value_type;
+        typedef const typename concurrent_hash_map::value_type value_type;
 
         //! True if result is empty.
         bool empty() const {return !my_node;}
@@ -367,7 +694,7 @@ public:
         void release() {
             if( my_node ) {
                 my_lock.release();
-                my_node = NULL;
+                my_node = 0;
             }
         }
 
@@ -390,8 +717,8 @@ public:
             my_node = NULL; // my_lock.release() is called in scoped_lock destructor
         }
     private:
-        node* my_node;
-        node_mutex_t::scoped_lock my_lock;
+        node *my_node;
+        typename node::scoped_t my_lock;
         hashcode_t my_hash;
     };
 
@@ -399,7 +726,7 @@ public:
     class accessor: public const_accessor {
     public:
         //! Type of value
-        typedef std::pair<const Key,T> value_type;
+        typedef typename concurrent_hash_map::value_type value_type;
 
         //! Return reference to associated value in hash table.
         reference operator*() const {
@@ -410,22 +737,18 @@ public:
         //! Return pointer to associated value in hash table.
         pointer operator->() const {
             return &operator*();
-        }       
+        }
     };
 
     //! Construct empty table.
     concurrent_hash_map(const allocator_type &a = allocator_type())
         : my_allocator(a)
-
-    {
-        initialize();
-    }
+    {}
 
     //! Copy constructor
     concurrent_hash_map( const concurrent_hash_map& table, const allocator_type &a = allocator_type())
         : my_allocator(a)
     {
-        initialize();
         internal_copy(table);
     }
 
@@ -434,7 +757,7 @@ public:
     concurrent_hash_map(I first, I last, const allocator_type &a = allocator_type())
         : my_allocator(a)
     {
-        initialize();
+        reserve( std::distance(first, last) ); // TODO: load_factor?
         internal_copy(first, last);
     }
 
@@ -452,35 +775,33 @@ public:
     void clear();
 
     //! Clear table and destroy it.  
-    ~concurrent_hash_map();
+    ~concurrent_hash_map() { clear(); }
 
     //------------------------------------------------------------------------
     // Parallel algorithm support
     //------------------------------------------------------------------------
     range_type range( size_type grainsize=1 ) {
-        return range_type( begin(), end(), grainsize );
+        return range_type( *this, grainsize );
     }
     const_range_type range( size_type grainsize=1 ) const {
-        return const_range_type( begin(), end(), grainsize );
+        return const_range_type( *this, grainsize );
     }
 
     //------------------------------------------------------------------------
     // STL support - not thread-safe methods
     //------------------------------------------------------------------------
-    iterator begin() {return iterator(*this,0);}
-    iterator end() {return iterator(*this,n_segment);}
-    const_iterator begin() const {return const_iterator(*this,0);}
-    const_iterator end() const {return const_iterator(*this,n_segment);}
+    iterator begin() {return iterator(*this,0,my_embedded_segment,my_embedded_segment->node_list);}
+    iterator end() {return iterator(*this,0,0,0);}
+    const_iterator begin() const {return const_iterator(*this,0,my_embedded_segment,my_embedded_segment->node_list);}
+    const_iterator end() const {return const_iterator(*this,0,0,0);}
     std::pair<iterator, iterator> equal_range( const Key& key ) { return internal_equal_range(key, end()); }
     std::pair<const_iterator, const_iterator> equal_range( const Key& key ) const { return internal_equal_range(key, end()); }
     
     //! Number of items in table.
-    /** Be aware that this method is relatively slow compared to the 
-        typical size() method for an STL container. */
-    size_type size() const;
+    size_type size() const { return my_size; }
 
     //! True if size()==0.
-    bool empty() const;
+    bool empty() const { return my_size == 0; }
 
     //! Upper bound on size.
     size_type max_size() const {return (~size_type(0))/sizeof(node);}
@@ -488,7 +809,7 @@ public:
     //! return allocator object
     allocator_type get_allocator() const { return this->my_allocator; }
 
-    //! swap two instances
+    //! swap two instances. Iterators are invalidated
     void swap(concurrent_hash_map &table);
 
     //------------------------------------------------------------------------
@@ -496,50 +817,56 @@ public:
     //------------------------------------------------------------------------
 
     //! Return count of items (0 or 1)
-    size_type count( const Key& key ) const {
-        return const_cast<concurrent_hash_map*>(this)->lookup</*insert*/false>(NULL, key, /*write=*/false, NULL );
+    size_type count( const Key &key ) const {
+        return const_cast<concurrent_hash_map*>(this)->lookup(/*insert*/false, key, NULL, NULL, /*write=*/false );
     }
 
     //! Find item and acquire a read lock on the item.
     /** Return true if item is found, false otherwise. */
-    bool find( const_accessor& result, const Key& key ) const {
-        return const_cast<concurrent_hash_map*>(this)->lookup</*insert*/false>(&result, key, /*write=*/false, NULL );
+    bool find( const_accessor &result, const Key &key ) const {
+        result.release();
+        return const_cast<concurrent_hash_map*>(this)->lookup(/*insert*/false, key, NULL, &result, /*write=*/false );
     }
 
     //! Find item and acquire a write lock on the item.
     /** Return true if item is found, false otherwise. */
-    bool find( accessor& result, const Key& key ) {
-        return lookup</*insert*/false>(&result, key, /*write=*/true, NULL );
+    bool find( accessor &result, const Key &key ) {
+        result.release();
+        return lookup(/*insert*/false, key, NULL, &result, /*write=*/true );
     }
         
     //! Insert item (if not already present) and acquire a read lock on the item.
     /** Returns true if item is new. */
-    bool insert( const_accessor& result, const Key& key ) {
-        return lookup</*insert*/true>(&result, key, /*write=*/false, NULL );
+    bool insert( const_accessor &result, const Key &key ) {
+        result.release();
+        return lookup(/*insert*/true, key, NULL, &result, /*write=*/false );
     }
 
     //! Insert item (if not already present) and acquire a write lock on the item.
     /** Returns true if item is new. */
-    bool insert( accessor& result, const Key& key ) {
-        return lookup</*insert*/true>(&result, key, /*write=*/true, NULL );
+    bool insert( accessor &result, const Key &key ) {
+        result.release();
+        return lookup(/*insert*/true, key, NULL, &result, /*write=*/true );
     }
 
     //! Insert item by copying if there is no such key present already and acquire a read lock on the item.
     /** Returns true if item is new. */
-    bool insert( const_accessor& result, const value_type& value ) {
-        return lookup</*insert*/true>(&result, value.first, /*write=*/false, &value.second );
+    bool insert( const_accessor &result, const value_type &value ) {
+        result.release();
+        return lookup(/*insert*/true, value.first, &value.second, &result, /*write=*/false );
     }
 
     //! Insert item by copying if there is no such key present already and acquire a write lock on the item.
     /** Returns true if item is new. */
-    bool insert( accessor& result, const value_type& value ) {
-        return lookup</*insert*/true>(&result, value.first, /*write=*/true, &value.second );
+    bool insert( accessor &result, const value_type &value ) {
+        result.release();
+        return lookup(/*insert*/true, value.first, &value.second, &result, /*write=*/true );
     }
 
     //! Insert item by copying if there is no such key present already
     /** Returns true if item is inserted. */
-    bool insert( const value_type& value ) {
-        return lookup</*insert*/true>(NULL, value.first, /*write=*/false, &value.second );
+    bool insert( const value_type &value ) {
+        return lookup(/*insert*/true, value.first, &value.second, NULL, /*write=*/false );
     }
 
     //! Insert range [first, last)
@@ -565,218 +892,130 @@ public:
         return exclude( item_accessor, /*readonly=*/ false );
     }
 
-private:
-    //! Basic unit of storage used in chain.
-    struct node {
-        //! Next node in chain
-        node* next;
-        node_mutex_t mutex;
-        value_type item;
-        node( const Key& key ) : item(key, T()) {}
-        node( const Key& key, const T& t ) : item(key, t) {}
-        // exception-safe allocation, see C++ Standard 2003, clause 5.3.4p17
-        void* operator new( size_t size, node_allocator_type& a ) {
-            void *ptr = a.allocate(1);
-            if(!ptr) throw std::bad_alloc();
-            return ptr;
-        }
-        // match placement-new form above to be called if exception thrown in constructor
-        void operator delete( void* ptr, node_allocator_type& a ) {return a.deallocate(static_cast<node*>(ptr),1); }
-    };
+protected:
+    //! Insert or find item and optionally acquire a lock on the item.
+    bool lookup( bool op_insert, const Key &key, const T *t, const_accessor *result, bool write );
 
-    struct chain;
-    friend struct chain;
+    //! delete item by accessor
+    bool exclude( const_accessor &item_accessor, bool readonly );
 
-    //! A linked-list of nodes.
-    /** Should be zero-initialized before use. */
-    struct chain {
-        void push_front( node& b ) {
-            b.next = node_list;
-            node_list = &b;
-        }
-        chain_mutex_t mutex;
-        node* node_list;
-    };
-
-    struct segment;
-    friend struct segment;
-
-    //! Segment of the table.
-    /** The table is partioned into disjoint segments to reduce conflicts.
-        A segment should be zero-initialized before use. */
-    struct segment: internal::hash_map_segment_base {
-#if TBB_DO_ASSERT
-        ~segment() {
-            __TBB_ASSERT( !my_array, "should have been cleared earlier" );
-        }
-#endif /* TBB_DO_ASSERT */
-
-        // Pointer to array of chains
-        chain* my_array;
-
-        // Get chain in this segment that corresponds to given hash code.
-        chain& get_chain( hashcode_t hashcode, size_t n_segment_bits ) {
-            return my_array[(hashcode>>n_segment_bits)&(my_physical_size-1)];
-        }
-     
-        //! Allocate an array with at least new_size chains. 
-        /** "new_size" is rounded up to a power of two that occupies at least one cache line.
-            Does not deallocate the old array.  Overwrites my_array. */
-        void allocate_array( size_t new_size ) {
-            size_t n=(internal::NFS_GetLineSize()+sizeof(chain)-1)/sizeof(chain);
-            __TBB_ASSERT((n&(n-1))==0, NULL);
-            while( n<new_size ) n<<=1;
-            chain* array = cache_aligned_allocator<chain>().allocate( n );
-            // storing earlier might help overcome false positives of in deducing "bool grow" in concurrent threads
-            __TBB_store_with_release(my_physical_size, n);
-            memset( array, 0, n*sizeof(chain) );
-            my_array = array;
-        }
-    };
-
-    segment& get_segment( hashcode_t hashcode ) {
-        return my_segment[hashcode&(n_segment-1)];
-    }
-
-    node_allocator_type my_allocator;
-
-    HashCompare my_hash_compare;
-
-    segment* my_segment;
-
-    node* create_node(const Key& key, const T* t) {
-        // exception-safe allocation and construction
-        if(t) return new( my_allocator ) node(key, *t);
-        else  return new( my_allocator ) node(key);
-    }
-
-    void delete_node(node* b) {
-        my_allocator.destroy(b);
-        my_allocator.deallocate(b, 1);
-    }
-
-    node* search_list( const Key& key, chain& c ) const {
-        node* b = c.node_list;
-        while( b && !my_hash_compare.equal(key, b->item.first) )
-            b = b->next;
-        return b;
-    }
     //! Returns an iterator for an item defined by the key, or for the next item after it (if upper==true)
     template<typename I>
     std::pair<I, I> internal_equal_range( const Key& key, I end ) const;
-
-    //! delete item by accessor
-    bool exclude( const_accessor& item_accessor, bool readonly );
-
-    //! Grow segment for which caller has acquired a write lock.
-    void grow_segment( segment_mutex_t::scoped_lock& segment_lock, segment& s );
-
-    //! Does heavy lifting for "find" and "insert".
-    template<bool op_insert>
-    bool lookup( const_accessor* result, const Key& key, bool write, const T* t );
-
-    //! Perform initialization on behalf of a constructor
-    void initialize() {
-        my_segment = cache_aligned_allocator<segment>().allocate(n_segment);
-        memset( my_segment, 0, sizeof(segment)*n_segment );
-     }
 
     //! Copy "source" to *this, where *this must start out empty.
     void internal_copy( const concurrent_hash_map& source );
 
     template<typename I>
     void internal_copy(I first, I last);
+
+    //! fast find when no concurrent erasure is used
+    const_pointer find( const Key& key ) const {
+        hashcode_t h = my_hash_compare.hash( key );
+        hashcode_t m = my_mask;
+    restart:
+        __TBB_ASSERT((m&(m+1))==0, NULL);
+        bucket *b = get_bucket( h & m );
+        if( b->node_list == __TBB_rehash_req ) {
+            bucket::scoped_t lock;
+            if( lock.try_acquire( b->mutex, /*write=*/true ) && b->node_list == __TBB_rehash_req )
+                const_cast<concurrent_hash_map*>(this)->rehash_bucket( b, h & m ); //recursive rehashing
+            else internal::spin_wait_while_eq( b->node_list, __TBB_rehash_req ); //TODO: rework for fast find?
+        }
+        node *n = search_bucket( key, b );
+        if( check_mask_race( h, m ) )
+            goto restart;
+        if( n )
+            return &n->item;
+        return 0;
+    }
 };
 
-template<typename Key, typename T, typename HashCompare, typename A>
-concurrent_hash_map<Key,T,HashCompare,A>::~concurrent_hash_map() {
-    clear();
-    cache_aligned_allocator<segment>().deallocate( my_segment, n_segment );
-}
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+    // Suppress "conditional expression is constant" warning.
+    #pragma warning( push )
+    #pragma warning( disable: 4127 )
+#endif
 
 template<typename Key, typename T, typename HashCompare, typename A>
-typename concurrent_hash_map<Key,T,HashCompare,A>::size_type concurrent_hash_map<Key,T,HashCompare,A>::size() const {
-    size_type result = 0;
-    for( size_t k=0; k<n_segment; ++k )
-        result += my_segment[k].my_logical_size;
-    return result;
-}
-
-template<typename Key, typename T, typename HashCompare, typename A>
-bool concurrent_hash_map<Key,T,HashCompare,A>::empty() const {
-    for( size_t k=0; k<n_segment; ++k )
-        if( my_segment[k].my_logical_size )
-            return false;
-    return true;
-}
-
-template<typename Key, typename T, typename HashCompare, typename A>
-template<bool op_insert>
-bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( const_accessor* result, const Key& key, bool write, const T* t ) {
-    if( result /*&& result->my_node -- checked in release() */ )
-        result->release();
-    const hashcode_t h = my_hash_compare.hash( key );
-    segment& s = get_segment(h);
-restart:
-    bool return_value = false;
-    // first check in double-check sequence
-#if TBB_DO_THREADING_TOOLS||TBB_DO_ASSERT
-    const bool grow = op_insert && s.internal_grow_predicate();
+bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key &key, const T *t, const_accessor *result, bool write ) {
+    __TBB_ASSERT( !result || !result->my_node, NULL );
+    segment_index_t grow_segment;
+    bool return_value;
+    node *n, *tmp_n = 0;
+    hashcode_t const h = my_hash_compare.hash( key );
+#if TBB_USE_THREADING_TOOLS
+    hashcode_t m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
 #else
-    const bool grow = op_insert && s.my_logical_size >= s.my_physical_size
-        && s.my_physical_size < max_physical_size; // check whether there are free bits
-#endif /* TBB_DO_THREADING_TOOLS||TBB_DO_ASSERT */
-    segment_mutex_t::scoped_lock segment_lock( s.my_mutex, /*write=*/grow );
-    if( grow ) { // Load factor is too high  
-        grow_segment( segment_lock, s );
-    }
-    if( !s.my_array ) {
-        __TBB_ASSERT( !op_insert, NULL );
-        return false;
-    }
-    __TBB_ASSERT( (s.my_physical_size&(s.my_physical_size-1))==0, NULL );
-    chain& c = s.get_chain( h, n_segment_bits );
-    chain_mutex_t::scoped_lock chain_lock( c.mutex, /*write=*/false );
+    hashcode_t m = my_mask;
+#endif
+    restart:
+    {//lock scope
+        __TBB_ASSERT((m&(m+1))==0, NULL);
+        return_value = false;
+        // get bucket
+        bucket_accessor b( this, h & m );
 
-    node* b = search_list( key, c );
-    if( op_insert ) {
-        if( !b ) {
-            b = create_node(key, t);
-            // Search failed
-            if( !chain_lock.upgrade_to_writer() ) {
-                // Rerun search_list, in case another thread inserted the item during the upgrade.
-                node* b_temp = search_list( key, c );
-                if( b_temp ) { // unfortunately, it did
-                    chain_lock.downgrade_to_reader();
-                    delete_node( b );
-                    b = b_temp;
-                    goto done;
+        // find a node
+        n = search_bucket( key, b() );
+        if( op_insert ) {
+            // [opt] insert a key
+            if( !is_valid(n) ) {
+                if( !tmp_n ) {
+                    if(t) tmp_n = new( my_allocator ) node(key, *t);
+                    else  tmp_n = new( my_allocator ) node(key);
                 }
+                if( !b.is_writer() && !b.upgrade_to_writer() ) { // TODO: improved insertion
+                    // Rerun search_list, in case another thread inserted the item during the upgrade.
+                    n = search_bucket( key, b() );
+                    if( is_valid(n) ) { // unfortunately, it did
+                        b.downgrade_to_reader();
+                        goto exists;
+                    }
+                }
+                if( check_mask_race(h, m) )
+                    goto restart; // b.release() is done in ~b().
+                // insert and set flag to grow the container
+                grow_segment = insert_new_node( b(), n = tmp_n, m );
+                tmp_n = 0;
+                return_value = true;
+            } else {
+    exists:     grow_segment = 0;
             }
-            ++s.my_logical_size; // we can't change it earlier due to correctness of size() and exception safety of equal()
+        } else { // find or count
+            if( !n ) {
+                if( check_mask_race( h, m ) )
+                    goto restart; // b.release() is done in ~b(). TODO: replace by continue
+                return false;
+            }
             return_value = true;
-            c.push_front( *b );
+            grow_segment = 0;
         }
-    } else { // find or count
-        if( !b )      return false;
-        return_value = true;
-    }
-done:
-    if( !result ) return return_value;
-    if( !result->my_lock.try_acquire( b->mutex, write ) ) {
-        // we are unlucky, prepare for longer wait
-        internal::AtomicBackoff trials;
-        do {
-            if( !trials.bounded_pause() ) {
-                // the wait takes really long, restart the operation
-                chain_lock.release(); segment_lock.release();
-                __TBB_Yield();
-                goto restart;
-            }
-        } while( !result->my_lock.try_acquire( b->mutex, write ) );
-    }
-    result->my_node = b;
+        if( !result ) goto check_growth;
+        // TODO: the following seems as generic/regular operation
+        // acquire the item
+        if( !result->my_lock.try_acquire( n->mutex, write ) ) {
+            // we are unlucky, prepare for longer wait
+            internal::atomic_backoff trials;
+            do {
+                if( !trials.bounded_pause() ) {
+                    // the wait takes really long, restart the operation
+                    b.release();
+                    __TBB_Yield();
+                    m = my_mask;
+                    goto restart;
+                }
+            } while( !result->my_lock.try_acquire( n->mutex, write ) );
+        }
+    }//lock scope
+    result->my_node = n;
     result->my_hash = h;
+check_growth:
+    // [opt] grow the container
+    if( grow_segment )
+        enable_segment( grow_segment );
+    if( tmp_n ) // if op_insert only
+        delete_node( tmp_n );
     return return_value;
 }
 
@@ -784,82 +1023,86 @@ template<typename Key, typename T, typename HashCompare, typename A>
 template<typename I>
 std::pair<I, I> concurrent_hash_map<Key,T,HashCompare,A>::internal_equal_range( const Key& key, I end ) const {
     hashcode_t h = my_hash_compare.hash( key );
-    size_t segment_index = h&(n_segment-1);
-    segment& s = my_segment[segment_index ];
-    size_t chain_index = (h>>n_segment_bits)&(s.my_physical_size-1);
-    if( !s.my_array )
+    hashcode_t m = my_mask;
+    __TBB_ASSERT((m&(m+1))==0, NULL);
+    h &= m;
+    bucket *b = get_bucket( h );
+    while( b->node_list == __TBB_rehash_req ) {
+        m = ( 1u<<__TBB_Log2( h ) ) - 1; // get parent mask from the topmost bit
+        b = get_bucket( h &= m );
+    }
+    node *n = search_bucket( key, b );
+    if( !n )
         return std::make_pair(end, end);
-    chain& c = s.my_array[chain_index];
-    node* b = search_list( key, c );
-    if( !b )
-        return std::make_pair(end, end);
-    iterator lower(*this, segment_index, chain_index, b), upper(lower);
+    iterator lower(*this, h, b, n), upper(lower);
     return std::make_pair(lower, ++upper);
-}
-
-template<typename Key, typename T, typename HashCompare, typename A>
-bool concurrent_hash_map<Key,T,HashCompare,A>::erase( const Key &key ) {
-    hashcode_t h = my_hash_compare.hash( key );
-    segment& s = get_segment( h );
-    node* b;
-    {
-        bool chain_locked_for_write = false;
-        segment_mutex_t::scoped_lock segment_lock( s.my_mutex, /*write=*/false );
-        if( !s.my_array ) return false;
-        __TBB_ASSERT( (s.my_physical_size&(s.my_physical_size-1))==0, NULL );
-        chain& c = s.get_chain( h, n_segment_bits );
-        chain_mutex_t::scoped_lock chain_lock( c.mutex, /*write=*/false );
-    search:
-        node** p = &c.node_list;
-        b = *p;
-        while( b && !my_hash_compare.equal(key, b->item.first ) ) {
-            p = &b->next;
-            b = *p;
-        }
-        if( !b ) return false;
-        if( !chain_locked_for_write && !chain_lock.upgrade_to_writer() ) {
-            chain_locked_for_write = true;
-            goto search;
-        }
-        *p = b->next;
-        --s.my_logical_size;
-    }
-    {
-        node_mutex_t::scoped_lock item_locker( b->mutex, /*write=*/true );
-    }
-    // note: there should be no threads pretending to acquire this mutex again, do not try to upgrade const_accessor!
-    delete_node( b ); // Only one thread can delete it due to write lock on the chain_mutex
-    return true;        
 }
 
 template<typename Key, typename T, typename HashCompare, typename A>
 bool concurrent_hash_map<Key,T,HashCompare,A>::exclude( const_accessor &item_accessor, bool readonly ) {
     __TBB_ASSERT( item_accessor.my_node, NULL );
-    const hashcode_t h = item_accessor.my_hash;
-    node *const b = item_accessor.my_node;
+    node_base *const n = item_accessor.my_node;
     item_accessor.my_node = NULL; // we ought release accessor anyway
-    segment& s = get_segment( h );
-    {
-        segment_mutex_t::scoped_lock segment_lock( s.my_mutex, /*write=*/false );
-        __TBB_ASSERT( s.my_array, NULL );
-        __TBB_ASSERT( (s.my_physical_size&(s.my_physical_size-1))==0, NULL );
-        chain& c = s.get_chain( h, n_segment_bits );
-        chain_mutex_t::scoped_lock chain_lock( c.mutex, /*write=*/true );
-        node** p = &c.node_list;
-        while( *p && *p != b )
+    hashcode_t const h = item_accessor.my_hash;
+    hashcode_t m = my_mask;
+    do {
+        // get bucket
+        bucket_accessor b( this, h & m, /*writer=*/true );
+        node_base **p = &b()->node_list;
+        while( *p && *p != n )
             p = &(*p)->next;
         if( !*p ) { // someone else was the first
+            if( check_mask_race( h, m ) )
+                continue;
             item_accessor.my_lock.release();
             return false;
         }
-        __TBB_ASSERT( *p == b, NULL );
-        *p = b->next;
-        --s.my_logical_size;
-    }
+        __TBB_ASSERT( *p == n, NULL );
+        *p = n->next; // remove from container
+        my_size--;
+        break;
+    } while(true);
     if( readonly ) // need to get exclusive lock
         item_accessor.my_lock.upgrade_to_writer(); // return value means nothing here
     item_accessor.my_lock.release();
-    delete_node( b ); // Only one thread can delete it due to write lock on the chain_mutex
+    delete_node( n ); // Only one thread can delete it due to write lock on the chain_mutex
+    return true;
+}
+
+template<typename Key, typename T, typename HashCompare, typename A>
+bool concurrent_hash_map<Key,T,HashCompare,A>::erase( const Key &key ) {
+    node_base *n;
+    hashcode_t const h = my_hash_compare.hash( key );
+    hashcode_t m = my_mask;
+    {//lock scope
+    restart:
+        // get bucket
+        bucket_accessor b( this, h & m );
+    search:
+        node_base **p = &b()->node_list;
+        n = *p;
+        while( is_valid(n) && !my_hash_compare.equal(key, static_cast<node*>(n)->item.first ) ) {
+            p = &n->next;
+            n = *p;
+        }
+        if( !n ) { // not found, but mask could be changed
+            if( check_mask_race( h, m ) )
+                goto restart;
+            return false;
+        }
+        else if( !b.is_writer() && !b.upgrade_to_writer() ) {
+            if( check_mask_race( h, m ) ) // contended upgrade, check mask
+                goto restart;
+            goto search;
+        }
+        *p = n->next;
+        my_size--;
+    }
+    {
+        typename node::scoped_t item_locker( n->mutex, /*write=*/true );
+    }
+    // note: there should be no threads pretending to acquire this mutex again, do not try to upgrade const_accessor!
+    delete_node( n ); // Only one thread can delete it due to write lock on the bucket
     return true;
 }
 
@@ -867,93 +1110,91 @@ template<typename Key, typename T, typename HashCompare, typename A>
 void concurrent_hash_map<Key,T,HashCompare,A>::swap(concurrent_hash_map<Key,T,HashCompare,A> &table) {
     std::swap(this->my_allocator, table.my_allocator);
     std::swap(this->my_hash_compare, table.my_hash_compare);
-    std::swap(this->my_segment, table.my_segment);
+    internal_swap(table);
 }
 
 template<typename Key, typename T, typename HashCompare, typename A>
 void concurrent_hash_map<Key,T,HashCompare,A>::clear() {
-#if TBB_PERFORMANCE_WARNINGS
-    size_t total_physical_size = 0, min_physical_size = size_t(-1L), max_physical_size = 0; //< usage statistics
+    hashcode_t m = my_mask;
+    __TBB_ASSERT((m&(m+1))==0, NULL);
+#if TBB_USE_DEBUG || TBB_USE_PERFORMANCE_WARNINGS
+#if TBB_USE_PERFORMANCE_WARNINGS
+    int size = int(my_size), buckets = int(m)+1, empty_buckets = 0, overpopulated_buckets = 0; // usage statistics
     static bool reported = false;
 #endif
-    for( size_t i=0; i<n_segment; ++i ) {
-        segment& s = my_segment[i];
-        size_t n = s.my_physical_size;
-        if( chain* array = s.my_array ) {
-            s.my_array = NULL;
-            s.my_physical_size = 0;
-            s.my_logical_size = 0;
-            for( size_t j=0; j<n; ++j ) {
-                while( node* b = array[j].node_list ) {
-                    array[j].node_list = b->next;
-                    delete_node(b);
-                }
-            }
-            cache_aligned_allocator<chain>().deallocate( array, n );
-        }
-#if TBB_PERFORMANCE_WARNINGS
-        total_physical_size += n;
-        if(min_physical_size > n) min_physical_size = n;
-        if(max_physical_size < n) max_physical_size = n;
-    }
-    if( !reported
-        && ( (total_physical_size >= n_segment*48 && min_physical_size < total_physical_size/n_segment/2)
-         || (total_physical_size >= n_segment*128 && max_physical_size > total_physical_size/n_segment*2) ) )
-    {
-        reported = true;
-        internal::runtime_warning(
-            "Performance is not optimal because the hash function produces bad randomness in lower bits in %s",
-            typeid(*this).name() );
+    // check consistency
+    for( segment_index_t b = 0; b <= m; b++ ) {
+        node_base *n = get_bucket(b)->node_list;
+#if TBB_USE_PERFORMANCE_WARNINGS
+        if( n == __TBB_empty_rehashed ) empty_buckets++;
+        else if( n == __TBB_rehash_req ) buckets--;
+        else if( n->next ) overpopulated_buckets++;
 #endif
+        for(; is_valid(n); n = n->next ) {
+            hashcode_t h = my_hash_compare.hash( static_cast<node*>(n)->item.first );
+            h &= m;
+            __TBB_ASSERT( h == b || get_bucket(h)->node_list == __TBB_rehash_req, "Rehashing is not finished until serial stage due to concurrent or terminated operation" );
+        }
     }
-}
-
-template<typename Key, typename T, typename HashCompare, typename A>
-void concurrent_hash_map<Key,T,HashCompare,A>::grow_segment( segment_mutex_t::scoped_lock& segment_lock, segment& s ) {
-    // Following is second check in a double-check.
-    if( s.my_logical_size >= s.my_physical_size ) {
-        chain* old_array = s.my_array;
-        size_t old_size = s.my_physical_size;
-        s.allocate_array( s.my_logical_size+1 );
-        for( size_t k=0; k<old_size; ++k )
-            while( node* b = old_array[k].node_list ) {
-                old_array[k].node_list = b->next;
-                hashcode_t h = my_hash_compare.hash( b->item.first );
-                __TBB_ASSERT( &get_segment(h)==&s, "hash function changed?" );
-                s.get_chain(h,n_segment_bits).push_front(*b);
+#if TBB_USE_PERFORMANCE_WARNINGS
+    if( buckets > size) empty_buckets -= buckets - size;
+    else overpopulated_buckets -= size - buckets; // TODO: load_factor?
+    if( !reported && buckets >= 512 && ( 2*empty_buckets >= size || 2*overpopulated_buckets > size ) ) {
+        internal::runtime_warning(
+            "Performance is not optimal because the hash function produces bad randomness in lower bits in %s.\nSize: %d  Empties: %d  Overlaps: %d",
+            typeid(*this).name(), size, empty_buckets, overpopulated_buckets );
+        reported = true;
+    }
+#endif
+#endif//TBB_USE_DEBUG || TBB_USE_PERFORMANCE_WARNINGS
+    my_size = 0;
+    segment_index_t s = segment_index_of( m );
+    __TBB_ASSERT( s+1 == pointers_per_table || !my_table[s+1], "wrong mask or concurrent grow" );
+    cache_aligned_allocator<bucket> alloc;
+    do {
+        __TBB_ASSERT( is_valid( my_table[s] ), "wrong mask or concurrent grow" );
+        segment_ptr_t buckets = my_table[s];
+        size_type sz = segment_size( s ? s : 1 );
+        for( segment_index_t i = 0; i < sz; i++ )
+            for( node_base *n = buckets[i].node_list; is_valid(n); n = buckets[i].node_list ) {
+                buckets[i].node_list = n->next;
+                delete_node( n );
             }
-        cache_aligned_allocator<chain>().deallocate( old_array, old_size );
-    }
-    segment_lock.downgrade_to_reader();
+        if( s >= first_block) // the first segment or the next
+            alloc.deallocate( buckets, sz );
+        else if( s == embedded_block && embedded_block != first_block )
+            alloc.deallocate( buckets, segment_size(first_block)-embedded_buckets );
+        if( s >= embedded_block ) my_table[s] = 0;
+    } while(s-- > 0);
+    my_mask = embedded_buckets - 1;
 }
 
 template<typename Key, typename T, typename HashCompare, typename A>
 void concurrent_hash_map<Key,T,HashCompare,A>::internal_copy( const concurrent_hash_map& source ) {
-    for( size_t i=0; i<n_segment; ++i ) {
-        segment& s = source.my_segment[i];
-        __TBB_ASSERT( !my_segment[i].my_array, "caller should have cleared" );
-        if( s.my_logical_size ) {
-            segment& d = my_segment[i];
-            d.allocate_array( s.my_logical_size );
-            d.my_logical_size = s.my_logical_size;
-            size_t s_size = s.my_physical_size;
-            chain* s_array = s.my_array;
-            chain* d_array = d.my_array;
-            for( size_t k=0; k<s_size; ++k )
-                for( node* b = s_array[k].node_list; b; b=b->next ) {
-                    __TBB_ASSERT( &get_segment(my_hash_compare.hash( b->item.first ))==&d, "hash function changed?" );
-                    node* b_new = create_node(b->item.first, &b->item.second);
-                    d_array[k].push_front(*b_new); // hashcode is the same and segment and my_physical sizes are the same
-                }
+    reserve( source.my_size ); // TODO: load_factor?
+    if( my_mask == source.my_mask ) { // optimized version
+        for( const_iterator it = source.begin(), end = source.end(); it != end; ++it ) {
+            bucket *b = get_bucket( it.my_index );
+            __TBB_ASSERT( b->node_list != __TBB_rehash_req, "Invalid bucket in destination table");
+            node *n = new( my_allocator ) node(it->first, it->second);
+            add_to_bucket( b, n );
+            ++my_size; // TODO: replace by non-atomic op
         }
-    }
+    } else internal_copy( source.begin(), source.end() );
 }
 
 template<typename Key, typename T, typename HashCompare, typename A>
 template<typename I>
 void concurrent_hash_map<Key,T,HashCompare,A>::internal_copy(I first, I last) {
-    for(; first != last; ++first)
-        insert( *first );
+    hashcode_t m = my_mask;
+    for(; first != last; ++first) {
+        hashcode_t h = my_hash_compare.hash( first->first );
+        bucket *b = get_bucket( h & m );
+        __TBB_ASSERT( b->node_list != __TBB_rehash_req, "Invalid bucket in destination table");
+        node *n = new( my_allocator ) node(first->first, first->second);
+        add_to_bucket( b, n );
+        ++my_size; // TODO: replace by non-atomic op
+    }
 }
 
 template<typename Key, typename T, typename HashCompare, typename A1, typename A2>
@@ -975,6 +1216,10 @@ inline bool operator!=(const concurrent_hash_map<Key, T, HashCompare, A1> &a, co
 template<typename Key, typename T, typename HashCompare, typename A>
 inline void swap(concurrent_hash_map<Key, T, HashCompare, A> &a, concurrent_hash_map<Key, T, HashCompare, A> &b)
 {    a.swap( b ); }
+
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+    #pragma warning( pop )
+#endif // warning 4127 is back
 
 } // namespace tbb
 

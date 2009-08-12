@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -60,6 +60,9 @@ public:
     size_t size() const {return my_end-begin();}
 };
 
+static const char* InputFileName = "input.txt";
+static const char* OutputFileName = "output.txt";
+
 class MyInputFilter: public tbb::filter {
 public:
     static const size_t n_buffer = 8;
@@ -73,7 +76,7 @@ private:
 };
 
 MyInputFilter::MyInputFilter( FILE* input_file_ ) : 
-    filter(/*is_serial=*/true),
+    filter(serial_in_order),
     next_buffer(0),
     input_file(input_file_),
     last_char_of_previous_buffer(' ')
@@ -103,7 +106,7 @@ public:
 };
 
 MyTransformFilter::MyTransformFilter() : 
-    tbb::filter(/*ordered=*/false) 
+    tbb::filter(parallel) 
 {}  
 
 /*override*/void* MyTransformFilter::operator()( void* item ) {
@@ -126,20 +129,22 @@ public:
 };
 
 MyOutputFilter::MyOutputFilter( FILE* output_file ) : 
-    tbb::filter(/*is_serial=*/true),
+    tbb::filter(serial_in_order),
     my_output_file(output_file)
 {
 }
 
 void* MyOutputFilter::operator()( void* item ) {
     MyBuffer& b = *static_cast<MyBuffer*>(item);
-    fwrite( b.begin(), 1, b.size(), my_output_file );
+    int n = (int) fwrite( b.begin(), 1, b.size(), my_output_file );
+    if( n<=0 ) {
+        fprintf(stderr,"Can't write into %s file\n", OutputFileName);
+        exit(1);
+    }
     return NULL;
 }
 
 static int NThread = tbb::task_scheduler_init::automatic;
-static const char* InputFileName = "input.txt";
-static const char* OutputFileName = "output.txt";
 static bool is_number_of_threads_set = false;
 
 void Usage()
@@ -210,7 +215,7 @@ int run_pipeline( int nthreads )
         printf("threads = %d time = %g\n", nthreads, (t1-t0).seconds());
     } else {
         if ( nthreads == 1 ){
-            printf("serial run   time = %g\n", (t1-t0).seconds());
+            printf("single thread run time = %g\n", (t1-t0).seconds());
         } else {
             printf("parallel run time = %g\n", (t1-t0).seconds());
         }
@@ -226,8 +231,8 @@ int main( int argc, char* argv[] ) {
         tbb::task_scheduler_init init( NThread );
         if(!run_pipeline (NThread))
             return 1;
-    } else { // Number of threads wasn't set explicitly. Run serial and parallel version
-        { // serial run
+    } else { // Number of threads wasn't set explicitly. Run single-thread and fully subscribed parallel versions
+        { // single-threaded run
             tbb::task_scheduler_init init_serial(1);
             if(!run_pipeline (1))
                 return 1;

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,19 +30,17 @@
 // On Red Hat EL4 U1, it does not work, because sched_yield is broken.
 
 #include "tbb/tbb_machine.h"
-#include "harness.h"
-#include "tbb/blocked_range.h"
 #include "tbb/tick_count.h"
+#include "harness.h"
 
 static volatile long CyclicCounter;
 static volatile bool Quit;
 double SingleThreadTime;
 
-struct RoundRobin {
+struct RoundRobin: NoAssign {
     const int number_of_threads;
     RoundRobin( long p ) : number_of_threads(p) {}
-    void operator()( const tbb::blocked_range<long>& r ) const {
-        const long k = r.begin();
+    void operator()( long k ) const {
         tbb::tick_count t0 = tbb::tick_count::now();
         for( long i=0; i<10000; ++i ) {
             // Wait for previous thread to notify us 
@@ -51,7 +49,7 @@ struct RoundRobin {
                 if( j%100==0 ) {
                     tbb::tick_count t1 = tbb::tick_count::now();
                     if( (t1-t0).seconds()>=1.0*number_of_threads ) {
-                        printf("Warning: __TBB_Yield failing to yield with %d threads (or system is heavily loaded)\n",number_of_threads);
+                        REPORT("Warning: __TBB_Yield failing to yield with %d threads (or system is heavily loaded)\n",number_of_threads);
                         Quit = true;
                         return;
                     }
@@ -63,17 +61,18 @@ struct RoundRobin {
     }
 };
 
+__TBB_TEST_EXPORT
 int main( int argc, char* argv[] ) {
     // Set defaults
     MaxThread = MinThread = 3;
     ParseCommandLine( argc, argv );
     for( int p=MinThread; p<=MaxThread; ++p ) {
-        if( Verbose ) printf("testing with %d threads\n", p );
+        if( Verbose ) REPORT("testing with %d threads\n", p );
         CyclicCounter = 0;
         Quit = false;
-        NativeParallelFor( tbb::blocked_range<long>(0,p,1), RoundRobin(p) );
+        NativeParallelFor( long(p), RoundRobin(p) );
     }
-    printf("done\n");
+    REPORT("done\n");
     return 0;
 }
 

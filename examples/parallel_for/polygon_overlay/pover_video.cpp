@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -59,7 +59,7 @@ void rt_sleep(int msec) {
 using namespace std;
 
 bool g_next_frame() {
-    if(++n_next_frame_calls >= frame_skips) {
+    if(++n_next_frame_calls >= frame_skips) { // the data race here is benign
         n_next_frame_calls = 0; 
         return gVideo->next_frame();
     } 

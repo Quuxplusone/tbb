@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,26 +31,26 @@
 
 #define COUNT_PARAMETERS 3
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define snprintf _snprintf
 #endif
 
 void GetTime(char* buff,int size_buff) 
 {
-	tm *newtime;
-	time_t timer;
-	time(&timer);
-	newtime=localtime(&timer);
-	strftime(buff,size_buff,"%H:%M:%S",newtime); 
+    tm *newtime;
+    time_t timer;
+    time(&timer);
+    newtime=localtime(&timer);
+    strftime(buff,size_buff,"%H:%M:%S",newtime); 
 }
 
 void GetDate(char* buff,int size_buff) 
 {
-	tm *newtime;
-	time_t timer;
-	time(&timer);  
-	newtime=localtime(&timer);
-	strftime(buff,size_buff,"%Y-%m-%d",newtime); 
+    tm *newtime;
+    time_t timer;
+    time(&timer);  
+    newtime=localtime(&timer);
+    strftime(buff,size_buff,"%Y-%m-%d",newtime); 
 }
 
 
@@ -59,16 +59,16 @@ StatisticsCollector::TestCase StatisticsCollector::SetTestCase(const char *name,
     string KeyName(name);
     switch (SortMode)
     {
-	case ByThreads: KeyName += Format("_%02d_%s", threads, mode); break;
+    case ByThreads: KeyName += Format("_%02d_%s", threads, mode); break;
     default:
     case ByAlg: KeyName += Format("_%s_%02d", mode, threads); break;
     }
     CurrentKey = Statistics[KeyName];
     if(!CurrentKey) {
         CurrentKey = new StatisticResults;
-	    CurrentKey->Mode = mode;
-	    CurrentKey->Name = name;
-	    CurrentKey->Threads = threads;
+        CurrentKey->Mode = mode;
+        CurrentKey->Name = name;
+        CurrentKey->Threads = threads;
         CurrentKey->Results.reserve(RoundTitles.size());
         Statistics[KeyName] = CurrentKey;
     }
@@ -148,79 +148,79 @@ string ExcelFormula(const string &fmt, size_t place, size_t rounds, bool is_hori
     return result;
 }
 
-void StatisticsCollector::Print(int dataOutput)
+void StatisticsCollector::Print(int dataOutput, const char *ModeName)
 {
-	FILE *OutputFile;
-	if (dataOutput & StatisticsCollector::Stdout)
-	{
+    FILE *OutputFile;
+    if (dataOutput & StatisticsCollector::Stdout)
+    {
         printf("\n-=# %s #=-\n", Title.c_str());
         if(SortMode == ByThreads)
-            printf("    Name    |  #  | Mode ");
+            printf("    Name    |  #  | %s ", ModeName);
         else
-            printf("    Name    | Mode |  #  ");
+            printf("    Name    | %s |  #  ", ModeName);
         for (AnalysisTitles_t::iterator i = AnalysisTitles.begin(); i != AnalysisTitles.end(); i++)
             printf("|%s", i->c_str()+1);
 
-		for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-		{
+        for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
+        {
             if(SortMode == ByThreads)
-			    printf("\n%12s|% 5d|%6s", i->second->Name.c_str(), i->second->Threads, i->second->Mode.c_str());
+                printf("\n%12s|% 5d|%6s", i->second->Name.c_str(), i->second->Threads, i->second->Mode.c_str());
             else
                 printf("\n%12s|%6s|% 5d", i->second->Name.c_str(), i->second->Mode.c_str(), i->second->Threads);
-			Analysis_t &analisis = i->second->Analysis;
+            Analysis_t &analisis = i->second->Analysis;
             AnalysisTitles_t::iterator t = AnalysisTitles.begin();
-			for (Analysis_t::iterator a = analisis.begin(); a != analisis.end(); t++)
-			{
+            for (Analysis_t::iterator a = analisis.begin(); a != analisis.end(); t++)
+            {
                 char fmt[8]; snprintf(fmt, 7, "|%% %us", unsigned(max(size_t(3), t->size())));
                 if(*t != a->first)
-				    printf(fmt, "");
+                    printf(fmt, "");
                 else {
                     printf(fmt, a->second.c_str()); a++;
                 }
-			}
-		}
+            }
+        }
         printf("\n");
-	}
-	if (dataOutput & StatisticsCollector::HTMLFile)
-	{
-		if ((OutputFile = fopen((Name+".html").c_str(), "w+t")) != NULL)
-		{
-			char TimerBuff[100], DateBuff[100];
-			GetTime(TimerBuff,sizeof(TimerBuff));
-			GetDate(DateBuff,sizeof(DateBuff));
-			fprintf(OutputFile, "<html><head>\n<title>%s</title>\n</head><body>\n", Title.c_str());
+    }
+    if (dataOutput & StatisticsCollector::HTMLFile)
+    {
+        if ((OutputFile = fopen((Name+".html").c_str(), "w+t")) != NULL)
+        {
+            char TimerBuff[100], DateBuff[100];
+            GetTime(TimerBuff,sizeof(TimerBuff));
+            GetDate(DateBuff,sizeof(DateBuff));
+            fprintf(OutputFile, "<html><head>\n<title>%s</title>\n</head><body>\n", Title.c_str());
             //-----------------------
-			fprintf(OutputFile, "<table id=\"h\" style=\"position:absolute;top:20\" border=1 cellspacing=0 cellpadding=2>\n");
-			fprintf(OutputFile, "<tr><td><a name=hr href=#vr onclick=\"v.style.visibility='visible';"
+            fprintf(OutputFile, "<table id=\"h\" style=\"position:absolute;top:20\" border=1 cellspacing=0 cellpadding=2>\n");
+            fprintf(OutputFile, "<tr><td><a name=hr href=#vr onclick=\"v.style.visibility='visible';"
                                 "h.style.visibility='hidden';\">Flip[H]</a></td>"
                                 "<td>%s</td><td>%s</td><td colspan=%u>%s</td>",
-				DateBuff, TimerBuff, unsigned(AnalysisTitles.size() + RoundTitles.size()), Title.c_str());
-			fprintf(OutputFile, "</tr>\n<tr bgcolor=#CCFFFF><td>Name</td><td>Threads</td><td>Mode</td>");
-			for (AnalysisTitles_t::iterator i = AnalysisTitles.begin(); i != AnalysisTitles.end(); i++)
-				fprintf(OutputFile, "<td>%s</td>", i->c_str()+1);
+                DateBuff, TimerBuff, unsigned(AnalysisTitles.size() + RoundTitles.size()), Title.c_str());
+            fprintf(OutputFile, "</tr>\n<tr bgcolor=#CCFFFF><td>Name</td><td>Threads</td><td>%s</td>", ModeName);
+            for (AnalysisTitles_t::iterator i = AnalysisTitles.begin(); i != AnalysisTitles.end(); i++)
+                fprintf(OutputFile, "<td>%s</td>", i->c_str()+1);
             for (size_t i = 0; i < RoundTitles.size(); i++)
                 fprintf(OutputFile, "<td>%s</td>", RoundTitles[i].c_str());
-			for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-			{
-				fprintf(OutputFile, "</tr>\n<tr><td bgcolor=#CCFFCC>%s</td><td bgcolor=#CCFFCC>%d</td><td bgcolor=#CCFFCC>%4s</td>",
+            for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
+            {
+                fprintf(OutputFile, "</tr>\n<tr><td bgcolor=#CCFFCC>%s</td><td bgcolor=#CCFFCC>%d</td><td bgcolor=#CCFFCC>%4s</td>",
                     i->second->Name.c_str(), i->second->Threads, i->second->Mode.c_str());
-				//statistics
+                //statistics
                 AnalysisTitles_t::iterator t = AnalysisTitles.begin();
-				for (Analysis_t::iterator j = i->second->Analysis.begin(); j != i->second->Analysis.end(); t++)
-				{
+                for (Analysis_t::iterator j = i->second->Analysis.begin(); j != i->second->Analysis.end(); t++)
+                {
                     fprintf(OutputFile, "<td bgcolor=#FFFF99>%s</td>", (*t != j->first)?" ":(i->second->Analysis[j->first]).c_str());
                     if(*t == j->first) j++;
-				}
-				//data
+                }
+                //data
                 Results_t &r = i->second->Results;
-				for (size_t k = 0; k < r.size(); k++)
-				{
-					fprintf(OutputFile, "<td>");
+                for (size_t k = 0; k < r.size(); k++)
+                {
+                    fprintf(OutputFile, "<td>");
                     fprintf(OutputFile, ResultsFmt, r[k]);
                     fprintf(OutputFile, "</td>");
-				}
-			}
-			fprintf(OutputFile, "</tr>\n</table>\n");
+                }
+            }
+            fprintf(OutputFile, "</tr>\n</table>\n");
             //////////////////////////////////////////////////////
             fprintf(OutputFile, "<table id=\"v\" style=\"visibility:hidden;position:absolute;top:20\" border=1 cellspacing=0 cellpadding=2>\n");
             fprintf(OutputFile, "<tr><td><a name=vr href=#hr onclick=\"h.style.visibility='visible';"
@@ -234,7 +234,7 @@ void StatisticsCollector::Print(int dataOutput)
             fprintf(OutputFile, "</tr>\n<tr bgcolor=#CCFFCC><td bgcolor=#CCFFFF>Threads</td>");
             for (Statistics_t::iterator n = Statistics.begin(); n != Statistics.end(); n++)
                 fprintf(OutputFile, "<td>%d</td>", n->second->Threads);
-            fprintf(OutputFile, "</tr>\n<tr bgcolor=#CCFFCC><td bgcolor=#CCFFFF>Mode</td>");
+            fprintf(OutputFile, "</tr>\n<tr bgcolor=#CCFFCC><td bgcolor=#CCFFFF>%s</td>", ModeName);
             for (Statistics_t::iterator m = Statistics.begin(); m != Statistics.end(); m++)
                 fprintf(OutputFile, "<td>%s</td>", m->second->Mode.c_str());
 
@@ -258,120 +258,117 @@ void StatisticsCollector::Print(int dataOutput)
                 }
             }
             fprintf(OutputFile, "</tr>\n</table>\n</body></html>\n");
-			fclose(OutputFile);
-		}
-	}
-	if (dataOutput & StatisticsCollector::ExcelXML)
-	{
-		if ((OutputFile = fopen((Name+".xml").c_str(), "w+t")) != NULL)
-		{
-			//vector<value_t> *TmpVect;
-			//Statistics_t::iterator ii, i = Statistics.begin();
-			//Analysis_t::iterator jj, j = i->second.Analysis.begin();
-			char UserName[100];
-			char SheetName[20];
-			char TimerBuff[100], DateBuff[100];
+            fclose(OutputFile);
+        }
+    }
+    if (dataOutput & StatisticsCollector::ExcelXML)
+    {
+        if ((OutputFile = fopen((Name+".xml").c_str(), "w+t")) == NULL) {
+            printf("Can't open .xml file\n");
+        } else {
+            //vector<value_t> *TmpVect;
+            //Statistics_t::iterator ii, i = Statistics.begin();
+            //Analysis_t::iterator jj, j = i->second.Analysis.begin();
+            char UserName[100];
+            char SheetName[20];
+            char TimerBuff[100], DateBuff[100];
 #if _WIN32 || _WIN64
-			strcpy(UserName,getenv("USERNAME"));
+            strcpy(UserName,getenv("USERNAME"));
 #else
-			strcpy(UserName,getenv("USER"));
+            strcpy(UserName,getenv("USER"));
 #endif
-			//--------------------------------
-			strcpy(SheetName,"Horizontal");
-			GetTime(TimerBuff,sizeof(TimerBuff));
-			GetDate(DateBuff,sizeof(DateBuff));
-			//--------------------------
-			fprintf(OutputFile, XMLHead, UserName, TimerBuff);
-			fprintf(OutputFile, XMLStyles);
-			fprintf(OutputFile, XMLBeginSheet, SheetName);
-			fprintf(OutputFile, XMLNames,2,1,2,int(AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS));
-			fprintf(OutputFile, XMLBeginTable, int(max(RoundTitles.size()+Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS, size_t(7))), int(Statistics.size()+2));
-            //fprintf(OutputFile, XMLColumsHorizontalTable, COUNT_PARAMETERS+1, AnalysisTitles.size()+1);
-			fprintf(OutputFile, XMLBRow);
-			fprintf(OutputFile, XMLNameAndTime, Name.c_str(), DateBuff, TimerBuff);
-			fprintf(OutputFile, XMLTableParamAndTitle, int(Statistics.size()), int(AnalysisTitles.size()), int(RoundTitles.size()), Title.c_str());
-			fprintf(OutputFile, XMLERow);
-			fprintf(OutputFile, XMLBRow);
-			fprintf(OutputFile, XMLCellTopName);
-			fprintf(OutputFile, XMLCellTopThread);
-			fprintf(OutputFile, XMLCellTopMode);
+            //--------------------------------
+            strcpy(SheetName,"Horizontal");
+            GetTime(TimerBuff,sizeof(TimerBuff));
+            GetDate(DateBuff,sizeof(DateBuff));
+            //--------------------------
+            fprintf(OutputFile, XMLHead, UserName, TimerBuff);
+            fprintf(OutputFile, XMLStyles);
+            fprintf(OutputFile, XMLBeginSheet, SheetName);
+            fprintf(OutputFile, XMLNames,1,1,1,int(AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS));
+            fprintf(OutputFile, XMLBeginTable, int(RoundTitles.size()+Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+1/*title*/), int(Statistics.size()+1));
+            fprintf(OutputFile, XMLBRow);
+            fprintf(OutputFile, XMLCellTopName);
+            fprintf(OutputFile, XMLCellTopThread);
+            fprintf(OutputFile, XMLCellTopMode, ModeName);
             for (AnalysisTitles_t::iterator j = AnalysisTitles.begin(); j != AnalysisTitles.end(); j++)
                 fprintf(OutputFile, XMLAnalysisTitle, j->c_str()+1);
             for (Formulas_t::iterator j = Formulas.begin(); j != Formulas.end(); j++)
                 fprintf(OutputFile, XMLAnalysisTitle, j->first.c_str()+1);
             for (RoundTitles_t::iterator j = RoundTitles.begin(); j != RoundTitles.end(); j++)
                 fprintf(OutputFile, XMLAnalysisTitle, j->c_str());
-			fprintf(OutputFile, XMLERow);
-			//------------------------
-			for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-			{
-				fprintf(OutputFile, XMLBRow);
-				fprintf(OutputFile, XMLCellName,  i->second->Name.c_str());
-				fprintf(OutputFile, XMLCellThread,i->second->Threads);
-				fprintf(OutputFile, XMLCellMode,  i->second->Mode.c_str());
-				//statistics
+            fprintf(OutputFile, XMLCellEmptyWhite, Title.c_str());
+            fprintf(OutputFile, XMLERow);
+            //------------------------
+            for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
+            {
+                fprintf(OutputFile, XMLBRow);
+                fprintf(OutputFile, XMLCellName,  i->second->Name.c_str());
+                fprintf(OutputFile, XMLCellThread,i->second->Threads);
+                fprintf(OutputFile, XMLCellMode,  i->second->Mode.c_str());
+                //statistics
                 AnalysisTitles_t::iterator at = AnalysisTitles.begin();
-				for (Analysis_t::iterator j = i->second->Analysis.begin(); j != i->second->Analysis.end(); at++)
-				{
+                for (Analysis_t::iterator j = i->second->Analysis.begin(); j != i->second->Analysis.end(); at++)
+                {
                     fprintf(OutputFile, XMLCellAnalysis, (*at != j->first)?"":(i->second->Analysis[j->first]).c_str());
                     if(*at == j->first) j++;
-				}
+                }
                 //formulas
                 size_t place = 0;
                 Results_t &v = i->second->Results;
                 for (Formulas_t::iterator f = Formulas.begin(); f != Formulas.end(); f++, place++)
                     fprintf(OutputFile, XMLCellFormula, ExcelFormula(f->second, Formulas.size()-place, v.size(), true).c_str());
-				//data
-				for (size_t k = 0; k < v.size(); k++)
-				{
-					fprintf(OutputFile, XMLCellData, v[k]);
-				}
+                //data
+                for (size_t k = 0; k < v.size(); k++)
+                {
+                    fprintf(OutputFile, XMLCellData, v[k]);
+                }
                 if(v.size() < RoundTitles.size())
                     fprintf(OutputFile, XMLMergeRow, int(RoundTitles.size() - v.size()));
-				fprintf(OutputFile, XMLERow);
-			}
-			//------------------------
-			fprintf(OutputFile, XMLEndTable);
-			fprintf(OutputFile, XMLWorkSheetProperties,2,2,3,3);
-			fprintf(OutputFile,  XMLAutoFilter,2,1,2,int(AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS));
-			fprintf(OutputFile, XMLEndWorkSheet);
-			//----------------------------------------
-			strcpy(SheetName,"Vertical");
-			fprintf(OutputFile, XMLBeginSheet, SheetName);
-			fprintf(OutputFile, XMLNames, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2),2,int(AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS+2),int(Statistics.size()+1));
-			fprintf(OutputFile, XMLBeginTable, int(max(Statistics.size()+1, size_t(7))), int(RoundTitles.size()+AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS+2));
+                fprintf(OutputFile, XMLERow);
+            }
+            //------------------------
+            fprintf(OutputFile, XMLEndTable);
+            fprintf(OutputFile, XMLWorkSheetProperties,1,1,3,3,int(RoundTitles.size()+AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS));
+            fprintf(OutputFile, XMLAutoFilter,1,1,1,int(AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS));
+            fprintf(OutputFile, XMLEndWorkSheet);
+            //----------------------------------------
+            strcpy(SheetName,"Vertical");
+            fprintf(OutputFile, XMLBeginSheet, SheetName);
+            fprintf(OutputFile, XMLNames, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2),2,int(AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS+2),int(Statistics.size()+1));
+            fprintf(OutputFile, XMLBeginTable, int(max(Statistics.size()+1, size_t(7))), int(RoundTitles.size()+AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS+2));
             //fprintf(OutputFile, XMLColumsVerticalTable, Statistics.size()+1);
-			//----------------------------------------
+            //----------------------------------------
 
-			fprintf(OutputFile, XMLBRow);
-			fprintf(OutputFile, XMLNameAndTime, Name.c_str(), TimerBuff, DateBuff);
-			fprintf(OutputFile, XMLTableParamAndTitle, int(Statistics.size()), int(AnalysisTitles.size()), int(RoundTitles.size()), Title.c_str());
-			fprintf(OutputFile, XMLERow);
-			fprintf(OutputFile, XMLBRow);
-			//-------------------
-			fprintf(OutputFile, XMLCellTopName);
-			for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-				fprintf(OutputFile, XMLCellName, i->second->Name.c_str());
-			fprintf(OutputFile, XMLERow);
-			fprintf(OutputFile, XMLBRow);
-			fprintf(OutputFile, XMLCellTopThread);
-			for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-				fprintf(OutputFile, XMLCellThread, i->second->Threads);
-			fprintf(OutputFile, XMLERow);
-			fprintf(OutputFile, XMLBRow);
-			fprintf(OutputFile, XMLCellTopMode);
-			for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-				fprintf(OutputFile, XMLCellMode, i->second->Mode.c_str());
+            fprintf(OutputFile, XMLBRow);
+            fprintf(OutputFile, XMLNameAndTime, Name.c_str(), TimerBuff, DateBuff);
+            fprintf(OutputFile, XMLTableParamAndTitle, int(Statistics.size()), int(AnalysisTitles.size()), int(RoundTitles.size()), Title.c_str());
             fprintf(OutputFile, XMLERow);
-			//-----------------
+            fprintf(OutputFile, XMLBRow);
+            //-------------------
+            fprintf(OutputFile, XMLCellTopName);
+            for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
+                fprintf(OutputFile, XMLCellName, i->second->Name.c_str());
+            fprintf(OutputFile, XMLERow);
+            fprintf(OutputFile, XMLBRow);
+            fprintf(OutputFile, XMLCellTopThread);
+            for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
+                fprintf(OutputFile, XMLCellThread, i->second->Threads);
+            fprintf(OutputFile, XMLERow);
+            fprintf(OutputFile, XMLBRow);
+            fprintf(OutputFile, XMLCellTopMode, ModeName);
+            for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
+                fprintf(OutputFile, XMLCellMode, i->second->Mode.c_str());
+            fprintf(OutputFile, XMLERow);
+            //-----------------
             for (AnalysisTitles_t::iterator t = AnalysisTitles.begin(); t != AnalysisTitles.end(); t++)
-			{
-				fprintf(OutputFile, XMLBRow);
-				fprintf(OutputFile, XMLAnalysisTitle, t->c_str()+1);
+            {
+                fprintf(OutputFile, XMLBRow);
+                fprintf(OutputFile, XMLAnalysisTitle, t->c_str()+1);
                 for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
                     fprintf(OutputFile, XMLCellAnalysis, i->second->Analysis.count(*t)?(i->second->Analysis[*t]).c_str():"");
-				fprintf(OutputFile, XMLERow);
-			}
+                fprintf(OutputFile, XMLERow);
+            }
             //-------------------------------------
             for (Formulas_t::iterator t = Formulas.begin(); t != Formulas.end(); t++)
             {
@@ -382,30 +379,30 @@ void StatisticsCollector::Print(int dataOutput)
                     fprintf(OutputFile, XMLCellAnalysis, ExcelFormula(t->second, Formulas.size()-place, i->second->Results.size(), false).c_str());
                 fprintf(OutputFile, XMLERow);
             }
-			//--------------------------------------
-			fprintf(OutputFile, XMLBRow);
-			fprintf(OutputFile, XMLCellEmptyWhite, "Result");
-			fprintf(OutputFile, XMLERow);
-			
-			for (size_t k = 0; k < RoundTitles.size(); k++)
-			{
-				fprintf(OutputFile, XMLBRow);
-				fprintf(OutputFile, XMLAnalysisTitle, RoundTitles[k].c_str());
-				for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
+            //--------------------------------------
+            fprintf(OutputFile, XMLBRow);
+            fprintf(OutputFile, XMLCellEmptyWhite, "Result");
+            fprintf(OutputFile, XMLERow);
+            
+            for (size_t k = 0; k < RoundTitles.size(); k++)
+            {
+                fprintf(OutputFile, XMLBRow);
+                fprintf(OutputFile, XMLAnalysisTitle, RoundTitles[k].c_str());
+                for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
                     if(i->second->Results.size() > k)
-					    fprintf(OutputFile, XMLCellData, i->second->Results[k]);
+                        fprintf(OutputFile, XMLCellData, i->second->Results[k]);
                     else
                         fprintf(OutputFile, XMLCellEmptyWhite, "");
-				fprintf(OutputFile, XMLERow);
-			}
-			fprintf(OutputFile, XMLEndTable);
-			//----------------------------------------
-			fprintf(OutputFile, XMLWorkSheetProperties, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2), int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2),1,1);
-			fprintf(OutputFile, XMLAutoFilter, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2),2, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2), int(Statistics.size()+1));
-			//----------------------------------------
-			fprintf(OutputFile, XMLEndWorkSheet);
-			fprintf(OutputFile, XMLEndWorkbook);
-			fclose(OutputFile);
-		}
-	}
+                fprintf(OutputFile, XMLERow);
+            }
+            fprintf(OutputFile, XMLEndTable);
+            //----------------------------------------
+            fprintf(OutputFile, XMLWorkSheetProperties, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2), int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2),1,1,6);
+            fprintf(OutputFile, XMLAutoFilter, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2),2, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2), int(Statistics.size()+1));
+            //----------------------------------------
+            fprintf(OutputFile, XMLEndWorkSheet);
+            fprintf(OutputFile, XMLEndWorkbook);
+            fclose(OutputFile);
+        }
+    }
 }

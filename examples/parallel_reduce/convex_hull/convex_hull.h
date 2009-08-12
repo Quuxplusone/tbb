@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -150,7 +150,7 @@ namespace util {
     template < typename T >
     point<T> GenerateRNDPoint(size_t& count, unsigned int& rseed) {
         /* generates random points on 2D plane so that the cluster
-        is somewhat cirle shaped */
+        is somewhat circle shaped */
         const size_t maxsize=500;
         T x = random(rseed)*2.0/(double)RAND_MAX - 1;
         T y = random(rseed)*2.0/(double)RAND_MAX - 1;
@@ -221,7 +221,7 @@ namespace util {
 
     void WriteResults(int nthreads, double initTime, double calcTime) {
         if(VERBOSE) {
-            cout << " Step by step hull constuction:" << endl;
+            cout << " Step by step hull construction:" << endl;
             for(size_t i = 0; i < OUTPUT.size(); ++i)
                 cout << OUTPUT[i] << endl;
         }

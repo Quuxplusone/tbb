@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -48,16 +48,17 @@ using namespace tbb;
 // *** Serial shared by mutexes *** //
 int SharedI = 1, SharedN;
 template<typename M>
-class SharedSerialFibBody {
+class SharedSerialFibBody: NoAssign {
     M &mutex;
 public:
     SharedSerialFibBody( M &m ) : mutex( m ) {}
     //! main loop
-    void operator()( const blocked_range<int>& range ) const {
+    void operator()( const blocked_range<int>& /*range*/ ) const {
         for(;;) {
             typename M::scoped_lock lock( mutex );
             if(SharedI >= SharedN) break;
-            volatile double sum = 7.3; sum *= 11.17;
+            volatile double sum = 7.3; 
+            sum *= 11.17;
             ++SharedI;
         }
     }
@@ -67,7 +68,9 @@ public:
 template<class M>
 void SharedSerialFib(int n)
 {
-    SharedI = 1; SharedN = n; M mutex;
+    SharedI = 1; 
+    SharedN = n; 
+    M mutex;
     parallel_for( blocked_range<int>(0,4,1), SharedSerialFibBody<M>( mutex ) );
 }
 
@@ -82,7 +85,7 @@ void Measure(const char *name, MeasureFunc func, int n)
     tick_count t0;
     tick_count::interval_t T;
     if( Verbose )
-        printf(name);
+        REPORT("%s",name);
     t0 = tick_count::now();
     for(int number = 2; number <= n; number++)
         func(number);
@@ -90,16 +93,16 @@ void Measure(const char *name, MeasureFunc func, int n)
     double avg = Tnum? Tsum/Tnum : 1;
     if (avg == 0.0) avg = 1;
     if(avg * 100 < T.seconds()) {
-        printf("Warning: halting detected (%g sec, av: %g)\n", T.seconds(), avg);
+        REPORT("Warning: halting detected (%g sec, av: %g)\n", T.seconds(), avg);
         ASSERT(avg * 1000 > T.seconds(), "Too long halting period");
     } else {
         Tsum += T.seconds(); Tnum++;
     }
     if( Verbose )
-        printf("\t- in %f msec\n", T.seconds()*1000);
+        REPORT("\t- in %f msec\n", T.seconds()*1000);
 }
 
-//! program entry
+__TBB_TEST_EXPORT
 int main( int argc, char* argv[] ) {
     MaxThread = 8; MinThread = 2;
     ParseCommandLine( argc, argv );
@@ -111,13 +114,13 @@ int main( int argc, char* argv[] ) {
         {
             task_scheduler_init scheduler_init(threads);
             if( Verbose )
-                printf("Threads number is %d\t", threads);
+                REPORT("Threads number is %d\t", threads);
             Measure("Shared serial (wrapper mutex)\t", SharedSerialFib<mutex>, NumbersCount);
             //sum = Measure("Shared serial (spin_mutex)", SharedSerialFib<tbb::spin_mutex>, NumbersCount);
             //sum = Measure("Shared serial (queuing_mutex)", SharedSerialFib<tbb::queuing_mutex>, NumbersCount);
         }
     } while(--recycle);
     if(!Verbose)
-        printf("done\n");
+        REPORT("done\n");
     return 0;
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,6 +31,7 @@
 
 #include <cstring>
 #include "atomic.h"
+#include "tbb_profiling.h"
 
 namespace tbb {
 
@@ -43,14 +44,17 @@ public:
     //! Construct unacquired mutex.
     queuing_rw_mutex() {
         q_tail = NULL;
-    };
+#if TBB_USE_THREADING_TOOLS
+        internal_construct();
+#endif
+    }
 
     //! Destructor asserts if the mutex is acquired, i.e. q_tail is non-NULL
     ~queuing_rw_mutex() {
-#if TBB_DO_ASSERT
+#if TBB_USE_ASSERT
         __TBB_ASSERT( !q_tail, "destruction of an acquired mutex");
 #endif
-    };
+    }
 
     class scoped_lock;
     friend class scoped_lock;
@@ -58,33 +62,15 @@ public:
     //! The scoped locking pattern
     /** It helps to avoid the common problem of forgetting to release lock.
         It also nicely provides the "node" for queuing locks. */
-    class scoped_lock : private internal::no_copy {
-        /** Request type constants for scoped_lock::state */
-        enum state_t {
-            STATE_NONE = 0,
-            STATE_WRITER = 1,
-            STATE_READER = 1<<1,
-            STATE_READER_UNBLOCKNEXT = 1<<2,
-            STATE_COMBINED_WAITINGREADER = STATE_READER | STATE_READER_UNBLOCKNEXT,
-            STATE_ACTIVEREADER = 1<<3,
-            STATE_COMBINED_READER = STATE_COMBINED_WAITINGREADER | STATE_ACTIVEREADER,
-            STATE_UPGRADE_REQUESTED = 1<<4,
-            STATE_UPGRADE_WAITING = 1<<5,
-            STATE_UPGRADE_LOSER = 1<<6,
-            STATE_COMBINED_UPGRADING = STATE_UPGRADE_WAITING | STATE_UPGRADE_LOSER
-#if TBB_DO_ASSERT
-           ,STATE_INVALID
-#endif /* TBB_DO_ASSERT */
-        };
-
+    class scoped_lock: internal::no_copy {
         //! Initialize fields
         void initialize() {
             mutex = NULL;
-#if TBB_DO_ASSERT
-            state = STATE_INVALID;
+#if TBB_USE_ASSERT
+            state = 0xFF; // Set to invalid state
             internal::poison_pointer(next);
             internal::poison_pointer(prev);
-#endif /* TBB_DO_ASSERT */
+#endif /* TBB_USE_ASSERT */
         }
     public:
         //! Construct lock that has not acquired a mutex.
@@ -126,8 +112,10 @@ public:
         //! The pointer to the previous and next competitors for a mutex
         scoped_lock * prev, * next;
 
+        typedef unsigned char state_t;
+
         //! State of the request: reader, writer, active reader, other service states
-        atomic<unsigned char> state;
+        atomic<state_t> state;
 
         //! The local spin-wait variable
         /** Corresponds to "spin" in the pseudocode but inverted for the sake of zero-initialization */
@@ -153,6 +141,8 @@ public:
         void unblock_or_wait_on_internal_lock( uintptr_t );
     };
 
+    void __TBB_EXPORTED_METHOD internal_construct();
+
     // Mutex traits
     static const bool is_rw_mutex = true;
     static const bool is_recursive_mutex = false;
@@ -163,6 +153,8 @@ private:
     atomic<scoped_lock*> q_tail;
 
 };
+
+__TBB_DEFINE_PROFILING_SET_NAME(queuing_rw_mutex)
 
 } // namespace tbb
 

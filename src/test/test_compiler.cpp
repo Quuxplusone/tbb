@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,14 +26,13 @@
     the GNU General Public License.
 */
 
-#include <stdio.h>
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#include "harness.h"
 
 union char2bool {
     unsigned char c;
     volatile bool b;
 } u;
-
-#include "harness.h"
 
 // The function proves the compiler uses 0 or 1 to store a bool. It
 // inspects what a compiler does when it loads a bool.  A compiler that
@@ -46,19 +45,18 @@ int test_bool_representation() {
         u.c = (unsigned char)i;
         unsigned char x = (unsigned char)u.b;
         if( x != i ) {
-            if( Verbose )
-                fprintf(stderr, "Test failed at %d iteration\n",i);
+            REPORT("Test failed at iteration i=%d\n",i);
             return 1;
         }
     }
     return 0;
 }
 
-int main( int argc, char* argv[] ) {
-    ParseCommandLine(argc, argv);
+__TBB_TEST_EXPORT
+int main() {
     if( test_bool_representation()!=0 )
-        fprintf(stderr, "ERROR: bool representation test failed\n");
+        REPORT("ERROR: bool representation test failed\n");
     else
-        printf("done\n");
+        REPORT("done\n");
     return 0;
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,12 +26,6 @@
     the GNU General Public License.
 */
 
-#include "harness.h"
-#include <cstdio>
-
-#if USE_PTHREAD
-
-#include <cstdlib>
 #include "tbb/spin_mutex.h"
 #include "tbb/queuing_mutex.h"
 #include "tbb/queuing_rw_mutex.h"
@@ -39,6 +33,7 @@
 #include "tbb/tick_count.h"
 #include "tbb/atomic.h"
 
+#include "harness.h"
 
 // This test deliberately avoids a "using tbb" statement,
 // so that the error of putting types in the wrong namespace will be caught.
@@ -47,27 +42,28 @@ template<typename M>
 struct Counter {
     typedef M mutex_type;
     M mutex;
-    volatile long value;
+    volatile long value; 
+    void flog_once( size_t mode );
 };
 
-template<typename C>
-void AddOne (C& counter, size_t mode)
+template<typename M>
+void Counter<M>::flog_once(size_t mode)
 /** Increments counter once for each iteration in the iteration space. */
 {
     if( mode&1 ) {
         // Try implicit acquire and explicit release
-        typename C::mutex_type::scoped_lock lock(counter.mutex);
-        counter.value = counter.value+1;
+        typename mutex_type::scoped_lock lock(mutex);
+        value = value+1;
         lock.release();
     } else {
         // Try explicit acquire and implicit release
-        typename C::mutex_type::scoped_lock lock;
-        lock.acquire(counter.mutex);
-        counter.value = counter.value+1;
+        typename mutex_type::scoped_lock lock;
+        lock.acquire(mutex);
+        value = value+1;
     }
 }
 
-template<typename M, size_t N>
+template<typename M, long N>
 struct Invariant {
     typedef M mutex_type;
     M mutex;
@@ -78,20 +74,18 @@ struct Invariant {
         mutex_name(mutex_name_)
     {
         single_value = 0;
-        for( size_t k=0; k<N; ++k )
+        for( long k=0; k<N; ++k )
             value[k] = 0;
     }
     void update() {
-        for( size_t k=0; k<N; ++k )
+        for( long k=0; k<N; ++k )
             ++value[k];
     }
     bool value_is( long expected_value ) const {
         long tmp;
-        for( size_t k=0; k<N; ++k )
-//            if( value[k]!=expected_value )
-//                return false;
+        for( long k=0; k<N; ++k )
             if( (tmp=value[k])!=expected_value ) {
-                printf("ATTN! %ld!=%ld\n", tmp, expected_value);
+                REPORT("ERROR: %ld!=%ld\n", tmp, expected_value);
                 return false;
             }
         return true;
@@ -99,10 +93,11 @@ struct Invariant {
     bool is_okay() {
         return value_is( value[0] );
     }
+    void flog_once( size_t mode ); 
 };
 
-template<typename I>
-void TwiddleInvariant( I& invariant, size_t mode )
+template<typename M, long N>
+void Invariant<M,N>::flog_once( size_t mode )
 {
     //! Every 8th access is a write access
     bool write = (mode%8)==7;
@@ -110,168 +105,128 @@ void TwiddleInvariant( I& invariant, size_t mode )
     bool lock_kept = true;
     if( (mode/8)&1 ) {
         // Try implicit acquire and explicit release
-        typename I::mutex_type::scoped_lock lock(invariant.mutex,write);
+        typename mutex_type::scoped_lock lock(mutex,write);
         if( write ) {
-            long my_value = invariant.value[0];
-            invariant.update();
+            long my_value = value[0];
+            update();
             if( mode%16==7 ) {
                 lock_kept = lock.downgrade_to_reader();
                 if( !lock_kept )
-                    my_value = invariant.value[0] - 1;
-                okay = invariant.value_is(my_value+1);
+                    my_value = value[0] - 1;
+                okay = value_is(my_value+1);
             }
         } else {
-            okay = invariant.is_okay();
+            okay = is_okay();
             if( mode%8==3 ) {
-                long my_value = invariant.value[0];
+                long my_value = value[0];
                 lock_kept = lock.upgrade_to_writer();
                 if( !lock_kept )
-                    my_value = invariant.value[0];
-                invariant.update();
-                okay = invariant.value_is(my_value+1);
+                    my_value = value[0];
+                update();
+                okay = value_is(my_value+1);
             }
         }
         lock.release();
     } else {
         // Try explicit acquire and implicit release
-        typename I::mutex_type::scoped_lock lock;
-        lock.acquire(invariant.mutex,write);
+        typename mutex_type::scoped_lock lock;
+        lock.acquire(mutex,write);
         if( write ) {
-            long my_value = invariant.value[0];
-            invariant.update();
+            long my_value = value[0];
+            update();
             if( mode%16==7 ) {
                 lock_kept = lock.downgrade_to_reader();
                 if( !lock_kept )
-                    my_value = invariant.value[0] - 1;
-                okay = invariant.value_is(my_value+1);
+                    my_value = value[0] - 1;
+                okay = value_is(my_value+1);
             }
         } else {
-            okay = invariant.is_okay();
+            okay = is_okay();
             if( mode%8==3 ) {
-                long my_value = invariant.value[0];
+                long my_value = value[0];
                 lock_kept = lock.upgrade_to_writer();
                 if( !lock_kept )
-                    my_value = invariant.value[0];
-                invariant.update();
-                okay = invariant.value_is(my_value+1);
+                    my_value = value[0];
+                update();
+                okay = value_is(my_value+1);
             }
         }
     }
     if( !okay ) {
-        std::printf( "ERROR for %s at %ld: %s %s %s %s\n",invariant.mutex_name, long(mode),
-                     write?"write,":"read,", write?(mode%16==7?"downgrade,":""):(mode%8==3?"upgrade,":""),
-                     lock_kept?"lock kept,":"lock not kept,", (mode/8)&1?"imp/exp":"exp/imp" );
+        REPORT( "ERROR for %s at %ld: %s %s %s %s\n",mutex_name, long(mode),
+                write?"write,":"read,", write?(mode%16==7?"downgrade,":""):(mode%8==3?"upgrade,":""),
+                lock_kept?"lock kept,":"lock not kept,", (mode/8)&1?"imp/exp":"exp/imp" );
     }
 }
 
-template<typename M>
-class Work
-{
-public:
-    static tbb::atomic<size_t> order;
-    static const long mutex_test_size;
-    static const long readwrite_test_size;
-    static const long chunk;
+static tbb::atomic<size_t> Order;
 
-    static void* mutex_work(void* p)
-    {
-        Counter<M>* pCounter = reinterpret_cast<Counter<M>*>(p);
-        long step, i;
-        while( (step=order.fetch_and_add<tbb::acquire>(chunk))<mutex_test_size ){
-            for( i=0; i<chunk && step<mutex_test_size; ++i, ++step ) {
-                AddOne(*pCounter, step);
-            }
-        }
-        return NULL;
-    }
-
-    static void* readwrite_work(void* p)
-    {
-        Invariant<M,8>* pInv = reinterpret_cast<Invariant<M,8>*>(p);
-        long step, i;
-        while( (step=order.fetch_and_add<tbb::acquire>(chunk))<readwrite_test_size ){
-            for( i=0; i<chunk && step<readwrite_test_size; ++i, ++step ) {
-                TwiddleInvariant(*pInv, step);
-            }
-        }
-        return NULL;
+template<typename State, long TestSize>
+struct Work: NoAssign {
+    static const size_t chunk = 100;
+    State& state;
+    Work( State& state_ ) : state(state_) {}
+    void operator()( int ) const {
+        size_t step;
+        while( (step=Order.fetch_and_add<tbb::acquire>(chunk))<TestSize )
+            for( size_t i=0; i<chunk && step<TestSize; ++i, ++step ) 
+                state.flog_once(step);
     }
 };
 
-template<typename M> tbb::atomic<size_t> Work<M>::order;
-template<typename M> const long Work<M>::mutex_test_size = 100000;
-template<typename M> const long Work<M>::readwrite_test_size = 1000000;
-template<typename M> const long Work<M>::chunk = 100;
-
-typedef void* thread_func( void* );
-
-//! Generic test of a TBB mutex type M.
+//! Generic test of a TBB Mutex type M.
 /** Does not test features specific to reader-writer locks. */
 template<typename M>
-void Test( const char * name ) {
+void Test( const char * name, int nthread ) {
     if( Verbose )
-        printf("testing %s\n",name);
+        REPORT("testing %s\n",name);
     Counter<M> counter;
     counter.value = 0;
-    Work<M>::order = 0;
-    thread_func* mutex = reinterpret_cast<thread_func*>(&(Work<M>::mutex_work));
-    pthread_t* thr = new pthread_t[NThread];
-
+    Order = 0;
+    const long test_size = 100000;
     tbb::tick_count t0 = tbb::tick_count::now();
-    for (int i=0; i<NThread; ++i)
-        pthread_create(thr+i, NULL, mutex, reinterpret_cast<void*>(&counter));
-    for (int i=0; i<NThread; ++i)
-        pthread_join(*(thr+i), NULL);
+    NativeParallelFor( nthread, Work<Counter<M>, test_size>(counter) );
     tbb::tick_count t1 = tbb::tick_count::now();
+
     if( Verbose )
-        printf("%s time = %g usec\n",name, (t1-t0).seconds() );
-    if( counter.value!=Work<M>::mutex_test_size )
-        std::printf("ERROR for %s: counter.value=%ld\n",name,counter.value);
-    delete[] thr;
+        REPORT("%s time = %g usec\n",name, (t1-t0).seconds() );
+    if( counter.value!=test_size )
+        REPORT("ERROR for %s: counter.value=%ld != %ld=test_size\n",name,counter.value,test_size);
 }
 
 
-/** This test is generic so that we can test any other kinds of ReaderWriter locks we write later. */
+//! Generic test of TBB ReaderWriterMutex type M
 template<typename M>
-void TestReaderWriterLock( const char * mutex_name ) {
+void TestReaderWriter( const char * mutex_name, int nthread ) {
     if( Verbose )
-        printf("testing %s\n",mutex_name);
+        REPORT("testing %s\n",mutex_name);
     Invariant<M,8> invariant(mutex_name);
-    Work<M>::order = 0;
-    thread_func* readwrite = reinterpret_cast<thread_func*>(Work<M>::readwrite_work);
-    pthread_t* thr = new pthread_t[NThread];
+    Order = 0;
+    static const long test_size = 1000000;
     tbb::tick_count t0 = tbb::tick_count::now();
-    for (int i=0; i<NThread; ++i)
-        pthread_create(thr+i, NULL, readwrite, reinterpret_cast<void*>(&invariant));
-    for (int i=0; i<NThread; ++i)
-        pthread_join(*(thr+i), NULL);
+    NativeParallelFor( nthread, Work<Invariant<M,8>, test_size>(invariant) );
     tbb::tick_count t1 = tbb::tick_count::now();
     // There is either a writer or a reader upgraded to a writer for each 4th iteration
-    long expected_value = Work<M>::readwrite_test_size/4;
+    long expected_value = test_size/4;
     if( !invariant.value_is(expected_value) )
-        std::printf("ERROR for %s: final invariant value is wrong\n",mutex_name);
+        REPORT("ERROR for %s: final invariant value is wrong\n",mutex_name);
     if( Verbose )
-        printf("%s readers & writers time = %g usec\n",mutex_name,(t1-t0).seconds());
-    delete[] thr;
+        REPORT("%s readers & writers time = %g usec\n",mutex_name,(t1-t0).seconds());
 }
-#endif /* USE_PTHREAD */
 
+__TBB_TEST_EXPORT
 int main( int argc, char * argv[] ) {
     ParseCommandLine( argc, argv );
-#if USE_PTHREAD
-    if( Verbose )
-        printf( "testing with %d threads\n", NThread );
-    Test<tbb::spin_mutex>( "Spin Mutex" );
-    Test<tbb::queuing_mutex>( "Queuing Mutex" );
-    Test<tbb::queuing_rw_mutex>( "Queuing RW Mutex" );
-    Test<tbb::spin_rw_mutex>( "Spin RW Mutex" );
-    TestReaderWriterLock<tbb::queuing_rw_mutex>( "Queuing RW Mutex" );
-    TestReaderWriterLock<tbb::spin_rw_mutex>( "Spin RW Mutex" );
-    std::printf("done\n");
-#else
-    if( Verbose )
-        printf("this test need pthreads to work; define USE_PTHREAD before compilation.\n");
-    printf("skip\n");
-#endif /* USE_PTHREAD */
+    for( int p=MinThread; p<=MaxThread; ++p ) {
+        if( Verbose )
+            REPORT( "testing with %d threads\n", p );
+        Test<tbb::spin_mutex>( "spin_mutex", p );
+        Test<tbb::queuing_mutex>( "queuing_mutex", p );
+        Test<tbb::queuing_rw_mutex>( "queuing_rw_mutex", p );
+        Test<tbb::spin_rw_mutex>( "spin_rw_mutex", p );
+        TestReaderWriter<tbb::queuing_rw_mutex>( "queuing_rw_mutex", p );
+        TestReaderWriter<tbb::spin_rw_mutex>( "spin_rw_mutex", p );
+    }
+    REPORT("done\n");
     return 0;
 }

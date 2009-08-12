@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,26 +29,18 @@
 #include "tbb/queuing_rw_mutex.h"
 #include "tbb/spin_rw_mutex.h"
 #include "harness.h"
-#include "tbb/blocked_range.h"
-
-#define USE_TBB_PFOR 1
-
-#if USE_TBB_PFOR
-#include "tbb/task.h"
-#include "tbb/parallel_for.h"
-#endif
 
 using namespace tbb;
 
-volatile int Count = 0;
+volatile int Count;
 
 template<typename RWMutex>
-struct Hammer {
-	RWMutex &MutexProtectingCount;
+struct Hammer: NoAssign {
+    RWMutex &MutexProtectingCount;
     mutable volatile int dummy;
 
     Hammer(RWMutex &m): MutexProtectingCount(m) {}
-    void operator()( const blocked_range<int>& range ) const {
+    void operator()( int /*thread_id*/ ) const {
         for( int j=0; j<100000; ++j ) {
             typename RWMutex::scoped_lock lock(MutexProtectingCount,false);
             int c = Count;
@@ -56,7 +48,7 @@ struct Hammer {
                 ++dummy;
             }
             if( lock.upgrade_to_writer() ) {
-                // The upgrade suceeded without any intervening writers
+                // The upgrade succeeded without any intervening writers
                 ASSERT( c==Count, "another thread modified Count while I held a read lock" );
             } else {
                 c = Count;
@@ -75,18 +67,15 @@ struct Hammer {
 queuing_rw_mutex QRW_mutex;
 spin_rw_mutex SRW_mutex;
 
-#include "tbb/task_scheduler_init.h"
-
+__TBB_TEST_EXPORT
 int main( int argc, char* argv[]) {
     ParseCommandLine( argc, argv );
-#if USE_TBB_PFOR
-    task_scheduler_init init(NThread);
-    parallel_for( blocked_range<int>( 0, NThread, 1 ), Hammer<queuing_rw_mutex>(QRW_mutex) ); Count = 0;
-    parallel_for( blocked_range<int>( 0, NThread, 1 ), Hammer<spin_rw_mutex>(SRW_mutex) );
-#else
-    NativeParallelFor( blocked_range<int>( 0, NThread, 1 ), Hammer<queuing_rw_mutex>(QRW_mutex) ); Count = 0;
-    NativeParallelFor( blocked_range<int>( 0, NThread, 1 ), Hammer<spin_rw_mutex>(SRW_mutex) );
-#endif
-    printf("done\n");
+    for( int p=MinThread; p<=MaxThread; ++p ) {
+        Count = 0;
+        NativeParallelFor( p, Hammer<queuing_rw_mutex>(QRW_mutex) ); 
+        Count = 0;
+        NativeParallelFor( p, Hammer<spin_rw_mutex>(SRW_mutex) );
+    }
+    REPORT("done\n");
     return 0;
 }

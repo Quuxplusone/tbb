@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,6 +30,7 @@
 #define __TBB_parallel_sort_H
 
 #include "parallel_for.h"
+#include "blocked_range.h"
 #include <algorithm>
 #include <iterator>
 #include <functional>
@@ -40,10 +41,28 @@ namespace tbb {
 namespace internal {
 
 //! Range used in quicksort to split elements into subranges based on a value.
-/** The split operation selects a splitter and places all elements less than or equal to the value in the first range and the remaining elements in the second range.
+/** The split operation selects a splitter and places all elements less than or equal 
+    to the value in the first range and the remaining elements in the second range.
     @ingroup algorithms */
 template<typename RandomAccessIterator, typename Compare>
-struct quick_sort_range {
+class quick_sort_range: private no_assign {
+
+    inline size_t median_of_three(const RandomAccessIterator &array, size_t l, size_t m, size_t r) const {
+        return comp(array[l], array[m]) ? ( comp(array[m], array[r]) ? m : ( comp( array[l], array[r]) ? r : l ) ) 
+                                        : ( comp(array[r], array[m]) ? m : ( comp( array[r], array[l] ) ? r : l ) );
+    }
+
+    inline size_t pseudo_median_of_nine( const RandomAccessIterator &array, const quick_sort_range &range ) const {
+        size_t offset = range.size/8u;
+        return median_of_three(array, 
+                               median_of_three(array, 0, offset, offset*2),
+                               median_of_three(array, offset*3, offset*4, offset*5),
+                               median_of_three(array, offset*6, offset*7, range.size - 1) );
+
+    }
+
+public:
+
     static const size_t grainsize = 500;
     const Compare &comp;
     RandomAccessIterator begin;
@@ -58,8 +77,8 @@ struct quick_sort_range {
     quick_sort_range( quick_sort_range& range, split ) : comp(range.comp) {
         RandomAccessIterator array = range.begin;
         RandomAccessIterator key0 = range.begin; 
-        size_t m = range.size/2u;
-        std::swap ( array[0], array[m] );
+        size_t m = pseudo_median_of_nine(array, range);
+        if (m) std::swap ( array[0], array[m] );
 
         size_t i=0;
         size_t j=range.size;
@@ -92,6 +111,33 @@ partition:
     }
 };
 
+//! Body class used to test if elements in a range are presorted
+/** @ingroup algorithms */
+template<typename RandomAccessIterator, typename Compare>
+class quick_sort_pretest_body : internal::no_assign {
+    const Compare &comp;
+
+public:
+    quick_sort_pretest_body(const Compare &_comp) : comp(_comp) {}
+
+    void operator()( const blocked_range<RandomAccessIterator>& range ) const {
+        task &my_task = task::self();
+        RandomAccessIterator my_end = range.end();
+
+        int i = 0;
+        for (RandomAccessIterator k = range.begin(); k != my_end; ++k, ++i) {
+            if ( i%64 == 0 && my_task.is_cancelled() ) break;
+          
+            // The k-1 is never out-of-range because the first chunk starts at begin+serial_cutoff+1
+            if ( comp( *(k), *(k-1) ) ) {
+                my_task.cancel_group_execution();
+                break;
+            }
+        }
+    }
+
+};
+
 //! Body class used to sort elements in a range that is smaller than the grainsize.
 /** @ingroup algorithms */
 template<typename RandomAccessIterator, typename Compare>
@@ -106,7 +152,27 @@ struct quick_sort_body {
 /** @ingroup algorithms */
 template<typename RandomAccessIterator, typename Compare>
 void parallel_quick_sort( RandomAccessIterator begin, RandomAccessIterator end, const Compare& comp ) {
-    parallel_for( quick_sort_range<RandomAccessIterator,Compare>(begin, end-begin, comp ), quick_sort_body<RandomAccessIterator,Compare>() );
+    task_group_context my_context;
+    const int serial_cutoff = 9;
+
+    __TBB_ASSERT( begin + serial_cutoff < end, "min_parallel_size is smaller than serial cutoff?" );
+    RandomAccessIterator k;
+    for ( k = begin ; k != begin + serial_cutoff; ++k ) {
+        if ( comp( *(k+1), *k ) ) {
+            goto do_parallel_quick_sort;
+        }
+    }
+
+    parallel_for( blocked_range<RandomAccessIterator>(k+1, end),
+                  quick_sort_pretest_body<RandomAccessIterator,Compare>(comp),
+                  auto_partitioner(),
+                  my_context);
+
+    if (my_context.is_group_execution_cancelled())
+do_parallel_quick_sort:
+        parallel_for( quick_sort_range<RandomAccessIterator,Compare>(begin, end-begin, comp ), 
+                      quick_sort_body<RandomAccessIterator,Compare>(),
+                      auto_partitioner() );
 }
 
 } // namespace internal

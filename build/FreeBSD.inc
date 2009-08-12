@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -29,10 +29,10 @@ ifndef arch
                 export arch:=ia32
         endif
         ifeq ($(shell uname -m),ia64)
-                export arch:=itanium
+                export arch:=ia64
         endif
         ifeq ($(shell uname -m),amd64)
-                export arch:=em64t
+                export arch:=intel64
         endif
 endif
 
@@ -63,7 +63,7 @@ else
         export LD_LIBRARY_PATH := .
 endif
 
-####### Build settigns ########################################################
+####### Build settings ########################################################
 
 OBJ = o
 DLL = so
@@ -77,3 +77,5 @@ MALLOC.DLL = libtbbmalloc$(DEBUG_SUFFIX).$(DLL)
 MALLOC.LIB = $(MALLOC.DLL)
 
 TBB_NOSTRICT=1
+
+TEST_LAUNCHER=sh $(tbb_root)/build/test_launcher.sh

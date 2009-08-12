@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -76,9 +76,9 @@ namespace internal {
 
         typedef size_t size_type;
 
-        void internal_reserve( size_type n, size_type element_size, size_type max_size );
+        void __TBB_EXPORTED_METHOD internal_reserve( size_type n, size_type element_size, size_type max_size );
 
-        size_type internal_capacity() const;
+        size_type __TBB_EXPORTED_METHOD internal_capacity() const;
 
         //! Requested size of vector
         atomic<size_type> my_early_size;
@@ -93,7 +93,7 @@ namespace internal {
             }
 #endif /* TBB_DO_ASSERT */
         };
- 
+
         atomic<segment_t*> my_segment;
 
         segment_t my_storage[2];
@@ -106,18 +106,18 @@ namespace internal {
         }
 
         //! An operation on an n-lement array starting at begin.
-        typedef void(*internal_array_op1)(void* begin, size_type n );
+        typedef void(__TBB_EXPORTED_FUNC *internal_array_op1)(void* begin, size_type n );
 
         //! An operation on n-element destination array and n-element source array.
-        typedef void(*internal_array_op2)(void* dst, const void* src, size_type n );
+        typedef void(__TBB_EXPORTED_FUNC *internal_array_op2)(void* dst, const void* src, size_type n );
 
-        void internal_grow_to_at_least( size_type new_size, size_type element_size, internal_array_op1 init );
+        void __TBB_EXPORTED_METHOD internal_grow_to_at_least( size_type new_size, size_type element_size, internal_array_op1 init );
         void internal_grow( size_type start, size_type finish, size_type element_size, internal_array_op1 init );
-        size_type internal_grow_by( size_type delta, size_type element_size, internal_array_op1 init );
-        void* internal_push_back( size_type element_size, size_type& index ); 
-        void internal_clear( internal_array_op1 destroy, bool reclaim_storage );
-        void internal_copy( const concurrent_vector_base& src, size_type element_size, internal_array_op2 copy );
-        void internal_assign( const concurrent_vector_base& src, size_type element_size, 
+        size_type __TBB_EXPORTED_METHOD internal_grow_by( size_type delta, size_type element_size, internal_array_op1 init );
+        void* __TBB_EXPORTED_METHOD internal_push_back( size_type element_size, size_type& index );
+        void __TBB_EXPORTED_METHOD internal_clear( internal_array_op1 destroy, bool reclaim_storage );
+        void __TBB_EXPORTED_METHOD internal_copy( const concurrent_vector_base& src, size_type element_size, internal_array_op2 copy );
+        void __TBB_EXPORTED_METHOD internal_assign( const concurrent_vector_base& src, size_type element_size,
                               internal_array_op1 destroy, internal_array_op2 assign, internal_array_op2 copy );
 private:
         //! Private functionality that does not cross DLL boundary.
@@ -457,16 +457,16 @@ private:
     T& internal_subscript( size_type index ) const;
 
     //! Construct n instances of T, starting at "begin".
-    static void initialize_array( void* begin, size_type n );
+    static void __TBB_EXPORTED_FUNC initialize_array( void* begin, size_type n );
 
     //! Construct n instances of T, starting at "begin".
-    static void copy_array( void* dst, const void* src, size_type n );
+    static void __TBB_EXPORTED_FUNC copy_array( void* dst, const void* src, size_type n );
 
     //! Assign n instances of T, starting at "begin".
-    static void assign_array( void* dst, const void* src, size_type n );
+    static void __TBB_EXPORTED_FUNC assign_array( void* dst, const void* src, size_type n );
 
     //! Destroy n instances of T, starting at "begin".
-    static void destroy_array( void* begin, size_type n );
+    static void __TBB_EXPORTED_FUNC destroy_array( void* begin, size_type n );
 };
 
 template<typename T>

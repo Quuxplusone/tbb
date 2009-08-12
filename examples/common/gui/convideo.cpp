@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,26 +34,24 @@ unsigned int *              g_pImg = 0;
 int                         g_sizex, g_sizey;
 static video *g_video = 0;
 static int g_fps = 0;
-#if _WIN32 || _WIN64
-static DWORD g_msec = 0;
 
+#if _WIN32 || _WIN64
+
+static DWORD g_msec = 0;
 #ifdef _WINDOWS
 HINSTANCE video::win_hInstance = 0;
 int video::win_iCmdShow = 0;
-void video::win_set_class(WNDCLASSEX &wcex)
-{
-}
-void video::win_load_accelerators(int idc)
-{
-}
-#endif
+void video::win_set_class(WNDCLASSEX &wcex) { }
+void video::win_load_accelerators(int idc)  { }
+#endif //_WINDOWS
 
-#elif __linux__ || __APPLE__ || __FreeBSD__
+#else
 
 #include <sched.h>
 #include <sys/time.h>
 struct timeval g_time;
-#endif
+
+#endif //_WIN32||_WIN64
 
 video::video()
     : red_mask(0xff0000), red_shift(16), green_mask(0xff00),
@@ -114,7 +112,7 @@ bool video::next_frame()
     return running;
 }
 
-//! Do standart loop
+//! Do standard loop
 void video::main_loop()
 {
     on_process();

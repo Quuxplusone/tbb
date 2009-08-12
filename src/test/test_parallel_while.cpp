@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,7 +27,7 @@
 */
 
 #include "tbb/parallel_while.h"
-#include "harness_assert.h"
+#include "harness.h"
 
 const int N = 200;
 
@@ -75,7 +75,7 @@ public:
     }
 };
 
-class MatrixMultiplyBody {
+class MatrixMultiplyBody: NoAssign {
     Element (*a)[N];
     Element (*b)[N];
     Element (*c)[N];
@@ -110,7 +110,6 @@ void WhileMatrixMultiply( Element c[N][N], Element a[N][N], Element b[N][N], int
     w.run( stream, body );
 }
 
-#include "harness.h"
 #include "tbb/tick_count.h"
 #include <cstdlib>
 #include <cstdio>
@@ -157,16 +156,17 @@ static void Run( int nthread, int n ) {
         for( int j=0; j<n; ++j )    
             ASSERT( C[i][j]==D[i][j], NULL );
     if( Verbose ) 
-        printf("time=%g\tnthread=%d\tn=%d\n",(t1-t0).seconds(),nthread,n);
+        REPORT("time=%g\tnthread=%d\tn=%d\n",(t1-t0).seconds(),nthread,n);
 }
 
 #include "tbb/task_scheduler_init.h"
 #include "harness_cpu.h"
 
+__TBB_TEST_EXPORT
 int main( int argc, char* argv[] ) {
     ParseCommandLine( argc, argv );
     if( MinThread<1 ) {
-        printf("number of threads must be positive\n");
+        REPORT("number of threads must be positive\n");
         exit(1);
     }
     for( int p=MinThread; p<=MaxThread; ++p ) {
@@ -177,7 +177,7 @@ int main( int argc, char* argv[] ) {
         // Test that all workers sleep when no work
         TestCPUUserTime(p);
     }
-    printf("done\n");
+    REPORT("done\n");
     return 0;
 }
 

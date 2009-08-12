@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,11 +35,17 @@
 // the real body of the test is there:
 #include "test_allocator.h"
 
-int main(void)
-{
-    int result = TestMain<tbb::cache_aligned_allocator<void> >();
-    result += TestMain<tbb::tbb_allocator<void> >();   
+template<>
+struct is_zero_filling<tbb::zero_allocator<void> > {
+    static const bool value = true;
+};
 
-    printf("done\n");
+__TBB_TEST_EXPORT
+int main() {
+    int result = TestMain<tbb::cache_aligned_allocator<void> >();
+    result += TestMain<tbb::tbb_allocator<void> >();
+    result += TestMain<tbb::zero_allocator<void> >();
+
+    REPORT("done\n");
     return result;
 }

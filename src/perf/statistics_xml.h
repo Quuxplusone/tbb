@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -131,7 +131,7 @@ const char XMLCellTopName[]=
 const char XMLCellTopThread[]=
 "   <Cell ss:StyleID=\"s25\"><Data ss:Type=\"String\">Threads</Data></Cell>\n";
 const char XMLCellTopMode[]=
-"   <Cell ss:StyleID=\"s25\"><Data ss:Type=\"String\">Mode</Data></Cell>\n";
+"   <Cell ss:StyleID=\"s25\"><Data ss:Type=\"String\">%s</Data></Cell>\n";
 //---------------------
 const char XMLAnalysisTitle[]=
 "   <Cell ss:StyleID=\"s25\"><Data ss:Type=\"String\">%s</Data></Cell>\n";
@@ -197,7 +197,7 @@ const char XMLWorkSheetProperties[]=
     <Pane>\n\
      <Number>0</Number>\n\
      <ActiveRow>0</ActiveRow>\n\
-     <ActiveCol>6</ActiveCol>\n\
+     <ActiveCol>%d</ActiveCol>\n\
     </Pane>\n\
    </Panes>\n\
    <ProtectObjects>False</ProtectObjects>\n\

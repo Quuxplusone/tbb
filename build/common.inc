@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -67,6 +67,8 @@ cross_cfg = $(if $(crosstest),$(call flip_cfg,$(1)),$(1))
 ifdef BUILDING_PHASE
  # Setting default configuration to release
  cfg?=release
+ # And no lambas support by default for compilers that require special options to enable it
+ lambdas ?= 0
   # include compiler-specific build configurations
  -include $(tbb_root)/build/$(tbb_os).$(compiler).inc
  ifdef extra_inc
@@ -81,8 +83,8 @@ ifneq ($(BUILDING_PHASE),1)
  work_dir=$(tbb_build_dir)$(SLASH)$(tbb_build_prefix)
  ifneq ($(BUILDING_PHASE),0)
   work_dir:=$(work_dir)
-  # assign new value for tbb_root
-  ifneq ($(firstword is_abs_path$(subst /, ,$(tbb_root))),is_abs_path)
+  # assign new value for tbb_root if path is not absolute (the filter keeps only /* paths)
+  ifeq ($(filter /% $(SLASH)%, $(subst :, ,$(tbb_root)) ),)
    ifeq ($(origin_build_dir),undefined)
     override tbb_root:=../..
    else

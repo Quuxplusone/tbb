@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -169,7 +169,10 @@ namespace internal {
             } else {
                 destroy( result );
             }
-            if( right_zombie && !sum && !result.right ) destroy(*right_zombie);
+            if( right_zombie && !sum && !result.right ) {
+                destroy(*right_zombie);
+                right_zombie = NULL;
+            }
             return NULL;
         }
 
@@ -180,6 +183,14 @@ namespace internal {
             result(result_)
         {
             __TBB_ASSERT( !return_slot, NULL );
+        }
+        ~finish_scan(){
+#if __TBB_EXCEPTIONS
+            if (is_cancelled()) {
+                if (result.ref_count() == 0) destroy(result);
+                if (right_zombie) destroy(*right_zombie);
+            }
+#endif
         }
     };
 
@@ -200,8 +211,15 @@ namespace internal {
         Range range;
         typename Partitioner::partition_type partition;
         /*override*/ task* execute();
+#if __TBB_EXCEPTIONS
+        tbb::task_group_context &my_context;
+#endif
     public:
-        start_scan( sum_node_type*& return_slot_, start_scan& parent, sum_node_type* parent_sum_ ) :
+        start_scan( sum_node_type*& return_slot_, start_scan& parent, sum_node_type* parent_sum_ 
+#if __TBB_EXCEPTIONS
+            , tbb::task_group_context &_context
+#endif
+            ) :
             body(parent.body),
             sum(parent.sum),
             return_slot(&return_slot_),
@@ -210,11 +228,18 @@ namespace internal {
             is_right_child(false),
             range(parent.range,split()),
             partition(parent.partition,split())
+#if __TBB_EXCEPTIONS
+        , my_context (_context)
+#endif
         {
             __TBB_ASSERT( !*return_slot, NULL );
         }
 
-        start_scan( sum_node_type*& return_slot_, const Range& range_, final_sum_type& body_, const Partitioner& partitioner_) :
+        start_scan( sum_node_type*& return_slot_, const Range& range_, final_sum_type& body_, const Partitioner& partitioner_
+#if __TBB_EXCEPTIONS
+        , tbb::task_group_context &_context
+#endif
+            ) :
             body(&body_),
             sum(NULL),
             return_slot(&return_slot_),
@@ -223,31 +248,69 @@ namespace internal {
             is_right_child(false),
             range(range_),
             partition(partitioner_)
+#if __TBB_EXCEPTIONS
+            , my_context (_context)
+#endif
         {
             __TBB_ASSERT( !*return_slot, NULL );
         }
 
-        static void run(  const Range& range, Body& body, const Partitioner& partitioner ) {
+        static void run(  const Range& range, Body& body, const Partitioner& partitioner 
+#if __TBB_EXCEPTIONS
+        , task_group_context& context
+#endif
+            ) {
             if( !range.empty() ) {
                 typedef internal::start_scan<Range,Body,Partitioner> start_pass1_type;
                 internal::sum_node<Range,Body>* root = NULL;
                 typedef internal::final_sum<Range,Body> final_sum_type;
+#if __TBB_EXCEPTIONS
+                final_sum_type* temp_body = new(task::allocate_root(context)) final_sum_type( body );
+                start_pass1_type& pass1 = *new(task::allocate_root(context)) start_pass1_type(
+                    /*return_slot=*/root,
+                    range,
+                    *temp_body,
+                    partitioner,
+                    context
+                    );
+#else
                 final_sum_type* temp_body = new(task::allocate_root()) final_sum_type( body );
                 start_pass1_type& pass1 = *new(task::allocate_root()) start_pass1_type(
                     /*return_slot=*/root,
                     range,
                     *temp_body,
                     partitioner );
+#endif
+                // The class is intended to destroy allocated tasks if exception occurs
+                class task_cleaner: internal::no_copy {
+                    internal::sum_node<Range,Body>* my_root;
+                    final_sum_type* my_temp_body;
+                    const Range& my_range;
+                    Body& my_body;
+                    start_pass1_type* my_pass1;
+                public:
+                    bool do_clean; // Set to true if cleanup is required.
+                    task_cleaner(internal::sum_node<Range,Body>* _root, final_sum_type* _temp_body, const Range& _range, Body& _body, start_pass1_type* _pass1)
+                        : my_root(_root), my_temp_body(_temp_body), my_range(_range), my_body(_body), my_pass1(_pass1), do_clean(true) {}
+                    ~task_cleaner(){
+                        if (do_clean) {
+                            my_body.assign(my_temp_body->body);
+                            my_temp_body->finish_construction( my_range, NULL );
+                            my_temp_body->destroy(*my_temp_body);
+                        }
+                    }
+                };
+                task_cleaner my_cleaner(root, temp_body, range, body, &pass1);
+
                 task::spawn_root_and_wait( pass1 );
+                my_cleaner.do_clean = false;
                 if( root ) {
                     root->body = temp_body;
                     root->incoming = NULL;
                     root->stuff_last = &body;
                     task::spawn_root_and_wait( *root );
                 } else {
-                    body.assign(temp_body->body);
-                    temp_body->finish_construction( range, NULL );
-                    temp_body->destroy(*temp_body);
+                    my_cleaner.do_clean = true;
                 }
             }
         }
@@ -263,7 +326,11 @@ namespace internal {
         bool treat_as_stolen = is_right_child && (is_stolen_task() || body!=p->result.left_sum);
         if( treat_as_stolen ) {
             // Invocation is for right child that has been really stolen or needs to be virtually stolen
+#if __TBB_EXCEPTIONS
+            p->right_zombie = body = new( allocate_root(my_context) ) final_sum_type(body->body);
+#else
             p->right_zombie = body = new( allocate_root() ) final_sum_type(body->body);
+#endif
             is_final = false;
         }
         task* next_task = NULL;
@@ -280,10 +347,18 @@ namespace internal {
             if( parent_sum ) 
                 result = new(allocate_additional_child_of(*parent_sum)) sum_node_type(range,/*left_is_final=*/is_final);
             else
+#if __TBB_EXCEPTIONS
+                result = new(task::allocate_root(my_context)) sum_node_type(range,/*left_is_final=*/is_final);
+#else
                 result = new(task::allocate_root()) sum_node_type(range,/*left_is_final=*/is_final);
+#endif
             finish_pass1_type& c = *new( allocate_continuation()) finish_pass1_type(*return_slot,sum,*result);
             // Split off right child
+#if __TBB_EXCEPTIONS
+            start_scan& b = *new( c.allocate_child() ) start_scan( /*return_slot=*/result->right, *this, result, my_context );
+#else
             start_scan& b = *new( c.allocate_child() ) start_scan( /*return_slot=*/result->right, *this, result );
+#endif
             b.is_right_child = true;    
             // Left child is recycling of *this.  Must recycle this before spawning b, 
             // otherwise b might complete and decrement c.ref_count() to zero, which
@@ -323,19 +398,70 @@ namespace internal {
     See also requirements on \ref range_req "Range" and \ref parallel_scan_body_req "parallel_scan Body". **/
 //@{
 
+//! Parallel prefix with default partitioner
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_scan( const Range& range, Body& body ) {
+#if __TBB_EXCEPTIONS
+    task_group_context context;
+#endif // __TBB_EXCEPTIONS
+    internal::start_scan<Range,Body,__TBB_DEFAULT_PARTITIONER>::run(range,body,__TBB_DEFAULT_PARTITIONER()
+#if __TBB_EXCEPTIONS
+        , context
+#endif
+        );
+}
+
 //! Parallel prefix with simple_partitioner
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
-void parallel_scan( const Range& range, Body& body, const simple_partitioner& partitioner=simple_partitioner() ) {
-    internal::start_scan<Range,Body,simple_partitioner>::run(range,body,partitioner);
+void parallel_scan( const Range& range, Body& body, const simple_partitioner& partitioner ) {
+#if __TBB_EXCEPTIONS
+    task_group_context context;
+#endif // __TBB_EXCEPTIONS
+    internal::start_scan<Range,Body,simple_partitioner>::run(range,body,partitioner
+#if __TBB_EXCEPTIONS
+        , context
+#endif
+        );
 }
 
 //! Parallel prefix with auto_partitioner
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
 void parallel_scan( const Range& range, Body& body, const auto_partitioner& partitioner ) {
-    internal::start_scan<Range,Body,auto_partitioner>::run(range,body,partitioner);
+#if __TBB_EXCEPTIONS
+    task_group_context context;
+#endif // __TBB_EXCEPTIONS
+    internal::start_scan<Range,Body,auto_partitioner>::run(range,body,partitioner
+#if __TBB_EXCEPTIONS
+        , context
+#endif
+        );
 }
+#if __TBB_EXCEPTIONS
+//! Parallel prefix with simple_partitioner and user-supplied context
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_scan( const Range& range, Body& body, const simple_partitioner& partitioner, tbb::task_group_context & context ) {
+    internal::start_scan<Range,Body,simple_partitioner>::run(range,body,partitioner,context);
+}
+
+//! Parallel prefix with auto_partitioner and user-supplied context
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_scan( const Range& range, Body& body, const auto_partitioner& partitioner, tbb::task_group_context & context ) {
+    internal::start_scan<Range,Body,auto_partitioner>::run(range,body,partitioner,context);
+}
+
+//! Parallel prefix with default partitioner and user-supplied context
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_scan( const Range& range, Body& body, tbb::task_group_context & context ) {
+    internal::start_scan<Range,Body,__TBB_DEFAULT_PARTITIONER>::run(range,body,__TBB_DEFAULT_PARTITIONER(),context);
+}
+#endif
+
 //@}
 
 } // namespace tbb

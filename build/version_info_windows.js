@@ -1,4 +1,4 @@
-// Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+// Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 //
 // This file is part of Threading Building Blocks.
 //
@@ -32,54 +32,59 @@ WScript.Echo("#define __TBB_VERSION_STRINGS \\");
 
 //Getting BUILD_HOST
 WScript.echo( "\"TBB: BUILD_HOST\\t\\t" + 
-			  WshShell.ExpandEnvironmentStrings("%COMPUTERNAME%") +
-			  "\" ENDL \\" );
+              WshShell.ExpandEnvironmentStrings("%COMPUTERNAME%") +
+              "\" ENDL \\" );
 
 //Getting BUILD_OS
 tmpExec = WshShell.Exec("cmd /c ver");
 while ( tmpExec.Status == 0 ) {
-	WScript.Sleep(100);
+    WScript.Sleep(100);
 }
 tmpExec.StdOut.ReadLine();
 
 WScript.echo( "\"TBB: BUILD_OS\\t\\t" + 
-			  tmpExec.StdOut.ReadLine() +
-			  "\" ENDL \\" );
+              tmpExec.StdOut.ReadLine() +
+              "\" ENDL \\" );
 
+if ( WScript.Arguments(0).toLowerCase().match("gcc") ) {
+    tmpExec = WshShell.Exec("gcc --version");
+    WScript.echo( "\"TBB: BUILD_COMPILER\\t" + 
+                  tmpExec.StdOut.ReadLine() + 
+                  "\" ENDL \\" );
 
-//Getting BUILD_CL
-tmpExec = WshShell.Exec("cmd /c echo #define 0 0>empty.cpp");
-tmpExec = WshShell.Exec("cl -c empty.cpp ");
-while ( tmpExec.Status == 0 ) {
-	WScript.Sleep(100);
+} else { // MS / Intel compilers
+    //Getting BUILD_CL
+    tmpExec = WshShell.Exec("cmd /c echo #define 0 0>empty.cpp");
+    tmpExec = WshShell.Exec("cl -c empty.cpp ");
+    while ( tmpExec.Status == 0 ) {
+        WScript.Sleep(100);
+    }
+    var clVersion = tmpExec.StdErr.ReadLine();
+    WScript.echo( "\"TBB: BUILD_CL\\t\\t" + 
+                  clVersion +
+                  "\" ENDL \\" );
+
+    //Getting BUILD_COMPILER
+    if ( WScript.Arguments(0).toLowerCase().match("icl") ) {
+        tmpExec = WshShell.Exec("icl -c empty.cpp ");
+        while ( tmpExec.Status == 0 ) {
+            WScript.Sleep(100);
+        }
+        WScript.echo( "\"TBB: BUILD_COMPILER\\t" + 
+                      tmpExec.StdErr.ReadLine() + 
+                      "\" ENDL \\" );
+    } else {
+        WScript.echo( "\"TBB: BUILD_COMPILER\\t\\t" + 
+                      clVersion +
+                      "\" ENDL \\" );
+    }
+    tmpExec = WshShell.Exec("cmd /c del /F /Q empty.obj empty.cpp");
 }
-var clVersion = tmpExec.StdErr.ReadLine();
-WScript.echo( "\"TBB: BUILD_CL\\t\\t" + 
-			  clVersion +
-			  "\" ENDL \\" );
-
-//Getting BUILD_COMPILER
-if ( WScript.Arguments(0).toLowerCase().match("icl") ) {
-	tmpExec = WshShell.Exec("icl -c empty.cpp ");
-	while ( tmpExec.Status == 0 ) {
-		WScript.Sleep(100);
-	}
-	WScript.echo( "\"TBB: BUILD_COMPILER\\t" + 
-				  tmpExec.StdErr.ReadLine() + 
-				  "\" ENDL \\" );
-} else {
-	WScript.echo( "\"TBB: BUILD_COMPILER\\t\\t" + 
-				  clVersion +
-				  "\" ENDL \\" );
-}
-
-tmpExec = WshShell.Exec("cmd /c del /F /Q empty.cpp ");
-tmpExec = WshShell.Exec("cmd /c del /F /Q empty.obj ");
 
 //Getting BUILD_TARGET
 WScript.echo( "\"TBB: BUILD_TARGET\\t" + 
-			  WScript.Arguments(1) + 
-			  "\" ENDL \\" );
+              WScript.Arguments(1) + 
+              "\" ENDL \\" );
 
 //Getting BUILD_COMMAND
 WScript.echo( "\"TBB: BUILD_COMMAND\\t" + WScript.Arguments(2) + "\" ENDL" );
@@ -88,8 +93,8 @@ WScript.echo( "\"TBB: BUILD_COMMAND\\t" + WScript.Arguments(2) + "\" ENDL" );
 var date = new Date();
 WScript.echo( "#define __TBB_DATETIME \"" + date.toUTCString() + "\"" );
 WScript.echo( "#define __TBB_VERSION_YMD " + date.getUTCFullYear() + ", " + 
-			  (date.getUTCMonth() > 8 ? (date.getUTCMonth()+1):("0"+(date.getUTCMonth()+1))) + 
-			  (date.getUTCDate() > 9 ? date.getUTCDate():("0"+date.getUTCDate())) );
+              (date.getUTCMonth() > 8 ? (date.getUTCMonth()+1):("0"+(date.getUTCMonth()+1))) + 
+              (date.getUTCDate() > 9 ? date.getUTCDate():("0"+date.getUTCDate())) );
 
 
 /*

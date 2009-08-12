@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,7 +35,6 @@
 #include <windows.h>
 #elif __linux__
 #include <ctime>
-#include <stdio.h>
 #else /* generic Unix */
 #include <sys/time.h>
 #endif /* (choice of OS) */
@@ -103,17 +102,17 @@ inline tick_count tick_count::now() {
     result.my_count = qpcnt.QuadPart;
 #elif __linux__
     struct timespec ts;
-#if TBB_DO_ASSERT
+#if TBB_USE_ASSERT
     int status = 
-#endif /* TBB_DO_ASSERT */
+#endif /* TBB_USE_ASSERT */
         clock_gettime( CLOCK_REALTIME, &ts );
     __TBB_ASSERT( status==0, "CLOCK_REALTIME not supported" );
     result.my_count = static_cast<long long>(1000000000UL)*static_cast<long long>(ts.tv_sec) + static_cast<long long>(ts.tv_nsec);
 #else /* generic Unix */
     struct timeval tv;
-#if TBB_DO_ASSERT
+#if TBB_USE_ASSERT
     int status = 
-#endif /* TBB_DO_ASSERT */
+#endif /* TBB_USE_ASSERT */
         gettimeofday(&tv, NULL);
     __TBB_ASSERT( status==0, "gettimeofday failed" );
     result.my_count = static_cast<long long>(1000000)*static_cast<long long>(tv.tv_sec) + static_cast<long long>(tv.tv_usec);

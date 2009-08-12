@@ -1,4 +1,4 @@
-// Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+// Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 //
 // This file is part of Threading Building Blocks.
 //
@@ -24,16 +24,23 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-if ( WScript.Arguments.Count() > 0 ) {
-	
-	try {
-		
+function doWork() {
 		var WshShell = WScript.CreateObject("WScript.Shell");
 
 		var fso = new ActiveXObject("Scripting.FileSystemObject");
 
 		var tmpExec;
-		
+
+		if ( WScript.Arguments.Count() > 1 && WScript.Arguments(1) == "gcc" ) {
+			if ( WScript.Arguments(0) == "/arch" ) {
+				WScript.Echo( "ia32" );
+			}
+			else if ( WScript.Arguments(0) == "/runtime" ) {
+				WScript.Echo( "mingw" );
+			}
+			return;
+		}
+
 		//Compile binary
 		tmpExec = WshShell.Exec("cmd /c echo int main(){return 0;} >detect.c");
 		while ( tmpExec.Status == 0 ) {
@@ -50,13 +57,13 @@ if ( WScript.Arguments.Count() > 0 ) {
 			var clVersion = tmpExec.StdErr.ReadAll();
 			
 			//detect target architecture
-			var em64t=/AMD64|EM64T|x64/mgi;
-			var itanium=/IA-64|Itanium/mgi;
+			var intel64=/AMD64|EM64T|x64/mgi;
+			var ia64=/IA-64|Itanium/mgi;
 			var ia32=/80x86/mgi;
-			if ( clVersion.match(em64t) ) {
-				WScript.Echo( "em64t" );
-			} else if ( clVersion.match(itanium) ) {
-				WScript.Echo( "itanium" );
+			if ( clVersion.match(intel64) ) {
+				WScript.Echo( "intel64" );
+			} else if ( clVersion.match(ia64) ) {
+				WScript.Echo( "ia64" );
 			} else if ( clVersion.match(ia32) ) {
 				WScript.Echo( "ia32" );
 			} else {
@@ -74,6 +81,7 @@ if ( WScript.Arguments.Count() > 0 ) {
 			var vc71=/MSVCR71\.DLL/mgi;
 			var vc80=/MSVCR80\.DLL/mgi;
 			var vc90=/MSVCR90\.DLL/mgi;
+			var vc100=/MSVCR100\.DLL/mgi;
 			var psdk=/MSVCRT\.DLL/mgi;
 			if ( mapContext.match(vc71) ) {
 				WScript.Echo( "vc7.1" );
@@ -81,6 +89,8 @@ if ( WScript.Arguments.Count() > 0 ) {
 				WScript.Echo( "vc8" );
 			} else if ( mapContext.match(vc90) ) {
 				WScript.Echo( "vc9" );
+			} else if ( mapContext.match(vc100) ) {
+				WScript.Echo( "vc10" );
 			} else if ( mapContext.match(psdk) ) {
 				// Our current naming convention assumes vc7.1 for 64-bit Windows PSDK
 				WScript.Echo( "vc7.1" ); 
@@ -100,7 +110,12 @@ if ( WScript.Arguments.Count() > 0 ) {
 			fso.DeleteFile ("detect.exe", false);
 		if ( fso.FileExists("detect.exe.manifest") )
 			fso.DeleteFile ("detect.exe.manifest", false);
+}
 
+if ( WScript.Arguments.Count() > 0 ) {
+	
+	try {
+		doWork();
 	} catch( error )
 	{
 		WScript.Echo( "unknown" );

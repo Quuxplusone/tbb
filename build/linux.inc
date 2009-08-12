@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -25,14 +25,18 @@
 # the GNU General Public License.
 
 ifndef arch
-        ifeq ($(shell uname -m),i686)
+        uname_m:=$(shell uname -m)
+        ifeq ($(uname_m),i686)
                 export arch:=ia32
         endif
-        ifeq ($(shell uname -m),ia64)
-                export arch:=itanium
+        ifeq ($(uname_m),ia64)
+                export arch:=ia64
         endif
-        ifeq ($(shell uname -m),x86_64)
-                export arch:=em64t
+        ifeq ($(uname_m),x86_64)
+                export arch:=intel64
+        endif
+        ifeq ($(uname_m),sparc64)
+                export arch:=sparc
         endif
 endif
 
@@ -67,14 +71,14 @@ else
         export LD_LIBRARY_PATH := .
 endif
 
-####### Build settigns ########################################################
+####### Build settings ########################################################
 
 OBJ = o
 DLL = so
 LIBEXT = so
 SONAME_SUFFIX =$(shell grep TBB_COMPATIBLE_INTERFACE_VERSION $(tbb_root)/include/tbb/tbb_stddef.h | egrep -o [0-9.]+)
 
-def_prefix = $(if $(findstring 32,$(arch)),lin32,$(if $(findstring 64,$(arch)),lin64,lin64ipf))
+def_prefix = $(if $(findstring 32,$(arch)),lin32,$(if $(findstring intel64,$(arch)),lin64,lin64ipf))
 TBB.DEF = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.def
 
 EXPORT_KEY = -Wl,--version-script,
@@ -87,6 +91,17 @@ MALLOC_NO_VERSION.DLL = libtbbmalloc$(DEBUG_SUFFIX).$(DLL)
 MALLOC.DEF = $(MALLOC_ROOT)/lin-tbbmalloc-export.def
 MALLOC.DLL = $(MALLOC_NO_VERSION.DLL).$(SONAME_SUFFIX)
 MALLOC.LIB = $(MALLOC_NO_VERSION.DLL)
+LINK_MALLOC.LIB = $(MALLOC_NO_VERSION.DLL)
+
+MALLOCPROXY_NO_VERSION.DLL = libtbbmalloc_proxy$(DEBUG_SUFFIX).$(DLL)
+MALLOCPROXY.DEF = $(MALLOC_ROOT)/$(def_prefix)-proxy-export.def
+MALLOCPROXY.DLL = $(MALLOCPROXY_NO_VERSION.DLL).$(SONAME_SUFFIX)
+MALLOCPROXY.LIB = $(MALLOCPROXY_NO_VERSION.DLL)
+
+RML_NO_VERSION.DLL = libirml$(DEBUG_SUFFIX).$(DLL)
+RML.DEF = $(RML_SERVER_ROOT)/lin-rml-export.def
+RML.DLL = $(RML_NO_VERSION.DLL).1
+RML.LIB = $(RML_NO_VERSION.DLL)
 
 TBB_NOSTRICT=1
 

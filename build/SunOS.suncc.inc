@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -24,8 +24,8 @@
 # invalidate any other reasons why the executable file might be covered by
 # the GNU General Public License.
 
-COMPILE_ONLY = -c -MMD -errtags
-PREPROC_ONLY = -E -MMD
+COMPILE_ONLY = -c -xMMD -errtags
+PREPROC_ONLY = -E -xMMD
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
 OUTPUT_KEY = -o #
@@ -33,8 +33,9 @@ OUTPUTOBJ_KEY = -o #
 PIC_KEY = -KPIC
 DYLIB_KEY = -G
 LIBDL = -ldl
+# WARNING_AS_ERROR_KEY = -errwarn=%all
 WARNING_AS_ERROR_KEY = Warning as error
-WARNING_SUPPRESS = -erroff=unassigned,attrskipunsup,badargtype2w,badbinaryopw,wbadasg
+WARNING_SUPPRESS = -erroff=unassigned,attrskipunsup,badargtype2w,badbinaryopw,wbadasg,wvarhidemem
 tbb_strict=0
 
 TBB_NOSTRICT = 1
@@ -47,10 +48,10 @@ LIBS = -lpthread -lrt -R .
 C_FLAGS = $(CPLUS_FLAGS)
 
 ifeq ($(cfg), release)
-        CPLUS_FLAGS = -xO2 -library=stlport4 -DUSE_PTHREAD 
+        CPLUS_FLAGS = -mt -xO2 -library=stlport4 -DUSE_PTHREAD $(WARNING_SUPPRESS)
 endif
 ifeq ($(cfg), debug)
-        CPLUS_FLAGS = -DTBB_DO_ASSERT -g -library=stlport4 -DUSE_PTHREAD 
+        CPLUS_FLAGS = -mt -DTBB_USE_DEBUG -g -library=stlport4 -DUSE_PTHREAD $(WARNING_SUPPRESS)
 endif
 
 ASM=
@@ -58,7 +59,7 @@ ASM_FLAGS=
 
 TBB_ASM.OBJ=
 
-ifeq (em64t,$(arch))
+ifeq (intel64,$(arch))
     CPLUS_FLAGS += -m64
     ASM_FLAGS += -m64
     LIB_LINK_FLAGS += -m64
@@ -69,14 +70,16 @@ ifeq (ia32,$(arch))
     LIB_LINK_FLAGS += -m32
 endif 
 
+# TODO: verify whether -m64 implies V9 on relevant Sun Studio versions
+#       (those that handle gcc assembler syntax)
+ifeq (sparc,$(arch))
+    CPLUS_FLAGS    += -m64
+    LIB_LINK_FLAGS += -m64
+endif 
+
 #------------------------------------------------------------------------------
 # Setting assembler data.
 #------------------------------------------------------------------------------
-%.$(OBJ): %.s
-	cpp $(ASM_FLAGS) <$< | grep -v '^#' >$*.tmp
-	$(ASM) $(ASM_FLAGS) -o $@ $*.tmp
-	rm $*.tmp
-
 ASSEMBLY_SOURCE=$(arch)-fbe
 #------------------------------------------------------------------------------
 # End of setting assembler data.

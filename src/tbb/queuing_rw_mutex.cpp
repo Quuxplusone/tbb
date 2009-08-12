@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,7 +32,7 @@
 
 #include "tbb/tbb_machine.h"
 #include "tbb/tbb_stddef.h"
-#include "tbb_misc.h"
+#include "tbb/tbb_machine.h"
 #include "tbb/queuing_rw_mutex.h"
 #include "itt_notify.h"
 
@@ -40,6 +40,21 @@
 namespace tbb {
 
 using namespace internal;
+
+//! Flag bits in a state_t that specify information about a locking request.
+enum state_t_flags {
+    STATE_NONE = 0,
+    STATE_WRITER = 1,
+    STATE_READER = 1<<1,
+    STATE_READER_UNBLOCKNEXT = 1<<2,
+    STATE_COMBINED_WAITINGREADER = STATE_READER | STATE_READER_UNBLOCKNEXT,
+    STATE_ACTIVEREADER = 1<<3,
+    STATE_COMBINED_READER = STATE_COMBINED_WAITINGREADER | STATE_ACTIVEREADER,
+    STATE_UPGRADE_REQUESTED = 1<<4,
+    STATE_UPGRADE_WAITING = 1<<5,
+    STATE_UPGRADE_LOSER = 1<<6,
+    STATE_COMBINED_UPGRADING = STATE_UPGRADE_WAITING | STATE_UPGRADE_LOSER
+};
 
 const unsigned char RELEASED = 0;
 const unsigned char ACQUIRED = 1;
@@ -70,7 +85,7 @@ inline void queuing_rw_mutex::scoped_lock::release_internal_lock()
 
 inline void queuing_rw_mutex::scoped_lock::wait_for_release_of_internal_lock()
 {
-    SpinwaitUntilEq(internal_lock, RELEASED);
+    spin_wait_until_eq(internal_lock, RELEASED);
 }
 
 inline void queuing_rw_mutex::scoped_lock::unblock_or_wait_on_internal_lock( uintptr_t flag ) {
@@ -80,10 +95,18 @@ inline void queuing_rw_mutex::scoped_lock::unblock_or_wait_on_internal_lock( uin
         release_internal_lock();
 }
 
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
+    // Workaround for overzealous compiler warnings
+    #pragma warning (push)
+    #pragma warning (disable: 4311 4312)
+#endif
+
+//! A view of a T* with additional functionality for twiddling low-order bits.
 template<typename T>
-class tricky_atomic_pointer {
+class tricky_atomic_pointer: no_copy {
 public:
-    typedef typename atomic_word<sizeof(T*)>::word word;
+    typedef typename atomic_rep<sizeof(T*)>::word word;
+
     template<memory_semantics M>
     static T* fetch_and_add( T* volatile * location, word addend ) {
         return reinterpret_cast<T*>( atomic_traits<sizeof(T*),M>::fetch_and_add(location, addend) );
@@ -110,7 +133,13 @@ public:
         return reinterpret_cast<T*>( reinterpret_cast<word>(ref) | operand2 );
     }
 };
+
 typedef tricky_atomic_pointer<queuing_rw_mutex::scoped_lock> tricky_pointer;
+
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
+    // Workaround for overzealous compiler warnings
+    #pragma warning (pop)
+#endif
 
 //! Mask for low order bit of a pointer.
 static const tricky_pointer::word FLAG = 0x1;
@@ -120,11 +149,10 @@ uintptr get_flag( queuing_rw_mutex::scoped_lock* ptr ) {
     return uintptr(tricky_pointer(ptr)&FLAG);
 }
 
+//------------------------------------------------------------------------
+// Methods of queuing_rw_mutex::scoped_lock
+//------------------------------------------------------------------------
 
-//! Methods of queuing_rw_mutex::scoped_lock
-/** ----------------------------------------- **/
-
-//! A method to acquire queuing_rw_mutex lock
 void queuing_rw_mutex::scoped_lock::acquire( queuing_rw_mutex& m, bool write )
 {
     __TBB_ASSERT( !this->mutex, "scoped_lock is already holding a mutex");
@@ -135,25 +163,27 @@ void queuing_rw_mutex::scoped_lock::acquire( queuing_rw_mutex& m, bool write )
     prev  = NULL;
     next  = NULL;
     going = 0;
-    state = write ? STATE_WRITER : STATE_READER;
+    state = state_t(write ? STATE_WRITER : STATE_READER);
     internal_lock = RELEASED;
 
-    ITT_NOTIFY(sync_prepare, mutex);
     queuing_rw_mutex::scoped_lock* pred = m.q_tail.fetch_and_store<tbb::release>(this);
 
     if( write ) {       // Acquiring for write
 
         if( pred ) {
+            ITT_NOTIFY(sync_prepare, mutex);
             pred = tricky_pointer(pred) & ~FLAG;
             __TBB_ASSERT( !( tricky_pointer(pred) & FLAG ), "use of corrupted pointer!" );
             __TBB_ASSERT( !pred->next, "the predecessor has another successor!");
             // ensure release semantics on IPF
            __TBB_store_with_release(pred->next,this);
-            SpinwaitUntilEq(going, 1);
+            spin_wait_until_eq(going, 1);
         }
 
     } else {            // Acquiring for read
-
+#if DO_ITT_NOTIFY
+        bool sync_prepare_done = false;
+#endif
         if( pred ) {
             unsigned short pred_state;
             __TBB_ASSERT( !this->prev, "the predecessor is already set" );
@@ -172,14 +202,22 @@ void queuing_rw_mutex::scoped_lock::acquire( queuing_rw_mutex& m, bool write )
             // ensure release semantics on IPF
            __TBB_store_with_release(pred->next,this);
             if( pred_state != STATE_ACTIVEREADER ) {
-                SpinwaitUntilEq(going, 1);
+#if DO_ITT_NOTIFY
+                sync_prepare_done = true;
+                ITT_NOTIFY(sync_prepare, mutex);
+#endif
+                spin_wait_until_eq(going, 1);
             }
         }
         unsigned short old_state = state.compare_and_swap<tbb::acquire>(STATE_ACTIVEREADER, STATE_READER);
         if( old_state!=STATE_READER ) {
+#if DO_ITT_NOTIFY
+            if( !sync_prepare_done )
+                ITT_NOTIFY(sync_prepare, mutex);
+#endif
             // Failed to become active reader -> need to unblock the next waiting reader first
             __TBB_ASSERT( state==STATE_READER_UNBLOCKNEXT, "unexpected state" );
-            SpinwaitWhileEq(next, (scoped_lock*)NULL);
+            spin_wait_while_eq(next, (scoped_lock*)NULL);
             /* state should be changed before unblocking the next otherwise it might finish
                and another thread can get our old state and left blocked */
             state = STATE_ACTIVEREADER;
@@ -195,7 +233,6 @@ void queuing_rw_mutex::scoped_lock::acquire( queuing_rw_mutex& m, bool write )
     __TBB_load_with_acquire(going);
 }
 
-//! A method to try-acquire queuing_rw_mutex lock
 bool queuing_rw_mutex::scoped_lock::try_acquire( queuing_rw_mutex& m, bool write )
 {
     __TBB_ASSERT( !this->mutex, "scoped_lock is already holding a mutex");
@@ -205,7 +242,7 @@ bool queuing_rw_mutex::scoped_lock::try_acquire( queuing_rw_mutex& m, bool write
     prev  = NULL;
     next  = NULL;
     going = 0;
-    state = write ? STATE_WRITER : STATE_ACTIVEREADER;
+    state = state_t(write ? STATE_WRITER : STATE_ACTIVEREADER);
     internal_lock = RELEASED;
 
     if( m.q_tail ) return false;
@@ -226,7 +263,6 @@ bool queuing_rw_mutex::scoped_lock::try_acquire( queuing_rw_mutex& m, bool write
 
 }
 
-//! A method to release queuing_rw_mutex lock
 void queuing_rw_mutex::scoped_lock::release( )
 {
     __TBB_ASSERT(this->mutex!=NULL, "no lock acquired");
@@ -244,7 +280,7 @@ void queuing_rw_mutex::scoped_lock::release( )
                 // this was the only item in the queue, and the queue is now empty.
                 goto done;
             }
-            SpinwaitWhileEq( next, (scoped_lock*)NULL );
+            spin_wait_while_eq( next, (scoped_lock*)NULL );
             n = next;
         }
         n->going = 2; // protect next queue node from being destroyed too early
@@ -278,7 +314,7 @@ retry:
                 tmp = tricky_pointer::compare_and_swap<tbb::release>(&(this->prev), pred, tricky_pointer(pred)|FLAG );
                 if( !(tricky_pointer(tmp)&FLAG) ) {
                     // Wait for the predecessor to change this->prev (e.g. during unlink)
-                    SpinwaitWhileEq( this->prev, tricky_pointer(pred)|FLAG );
+                    spin_wait_while_eq( this->prev, tricky_pointer(pred)|FLAG );
                     // Now owner of pred is waiting for _us_ to release its lock
                     pred->release_internal_lock();
                 }
@@ -294,7 +330,7 @@ retry:
             __TBB_store_with_release(pred->next,reinterpret_cast<scoped_lock *>(NULL));
 
             if( !next && this != mutex->q_tail.compare_and_swap<tbb::release>(pred, this) ) {
-                SpinwaitWhileEq( next, (void*)NULL );
+                spin_wait_while_eq( next, (void*)NULL );
             }
             __TBB_ASSERT( !get_flag(next), "use of corrupted pointer" );
 
@@ -303,7 +339,7 @@ retry:
                 // Equivalent to I->next->prev = I->prev but protected against (prev[n]&FLAG)!=0
                 tmp = tricky_pointer::fetch_and_store<tbb::release>(&(next->prev), pred);
                 // I->prev->next = I->next;
-                __TBB_ASSERT(this->prev==pred, "");
+                __TBB_ASSERT(this->prev==pred, NULL);
                 __TBB_store_with_release(pred->next,next);
             }
             // Safe to release in the order opposite to acquiring which makes the code simplier
@@ -315,7 +351,7 @@ retry:
             scoped_lock* n = __TBB_load_with_acquire(next);
             if( !n ) {
                 if( this != mutex->q_tail.compare_and_swap<tbb::release>(NULL, this) ) {
-                    SpinwaitWhileEq( next, (scoped_lock*)NULL );
+                    spin_wait_while_eq( next, (scoped_lock*)NULL );
                     n = next;
                 } else {
                     goto unlock_self;
@@ -330,14 +366,11 @@ unlock_self:
         unblock_or_wait_on_internal_lock(get_flag(tmp));
     }
 done:
-    SpinwaitWhileEq( going, 2 );
+    spin_wait_while_eq( going, 2 );
 
     initialize();
 }
 
-//! A method to downgrade a writer to a reader.
-/** See more detailed comments in the SPIN model:
-    <TBB directory>/tools/spin_models/ReaderWriterMutex.pml */
 bool queuing_rw_mutex::scoped_lock::downgrade_to_reader()
 {
     __TBB_ASSERT( state==STATE_WRITER, "no sense to downgrade a reader" );
@@ -354,7 +387,7 @@ bool queuing_rw_mutex::scoped_lock::downgrade_to_reader()
             }
         }
         /* wait for the next to register */
-        SpinwaitWhileEq( next, (void*)NULL );
+        spin_wait_while_eq( next, (void*)NULL );
     }
     __TBB_ASSERT( next, "still no successor at this point!" );
     if( next->state & STATE_COMBINED_WAITINGREADER )
@@ -368,9 +401,6 @@ downgrade_done:
     return true;
 }
 
-//! A method to upgrade a reader to a writer.
-/** See more detailed comments in the SPIN model:
-    <TBB directory>/tools/spin_models/ReaderWriterMutex.pml */
 bool queuing_rw_mutex::scoped_lock::upgrade_to_writer()
 {
     __TBB_ASSERT( state==STATE_ACTIVEREADER, "only active reader can be upgraded" );
@@ -384,7 +414,7 @@ requested:
     __TBB_ASSERT( !( tricky_pointer(next) & FLAG ), "use of corrupted pointer!" );
     acquire_internal_lock();
     if( this != mutex->q_tail.compare_and_swap<tbb::release>(tricky_pointer(me)|FLAG, this) ) {
-        SpinwaitWhileEq( next, (void*)NULL );
+        spin_wait_while_eq( next, (void*)NULL );
         queuing_rw_mutex::scoped_lock * n;
         n = tricky_pointer::fetch_and_add<tbb::acquire>(&(this->next), FLAG);
         unsigned short n_state = n->state;
@@ -396,7 +426,7 @@ requested:
         if( n_state & (STATE_COMBINED_READER | STATE_UPGRADE_REQUESTED) ) {
             // save n|FLAG for simplicity of following comparisons
             tmp = tricky_pointer(n)|FLAG;
-            ExponentialBackoff backoff;
+            atomic_backoff backoff;
             while(next==tmp) {
                 if( state & STATE_COMBINED_UPGRADING ) {
                     if( __TBB_load_with_acquire(next)==tmp )
@@ -429,21 +459,20 @@ waiting:
     pred = tricky_pointer::fetch_and_add<tbb::acquire>(&(this->prev), FLAG);
     if( pred ) {
         bool success = pred->try_acquire_internal_lock();
-        //unsigned short pred_state = // keep the variable in code just in case
-		pred->state.compare_and_swap<tbb::release>(STATE_UPGRADE_WAITING, STATE_UPGRADE_REQUESTED);
+        pred->state.compare_and_swap<tbb::release>(STATE_UPGRADE_WAITING, STATE_UPGRADE_REQUESTED);
         if( !success ) {
             tmp = tricky_pointer::compare_and_swap<tbb::release>(&(this->prev), pred, tricky_pointer(pred)|FLAG );
             if( tricky_pointer(tmp)&FLAG ) {
-                SpinwaitWhileEq(this->prev, pred);
+                spin_wait_while_eq(this->prev, pred);
                 pred = this->prev;
             } else {
-                SpinwaitWhileEq( this->prev, tricky_pointer(pred)|FLAG );
+                spin_wait_while_eq( this->prev, tricky_pointer(pred)|FLAG );
                 pred->release_internal_lock();
             }
         } else {
             this->prev = pred;
             pred->release_internal_lock();
-            SpinwaitWhileEq(this->prev, pred);
+            spin_wait_while_eq(this->prev, pred);
             pred = this->prev;
         }
         if( pred )
@@ -452,14 +481,14 @@ waiting:
         // restore the corrupted prev field for possible further use (e.g. if downgrade back to reader)
         this->prev = pred;
     }
-    __TBB_ASSERT( !pred && !this->prev, "" );
+    __TBB_ASSERT( !pred && !this->prev, NULL );
 
     // additional lifetime issue prevention checks
     // wait for the successor to finish working with my fields
     wait_for_release_of_internal_lock();
-    // now wait for the predecesor to finish working with my fields
-    SpinwaitWhileEq( going, 2 );
-    // there is an acquire semantics statement in the end of SpinwaitWhileEq.
+    // now wait for the predecessor to finish working with my fields
+    spin_wait_while_eq( going, 2 );
+    // there is an acquire semantics statement in the end of spin_wait_while_eq.
 
     bool result = ( state != STATE_UPGRADE_LOSER );
     state = STATE_WRITER;
@@ -467,6 +496,10 @@ waiting:
 
     ITT_NOTIFY(sync_acquired, mutex);
     return result;
+}
+
+void queuing_rw_mutex::internal_construct() {
+    ITT_SYNC_CREATE(this, _T("tbb::queuing_rw_mutex"), _T(""));
 }
 
 } // namespace tbb

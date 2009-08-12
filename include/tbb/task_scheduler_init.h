@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -51,7 +51,7 @@ class task_scheduler_init: internal::no_copy {
     /** NULL if not currently initialized. */
     internal::scheduler* my_scheduler;
 public:
-    
+
     //! Typedef for number of threads that is automatic.
     static const int automatic = -1;
 
@@ -67,20 +67,20 @@ public:
         The number_of_threads is ignored if any other task_scheduler_inits 
         currently exist.  A thread may construct multiple task_scheduler_inits.  
         Doing so does no harm because the underlying scheduler is reference counted. */
-    void initialize( int number_of_threads=automatic );
+    void __TBB_EXPORTED_METHOD initialize( int number_of_threads=automatic );
 
     //! The overloaded method with stack size parameter
     /** Overloading is necessary to preserve ABI compatibility */
-    void initialize( int number_of_threads, stack_size_type thread_stack_size );
+    void __TBB_EXPORTED_METHOD initialize( int number_of_threads, stack_size_type thread_stack_size );
 
     //! Inverse of method initialize.
-    void terminate();
+    void __TBB_EXPORTED_METHOD terminate();
 
     //! Shorthand for default constructor followed by call to intialize(number_of_threads).
     task_scheduler_init( int number_of_threads=automatic, stack_size_type thread_stack_size=0 ) : my_scheduler(NULL)  {
         initialize( number_of_threads, thread_stack_size );
     }
-  
+
     //! Destroy scheduler for this thread if thread has no other live task_scheduler_inits.
     ~task_scheduler_init() {
         if( my_scheduler ) 
@@ -95,7 +95,10 @@ public:
         to boost the number of threads in the tbb's internal pool, if your tasks are 
         doing I/O operations. The optimal number of additional threads depends on how
         much time your tasks spend in the blocked state. */
-    static int default_num_threads ();
+    static int __TBB_EXPORTED_FUNC default_num_threads ();
+
+    //! Returns true if scheduler is active (initialized); false otherwise
+    bool is_active() const { return my_scheduler != NULL; }
 };
 
 } // namespace tbb

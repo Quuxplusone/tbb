@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -25,6 +25,12 @@
     invalidate any other reasons why the executable file might be covered by
     the GNU General Public License.
 */
+
+#include "tbb/tbb_config.h"
+
+#if __TBB_GCC_WARNING_SUPPRESSION_ENABLED
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
 
 //! Wrapper around T where all members are private.
 /** Used to prove that aligned_space<T,N> never calls member of T. */
@@ -85,9 +91,13 @@ void TestAlignedSpace() {
         PrintSpaceWastingWarning( typeid(T).name() );
 }
 
-#include "harness_m128.h"
-#include <cstdio>         // Inclusion of <cstdio> deferred, to improve odds of detecting accidental dependences on it.
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#include "harness.h"
 
+#include "harness_m128.h"
+//#include <cstdio>         // Inclusion of <cstdio> deferred, to improve odds of detecting accidental dependences on it.
+
+__TBB_TEST_EXPORT
 int main() {
     TestAlignedSpace<char>();
     TestAlignedSpace<short>();
@@ -99,14 +109,11 @@ int main() {
 #if HAVE_m128
     TestAlignedSpace<__m128>();
 #endif /* HAVE_m128 */
-    std::printf("done\n");
+    REPORT("done\n");
     return 0;
 }
 
-#define HARNESS_NO_PARSE_COMMAND_LINE 1
-#include "harness.h"
-
 static void PrintSpaceWastingWarning( const char* type_name ) {
-    std::printf("Consider rewriting aligned_space<%s,N> to waste less space\n", type_name ); 
+    REPORT("Consider rewriting aligned_space<%s,N> to waste less space\n", type_name ); 
 }
 

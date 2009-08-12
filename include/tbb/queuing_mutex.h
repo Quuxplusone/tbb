@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,6 +31,7 @@
 
 #include <cstring>
 #include "atomic.h"
+#include "tbb_profiling.h"
 
 namespace tbb {
 
@@ -41,18 +42,21 @@ public:
     //! Construct unacquired mutex.
     queuing_mutex() {
         q_tail = NULL;
-    };
+#if TBB_USE_THREADING_TOOLS
+        internal_construct();
+#endif
+    }
 
     //! The scoped locking pattern
     /** It helps to avoid the common problem of forgetting to release lock.
         It also nicely provides the "node" for queuing locks. */
-    class scoped_lock : private internal:: no_copy {
+    class scoped_lock: internal::no_copy {
         //! Initialize fields to mean "no lock held".
         void initialize() {
             mutex = NULL;
-#if TBB_DO_ASSERT
+#if TBB_USE_ASSERT
             internal::poison_pointer(next);
-#endif /* TBB_DO_ASSERT */
+#endif /* TBB_USE_ASSERT */
         }
     public:
         //! Construct lock that has not acquired a mutex.
@@ -72,13 +76,13 @@ public:
         }
 
         //! Acquire lock on given mutex.
-        void acquire( queuing_mutex& m );
+        void __TBB_EXPORTED_METHOD acquire( queuing_mutex& m );
 
         //! Acquire lock on given mutex if free (i.e. non-blocking)
-        bool try_acquire( queuing_mutex& m );
+        bool __TBB_EXPORTED_METHOD try_acquire( queuing_mutex& m );
 
         //! Release lock.
-        void release();
+        void __TBB_EXPORTED_METHOD release();
 
     private:
         //! The pointer to the mutex owned, or NULL if not holding a mutex.
@@ -94,6 +98,8 @@ public:
         internal::uintptr going;
     };
 
+    void __TBB_EXPORTED_METHOD internal_construct();
+
     // Mutex traits
     static const bool is_rw_mutex = false;
     static const bool is_recursive_mutex = false;
@@ -105,6 +111,8 @@ private:
     atomic<scoped_lock*> q_tail;
 
 };
+
+__TBB_DEFINE_PROFILING_SET_NAME(queuing_mutex)
 
 } // namespace tbb
 

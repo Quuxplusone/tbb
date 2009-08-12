@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,6 +27,7 @@
 */
 
 #include "tbb/mutex.h"
+#include "itt_notify.h"
 
 namespace tbb {
     void mutex::scoped_lock::internal_acquire( mutex& m ) {
@@ -121,6 +122,7 @@ void mutex::internal_construct() {
     if( error_code )
         tbb::internal::handle_perror(error_code,"mutex: pthread_mutex_init failed");
 #endif /* _WIN32||_WIN64*/    
+    ITT_SYNC_CREATE(&impl, _T("tbb::mutex"), _T(""));
 }
 
 void mutex::internal_destroy() {

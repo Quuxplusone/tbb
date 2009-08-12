@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,11 +28,13 @@
 
 #include "tbb/tbb_thread.h"
 #include "tbb/atomic.h"
+
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#include "harness_report.h"
 #include "harness_assert.h"
 
 static const int THRDS = 3;
 static const int THRDS_DETACH = 2;
-static tbb::atomic<int> ready;
 static tbb::atomic<int> sum;
 static tbb::atomic<int> BaseCount;
 static tbb::tbb_thread::id real_ids[THRDS+THRDS_DETACH];
@@ -63,26 +65,25 @@ public:
     int value;
 };
 
+
+#include "harness_barrier.h"
+
 class ThreadFunc: Base {
     ThreadFunc() {}
 
-    void init() {
-        ++ready;
-        while (ready != THRDS)
-            tbb::this_tbb_thread::yield();
-    }
+    static Harness::SpinBarrier init_barrier;
 
     friend void RunTests();
 public:
     void operator()(){
         real_ids[0] = tbb::this_tbb_thread::get_id();
-        init();
+        init_barrier.wait();
         
         sum.fetch_and_add(1);
     }
     void operator()(int num){
         real_ids[num] = tbb::this_tbb_thread::get_id();
-        init();
+        init_barrier.wait();
 
         sum.fetch_and_add(num);
     }
@@ -96,7 +97,7 @@ public:
         ASSERT( ( WAIT - (t1-t0).seconds() ) < 1e-10 
                 || (t1-t0).seconds() > WAIT, "Should sleep enough.");
 
-        init();
+        init_barrier.wait();
 
         sum.fetch_and_add(num);
         sum.fetch_and_add(dx.value);
@@ -105,6 +106,8 @@ public:
         tbb::this_tbb_thread::sleep( tbb::tick_count::interval_t(d.value*1.) );
     }
 };
+
+Harness::SpinBarrier ThreadFunc::init_barrier(THRDS);
 
 void CheckRelations( const tbb::tbb_thread::id ids[], int n, bool duplicates_allowed ) {
     for( int i=0; i<n; ++i ) {
@@ -222,7 +225,9 @@ void RunTests() {
     ASSERT( ! thrs[2].joinable(), NULL );
     ASSERT( BaseCount==4, "object leak detected" );
 
+#if !__TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
     CheckExceptionSafety(); 
+#endif
 
     // Note: all tests involving BaseCount should be put before the tests
     // involing detached threads, because there is no way of knowing when 
@@ -242,6 +247,16 @@ void RunTests() {
 
     CheckRelations(uniq_ids, THRDS, false);
 
+    for (int i=0; i<2; i++) {
+        AnotherThreadFunc empty_func;
+        tbb::tbb_thread thr_to(empty_func), thr_from(empty_func);
+        tbb::tbb_thread::id from_id = thr_from.get_id();
+        if (i) thr_to.join(); 
+        thr_to = thr_from;
+        ASSERT( thr_from.get_id() == tbb::tbb_thread::id(), NULL );
+        ASSERT( thr_to.get_id() == from_id, NULL );
+    }
+
     ASSERT( tbb::tbb_thread::hardware_concurrency() > 0, NULL);
 }
 
@@ -257,12 +272,13 @@ id_relation CheckSignatures() {
     return r[1];
 }
 
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#include "harness.h"
+
+__TBB_TEST_EXPORT
 int main( int , char *[] ) {
     CheckSignatures();
     RunTests();
-    std::printf("done\n");
+    REPORT("done\n");
     return 0;
 }
-
-#define HARNESS_NO_PARSE_COMMAND_LINE 1
-#include "harness.h"

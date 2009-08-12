@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -26,6 +26,7 @@
 
 # GNU Makefile that builds and runs example.
 PROG=text_filter
+ARGS=input.txt output.txt
 
 # The C++ compiler
 #CXX=g++
@@ -36,13 +37,13 @@ release: *.cpp
 	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbb $(LIBS)
 
 debug: *.cpp
-	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug $(LIBS)
+	$(CXX) -O0 -g -DTBB_USE_DEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug $(LIBS)
 
 clean:
-	rm -f $(PROG) *.o *.d input.txt output.txt
+	$(RM) $(PROG) *.o *.d input.txt output.txt
 
 test:
 	@echo Constructing input.txt
 	@cat index.html > input.txt
 	@-csh -c "repeat 500 cat index.html >> input.txt" 2>/dev/null
-	./$(PROG) input.txt output.txt
+	./$(PROG) $(ARGS)

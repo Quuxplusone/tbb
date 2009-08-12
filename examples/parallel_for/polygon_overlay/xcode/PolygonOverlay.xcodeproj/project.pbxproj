@@ -10,7 +10,6 @@
 		6A6DAA960DA2C0B3008D95BD /* polymain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6A6DAA8E0DA2C0B3008D95BD /* polymain.cpp */; };
 		6A6DAA980DA2C0B3008D95BD /* polyover.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6A6DAA900DA2C0B3008D95BD /* polyover.cpp */; };
 		6A6DAA9B0DA2C0B3008D95BD /* pover_video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6A6DAA930DA2C0B3008D95BD /* pover_video.cpp */; };
-		8D0C4E8D0486CD37000505A6 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0867D6AAFE840B52C02AAC07 /* InfoPlist.strings */; };
 		8D0C4E8E0486CD37000505A6 /* main.nib in Resources */ = {isa = PBXBuildFile; fileRef = 02345980000FD03B11CA0E72 /* main.nib */; };
 		A12649490B8392750091D5AD /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E3E7BC0B3AD4EC007C3AB5 /* OpenGL.framework */; };
 		A126495E0B83936D0091D5AD /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8D0C4E960486CD37000505A6 /* Info.plist */; };
@@ -39,7 +38,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0867D6ABFE840B52C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1870340FFE93FCAF11CA0CD7 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/main.nib; sourceTree = "<group>"; };
 		32DBCF6D0370B57F00C91783 /* PolygonOverlay.pch */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = PolygonOverlay.pch; sourceTree = "<group>"; };
 		6A6DAA8E0DA2C0B3008D95BD /* polymain.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = polymain.cpp; path = ../polymain.cpp; sourceTree = SOURCE_ROOT; };
@@ -119,7 +117,6 @@
 			isa = PBXGroup;
 			children = (
 				8D0C4E960486CD37000505A6 /* Info.plist */,
-				0867D6AAFE840B52C02AAC07 /* InfoPlist.strings */,
 				02345980000FD03B11CA0E72 /* main.nib */,
 			);
 			name = Resources;
@@ -179,7 +176,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8D0C4E8D0486CD37000505A6 /* InfoPlist.strings in Resources */,
 				8D0C4E8E0486CD37000505A6 /* main.nib in Resources */,
 				A126495E0B83936D0091D5AD /* Info.plist in Resources */,
 			);
@@ -208,14 +204,6 @@
 				1870340FFE93FCAF11CA0CD7 /* English */,
 			);
 			name = main.nib;
-			sourceTree = "<group>";
-		};
-		0867D6AAFE840B52C02AAC07 /* InfoPlist.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				0867D6ABFE840B52C02AAC07 /* English */,
-			);
-			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */

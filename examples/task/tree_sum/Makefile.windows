@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -28,6 +28,7 @@
 
 # Just specify your program basename
 PROG=Tree_sum
+ARGS=
 
 # The C++ compiler options
 CXX = cl.exe
@@ -38,9 +39,9 @@ all: release test
 release:
 	$(CXX) *.cpp /MD /O2 /D NDEBUG $(MYCXXFLAGS) /link tbbmalloc.lib tbb.lib $(LIBS) $(MYLDFLAGS) /OUT:$(PROG).exe
 debug:
-	$(CXX) *.cpp /MDd /Od /Zi /D TBB_DO_ASSERT /D _DEBUG $(MYCXXFLAGS) /link tbbmalloc_debug.lib tbb_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:$(PROG).exe
+	$(CXX) *.cpp /MDd /Od /Zi /D TBB_USE_DEBUG /D _DEBUG $(MYCXXFLAGS) /link tbbmalloc_debug.lib tbb_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:$(PROG).exe
 clean:
 	@cmd.exe /C del $(PROG).exe *.obj *.?db *.manifest
 test:
-	$(PROG)
-	$(PROG) -stdmalloc
+	$(PROG) $(ARGS)
+	$(PROG) -stdmalloc $(ARGS)

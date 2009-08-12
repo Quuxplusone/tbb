@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -259,7 +259,7 @@ video::~video()
     g_video = 0;
 }
 
-//! Do standart event loop
+//! Do standard event loop
 void video::main_loop()
 {
     struct timezone tz; gettimeofday(&g_time, &tz);

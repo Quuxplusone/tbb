@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -135,18 +135,110 @@ void Flog( int nthread ) {
     }
     tbb::tick_count T1 = tbb::tick_count::now();
     if( Verbose )
-        printf("time=%g\tnthread=%d\tpad=%d\n",(T1-T0).seconds(),nthread,int(Pad));
+        REPORT("time=%g\tnthread=%d\tpad=%d\n",(T1-T0).seconds(),nthread,int(Pad));
+}
+
+// Testing parallel_for with step support
+const size_t PFOR_BUFFER_TEST_SIZE = 1024;
+// test_buffer has some extra items beyound right bound
+const size_t PFOR_BUFFER_ACTUAL_SIZE = PFOR_BUFFER_TEST_SIZE + 1024; 
+size_t pfor_buffer[PFOR_BUFFER_ACTUAL_SIZE];
+
+template<typename T>
+void TestFunction(T index){
+    pfor_buffer[index]++;
+}
+
+#include <stdexcept> // std::invalid_argument
+template <typename T>
+void TestParallelForWithStepSupport()
+{
+    const T pfor_buffer_test_size = static_cast<T>(PFOR_BUFFER_TEST_SIZE);
+    const T pfor_buffer_actual_size = static_cast<T>(PFOR_BUFFER_ACTUAL_SIZE);
+    // Testing parallel_for with different step values
+    for (T begin = 0; begin < pfor_buffer_test_size - 1; begin += pfor_buffer_test_size / 10 + 1) {
+        T step;
+        for (step = 1; step < pfor_buffer_test_size; step++) {
+            memset(pfor_buffer, 0, pfor_buffer_actual_size * sizeof(size_t));
+            tbb::parallel_for(begin, pfor_buffer_test_size, step, TestFunction<T>);
+            // Verifying that parallel_for processed all items it should
+            for (T i = begin; i < pfor_buffer_test_size; i = i + step) {
+                ASSERT(pfor_buffer[i] == 1, "parallel_for didn't process all required elements");
+                pfor_buffer[i] = 0;
+            }
+            // Verifying that no extra items were processed and right bound of array wasn't crossed
+            for (T i = 0; i < pfor_buffer_actual_size; i++) {
+                ASSERT(pfor_buffer[i] == 0, "parallel_for processed an extra element");
+            }
+        }
+    }
+
+    // Testing some corner cases
+    tbb::parallel_for(static_cast<T>(2), static_cast<T>(1), static_cast<T>(1), TestFunction<T>);
+#if !__TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
+    try{
+        tbb::parallel_for(static_cast<T>(1), static_cast<T>(100), static_cast<T>(0), TestFunction<T>);  // should cause std::invalid_argument
+    }catch(std::invalid_argument){
+        return;
+    }
+    ASSERT(0, "std::invalid_argument should be thrown");
+#endif
+}
+
+// Exception support test
+#define HARNESS_EH_SIMPLE_MODE 1
+#include "tbb/tbb_exception.h"
+#include "harness_eh.h"
+
+void test_function_with_exception(size_t)
+{
+    ThrowTestException();
+}
+
+void TestExceptionsSupport()
+{
+    REMARK (__FUNCTION__);
+    ResetEhGlobals();
+    TRY();
+        tbb::parallel_for((size_t)0, (size_t)PFOR_BUFFER_TEST_SIZE, (size_t)1, test_function_with_exception);
+    CATCH_AND_ASSERT();
+}
+
+// Cancellation support test
+void function_to_cancel(size_t ) {
+    ++g_CurExecuted;
+    CancellatorTask::WaitUntilReady();
+}
+
+class my_worker_pfor_step_task : public tbb::task
+{
+    tbb::task_group_context &my_ctx;
+
+    tbb::task* execute () {
+        tbb::parallel_for((size_t)0, (size_t)PFOR_BUFFER_TEST_SIZE, (size_t)1, function_to_cancel, my_ctx);
+        
+        return NULL;
+    }
+public:
+    my_worker_pfor_step_task ( tbb::task_group_context &context) : my_ctx(context) { }
+};
+
+void TestCancellation()
+{
+    ResetEhGlobals();
+    RunCancellationTest<my_worker_pfor_step_task, CancellatorTask>();
 }
 
 #include <cstdio>
 #include "tbb/task_scheduler_init.h"
 #include "harness_cpu.h"
 
+__TBB_TEST_EXPORT
 int main( int argc, char* argv[] ) {
     MinThread = 1;
     ParseCommandLine(argc,argv);
     if( MinThread<1 ) {
-        printf("number of threads must be positive\n");
+        REPORT("number of threads must be positive\n");
         exit(1);
     }
     for( int p=MinThread; p<=MaxThread; ++p ) {
@@ -158,10 +250,27 @@ int main( int argc, char* argv[] ) {
             Flog<1000>(p);
             Flog<10000>(p);
 
-           // Test that all workers sleep when no work
-           TestCPUUserTime(p);
+            // Testing with different integer types
+            TestParallelForWithStepSupport<short>();
+            TestParallelForWithStepSupport<unsigned short>();
+            TestParallelForWithStepSupport<int>();
+            TestParallelForWithStepSupport<unsigned int>();
+            TestParallelForWithStepSupport<long>();
+            TestParallelForWithStepSupport<unsigned long>();
+            TestParallelForWithStepSupport<long long>();
+            TestParallelForWithStepSupport<unsigned long long>();
+            TestParallelForWithStepSupport<size_t>();
+#if !__TBB_EXCEPTION_HANDLING_BROKEN && !(__GNUC__==4 && __GNUC_MINOR__==1 && __TBB_ipf)
+            TestExceptionsSupport();
+#endif
+            if (p>1) TestCancellation();
+            // Test that all workers sleep when no work
+            TestCPUUserTime(p);
         }
-    } 
-    printf("done\n");
+    }
+#if __TBB_EXCEPTION_HANDLING_BROKEN || (__GNUC__==4 && __GNUC_MINOR__==1 && __TBB_ipf)
+    REPORT("Warning: Exception handling tests are skipped due to a known issue.\n");
+#endif
+    REPORT("done\n");
     return 0;
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,10 +26,16 @@
     the GNU General Public License.
 */
 
+// Workaround for ICC 11.0 not finding __sync_fetch_and_add_4 on some of the Linux platforms.
+#if __linux__ && defined(__INTEL_COMPILER)
+#define __sync_fetch_and_add(ptr,addend) _InterlockedExchangeAdd(const_cast<void*>(reinterpret_cast<volatile void*>(ptr)), addend)
+#endif
+
 #include <string>
 #include <cstring>
 #include <cctype>
 #include <cstdlib>
+#include <cstdio>
 #include "tbb/concurrent_hash_map.h"
 #include "tbb/blocked_range.h"
 #include "tbb/parallel_for.h"
@@ -38,8 +44,10 @@
 #include "tbb/tbb_allocator.h"
 
 
-//! custom string
-typedef std::basic_string<char,std::char_traits<char>,tbb::tbb_allocator<char> > mystring;
+//! String type with scalable allocator.
+/** On platforms with non-scalable default memory allocators, the example scales 
+    better if the string allocator is changed to tbb::tbb_allocator<char>. */
+typedef std::basic_string<char,std::char_traits<char>,tbb::tbb_allocator<char> > MyString;
 
 using namespace tbb;
 using namespace std;
@@ -51,35 +59,20 @@ static bool Verbose = false;
 static int NThread = 1;
 
 //! Problem size
-const size_t N = 1000000;
+size_t N = 1000000;
 const int size_factor = 2;
 
 //! Indicates if the number of threads wasn't set explicitly
 static bool is_number_of_threads_set = false;
-
-//! Structure that defines hashing and comparison operations for user's type.
-struct MyHashCompare {
-    static size_t hash( const mystring& x ) {
-        size_t h = 0;
-        for( const char* s = x.c_str(); *s; s++ )
-            h = (h*16777179)^*s;
-        return h;
-    }
-    //! True if strings are equal
-    static bool equal( const mystring& x, const mystring& y ) {
-        return x==y;
-    }
-};
-
 //! A concurrent hash table that maps strings to ints.
-typedef concurrent_hash_map<mystring,int,MyHashCompare> StringTable;
+typedef concurrent_hash_map<MyString,int> StringTable;
 
 //! Function object for counting occurrences of strings.
 struct Tally {
     StringTable& table;
     Tally( StringTable& table_ ) : table(table_) {}
-    void operator()( const blocked_range<mystring*> range ) const {
-        for( mystring* p=range.begin(); p!=range.end(); ++p ) {
+    void operator()( const blocked_range<MyString*> range ) const {
+        for( MyString* p=range.begin(); p!=range.end(); ++p ) {
             StringTable::accessor a;
             table.insert( a, *p );
             a->second += 1;
@@ -87,13 +80,13 @@ struct Tally {
     }
 };
 
-static mystring Data[N];
+static MyString* Data;
 
 static void CountOccurrences(int nthreads) {
     StringTable table;
 
     tick_count t0 = tick_count::now();
-    parallel_for( blocked_range<mystring*>( Data, Data+N, 1000 ), Tally(table) );
+    parallel_for( blocked_range<MyString*>( Data, Data+N, 1000 ), Tally(table) );
     tick_count t1 = tick_count::now();
 
     int n = 0;
@@ -203,8 +196,8 @@ static void CreateData() {
             Data[i] += GetLetters(type++, 1);
         Data[i] += GetLetters(type, 2);
     }
-    mystring planet = Data[12]; planet[0] = toupper(planet[0]);
-    mystring helloworld = Data[0]; helloworld[0] = toupper(helloworld[0]);
+    MyString planet = Data[12]; planet[0] = toupper(planet[0]);
+    MyString helloworld = Data[0]; helloworld[0] = toupper(helloworld[0]);
     helloworld += ", "+Data[1]+" "+Data[2]+" "+Data[3]+" "+Data[4]+" "+Data[5];
     printf("Message from planet '%s': %s!\nAnalyzing whole text...\n", planet.c_str(), helloworld.c_str());
 }
@@ -217,19 +210,27 @@ static void ParseCommandLine( int argc, char* argv[] ) {
         Verbose = true;
         ++i;
     }
-    if( i<argc && !isdigit(argv[i][0]) ) {
-        fprintf(stderr,"Usage: %s [verbose] [number-of-threads]\n",argv[0]);
-        exit(1);
-    }
-    if( i<argc ) {
-        NThread = strtol(argv[i++],0,0);
-        is_number_of_threads_set = true;
-    }
+    if( i<argc )
+        if( !isdigit(argv[i][0]) ) {
+            fprintf(stderr,"Usage: %s [verbose] [number-of-strings] [number-of-threads]\n",argv[0]);
+            exit(1);
+        } else {
+            N = strtol(argv[i++],0,0);
+        }
+    if( i<argc )
+        if( !isdigit(argv[i][0]) ) {
+            fprintf(stderr,"Usage: %s [verbose] [number-of-strings] [number-of-threads]\n",argv[0]);
+            exit(1);
+        } else {
+            NThread = strtol(argv[i++],0,0);
+            is_number_of_threads_set = true;
+        }
 }
 
 int main( int argc, char* argv[] ) {
     srand(2);
     ParseCommandLine( argc, argv );
+    Data = new MyString[N];
     CreateData();
     if (is_number_of_threads_set) {
         task_scheduler_init init(NThread);
@@ -244,4 +245,5 @@ int main( int argc, char* argv[] ) {
             CountOccurrences(0);
         }
     }
+    delete[] Data;
 }

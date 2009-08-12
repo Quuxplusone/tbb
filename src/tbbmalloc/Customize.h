@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -41,6 +41,10 @@ extern "C" void mallocProcessShutdownNotification(void);
 // customizing MALLOC_ASSERT macro
 #include "tbb/tbb_stddef.h"
 #define MALLOC_ASSERT(assertion, message) __TBB_ASSERT(assertion, message)
+
+#ifndef MALLOC_DEBUG
+#define MALLOC_DEBUG TBB_USE_DEBUG
+#endif
 
 #include "tbb/tbb_machine.h"
 
@@ -86,25 +90,32 @@ inline intptr_t AtomicIncrement( volatile intptr_t& counter ) {
     return __TBB_FetchAndAddW( &counter, 1 )+1;
 }
 
+inline uintptr_t AtomicIncrement( volatile uintptr_t& counter ) {
+    return __TBB_FetchAndAddW( &counter, 1 )+1;
+}
+
+inline uintptr_t AtomicAdd( volatile uintptr_t& counter, uintptr_t value ) {
+    return __TBB_FetchAndAddW( &counter, value );
+}
+
 inline intptr_t AtomicCompareExchange( volatile intptr_t& location, intptr_t new_value, intptr_t comparand) {
     return __TBB_CompareAndSwapW( &location, new_value, comparand );
 }
 
 #define USE_DEFAULT_MEMORY_MAPPING 1
 
-namespace tbb {
+namespace rml {
 namespace internal {
-
-void MallocInitializeITT();
-
-inline void init_tbbmalloc() {
-#if DO_ITT_NOTIFY
-    MallocInitializeITT();
-#endif
-}
-
+    void init_tbbmalloc();
 } } // namespaces
 
-#define MALLOC_EXTRA_INITIALIZATION tbb::internal::init_tbbmalloc()
+#define MALLOC_EXTRA_INITIALIZATION rml::internal::init_tbbmalloc()
+
+// To support malloc replacement with LD_PRELOAD
+#include "proxy.h"
+
+#if MALLOC_LD_PRELOAD
+extern "C" void * __TBB_malloc_proxy(size_t)  __attribute__ ((weak));
+#endif
 
 #endif /* _TBB_malloc_Customize_H_ */

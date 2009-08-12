@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,19 +26,27 @@
     the GNU General Public License.
 */
 
+#ifndef __TIME_FRAMEWORK_H__
+#define __TIME_FRAMEWORK_H__
+
 #include <cstdlib>
 #include <math.h>
 #include <vector>
 #include <string>
+#include <sstream>
 #include "tbb/tbb_stddef.h"
 #include "tbb/task_scheduler_init.h"
-#include "tbb/parallel_for.h"
 #include "tbb/tick_count.h"
-#include "tbb/blocked_range.h"
 #include "../test/harness.h"
-#include "harness_barrier.h"
+#include "../test/harness_barrier.h"
 #define STATISTICS_INLINE
 #include "statistics.h"
+
+#ifndef ARG_TYPE
+typedef intptr_t arg_t;
+#else
+typedef ARG_TYPE arg_t;
+#endif
 
 class Timer {
     tbb::tick_count tick;
@@ -56,7 +64,7 @@ protected:
     friend class TestRunner;
 
     //! it is barrier for synchronizing between threads
-    spin_barrier *barrier;
+    Harness::SpinBarrier *barrier;
     
     //! number of tests per this tester
     const int tests_count;
@@ -65,8 +73,11 @@ protected:
     int threads_count;
 
     //! some value for tester
-    int value;
-    
+    arg_t value;
+
+    // avoid false sharing
+    char pad[128 - sizeof(arg_t) - sizeof(int)*2 - sizeof(void*) ];
+
 public:
     //! init tester base. @arg ntests is number of embeded tests in this tester.
     TesterBase(int ntests)
@@ -75,7 +86,7 @@ public:
     virtual ~TesterBase() {}
 
     //! internal function
-    void base_init(int v, int t, spin_barrier &b) {
+    void base_init(arg_t v, int t, Harness::SpinBarrier &b) {
         threads_count = t;
         barrier = &b;
         value = v;
@@ -90,8 +101,21 @@ public:
         return Format("test %d", testn);
     }
 
+    //! optionally override to init test mode just before execution for a given thread number.
+    virtual void test_prefix(int testn, int threadn) { }
+
     //! Override to provide main test's entry function returns a value to record
     virtual value_t test(int testn, int threadn) = 0;
+
+    //! Type of aggregation from results of threads
+    enum result_t {
+        SUM, AVG, MIN, MAX
+    };
+
+    //! Override to change result type for the test. Return postfix for test name or 0 if result type is not needed.
+    virtual const char *get_result_type(int /*testn*/, result_t type) const {
+        return type == AVG ? "" : 0; // only average result by default
+    }
 };
 
 /*****
@@ -103,29 +127,37 @@ public:
     tester() : TesterBase(<user-specified tests count>) { ... }
 
     //! run a test with sequental number @arg test_number for @arg thread.
-	/ *override* / value_t test(int test_number, int thread);
+    / *override* / value_t test(int test_number, int thread);
 };
 
 ******/
 
-template<typename Tester, bool longest_time = false>
+template<typename Tester, int scale = 1>
 class TimeTest : public Tester {
     /*override*/ value_t test(int testn, int threadn) {
         Timer timer;
         Tester::test(testn, threadn);
-        if(longest_time) Tester::barrier->wait();
-        return timer.get_time();
+        return timer.get_time() * double(scale);
     }
 };
 
-template<typename Tester, bool longest_time = false>
+template<typename Tester>
 class NanosecPerValue : public Tester {
     /*override*/ value_t test(int testn, int threadn) {
         Timer timer;
         Tester::test(testn, threadn);
-        if(longest_time) Tester::barrier->wait();
         // return time (ns) per value
         return timer.get_time()*1000000.0/double(Tester::value);
+    }
+};
+
+template<typename Tester, int scale = 1>
+class ValuePerSecond : public Tester {
+    /*override*/ value_t test(int testn, int threadn) {
+        Timer timer;
+        Tester::test(testn, threadn);
+        // return time value per seconds/scale
+        return double(Tester::value)/(timer.get_time()*scale);
     }
 };
 
@@ -144,12 +176,12 @@ public:
 
     template<typename Test>
     TestRunner(const char *name, Test *test)
-        : tester_name(name), tester(*dynamic_cast<TesterBase*>(test))
+        : tester_name(name), tester(*static_cast<TesterBase*>(test))
     {}
     
     ~TestRunner() { delete &tester; }
 
-    void init(int value, int threads, spin_barrier &barrier, StatisticsCollector *s) {
+    void init(arg_t value, int threads, Harness::SpinBarrier &barrier, StatisticsCollector *s) {
         tester.base_init(value, threads, barrier);
         stat = s;
         keys.resize(tester.tests_count);
@@ -161,9 +193,10 @@ public:
         }
     }
 
-    void test(int threadn) {
+    void run_test(int threadn) {
         for(int testn = 0; testn < tester.tests_count; testn++) {
-            tester.barrier->wait();
+            tester.test_prefix(testn, threadn);
+            tester.barrier->wait();                                 // <<<<<<<<<<<<<<<<< Barrier before running test mode
             value_t result = tester.test(testn, threadn);
             stat->AddRoundResult(keys[testn][threadn], result);
         }
@@ -173,14 +206,35 @@ public:
         const int threads = tester.threads_count;
         for(int testn = 0; testn < tester.tests_count; testn++) {
             size_t coln = keys[testn][0].getResults().size()-1;
-            value_t result = keys[testn][0].getResults()[coln];
+            value_t rsum = keys[testn][0].getResults()[coln];
+            value_t rmin = rsum, rmax = rsum;
             for(int threadn = 1; threadn < threads; threadn++) {
-                result += keys[testn][threadn].getResults()[coln]; // for SUM or AVG
-                // can do also: MIN/MAX
+                value_t result = keys[testn][threadn].getResults()[coln];
+                rsum += result; // for both SUM or AVG
+                if(rmin > result) rmin = result;
+                if(rmax < result) rmax = result;
             }
-            result /= threads; // AVG
-            report.SetTestCase(tester_name, tester.get_name(testn).c_str(), threads);
-            report.AddRoundResult(result); // final result
+            std::string test_name(tester.get_name(testn));
+            const char *rname = tester.get_result_type(testn, TesterBase::SUM);
+            if( rname ) {
+                report.SetTestCase(tester_name, (test_name+rname).c_str(), threads);
+                report.AddRoundResult(rsum);
+            }
+            rname = tester.get_result_type(testn, TesterBase::MIN);
+            if( rname ) {
+                report.SetTestCase(tester_name, (test_name+rname).c_str(), threads);
+                report.AddRoundResult(rmin);
+            }
+            rname = tester.get_result_type(testn, TesterBase::AVG);
+            if( rname ) {
+                report.SetTestCase(tester_name, (test_name+rname).c_str(), threads);
+                report.AddRoundResult(rsum / threads);
+            }
+            rname = tester.get_result_type(testn, TesterBase::MAX);
+            if( rname ) {
+                report.SetTestCase(tester_name, (test_name+rname).c_str(), threads);
+                report.AddRoundResult(rmax);
+            }
         }
     }
 };
@@ -188,17 +242,22 @@ public:
 struct RunArgsBody {
     const vector<TestRunner*> &run_list;
     RunArgsBody(const vector<TestRunner*> &a) : run_list(a) { }
-    void operator()(const tbb::blocked_range<int>& threads) const {
-        for(int thread = threads.begin(); thread < threads.end(); thread++)
-            for(size_t i = 0; i < run_list.size(); i++)
-                run_list[i]->test(thread);
+#ifndef __TBB_parallel_for_H
+    void operator()(int thread) const {
+#else
+    void operator()(const tbb::blocked_range<int> &r) const {
+        ASSERT( r.begin() + 1 == r.end(), 0);
+        int thread = r.begin();
+#endif
+        for(size_t i = 0; i < run_list.size(); i++)
+            run_list[i]->run_test(thread);
     }
 };
 
 //! Main test processor.
 /** Override or use like this:
  class MyTestCollection : public TestProcessor {
-    void factory(int value, int threads) {
+    void factory(arg_t value, int threads) {
         process( value, threads,
             run("my1", new tester<my1>() ),
             run("my2", new tester<my2>() ),
@@ -224,10 +283,6 @@ protected:
     // token
     size_t end;
 
-    // iterations parameters
-    //int min_value, act_index, max_value;
-    //int min_thread, act_thread, max_thread;
-
 public:
     StatisticsCollector report;
 
@@ -238,14 +293,14 @@ public:
     }
 
     // iteration processing
-    void process(int value, int threads, ...) {
+    void process(arg_t value, int threads, ...) {
         // prepare items
         stat = stat_by_threads[threads];
         if(!stat) {
             stat_by_threads[threads] = stat = new StatisticsCollector((collection_name + Format("@%d", threads)).c_str(), StatisticsCollector::ByAlg);
-            stat->SetTitle("Detailed log of %s running with %d threads. Thread #0 is AVG across all threads", collection_name, threads);
+            stat->SetTitle("Detailed log of %s running with %d threads.", collection_name, threads);
         }
-        spin_barrier barrier(threads);
+        Harness::SpinBarrier barrier(threads);
         // init args
         va_list args; va_start(args, threads);
         vector<TestRunner*> run_list; run_list.reserve(16);
@@ -256,11 +311,17 @@ public:
             run_list.push_back(item);
         }
         va_end(args);
+        std::ostringstream buf;
+        buf << value;
         const size_t round_number = stat->GetRoundsCount();
-        stat->SetRoundTitle(round_number, value);
-        report.SetRoundTitle(round_number, value);
+        stat->SetRoundTitle(round_number, buf.str().c_str());
+        report.SetRoundTitle(round_number, buf.str().c_str());
         // run them
-        NativeParallelFor(tbb::blocked_range<int>(0, threads, 1), RunArgsBody(run_list));
+#ifndef __TBB_parallel_for_H
+        NativeParallelFor(threads, RunArgsBody(run_list));
+#else
+        tbb::parallel_for(tbb::blocked_range<int>(0,threads,1), RunArgsBody(run_list));
+#endif
         // destroy args
         for(size_t i = 0; i < run_list.size(); i++) {
             run_list[i]->post_process(report);
@@ -269,8 +330,8 @@ public:
     }
 
 public:
-    TestProcessor(const char *name)
-        : collection_name(name), stat(NULL), end(0), report(collection_name, StatisticsCollector::ByAlg)
+    TestProcessor(const char *name, StatisticsCollector::Sorting sort_by = StatisticsCollector::ByAlg)
+        : collection_name(name), stat(NULL), end(0), report(collection_name, sort_by)
     { }
 
     ~TestProcessor() {
@@ -278,3 +339,5 @@ public:
             delete i->second;
     }
 };
+
+#endif// __TIME_FRAMEWORK_H__

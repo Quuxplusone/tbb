@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -55,7 +55,9 @@
     SUCH DAMAGE.
 */
 
-#ifdef _WIN32
+#if __MINGW32__
+#include <malloc.h>
+#elif _WIN32
 #include <malloc.h>
 #define alloca _alloca
 #elif __FreeBSD__

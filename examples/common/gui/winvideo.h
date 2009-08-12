@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,9 +27,19 @@
 */
 
 /////// Common internal implementation of Windows-specific stuff //////////////
+///////                  Must be the first included header       //////////////
 
 #ifndef _CRT_SECURE_NO_DEPRECATE
 #define _CRT_SECURE_NO_DEPRECATE
+#endif
+// Check that the target Windows version has all API calls requried.
+#ifndef _WIN32_WINNT
+# define _WIN32_WINNT 0x0400
+#endif
+#if _WIN32_WINNT<0x0400
+# define YIELD_TO_THREAD() Sleep(0)
+#else
+# define YIELD_TO_THREAD() SwitchToThread()
 #endif
 #include "video.h"
 #include <fcntl.h>
@@ -190,10 +200,11 @@ DWORD WINAPI thread_video(LPVOID lpParameter)
 static bool loop_once(video *v)
 {
     // screen update notify
-    if(g_updates) {
-        if(g_video->updating) { g_skips += g_updates-1; g_fps++; }
-        else g_skips += g_updates;
-        g_updates = 0; UpdateWindow(g_hAppWnd);
+    if(int updates = g_updates) {
+        g_updates = 0;
+        if(g_video->updating) { g_skips += updates-1; g_fps++; }
+        else g_skips += updates;
+        UpdateWindow(g_hAppWnd);
     }
     // update fps
     DWORD msec = GetTickCount();
@@ -201,8 +212,8 @@ static bool loop_once(video *v)
         double sec = (msec - g_msec)/1000.0;
         char buffer[256], n = _snprintf(buffer, 128, "%s: %d fps", v->title, int(double(g_fps + g_skips)/sec));
         if(g_skips) _snprintf(buffer+n, 128, " - %d skipped = %d updates", int(g_skips/sec), int(g_fps/sec));
-	    SetWindowTextA(g_hAppWnd, buffer);
-	    g_msec = msec; g_skips = g_fps = 0;
+        SetWindowTextA(g_hAppWnd, buffer);
+        g_msec = msec; g_skips = g_fps = 0;
     }
     // event processing, including painting
     MSG msg;
@@ -219,7 +230,7 @@ static bool loop_once(video *v)
     return false;
 }
 
-//! Do standart event loop
+//! Do standard event loop
 void video::main_loop()
 {
     // let Windows draw and unroll the window
@@ -229,17 +240,18 @@ void video::main_loop()
     g_msec = GetTickCount();
     // now, start main process
     if(threaded) {
-	    g_handles[0] = CreateThread (
-		    NULL,				// LPSECURITY_ATTRIBUTES security_attrs
-		    0,					// SIZE_T stacksize
-		    (LPTHREAD_START_ROUTINE) thread_video,
-		    this,               // argument
-		    0, 0);
+        g_handles[0] = CreateThread (
+            NULL,             // LPSECURITY_ATTRIBUTES security_attrs
+            0,                // SIZE_T stacksize
+            (LPTHREAD_START_ROUTINE) thread_video,
+            this,               // argument
+            0, 0);
         if(!g_handles[0]) { DisplayError("Can't create thread"); return; }
-        else g_handles[1] = CreateEvent(NULL, false, false, NULL);
+        else // harmless race is possible here
+            g_handles[1] = CreateEvent(NULL, false, false, NULL);
         while(running) {
             while(loop_once(this));
-            Sleep(0); // give time for processing when running on single CPU
+            YIELD_TO_THREAD(); // give time for processing when running on single CPU
             DWORD r = MsgWaitForMultipleObjects(2, g_handles, false, INFINITE, QS_ALLINPUT^QS_MOUSEMOVE);
             if(r == WAIT_OBJECT_0) break; // thread terminated
         }
@@ -256,10 +268,13 @@ void video::main_loop()
 //! Refresh screen picture
 bool video::next_frame()
 {
-	if(!running) return false;
-    g_updates++;
+    if(!running) return false;
+    g_updates++; // Fast but inaccurate counter. The data race here is benign.
     if(!threaded) while(loop_once(this));
-    else if(g_handles[1]) { SetEvent(g_handles[1]); Sleep(0); }
+    else if(g_handles[1]) {
+        SetEvent(g_handles[1]);
+        YIELD_TO_THREAD();
+    }
     return true;
 }
 

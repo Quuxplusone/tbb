@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,6 +27,7 @@
 */
 
 #include "tbb/recursive_mutex.h"
+#include "itt_notify.h"
 
 namespace tbb {
 
@@ -116,6 +117,7 @@ void recursive_mutex::internal_construct() {
         tbb::internal::handle_perror(error_code,"recursive_mutex: pthread_mutex_init failed");
     pthread_mutexattr_destroy( &mtx_attr );
 #endif /* _WIN32||_WIN64*/    
+    ITT_SYNC_CREATE(&impl, _T("tbb::recursive_mutex"), _T(""));
 }
 
 void recursive_mutex::internal_destroy() {

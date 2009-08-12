@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,18 +29,36 @@
 #ifndef _TBB_Gate_H
 #define _TBB_Gate_H
 
+#include "itt_notify.h"
+
 namespace tbb {
 
 namespace internal {
 
-#if NO_GATE
-
-//! Dummy implementation for experiments
+#if __TBB_RML
+//! Fake version of Gate for use with RML.
+/** Really just an atomic intptr_t with a compare-and-swap operation,
+    but wrapped in syntax that makes it look like a normal Gate object,
+    in order to minimize source changes for RML in task.cpp. */
 class Gate {
 public:
-    void open() {}
-    void close() {}
-    void wait() {}
+    typedef intptr_t state_t;
+   
+    //! Get current state of gate
+    state_t get_state() const {
+        return state;
+    }
+
+#if defined(_MSC_VER) && defined(_Wp64)
+    // Workaround for overzealous compiler warnings in /Wp64 mode
+    #pragma warning (disable: 4244)
+#endif
+
+    bool try_update( intptr_t value, intptr_t comparand ) {
+        return state.compare_and_swap(value,comparand)==comparand;
+    }
+private:
+    atomic<state_t> state;
 };
 
 #elif __TBB_USE_FUTEX
@@ -51,6 +69,10 @@ class Gate {
 public:
     typedef intptr_t state_t;
 
+    Gate() {
+        ITT_SYNC_CREATE(&state, SyncType_Scheduler, SyncObj_Gate);
+    }
+
     //! Get current state of gate
     state_t get_state() const {
         return state;
@@ -58,12 +80,23 @@ public:
     //! Update state=value if state==comparand (flip==false) or state!=comparand (flip==true)
     void try_update( intptr_t value, intptr_t comparand, bool flip=false ) {
         __TBB_ASSERT( comparand!=0 || value!=0, "either value or comparand must be non-zero" );
+retry:
         state_t old_state = state;
         // First test for condition without using atomic operation
         if( flip ? old_state!=comparand : old_state==comparand ) {
             // Now atomically retest condition and set.
-            if( state.compare_and_swap( value, old_state )==old_state && value!=0 )   
-                 futex_wakeup_all( &state );  // Update was successful and new state is not SNAPSHOT_EMPTY
+            state_t s = state.compare_and_swap( value, old_state );
+            if( s==old_state ) {
+                // compare_and_swap succeeded
+                if( value!=0 )   
+                    futex_wakeup_all( &state );  // Update was successful and new state is not SNAPSHOT_EMPTY
+            } else {
+                // compare_and_swap failed.  But for != case, failure may be spurious for our purposes if
+                // the value there is nonetheless not equal to value.  This is a fairly rare event, so
+                // there is no need for backoff.  In event of such a failure, we must retry.
+                if( flip && s!=value ) 
+                    goto retry;
+            }
         }
     }
     //! Wait for state!=0.
@@ -87,15 +120,18 @@ private:
     HANDLE event;
 public:
     //! Initialize with count=0
-    Gate() :   
-    state(0) 
-    {
+    Gate() : state(0) {
         event = CreateEvent( NULL, true, false, NULL );
         InitializeCriticalSection( &critical_section );
+        ITT_SYNC_CREATE(&event, SyncType_Scheduler, SyncObj_Gate);
+        ITT_SYNC_CREATE(&critical_section, SyncType_Scheduler, SyncObj_GateLock);
     }
     ~Gate() {
+        // Fake prepare/acquired pair for Intel(R) Parallel Amplifier to correctly attribute the operations below
+        ITT_NOTIFY( sync_prepare, &event );
         CloseHandle( event );
         DeleteCriticalSection( &critical_section );
+        ITT_NOTIFY( sync_acquired, &event );
     }
     //! Get current state of gate
     state_t get_state() const {
@@ -135,11 +171,12 @@ private:
     pthread_cond_t cond;
 public:
     //! Initialize with count=0
-    Gate() :   
-    state(0)
+    Gate() : state(0)
     {
         pthread_mutex_init( &mutex, NULL );
         pthread_cond_init( &cond, NULL);
+        ITT_SYNC_CREATE(&cond, SyncType_Scheduler, SyncObj_Gate);
+        ITT_SYNC_CREATE(&mutex, SyncType_Scheduler, SyncObj_GateLock);
     }
     ~Gate() {
         pthread_cond_destroy( &cond );

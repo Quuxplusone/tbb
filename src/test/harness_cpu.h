@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -66,7 +66,6 @@ static double GetCPUUserTime() {
 }
 
 #include "tbb/tick_count.h"
-#include "tbb/tbb_machine.h"
 #include <cstdio>
 
 // The resolution of GetCPUUserTime is 10-15 ms or so; waittime should be a few times bigger.
@@ -101,9 +100,9 @@ static void TestCPUUserTime( int nthreads, int nactive = 1 ) {
     double avg_worker_usrtime = (usrtime-nactive*waittime)/nworkers;
 
     if( avg_worker_usrtime > waittime/2 )
-        fprintf(stderr, "ERROR: %d worker threads are spinning; waittime: %g; usrtime: %g; avg worker usrtime: %g\n",
-                        nworkers, waittime, usrtime, avg_worker_usrtime);
+        REPORT( "ERROR: %d worker threads are spinning; waittime: %g; usrtime: %g; avg worker usrtime: %g\n",
+                nworkers, waittime, usrtime, avg_worker_usrtime);
     else if( Verbose )
-        printf("%d worker threads; waittime: %g; usrtime: %g; avg worker usrtime: %g\n",
+        REPORT("%d worker threads; waittime: %g; usrtime: %g; avg worker usrtime: %g\n",
                         nworkers, waittime, usrtime, avg_worker_usrtime);
 }

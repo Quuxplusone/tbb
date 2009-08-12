@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -55,8 +55,16 @@ void initialize_strings_vector(std::vector <string_pair>* vector);
 const char stderr_stream[] = "version_test.err";
 const char stdout_stream[] = "version_test.out";
 
-int main(int argc, char **argv)
-{
+__TBB_TEST_EXPORT
+int main(int argc, char*[] ) {
+/* We first introduced runtime version identification in 3014 */
+#if TBB_INTERFACE_VERSION>=3014 
+    // For now, just test that run-time TBB version matches the compile-time version,
+    // since otherwise the subsequent test of "TBB: INTERFACE VERSION" string will fail anyway.
+    // We need something more clever in future.
+    ASSERT(tbb::TBB_runtime_interface_version()==TBB_INTERFACE_VERSION,
+           "Running with the library of different version than the test was compiled against");
+#endif
     try{
         FILE *stream_out;
         FILE *stream_err;   
@@ -65,12 +73,12 @@ int main(int argc, char **argv)
         if(argc>1) {
             stream_err = freopen( stderr_stream, "w", stderr );
             if( stream_err == NULL ){
-                fprintf( stderr, "Internal test error (freopen)\n" );
+                REPORT( "Internal test error (freopen)\n" );
                 exit( 1 );
             }
             stream_out = freopen( stdout_stream, "w", stdout );
             if( stream_out == NULL ){
-                fprintf( stderr, "Internal test error (freopen)\n" );
+                REPORT( "Internal test error (freopen)\n" );
                 exit( 1 );
             }
             {
@@ -82,33 +90,33 @@ int main(int argc, char **argv)
         }
         //1st step check that output is empty if TBB_VERSION is not defined.
         if ( getenv("TBB_VERSION") ){
-            printf( "TBB_VERSION defined, skipping step 1 (empty output check)\n" );
+            REPORT( "TBB_VERSION defined, skipping step 1 (empty output check)\n" );
         }else{
             if( ( system(TEST_SYSTEM_COMMAND) ) != 0 ){
-                fprintf( stderr, "Error (step 1): Internal test error\n" );
+                REPORT( "Error (step 1): Internal test error\n" );
                 exit( 1 );
             }
             //Checking output streams - they should be empty
             stream_err = fopen( stderr_stream, "r" );
             if( stream_err == NULL ){
-                fprintf( stderr, "Error (step 1):Internal test error (stderr open)\n" );
+                REPORT( "Error (step 1):Internal test error (stderr open)\n" );
                 exit( 1 );
             }
             while( !feof( stream_err ) ) {
                 if( fgets( psBuffer, 512, stream_err ) != NULL ){
-                    fprintf( stderr, "Error (step 1): stderr should be empty\n" );
+                    REPORT( "Error (step 1): stderr should be empty\n" );
                     exit( 1 );
                 }
             }
             fclose( stream_err );
             stream_out = fopen( stdout_stream, "r" );
             if( stream_out == NULL ){
-                fprintf( stderr, "Error (step 1):Internal test error (stdout open)\n" );
+                REPORT( "Error (step 1):Internal test error (stdout open)\n" );
                 exit( 1 );
             }
             while( !feof( stream_out ) ) {
                 if( fgets( psBuffer, 512, stream_out ) != NULL ){
-                    fprintf( stderr, "Error (step 1): stdout should be empty\n" );
+                    REPORT( "Error (step 1): stdout should be empty\n" );
                     exit( 1 );
                 }
             }
@@ -121,7 +129,7 @@ int main(int argc, char **argv)
         }
 
         if( ( system(TEST_SYSTEM_COMMAND) ) != 0 ){
-            fprintf( stderr, "Error (step 2):Internal test error\n" );
+            REPORT( "Error (step 2):Internal test error\n" );
             exit( 1 );
         }
         //Checking pipe - it should contain version data
@@ -133,12 +141,12 @@ int main(int argc, char **argv)
 
         stream_out = fopen( stdout_stream, "r" );
         if( stream_out == NULL ){
-            fprintf( stderr, "Error (step 2):Internal test error (stdout open)\n" );
+            REPORT( "Error (step 2):Internal test error (stdout open)\n" );
             exit( 1 );
         }
         while( !feof( stream_out ) ) {
             if( fgets( psBuffer, 512, stream_out ) != NULL ){
-                fprintf( stderr, "Error (step 2): stdout should be empty\n" );
+                REPORT( "Error (step 2): stdout should be empty\n" );
                 exit( 1 );
             }
         }
@@ -146,7 +154,7 @@ int main(int argc, char **argv)
 
         stream_err = fopen( stderr_stream, "r" );
         if( stream_err == NULL ){
-            fprintf( stderr, "Error (step 1):Internal test error (stderr open)\n" );
+            REPORT( "Error (step 1):Internal test error (stderr open)\n" );
             exit( 1 );
         }
         
@@ -156,14 +164,14 @@ int main(int argc, char **argv)
             if( fgets( psBuffer, 512, stream_err ) != NULL ){
                 do{
                     if ( strings_iterator == strings_vector.end() ){
-                        fprintf( stderr, "Error: version string dictionary ended prematurely.\n" );
-                        fprintf( stderr, "No match for: \t%s", psBuffer );
+                        REPORT( "Error: version string dictionary ended prematurely.\n" );
+                        REPORT( "No match for: \t%s", psBuffer );
                         exit( 1 );
                     }
                     if ( strstr( psBuffer, strings_iterator->first.c_str() ) == NULL ){
                         if( strings_iterator->second == required ){
-                            fprintf( stderr, "Error: version strings do not match.\n" );
-                            fprintf( stderr, "Expected \"%s\" not found in:\n\t%s", strings_iterator->first.c_str(), psBuffer );
+                            REPORT( "Error: version strings do not match.\n" );
+                            REPORT( "Expected \"%s\" not found in:\n\t%s", strings_iterator->first.c_str(), psBuffer );
                             exit( 1 );
                         }else{
                             //Do we need to print in case there is no non-required string?
@@ -180,7 +188,7 @@ int main(int argc, char **argv)
     } catch(...) {
         ASSERT( 0,"unexpected exception" );
     }
-    printf("done\n");
+    REPORT("done\n");
     return 0;
 }
 
@@ -188,26 +196,25 @@ int main(int argc, char **argv)
 // Fill dictionary with version strings for platforms 
 void initialize_strings_vector(std::vector <string_pair>* vector)
 {
-    vector->push_back(string_pair("TBB: VERSION\t\t2.1", required));          // check TBB_VERSION
-    vector->push_back(string_pair("TBB: INTERFACE VERSION\t3011", required)); // check TBB_INTERFACE_VERSION
+    vector->push_back(string_pair("TBB: VERSION\t\t2.2", required));          // check TBB_VERSION
+    vector->push_back(string_pair("TBB: INTERFACE VERSION\t4001", required)); // check TBB_INTERFACE_VERSION
     vector->push_back(string_pair("TBB: BUILD_DATE", required));
     vector->push_back(string_pair("TBB: BUILD_HOST", required));
-#if _WIN32||_WIN64
     vector->push_back(string_pair("TBB: BUILD_OS", required));
+#if _WIN32||_WIN64
+#if !__MINGW32__
     vector->push_back(string_pair("TBB: BUILD_CL", required));
+#endif
     vector->push_back(string_pair("TBB: BUILD_COMPILER", required));
 #elif __APPLE__
     vector->push_back(string_pair("TBB: BUILD_KERNEL", required));
     vector->push_back(string_pair("TBB: BUILD_GCC", required));
     vector->push_back(string_pair("TBB: BUILD_COMPILER", not_required)); //if( getenv("COMPILER_VERSION") )
-    vector->push_back(string_pair("TBB: BUILD_LD", required));
 #elif __sun
-    vector->push_back(string_pair("TBB: BUILD_OS", required));
     vector->push_back(string_pair("TBB: BUILD_KERNEL", required));
     vector->push_back(string_pair("TBB: BUILD_SUNCC", required));
     vector->push_back(string_pair("TBB: BUILD_COMPILER", not_required)); //if( getenv("COMPILER_VERSION") )
 #else //We use version_info_linux.sh for unsupported OSes
-    vector->push_back(string_pair("TBB: BUILD_OS", required));
     vector->push_back(string_pair("TBB: BUILD_KERNEL", required));
     vector->push_back(string_pair("TBB: BUILD_GCC", required));
     vector->push_back(string_pair("TBB: BUILD_COMPILER", not_required)); //if( getenv("COMPILER_VERSION") )
@@ -216,10 +223,13 @@ void initialize_strings_vector(std::vector <string_pair>* vector)
 #endif
     vector->push_back(string_pair("TBB: BUILD_TARGET", required));
     vector->push_back(string_pair("TBB: BUILD_COMMAND", required));
-    vector->push_back(string_pair("TBB: TBB_DO_ASSERT", required));
+    vector->push_back(string_pair("TBB: TBB_USE_DEBUG", required));
+    vector->push_back(string_pair("TBB: TBB_USE_ASSERT", required));
     vector->push_back(string_pair("TBB: DO_ITT_NOTIFY", required));
     vector->push_back(string_pair("TBB: ITT", not_required)); //#ifdef DO_ITT_NOTIFY
     vector->push_back(string_pair("TBB: ALLOCATOR", required));
+    vector->push_back(string_pair("TBB: RML", not_required));
+    vector->push_back(string_pair("TBB: Intel(R) RML library built:", not_required));
     vector->push_back(string_pair("TBB: SCHEDULER", required));
 
     return;

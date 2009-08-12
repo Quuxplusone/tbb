@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -44,54 +44,31 @@ public:
 #include "harness_assert.h"
 #include "tbb/atomic.h"
 
-struct TLS {
-    FlagType MyFlags;
-    bool IsMaster;
-};
-
-#if _WIN32 || _WIN64
-
-__declspec(thread) TLS MyTLS;
-TLS& GetTLS() {return MyTLS;}
-
-#else
-
-#include <pthread.h>
-static pthread_key_t TLS_Key;
-
-TLS& GetTLS() {
-    TLS* result = (TLS*)pthread_getspecific(TLS_Key);
-    if( !result ) {   
-        result = new TLS;
-        result->MyFlags = 0;
-        result->IsMaster = 0;
-        pthread_setspecific(TLS_Key, result);
-    }
-    return *result;
-}
-
-void DeleteTLS( void* p ) {
-    delete (TLS*)p;
-}
-
-#endif /* _WIN32 || _WIN64 */
-
 tbb::atomic<int> EntryCount;
 tbb::atomic<int> ExitCount;
 
+struct State {
+    FlagType MyFlags;
+    bool IsMaster;
+    State() : MyFlags(), IsMaster() {}
+};
+
+#include "../tbb/tls.h"
+tbb::internal::tls<State*> LocalState;
+
 void MyObserver::on_scheduler_entry( bool is_worker ) {
-    TLS& tls = GetTLS();
-    ASSERT( is_worker==!tls.IsMaster, NULL );
-    ASSERT( (tls.MyFlags & flags)==0, NULL );
+    State& state = *LocalState;
+    ASSERT( is_worker==!state.IsMaster, NULL );
+    ASSERT( (state.MyFlags & flags)==0, NULL );
     ++EntryCount;
-    tls.MyFlags |= flags;
+    state.MyFlags |= flags;
 }
 
 void MyObserver::on_scheduler_exit( bool is_worker ) {
-    TLS& tls = GetTLS();
-    ASSERT( is_worker==!tls.IsMaster, NULL );
+    State& state = *LocalState;
+    ASSERT( is_worker==!state.IsMaster, NULL );
     ++ExitCount;
-    tls.MyFlags &= ~flags;
+    state.MyFlags &= ~flags;
 }
 
 #include "tbb/task.h"
@@ -102,8 +79,7 @@ class FibTask: public tbb::task {
 public:
     FibTask( int n_, FlagType flags_ ) : n(n_), flags(flags_) {}
     /*override*/ tbb::task* execute() {
-        TLS& tls = GetTLS();
-        ASSERT( !(~tls.MyFlags& flags), NULL );
+        ASSERT( !(~LocalState->MyFlags & flags), NULL );
         if( n>=2 ) {
             set_ref_count(3);
             spawn(*new( tbb::task::allocate_child() ) FibTask(n-1,flags));
@@ -119,17 +95,14 @@ void DoFib( FlagType flags ) {
 }
 
 #include "tbb/task_scheduler_init.h"
-#include "tbb/blocked_range.h"
 #include "harness.h"
 
 class DoTest {
     int nthread;
 public:
     DoTest( int n ) : nthread(n) {}
-    void operator()( tbb::blocked_range<int> r ) const {
-        TLS& tls = GetTLS();
-        tls.IsMaster = true;
-        int i = r.begin(); 
+    void operator()( int i ) const {
+        LocalState->IsMaster = true;
         if( i==0 ) {   
             tbb::task_scheduler_init(nthread);
             DoFib(0);
@@ -143,23 +116,18 @@ public:
 };
 
 void TestObserver( int p, int q ) {
-    NativeParallelFor( tbb::blocked_range<int>(0,p,1), DoTest(q) );
+    NativeParallelFor( p, DoTest(q) );
 }
 
+__TBB_TEST_EXPORT
 int main(int argc, char* argv[]) {
     ParseCommandLine( argc, argv );
-
-#if _WIN32 || _WIN64
-#else
-    int status = pthread_key_create(&TLS_Key,DeleteTLS);
-    ASSERT(!status,NULL);
-#endif /* _WIN32 || _WIN64 */
 
     for( int p=MinThread; p<=MaxThread; ++p ) 
         for( int q=MinThread; q<=MaxThread; ++q ) 
             TestObserver(p,q);
     ASSERT( EntryCount>0, "on_scheduler_entry not exercised" );
     ASSERT( ExitCount>0, "on_scheduler_exit not exercised" );
-    printf("done\n");
+    REPORT("done\n");
     return 0;
 }

@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		8D0C4E8D0486CD37000505A6 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0867D6AAFE840B52C02AAC07 /* InfoPlist.strings */; };
 		8D0C4E8E0486CD37000505A6 /* main.nib in Resources */ = {isa = PBXBuildFile; fileRef = 02345980000FD03B11CA0E72 /* main.nib */; };
 		8D0C4E920486CD37000505A6 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20286C33FDCF999611CA2CEA /* Carbon.framework */; };
 		A117DC7B0B8DC08100F62CED /* AGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A117DC7A0B8DC08100F62CED /* AGL.framework */; };
@@ -26,8 +25,6 @@
 		A1F58EA30B8DF32900073279 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8D0C4E960486CD37000505A6 /* Info.plist */; };
 		A1F58EA40B8DF32A00073279 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8D0C4E960486CD37000505A6 /* Info.plist */; };
 		A1F58EA60B8DF32B00073279 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8D0C4E960486CD37000505A6 /* Info.plist */; };
-		A1F58EA80B8DF33100073279 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0867D6AAFE840B52C02AAC07 /* InfoPlist.strings */; };
-		A1F58EAA0B8DF33200073279 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0867D6AAFE840B52C02AAC07 /* InfoPlist.strings */; };
 		A1F58EE80B8DF4F900073279 /* libtbb.dylib in Copy TBB lib */ = {isa = PBXBuildFile; fileRef = A117DC830B8DC0DE00F62CED /* libtbb.dylib */; };
 		A1F58F960B8DF63C00073279 /* trace.tbb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1A8FB5D0B8CBB8D001C55B1 /* trace.tbb.cpp */; };
 		A1F5902C0B8DF6A700073279 /* trace.tbb1d.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F58D8B0B8DEFD900073279 /* trace.tbb1d.cpp */; };
@@ -168,7 +165,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0867D6ABFE840B52C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1870340FFE93FCAF11CA0CD7 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/main.nib; sourceTree = "<group>"; };
 		20286C33FDCF999611CA2CEA /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
 		32DBCF6D0370B57F00C91783 /* tachyon.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tachyon.pch; sourceTree = "<group>"; };
@@ -319,7 +315,6 @@
 			isa = PBXGroup;
 			children = (
 				8D0C4E960486CD37000505A6 /* Info.plist */,
-				0867D6AAFE840B52C02AAC07 /* InfoPlist.strings */,
 				02345980000FD03B11CA0E72 /* main.nib */,
 			);
 			name = Resources;
@@ -535,7 +530,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8D0C4E8D0486CD37000505A6 /* InfoPlist.strings in Resources */,
 				8D0C4E8E0486CD37000505A6 /* main.nib in Resources */,
 				A1F58EA30B8DF32900073279 /* Info.plist in Resources */,
 			);
@@ -547,7 +541,6 @@
 			files = (
 				A1F58DCD0B8DF19700073279 /* main.nib in Resources */,
 				A1F58EA40B8DF32A00073279 /* Info.plist in Resources */,
-				A1F58EA80B8DF33100073279 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -557,7 +550,6 @@
 			files = (
 				A1F58DCE0B8DF19800073279 /* main.nib in Resources */,
 				A1F58EA60B8DF32B00073279 /* Info.plist in Resources */,
-				A1F58EAA0B8DF33200073279 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -705,14 +697,6 @@
 				1870340FFE93FCAF11CA0CD7 /* English */,
 			);
 			name = main.nib;
-			sourceTree = "<group>";
-		};
-		0867D6AAFE840B52C02AAC07 /* InfoPlist.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				0867D6ABFE840B52C02AAC07 /* English */,
-			);
-			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */

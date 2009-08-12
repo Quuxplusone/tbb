@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,39 +31,72 @@
 // Every test is presumed to have a command line of the form "foo [-v] [nthread]"
 // The default for nthread is 2.
 
+#ifndef tbb_tests_harness_H
+#define tbb_tests_harness_H
+
+#define __TBB_LAMBDAS_PRESENT  ( _MSC_VER >= 1600 && !__INTEL_COMPILER || __INTEL_COMPILER >= 1100 && _TBB_CPP0X )
+#define __TBB_LAMBDA_AS_TEMPL_PARAM_BROKEN (__INTEL_COMPILER == 1100 || __INTEL_COMPILER == 1110)
+
 #if __SUNPRO_CC
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #else
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #endif
 #include <new>
-#include "harness_assert.h"
 
-#if __linux__||__APPLE__||__FreeBSD__ || __sun
-    #include <pthread.h>
-#elif _WIN32||WIN64
+#if __LRB__
+#include "harness_lrb.h"
+#else
+#define __TBB_TEST_EXPORT
+#define REPORT_FATAL_ERROR REPORT
+#endif /* !__LRB__ */
+
+#if _WIN32||_WIN64
     #include <windows.h>
     #include <process.h>
 #else
-    #error unknown OS
+    #include <pthread.h>
+#endif
+#if __linux__
+#include <sys/utsname.h> /* for uname */
+#include <errno.h>       /* for use in LinuxKernelVersion() */
 #endif
 
-static void ReportError( int line, const char* expression, const char * message, bool is_error ) {
-    if ( is_error ) {
-        fprintf(stderr,"Line %d, assertion %s: %s\n", line, expression, message ? message : "failed" );
-#if TBB_EXIT_ON_ASSERT
-        exit(1);
-#else
-        abort();
-#endif /* TBB_EXIT_ON_ASSERT */
-    }
-    else
-        printf("WARNING: at line %d, assertion %s: %s\n", line, expression, message ? message : "failed" );
+#include "harness_report.h"
+
+#if !HARNESS_NO_ASSERT
+#include "harness_assert.h"
+
+typedef void (*test_error_extra_t)(void);
+static test_error_extra_t ErrorExtraCall; 
+//! Set additional handler to process failed assertions
+void SetHarnessErrorProcessing( test_error_extra_t extra_call ) {
+    ErrorExtraCall = extra_call;
+    // TODO: add tbb::set_assertion_handler(ReportError);
 }
+//! Reports errors issued by failed assertions
+void ReportError( const char* filename, int line, const char* expression, const char * message ) {
+    REPORT_FATAL_ERROR("%s:%d, assertion %s: %s\n", filename, line, expression, message ? message : "failed" );
+    if( ErrorExtraCall )
+        (*ErrorExtraCall)();
+#if TBB_TERMINATE_ON_ASSERT
+    TerminateProcess(GetCurrentProcess(), 1);
+#elif TBB_EXIT_ON_ASSERT
+    exit(1);
+#else
+    abort();
+#endif /* TBB_EXIT_ON_ASSERT */
+}
+//! Reports warnings issued by failed warning assertions
+void ReportWarning( const char* filename, int line, const char* expression, const char * message ) {
+    REPORT("Warning: %s:%d, assertion %s: %s\n", filename, line, expression, message ? message : "failed" );
+}
+#else
+#define ASSERT(p,msg) ((void)0)
+#define ASSERT_WARNING(p,msg) ((void)0)
+#endif /* HARNESS_NO_ASSERT */
 
 #if !HARNESS_NO_PARSE_COMMAND_LINE
 //! Controls level of commentary.
@@ -76,9 +109,6 @@ static int MinThread = 0;
 
 //! Maximum number of threads
 static int MaxThread = 2;
-
-//! NThread exists for backwards compatibility.  Eventually it will be removed.
-#define NThread (MaxThread==MinThread?MaxThread : (ReportError(__LINE__,"NThread","thread range not supported"),-1))
 
 //! Parse command line of the form "name [-v] [nthread]"
 /** Sets Verbose, MinThread, and MaxThread accordingly.
@@ -102,131 +132,166 @@ static void ParseCommandLine( int argc, char* argv[] ) {
         else if( *endptr=='\0' ) 
             MaxThread = MinThread;
         if( *endptr!='\0' ) {
-            fprintf(stderr,"garbled nthread range\n");
+            REPORT_FATAL_ERROR("garbled nthread range\n");
             exit(1);
         }    
         if( MinThread<0 ) {
-            fprintf(stderr,"nthread must be nonnegative\n");
+            REPORT_FATAL_ERROR("nthread must be nonnegative\n");
             exit(1);
         }
         if( MaxThread<MinThread ) {
-            fprintf(stderr,"nthread range is backwards\n");
+            REPORT_FATAL_ERROR("nthread range is backwards\n");
             exit(1);
         }
         ++i;
     }
+#if __TBB_STDARGS_BROKEN
+    if ( !argc )
+        argc = 1;
+    else {
+        while ( i < argc && argv[i][0] == 0 )
+            ++i;
+    }
+#endif /* __TBB_STDARGS_BROKEN */
     if( i!=argc ) {
-        fprintf(stderr,"Usage: %s [-v] [nthread|minthread:maxthread]\n", argv[0] );
+        REPORT_FATAL_ERROR("Usage: %s [-v] [nthread|minthread:maxthread]\n", argv[0] );
         exit(1);
     }
 }
-#endif /* HARNESS_NO_PARSE_COMMAND_LINE */\
+#endif /* HARNESS_NO_PARSE_COMMAND_LINE */
+
+//! Base class for prohibiting compiler-generated operator=
+class NoAssign {
+    //! Assignment not allowed
+    void operator=( const NoAssign& );
+public:
+#if __GNUC__
+    //! Explicitly define default construction, because otherwise gcc issues gratuitous warning.
+    NoAssign() {}
+#endif /* __GNUC__ */
+};
+
+//! Base class for prohibiting compiler-generated copy constructor or operator=
+class NoCopy: NoAssign {
+    //! Copy construction not allowed  
+    NoCopy( const NoCopy& );
+public:
+    NoCopy() {}
+};
 
 //! For internal use by template function NativeParallelFor
-template<typename Range, typename Body>
-class NativeParalleForTask {
+template<typename Index, typename Body>
+class NativeParallelForTask: NoCopy {
 public:
-    NativeParalleForTask( const Range& range_, const Body& body_ ) :
-        range(range_),
+    NativeParallelForTask( Index index_, const Body& body_ ) :
+        index(index_),
         body(body_)
     {}
 
     //! Start task
     void start() {
-#if __linux__||__APPLE__||__FreeBSD__ || __sun
-        int status = pthread_create(&thread_id, NULL, thread_function, this);
-        ASSERT(0==status, "NativeParallelFor: pthread_create failed");
-#else
+#if _WIN32||_WIN64
         unsigned thread_id;
         thread_handle = (HANDLE)_beginthreadex( NULL, 0, thread_function, this, 0, &thread_id );
         ASSERT( thread_handle!=0, "NativeParallelFor: _beginthreadex failed" );
+#else
+#if __ICC==1100
+    #pragma warning (push)
+    #pragma warning (disable: 2193)
+#endif /* __ICC==1100 */
+        // Some machines may have very large hard stack limit. When the test is 
+        // launched by make, the default stack size is set to the hard limit, and 
+        // calls to pthread_create fail with out-of-memory error. 
+        // Therefore we set the stack size explicitly (as for TBB worker threads).
+        const size_t MByte = 1<<20;
+#if __i386__||__i386
+        const size_t stack_size = 1*MByte;
+#elif __x86_64__
+        const size_t stack_size = 2*MByte;
+#else
+        const size_t stack_size = 4*MByte;
 #endif
+        pthread_attr_t attr_stack;
+        int status = pthread_attr_init(&attr_stack);
+        ASSERT(0==status, "NativeParallelFor: pthread_attr_init failed");
+        status = pthread_attr_setstacksize( &attr_stack, stack_size );
+        ASSERT(0==status, "NativeParallelFor: pthread_attr_setstacksize failed");
+        status = pthread_create(&thread_id, &attr_stack, thread_function, this);
+        ASSERT(0==status, "NativeParallelFor: pthread_create failed");
+        pthread_attr_destroy(&attr_stack);
+#if __ICC==1100
+    #pragma warning (pop)
+#endif
+#endif /* _WIN32||_WIN64 */
     }
 
     //! Wait for task to finish
     void wait_to_finish() {
-#if __linux__||__APPLE__||__FreeBSD__ || __sun
-        int status = pthread_join( thread_id, NULL );
-        ASSERT( !status, "pthread_join failed" );
-#else
+#if _WIN32||_WIN64
         DWORD status = WaitForSingleObject( thread_handle, INFINITE );
         ASSERT( status!=WAIT_FAILED, "WaitForSingleObject failed" );
         CloseHandle( thread_handle );
+#else
+        int status = pthread_join( thread_id, NULL );
+        ASSERT( !status, "pthread_join failed" );
 #endif 
     }
 
-    //! Build (or precompute size of) array of tasks.
-    /** Computes number of of tasks required, plus index. 
-        If array!=NULL, also constructs the necessary tasks, starting at array[index].
-        Top-level caller should let index default to 0. */
-    static size_t build_task_array( const Range& range, const Body& body, NativeParalleForTask* array, size_t index ); 
 private:
-#if __linux__||__APPLE__||__FreeBSD__ || __sun
-    pthread_t thread_id;
-#else
+#if _WIN32||_WIN64
     HANDLE thread_handle;
+#else
+    pthread_t thread_id;
 #endif
 
     //! Range over which task will invoke the body.
-    const Range range;
+    const Index index;
 
     //! Body to invoke over the range.
     const Body body;
 
-#if __linux__||__APPLE__||__FreeBSD__ || __sun
-    static void* thread_function(void* object)
-#else
+#if _WIN32||_WIN64
     static unsigned __stdcall thread_function( void* object )
+#else
+    static void* thread_function(void* object)
 #endif
     {
-        NativeParalleForTask& self = *static_cast<NativeParalleForTask*>(object);
-        (self.body)(self.range);
+        NativeParallelForTask& self = *static_cast<NativeParallelForTask*>(object);
+#if defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__SUNPRO_CC)
+        try {
+            (self.body)(self.index);
+        } catch(...) {
+            ASSERT( false, "uncaught exception" );
+        }
+#else
+        (self.body)(self.index);
+#endif// exceptions are enabled
         return 0;
     }
 };
 
-#include "tbb/tbb_stddef.h"
+//! Execute body(i) in parallel for i in the interval [0,n).
+/** Each iteration is performed by a separate thread. */
+template<typename Index, typename Body>
+void NativeParallelFor( Index n, const Body& body ) {
+    typedef NativeParallelForTask<Index,Body> task;
 
-template<typename Range,typename Body>
-size_t NativeParalleForTask<Range,Body>::build_task_array( const Range& range, const Body& body, NativeParalleForTask* array, size_t index ) {
-    if( !range.is_divisible() ) { 
-        if( array ) {
-            new( &array[index] ) NativeParalleForTask(range,body);
-        }
-        return index+1;
-    } else { 
-        Range r1 = range;
-        Range r2(r1,tbb::split());
-        return build_task_array( r2, body, array, build_task_array(r1,body,array,index) );
-    }                
-}
-
-//! NativeParallelFor is like a TBB parallel_for.h, but with each invocation of Body in a separate thread.
-/** By using a blocked_range with a grainsize of 1, you can guarantee 
-    that each iteration is performed by a separate thread */
-template <typename Range, typename Body>
-void NativeParallelFor(const Range& range, const Body& body) {
-    typedef NativeParalleForTask<Range,Body> task;
-
-    if( !range.empty() ) {
-        // Compute how many tasks are needed
-        size_t n = task::build_task_array(range,body,NULL,0);
-
+    if( n>0 ) {
         // Allocate array to hold the tasks
         task* array = static_cast<task*>(operator new( n*sizeof(task) ));
 
         // Construct the tasks
-        size_t m = task::build_task_array(range,body,array,0);
-        ASSERT( m==n, "range splitting not deterministic" );
+        for( Index i=0; i!=n; ++i ) 
+            new( &array[i] ) task(i,body);
 
         // Start the tasks
-        for( size_t j=0; j<n; ++j )
-            array[j].start();
+        for( Index i=0; i!=n; ++i )
+            array[i].start();
 
-        // Wait for the tasks
-        for( size_t j=n; j>0; --j ) {
-            array[j-1].wait_to_finish();
-            array[j-1].~task();
+        // Wait for the tasks to finish and destroy each one.
+        for( Index i=n; i; --i ) {
+            array[i-1].wait_to_finish();
+            array[i-1].~task();
         }
 
         // Deallocate the task array
@@ -243,10 +308,10 @@ void zero_fill(void* array, size_t N) {
 #ifndef min
     //! Utility template function returning lesser of the two values.
     /** Provided here to avoid including not strict safe <algorithm>.\n
-        In case operands cause sined/unsigned or size mismatch warnings it is caller's
+        In case operands cause signed/unsigned or size mismatch warnings it is caller's
         responsibility to do the appropriate cast before calling the function. **/
     template<typename T1, typename T2>
-    const T1& min ( const T1& val1, const T2& val2 ) {
+    T1 min ( const T1& val1, const T2& val2 ) {
         return val1 < val2 ? val1 : val2;
     }
 #endif /* !min */
@@ -254,10 +319,76 @@ void zero_fill(void* array, size_t N) {
 #ifndef max
     //! Utility template function returning greater of the two values. Provided here to avoid including not strict safe <algorithm>.
     /** Provided here to avoid including not strict safe <algorithm>.\n
-        In case operands cause sined/unsigned or size mismatch warnings it is caller's
+        In case operands cause signed/unsigned or size mismatch warnings it is caller's
         responsibility to do the appropriate cast before calling the function. **/
     template<typename T1, typename T2>
-    const T1& max ( const T1& val1, const T2& val2 ) {
+    T1 max ( const T1& val1, const T2& val2 ) {
         return val1 < val2 ? val2 : val1;
     }
 #endif /* !max */
+
+#if __linux__
+inline unsigned LinuxKernelVersion()
+{
+    unsigned a, b, c;
+    struct utsname utsnameBuf;
+    
+    if (-1 == uname(&utsnameBuf)) {
+        REPORT_FATAL_ERROR("Can't call uname: errno %d\n", errno);
+        exit(1);
+    }
+    if (3 != sscanf(utsnameBuf.release, "%u.%u.%u", &a, &b, &c)) {
+        REPORT_FATAL_ERROR("Unable to parse OS release '%s'\n", utsnameBuf.release);
+        exit(1);
+    }
+    return 1000000*a+1000*b+c;
+}
+#endif
+
+namespace Harness {
+
+#if !HARNESS_NO_ASSERT
+//! Base class that asserts that no operations are made with the object after its destruction.
+class NoAfterlife {
+protected:
+    enum state_t {
+        LIVE=0x56781234,
+        DEAD=0xDEADBEEF
+    } m_state;
+
+public:
+    NoAfterlife() : m_state(LIVE) {}
+    NoAfterlife( const NoAfterlife& src ) : m_state(LIVE) {
+        ASSERT( src.IsLive(), "Constructing from the dead source" );
+    }
+    ~NoAfterlife() {
+        ASSERT( IsLive(), "Repeated destructor call" );
+        m_state = DEAD;
+    }
+    const NoAfterlife& operator=( const NoAfterlife& src ) {
+        ASSERT( IsLive(), NULL );
+        ASSERT( src.IsLive(), NULL );
+        return *this;
+    }
+    void AssertLive() const {
+        ASSERT( IsLive(), "Already dead" );
+    }
+    bool IsLive() const {
+        return m_state == LIVE;
+    }
+}; // NoAfterlife
+#endif /* !HARNESS_NO_ASSERT */
+
+#if _WIN32 || _WIN64
+    void Sleep ( int ms ) { ::Sleep(ms); }
+#else /* !WIN */
+    void Sleep ( int ms ) {
+        timespec  requested = { ms / 1000, (ms % 1000)*1000000 };
+        timespec  remaining = {0};
+        nanosleep(&requested, &remaining);
+    }
+#endif /* !WIN */
+
+} // namespace Harness
+
+#endif /* tbb_tests_harness_H */

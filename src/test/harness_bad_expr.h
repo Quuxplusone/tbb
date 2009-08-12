@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -45,8 +45,9 @@
         CheckAssertionFailure(__LINE__,#x,okay,message,substr); \
     }
 
+//! Exception object that holds a message.
 struct AssertionFailure {
-    const char* const message;
+    const char* message;
     AssertionFailure( const char* filename, int line, const char* expression, const char* comment );
 };
 
@@ -56,7 +57,7 @@ AssertionFailure::AssertionFailure( const char* filename, int line, const char* 
     ASSERT(filename,"missing filename");
     ASSERT(0<line,"line number must be positive");
     // All of our current files have fewer than 4000 lines.
-    ASSERT(line<4000,"dubiously high line number");
+    ASSERT(line<5000,"dubiously high line number");
     ASSERT(expression,"missing expression");
 }
 
@@ -66,13 +67,13 @@ void AssertionFailureHandler( const char* filename, int line, const char* expres
 
 void CheckAssertionFailure( int line, const char* expression, bool okay, const char* message, const char* substr ) {
     if( !okay ) {
-        fprintf(stderr,"Line %d, %s failed to fail\n", line, expression );
+        REPORT("Line %d, %s failed to fail\n", line, expression );
         abort();
     } else if( !message ) {
-        fprintf(stderr,"Line %d, %s failed without a message\n", line, expression );
+        REPORT("Line %d, %s failed without a message\n", line, expression );
         abort();
     } else if( strstr(message,substr)==0 ) {                            
-        fprintf(stderr,"Line %d, %s failed with message '%s' missing substring '%s'\n", __LINE__, expression, message, substr );
+        REPORT("Line %d, %s failed with message '%s' missing substring '%s'\n", __LINE__, expression, message, substr );
         abort();
     }
 }

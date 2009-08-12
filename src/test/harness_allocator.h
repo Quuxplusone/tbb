@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -50,7 +50,7 @@ using std::printf;
     // Workaround for overzealous compiler warnings in /Wp64 mode
     #pragma warning (push)
     #pragma warning (disable: 4267)
-#endif /* _MSC_VER && _Wp64 */
+#endif
 
 
 template <typename base_alloc_t, typename count_t = tbb::atomic<size_t> >
@@ -222,7 +222,58 @@ public:
     }
 };
 
+template <typename T, template<typename X> class Allocator = std::allocator>
+class debug_allocator : public Allocator<T>
+{
+public:
+    typedef Allocator<T> base_allocator_type;
+    typedef typename base_allocator_type::value_type value_type;
+    typedef typename base_allocator_type::pointer pointer;
+    typedef typename base_allocator_type::const_pointer const_pointer;
+    typedef typename base_allocator_type::reference reference;
+    typedef typename base_allocator_type::const_reference const_reference;
+    typedef typename base_allocator_type::size_type size_type;
+    typedef typename base_allocator_type::difference_type difference_type;
+    template<typename U> struct rebind {
+        typedef debug_allocator<U, Allocator> other;
+    };
+
+    debug_allocator() throw() { }
+    debug_allocator(const debug_allocator &a) throw() : base_allocator_type( a ) { }
+    template<typename U>
+    debug_allocator(const debug_allocator<U> &a) throw() : base_allocator_type( Allocator<U>( a ) ) { }
+
+    pointer allocate(const size_type n, const void *hint = 0 ) {
+        pointer ptr = base_allocator_type::allocate( n, hint );
+        std::memset( ptr, 0xE3E3E3E3, n * sizeof(value_type) );
+        return ptr;
+    }
+};
+
+//! Analogous to std::allocator<void>, as defined in ISO C++ Standard, Section 20.4.1
+/** @ingroup memory_allocation */
+template<template<typename T> class Allocator> 
+class debug_allocator<void, Allocator> : public Allocator<void> {
+public:
+    typedef Allocator<void> base_allocator_type;
+    typedef typename base_allocator_type::value_type value_type;
+    typedef typename base_allocator_type::pointer pointer;
+    typedef typename base_allocator_type::const_pointer const_pointer;
+    template<typename U> struct rebind {
+        typedef debug_allocator<U, Allocator> other;
+    };
+};
+
+template<typename T1, template<typename X1> class B1, typename T2, template<typename X2> class B2>
+inline bool operator==( const debug_allocator<T1,B1> &a, const debug_allocator<T2,B2> &b) {
+    return static_cast< B1<T1> >(a) == static_cast< B2<T2> >(b);
+}
+template<typename T1, template<typename X1> class B1, typename T2, template<typename X2> class B2>
+inline bool operator!=( const debug_allocator<T1,B1> &a, const debug_allocator<T2,B2> &b) {
+    return static_cast< B1<T1> >(a) != static_cast< B2<T2> >(b);
+}
+
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
     #pragma warning (pop)
-#endif /* _MSC_VER && _Wp64 */
+#endif // warning 4267 is back

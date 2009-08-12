@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -40,11 +40,11 @@ typedef tbb::concurrent_vector< point_t > pointVec_t;
 typedef tbb::blocked_range<size_t>        range_t;
 
 void appendVector(const point_t* src, size_t srcSize, pointVec_t& dest) {
-    std::copy(src, src + srcSize, dest.begin() + dest.grow_by(srcSize));
+    std::copy(src, src + srcSize, dest.grow_by(srcSize));
 }
 
 void appendVector(const pointVec_t& src, pointVec_t& dest) {
-    std::copy(src.begin(), src.end(), dest.begin() + dest.grow_by(src.size()));
+    std::copy(src.begin(), src.end(), dest.grow_by(src.size()));
 }
 
 class FillRNDPointsVector_buf {

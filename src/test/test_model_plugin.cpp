@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdexcept>
+#include "harness_report.h"
 
 #ifdef _USRDLL
 #include "tbb/task_scheduler_init.h"
@@ -87,12 +88,13 @@ void plugin_call(int maxthread)
         CModel model;
         model.init_and_terminate(maxthread);
     } catch( std::runtime_error& error ) {
-        fprintf(stderr, "ERROR: %s\n", error.what());
+        REPORT("ERROR: %s\n", error.what());
     }
 }
 
 #else /* _USRDLL undefined */
 
+#define HARNESS_NO_ASSERT 1
 #include "harness.h"
 
 extern "C" void plugin_call(int);
@@ -111,9 +113,7 @@ void report_error_in(const char* function_name)
     char* message = (char*)dlerror();
     int code = 0;
 #endif
-    fprintf(stderr,
-        "%s failed with error %d: %s\n",
-        function_name, code, message);
+    REPORT( "%s failed with error %d: %s\n", function_name, code, message);
 
 #if _WIN32 || _WIN64
     LocalFree(message);
@@ -135,9 +135,13 @@ int use_lot_of_tls() {
 #else
     pthread_key_t last_handles[10];
     pthread_key_t result;
-    while( pthread_key_create(&result, NULL)==0 ) {
+    int setspecific_dummy=10;
+    while( pthread_key_create(&result, NULL)==0 
+           && count < 4096 ) // Sun Solaris doesn't have any built-in limit, so we set something big enough
+    {
         last_handles[++count%10] = result;
-        if(Verbose) printf("%d\n", count);
+        if(Verbose) REPORT("%d\n", count);
+        pthread_setspecific(result,&setspecific_dummy);
     }
     for( int i=0; i<10; ++i )
         pthread_key_delete(last_handles[i]);
@@ -147,15 +151,15 @@ int use_lot_of_tls() {
 
 typedef void (*PLUGIN_CALL)(int);
 
-int main(int argc, char* argv[])
-{
+__TBB_TEST_EXPORT
+int main(int argc, char* argv[]) {
     ParseCommandLine( argc, argv );
 
     PLUGIN_CALL my_plugin_call;
 
     int tls_key_count = use_lot_of_tls();
     if( Verbose )
-        printf("%d thread local objects allocated in advance\n", tls_key_count);
+        REPORT("%d thread local objects allocated in advance\n", tls_key_count);
 
     for( int i=1; i<100; ++i ) {  
 #if _WIN32 || _WIN64
@@ -165,7 +169,7 @@ int main(int argc, char* argv[])
             report_error_in("LoadLibrary");
             return -1;
 #else
-            printf("skip\n");
+            REPORT("skip\n");
             return 0;
 #endif
         }
@@ -186,7 +190,7 @@ int main(int argc, char* argv[])
             report_error_in("dlopen");
             return -1;
 #else
-            printf("skip\n");
+            REPORT("skip\n");
             return 0;
 #endif
         }
@@ -198,10 +202,10 @@ int main(int argc, char* argv[])
 #endif
 
         if( Verbose )
-            printf("Iteration %d, calling plugin... ", i);
+            REPORT("Iteration %d, calling plugin... ", i);
         my_plugin_call(MaxThread);
         if( Verbose )
-            printf("succeeded\n");
+            REPORT("succeeded\n");
 
 #if _WIN32 || _WIN64
         FreeLibrary(hLib);
@@ -210,7 +214,7 @@ int main(int argc, char* argv[])
 #endif
     } // end for(1,100)
 
-    printf("done\n");
+    REPORT("done\n");
     return 0;
 }
 

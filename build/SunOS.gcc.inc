@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -24,7 +24,7 @@
 # invalidate any other reasons why the executable file might be covered by
 # the GNU General Public License.
 
-COMPILE_ONLY = -c -MMD 
+COMPILE_ONLY = -c -MMD
 PREPROC_ONLY = -E -x c
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
@@ -32,7 +32,7 @@ OUTPUT_KEY = -o #
 OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
-WARNING_KEY =
+WARNING_KEY = -Wall
 DYLIB_KEY = -shared
 LIBDL = -ldl
 
@@ -47,7 +47,7 @@ ifeq ($(cfg), release)
         CPLUS_FLAGS = -O2 -DUSE_PTHREAD
 endif
 ifeq ($(cfg), debug)
-        CPLUS_FLAGS = -DTBB_DO_ASSERT -g -O0 -DUSE_PTHREAD
+        CPLUS_FLAGS = -DTBB_USE_DEBUG -g -O0 -DUSE_PTHREAD
 endif
 
 ASM=
@@ -55,12 +55,12 @@ ASM_FLAGS=
 
 TBB_ASM.OBJ=
 
-ifeq (itanium,$(arch))
+ifeq (ia64,$(arch))
 # Position-independent code (PIC) is a must for IA-64
     CPLUS_FLAGS += $(PIC_KEY)
 endif 
 
-ifeq (em64t,$(arch))
+ifeq (intel64,$(arch))
     CPLUS_FLAGS += -m64
     LIB_LINK_FLAGS += -m64
 endif 
@@ -70,16 +70,17 @@ ifeq (ia32,$(arch))
     LIB_LINK_FLAGS += -m32
 endif 
 
+# for some gcc versions on Solaris, -m64 may imply V9, but perhaps not everywhere (TODO: verify)
+ifeq (sparc,$(arch))
+    CPLUS_FLAGS    += -mcpu=v9 -m64
+    LIB_LINK_FLAGS += -mcpu=v9 -m64
+endif 
+
 #------------------------------------------------------------------------------
 # Setting assembler data.
 #------------------------------------------------------------------------------
-%.$(OBJ): %.s
-	cpp $(ASM_FLAGS) <$< | grep -v '^#' >$*.tmp
-	$(ASM) -o $@ $*.tmp
-	rm $*.tmp
-
 ASSEMBLY_SOURCE=$(arch)-gas
-ifeq (itanium,$(arch))
+ifeq (ia64,$(arch))
     ASM=ias
     TBB_ASM.OBJ = atomic_support.o lock_byte.o log2.o pause.o
 endif 

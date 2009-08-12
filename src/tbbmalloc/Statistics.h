@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -47,13 +47,20 @@ enum counter_type {
     MaxCounters
 };
 enum common_counter_type {
-    allocLargeSize = 0,
-    freeLargeSize,
+    allocNewLargeObj = 0,
+    allocCachedLargeObj,
+    cacheLargeObj,
+    freeLargeObj,
     lockPublicFreeList,
     freeToOtherThread
 };
 
 #if COLLECT_STATISTICS
+/* Statistics reporting callback registred via a static object dtor 
+   on Posix or DLL_PROCESS_DETACH on Windows.
+ */
+
+static bool reportAllocationStatistics;
 
 struct bin_counters {
     int counter[MaxCounters];
@@ -63,17 +70,32 @@ static bin_counters statistic[MAX_THREADS][NUM_OF_BINS+1]; //zero-initialized;
 
 static inline int STAT_increment(int thread, int bin, int ctr)
 {
-    return ++(statistic[thread][bin].counter[ctr]);
+    return reportAllocationStatistics && thread < MAX_THREADS ? ++(statistic[thread][bin].counter[ctr]) : 0;
 }
-#else
-#define STAT_increment(a,b,c) ((int)0)
+
+static inline void initStatisticsCollection() {
+#if defined(MALLOCENV_COLLECT_STATISTICS)
+    if (NULL != getenv(MALLOCENV_COLLECT_STATISTICS))
+        reportAllocationStatistics = true;
 #endif
+}
+
+#else
+#define STAT_increment(a,b,c) ((void)0)
+#endif /* COLLECT_STATISTICS */
 
 static inline void STAT_print(int thread)
 {
 #if COLLECT_STATISTICS
+    if (!reportAllocationStatistics)
+        return;
+
     char filename[100];
+#if USE_PTHREAD
+    sprintf(filename, "stat_ScalableMalloc_proc%04d_thr%04d.log", getpid(), thread);
+#else
     sprintf(filename, "stat_ScalableMalloc_thr%04d.log", thread);
+#endif
     FILE* outfile = fopen(filename, "w");
     for(int i=0; i<NUM_OF_BINS; ++i)
     {
@@ -102,12 +124,14 @@ static inline void STAT_print(int thread)
     }
     bin_counters& ctrs = statistic[thread][ThreadCommonCounters];
     fprintf(outfile, "Thr%04d common counters", thread);
-    fprintf(outfile, ": allocLargeObjects %5d", ctrs.counter[allocLargeSize]);
-    fprintf(outfile, ", freeLargeObjects %5d", ctrs.counter[freeLargeSize]);
+    fprintf(outfile, ": allocNewLargeObject %5d", ctrs.counter[allocNewLargeObj]);
+    fprintf(outfile, ": allocCachedLargeObject %5d", ctrs.counter[allocCachedLargeObj]);
+    fprintf(outfile, ", cacheLargeObject %5d", ctrs.counter[cacheLargeObj]);
+    fprintf(outfile, ", freeLargeObject %5d", ctrs.counter[freeLargeObj]);
     fprintf(outfile, ", lockPublicFreeList %5d", ctrs.counter[lockPublicFreeList]);
     fprintf(outfile, ", freeToOtherThread %10d", ctrs.counter[freeToOtherThread]);
     fprintf(outfile, "\n");
-    
+
     fclose(outfile);
 #endif
 }

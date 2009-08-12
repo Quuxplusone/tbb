@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -34,7 +34,7 @@ ifndef arch
    endif
  else
    ifeq ($(shell /usr/sbin/sysctl -n hw.optional.x86_64 2>/dev/null),1)
-     export arch:=em64t
+     export arch:=intel64
    else
      export arch:=ia32
    endif
@@ -63,7 +63,7 @@ SLASH=/
 MAKE_VERSIONS=sh $(tbb_root)/build/version_info_macos.sh $(CPLUS) $(CPLUS_FLAGS) $(INCLUDES) >version_string.tmp
 MAKE_TBBVARS=sh $(tbb_root)/build/generate_tbbvars.sh
 
-####### Build settigns ########################################################
+####### Build settings ########################################################
 
 OBJ=o
 DLL=dylib
@@ -82,3 +82,4 @@ MALLOC.LIB = $(MALLOC.DLL)
 
 TBB_NOSTRICT=1
 
+TEST_LAUNCHER=sh $(tbb_root)/build/test_launcher.sh

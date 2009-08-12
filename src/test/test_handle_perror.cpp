@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,16 +31,16 @@
 
 #include <cerrno>
 #include <stdexcept>
-#include "tbb/tbb_misc.h"
+#include "../tbb/tbb_misc.h"
 #include "harness.h"
 
 static void TestHandlePerror() {
     bool caught = false;
     try {
-	tbb::internal::handle_perror( EAGAIN, "apple" );
+        tbb::internal::handle_perror( EAGAIN, "apple" );
     } catch( std::runtime_error& e ) {
 	if( Verbose )
-	    printf("caught runtime_exception('%s')\n",e.what());
+	    REPORT("caught runtime_exception('%s')\n",e.what());
  	ASSERT( memcmp(e.what(),"apple: ",7)==0, NULL );
         ASSERT( strstr(e.what(),"unavailable")!=NULL, "bad error message?" ); 
 	caught = true;
@@ -48,9 +48,12 @@ static void TestHandlePerror() {
     ASSERT(caught,NULL);
 }
 
+__TBB_TEST_EXPORT
 int main( int argc, char* argv[] ) {
     ParseCommandLine( argc, argv );
+#if !__TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
     TestHandlePerror();
-    printf("done\n");
+#endif
+    REPORT("done\n");
     return 0;
 }

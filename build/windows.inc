@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -32,11 +32,11 @@ endif
 
 # TODO give an error if archs doesn't match
 ifndef arch
-  export arch:=$(shell cmd /C "cscript /nologo /E:jscript $(tbb_root)/build/detect.js /arch")
+  export arch:=$(shell cmd /C "cscript /nologo /E:jscript $(tbb_root)/build/detect.js /arch $(compiler)")
 endif
 
 ifndef runtime
-  export runtime:=$(shell cmd /C "cscript /nologo /E:jscript $(tbb_root)/build/detect.js /runtime")
+  export runtime:=$(shell cmd /C "cscript /nologo /E:jscript $(tbb_root)/build/detect.js /runtime $(compiler)")
 endif
 
 native_compiler := cl
@@ -65,14 +65,36 @@ TBB.DEF = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.def
 TBB.DLL = tbb$(DEBUG_SUFFIX).$(DLL)
 TBB.LIB = tbb$(DEBUG_SUFFIX).$(LIBEXT)
 TBB.RES = tbb_resource.res
-#On Windows we specify appropriate tbb library using #pragma comment
-LINK_TBB.LIB =
+# On Windows, we use #pragma comment to set the proper TBB lib to link with
+# But for cross-configuration testing, need to link explicitly
+LINK_TBB.LIB = $(if $(crosstest),$(TBB.LIB))
+TBB.MANIFEST = 
+ifneq ($(filter vc8 vc9,$(runtime)),)
+    TBB.MANIFEST = tbbmanifest.exe.manifest
+endif
 
 MALLOC.DEF = $(MALLOC_ROOT)/$(def_prefix)-tbbmalloc-export.def
 MALLOC.DLL = tbbmalloc$(DEBUG_SUFFIX).$(DLL)
 MALLOC.LIB = tbbmalloc$(DEBUG_SUFFIX).$(LIBEXT)
 MALLOC.RES = tbbmalloc.res
+MALLOC.MANIFEST =
+ifneq ($(filter vc8 vc9,$(runtime)),)
+MALLOC.MANIFEST = tbbmanifest.exe.manifest
+endif
+LINK_MALLOC.LIB = $(MALLOC.LIB)
+
+MALLOCPROXY.DLL = tbbmalloc_proxy$(DEBUG_SUFFIX).$(DLL)
+MALLOCPROXY.LIB = tbbmalloc_proxy$(DEBUG_SUFFIX).$(LIBEXT)
+
+RML.DEF = $(RML_SERVER_ROOT)/$(def_prefix)-rml-export.def
+RML.DLL = irml$(DEBUG_SUFFIX).$(DLL)
+RML.LIB = irml$(DEBUG_SUFFIX).$(LIBEXT)
+RML.RES = irml.res
+ifneq ($(runtime),vc7.1)
+RML.MANIFEST = tbbmanifest.exe.manifest
+endif
 
 MAKE_VERSIONS = cmd /C cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build/version_info_windows.js $(compiler) $(arch) $(subst \,/,"$(CPLUS) $(CPLUS_FLAGS) $(INCLUDES)") > version_string.tmp
 MAKE_TBBVARS  = cmd /C "$(subst /,\,$(tbb_root))\build\generate_tbbvars.bat"
 
+TEST_LAUNCHER =  $(subst /,\,$(tbb_root))\build\test_launcher.bat

@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------
 Intel(R) Threading Building Blocks - Release Notes
-		  Version 2.1
+		  Version 2.2
 ------------------------------------------------------------------------
 
 
@@ -33,11 +33,7 @@ Hardware - Recommended
 
 Hardware - Supported
 
-    Intel(R) Pentium(R) 4 processor family
-    Intel(R) Pentium(R) D processor family
-    Intel(R) Xeon(R) processor family
-    Intel(R) Core(TM) processor family
-    Intel(R) Core(TM) 2 processor family
+    Intel(R) Pentium(R) 4 processor family and higher
     Intel(R) Itanium(R) processor family (Linux* systems only)
     Non Intel(R) processors compatible with the above processors
 
@@ -51,6 +47,7 @@ Software - Minimum Requirements
 
 Software - Recommended
 
+    Intel(R) Parallel Studio
     Intel(R) C++ Compiler 10.0 or higher
     Intel(R) Thread Checker 3.1 or higher
     Intel(R) Thread Profiler 3.1 or higher
@@ -61,28 +58,27 @@ Software - Supported Operating Systems
 	Microsoft* Windows* XP Professional
 	Microsoft* Windows* Server 2003
 	Microsoft* Windows* Vista
+	Microsoft* Windows* Server 2008
     Linux* Systems
 	Red Hat* Enterprise Linux* 3, 4, 5
 	    (when using Red Hat* Enterprise Linux* 4 with Intel(R)
 	    Itanium(R) processors, operating system Update 2 or higher
 	    is recommended)
-	Red Hat* Fedora* Core 5, Core 6, 7, 8
+	Red Hat* Fedora* 10, 11
 	    (not with Intel(R) Itanium(R) processors)
 	Asianux* 3.0
-	Debian* GNU/Linux* 4.0
-	Ubuntu* 7.04, 7.10
-	SuSE* Linux* Enterprise Server (SLES) 9, 10
-	SGI* Propack* 4.0 (with Intel(R) Itanium(R) processors only)
+	Debian* GNU/Linux* 4.0, 5.0
+	Ubuntu* 8.04, 8.10, 9.04
+	SuSE* Linux* Enterprise Server (SLES) 9, 10, 11
 	SGI* Propack* 5.0 (not with IA-32 architecture processors)
-	Turbolinux* GreatTurbo Enterprise Server 10 SP1, Turbolinux* 11
-	    (not with Intel(R) Itanium(R) processors)
+	Turbolinux* 11
     Mac OS* X Systems
-	Mac OS* X 10.4.9 or higher
+	Mac OS* X 10.5.6 or higher
 
 Software - Supported Compilers
 
     Microsoft* Visual C++* 7.1 (Microsoft* Visual Studio* .NET 2003,
-	Windows* systems only)
+	Windows* systems only, deprecated)
     Microsoft* Visual C++ 8.0 (Microsoft* Visual Studio* 2005,
 	Windows* systems only)
     Microsoft* Visual C++ 9.0 (Microsoft* Visual Studio* 2008,
@@ -90,10 +86,10 @@ Software - Supported Compilers
     Intel(R) C++ Compiler 10.0 or higher
     For each supported Linux* operating system, the standard gcc
 	version provided with that operating system is supported,
-	including: 3.2, 3.3, 3.4, 4.0, 4.1
+	including gcc 3.2 through 4.4
     For each supported Mac OS* X operating system, the standard gcc
 	version provided with that operating system is supported,
-	including: 4.0.1 (Xcode* tool suite 2.4.1 or higher)
+	including: 4.0.1 (Xcode* tool suite 3.1.2 or higher)
 
 
 Known Issues
@@ -135,17 +131,18 @@ Library Issues
 	debug libraries; not doing so may cause run-time failures.  See
 	the Tutorial in the product "doc" sub-directory for more details
 	on debug vs. release libraries.
+    
+    - In some circumstances an exception thrown during concurrent_vector
+	growth operation may deadlock other threads that also attempt to
+	grow the vector. To prevent the issue, avoid going out of memory 
+	and throwing exceptions in constructors of stored objects.
 
-    - When using Ubuntu* 7.04 in 64-bit mode, compilations can fail with
-	error messages saying that "`::system' has not been declared".
-	These failures can be worked around by removing libpthread-dev
-	from the system.  See the following link for more details:
-
-	https://bugs.launchpad.net/ubuntu/+source/gcc-4.1/+bug/77559
-
+    - Installer doesn't accept non-commercial serial numbers on Red Hat* 
+	Fedora* 11. To install the product on the system use license 
+	file provided after registration of the serial number.  
 
 ------------------------------------------------------------------------
-Copyright (C) 2005-2008 Intel Corporation.  All Rights Reserved.
+Copyright (C) 2005-2009 Intel Corporation.  All Rights Reserved.
 
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

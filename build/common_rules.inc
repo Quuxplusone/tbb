@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -34,6 +34,10 @@ ifeq ($(tbb_strict),1)
   WARNING_KEY += $(WARNING_AS_ERROR_KEY)
 endif
 
+ifndef TEST_EXT
+    TEST_EXT = exe
+endif
+
 INCLUDES += $(INCLUDE_KEY)$(tbb_root)/src $(INCLUDE_KEY)$(tbb_root)/include
 
 CPLUS_FLAGS += $(WARNING_KEY) $(CXXFLAGS)
@@ -53,13 +57,18 @@ CONLY ?= $(CPLUS)
 
 # The most generic rules
 %.$(OBJ): %.cpp
-	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS) $(INCLUDES) $<
+	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS) $(CXX_WARN_SUPPRESS) $(INCLUDES) $<
 
 %.$(OBJ): %.c
 	$(CONLY) $(COMPILE_ONLY) $(C_FLAGS) $(INCLUDES) $<
 
 %.$(OBJ): %.asm
 	$(ASM) $(ASM_FLAGS) $<
+
+%.$(OBJ): %.s
+	cpp <$< | grep -v '^#' >$*.tmp
+	$(ASM) $(ASM_FLAGS) -o $@ $*.tmp
+	rm $*.tmp
 
 # Rule for generating .E file if needed for visual inspection
 %.E: %.cpp
@@ -74,14 +83,14 @@ CONLY ?= $(CPLUS)
 	$(CPLUS) -S $(CPLUS_FLAGS) $(INCLUDES) $<
 
 # Customizations
+
 ifeq (1,$(TBB_NOSTRICT))
 # GNU 3.2.3 headers have a ISO syntax that is rejected by Intel compiler in -strict_ansi mode.
 # The Mac uses gcc, so the list is empty for that platform.
 # The files below need the -strict_ansi flag downgraded to -ansi to compile
 
-$(KNOWN_NOSTRICT): %.o: %.cpp
+$(KNOWN_NOSTRICT): %.$(OBJ): %.cpp
 	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS_NOSTRICT) $(INCLUDES) $<
-
 endif
 
 $(KNOWN_WARNINGS): %.$(OBJ): %.cpp
@@ -93,12 +102,24 @@ tbb_misc.$(OBJ): tbb_misc.cpp version_string.tmp
 tbb_misc.E: tbb_misc.cpp version_string.tmp
 	$(CPLUS) $(CPLUS_FLAGS_NOSTRICT) $(INCLUDE_KEY). $(INCLUDES) $(PREPROC_ONLY) $< >$@
 
-%.res: %.rc version_string.tmp
+%.res: %.rc version_string.tmp $(TBB.MANIFEST)
 	rc /Fo$@ $(INCLUDES) $(filter /D%,$(CPLUS_FLAGS)) $<
-
-version_string.tmp: 
-	$(MAKE_VERSIONS)
 
 tbbvars:
 	$(MAKE_TBBVARS)
+
+ifneq (,$(TBB.MANIFEST))
+$(TBB.MANIFEST):
+	cmd /C "echo #include ^<stdio.h^> >tbbmanifest.c"
+	cmd /C "echo int main(){return 0;} >>tbbmanifest.c"
+	cl $(C_FLAGS) tbbmanifest.c
+
+version_string.tmp: $(TBB.MANIFEST)
+	$(MAKE_VERSIONS)
+	cmd /C "echo #define TBB_MANIFEST 1 >> version_string.tmp"
+
+else
+version_string.tmp:
+	$(MAKE_VERSIONS)
+endif
 

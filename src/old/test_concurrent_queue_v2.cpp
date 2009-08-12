@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,7 +29,6 @@
 #include "tbb/concurrent_queue.h"
 #include "tbb/atomic.h"
 #include "tbb/tick_count.h"
-#include "tbb/blocked_range.h"
 
 #include "../test/harness_assert.h"
 #include "../test/harness.h"
@@ -88,16 +87,13 @@ struct Body {
     tbb::concurrent_queue<Foo>* queue;
     const int nthread;
     Body( int nthread_ ) : nthread(nthread_) {}
-    void operator()( const tbb::blocked_range<int>& r ) const {
+    void operator()( long thread_id ) const {
         long pop_kind[3] = {0,0,0};
         int serial[MAXTHREAD+1];
         memset( serial, 0, nthread*sizeof(unsigned) );
-        ASSERT( r.begin()+1==r.end(), NULL );
-        ASSERT( r.begin()<nthread, NULL );
-        ASSERT( r.end()<=nthread, NULL );
+        ASSERT( thread_id<nthread, NULL );
 
         long sum = 0;
-        long thread_id = r.begin();
         for( long j=0; j<M; ++j ) {
             Foo f;
             f.thread_id = 0xDEAD;
@@ -120,7 +116,7 @@ struct Body {
             serial[f.thread_id] = f.serial;
             sum += f.serial-1;
         }
-        Sum[r.begin()] = sum;
+        Sum[thread_id] = sum;
         for( int k=0; k<3; ++k )
             PopKind[k] += pop_kind[k];
     }
@@ -149,7 +145,7 @@ void TestPushPop( int prefill, ptrdiff_t capacity, int nthread ) {
             ASSERT( !queue.empty(), NULL );
         }
         tbb::tick_count t0 = tbb::tick_count::now();
-        NativeParallelFor( tbb::blocked_range<int>(0,nthread,1), body );
+        NativeParallelFor( nthread, body );
         tbb::tick_count t1 = tbb::tick_count::now();
         double timing = (t1-t0).seconds();
         if( Verbose )
@@ -187,10 +183,14 @@ void TestPushPop( int prefill, ptrdiff_t capacity, int nthread ) {
 #endif /* _WIN32||_WIN64 */
                 if( PopKind[k]<min_requirement ) {
                     if( trial>=max_trial ) {
-                        printf("Warning: %d threads had only %ld pop_if_present operations %s after %d trials (expected at least %d)\n",
-                               nthread, long(PopKind[k]), k==0?"fail":"succeed", max_trial, min_requirement);
-                        printf("This problem may merely be unlucky scheduling.\n"
-                               "Investigate only if it happens repeatedly.\n");
+                        if( Verbose )
+                            printf("Warning: %d threads had only %ld pop_if_present operations %s after %d trials (expected at least %d). "
+                                    "This problem may merely be unlucky scheduling. "
+                                    "Investigate only if it happens repeatedly.\n",
+                                    nthread, long(PopKind[k]), k==0?"failed":"succeeded", max_trial, min_requirement);
+                        else
+                            printf("Warning: the number of %s pop_if_present operations is less than expected for %d threads. Investigate if it happens repeatedly.\n",
+                                   k==0?"failed":"succeeded", nthread );
                     } else {
                         success = false;
                     }
@@ -305,8 +305,8 @@ struct TestNegativeQueueBody {
     tbb::concurrent_queue<T>& queue;
     const int nthread;
     TestNegativeQueueBody( tbb::concurrent_queue<T>& q, int n ) : queue(q), nthread(n) {}
-    void operator()( const tbb::blocked_range<int>& range ) const {
-        if( range.begin()==0 ) {
+    void operator()( int k ) const {
+        if( k==0 ) {
             int number_of_pops = nthread-1;
             // Wait for all pops to pend.
             while( queue.size()>-number_of_pops ) {
@@ -331,7 +331,7 @@ struct TestNegativeQueueBody {
 template<typename T>
 void TestNegativeQueue( int nthread ) {
     tbb::concurrent_queue<T> queue;
-    NativeParallelFor( tbb::blocked_range<int>(0,nthread,1), TestNegativeQueueBody<T>(queue,nthread) );
+    NativeParallelFor( nthread, TestNegativeQueueBody<T>(queue,nthread) );
 }
 
 int main( int argc, char* argv[] ) {

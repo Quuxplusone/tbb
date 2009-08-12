@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -25,6 +25,8 @@
 # the GNU General Public License.
 
 # GNU Makefile that builds and runs example.
+PROG=convex_hull_bench
+ARGS=
 
 # The C++ compiler
 #CXX=g++
@@ -36,11 +38,11 @@ release: *.cpp
 	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o convex_hull_bench convex_hull_bench.cpp -ltbb $(LIBS)
 
 debug: *.cpp
-	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o convex_hull_sample convex_hull_sample.cpp -ltbb_debug $(LIBS)
-	$(CXX) -O0 -g -DTBB_DO_ASSERT $(CXXFLAGS) -o convex_hull_bench convex_hull_bench.cpp -ltbb_debug $(LIBS)
+	$(CXX) -O0 -g -DTBB_USE_DEBUG $(CXXFLAGS) -o convex_hull_sample convex_hull_sample.cpp -ltbb_debug $(LIBS)
+	$(CXX) -O0 -g -DTBB_USE_DEBUG $(CXXFLAGS) -o convex_hull_bench convex_hull_bench.cpp -ltbb_debug $(LIBS)
 
 clean:
-	rm -f convex_hull_bench convex_hull_sample *.o *.d
+	$(RM) convex_hull_bench convex_hull_sample *.o *.d
 
 test:
-	./convex_hull_bench
+	./$(PROG) $(ARGS)

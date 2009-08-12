@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -26,74 +26,43 @@
 
 # GNU Makefile that builds and runs example.
 NAME=pover
+ARGS=
 
 # The C++ compiler
 #CXX=g++
 
-# detecting x64
-ifeq ($(shell uname -m),x86_64)
-x64 ?= 64
-endif
-# detecting UI ("mac", "x" or "con")
-ifeq ($(shell uname),Darwin)
-UI ?= mac
-else
-UI ?= $(shell sh -c "[ -f /usr/X11R6/lib$(x64)/libX11.so -o -f /usr/lib$(x64)/libX11.so ] && echo x || echo con")
-endif
-
+include ../../common/gui/Makefile.gmake
 
 ifeq ($(UI),x)
-EXE=./$(NAME)
-CXXFLAGS += -DX_FULLSYNC -I/usr/X11R6/include -DUSE_SCALABLE_ALLOC=0
-LIBS += -lpthread -L/usr/X11R6/lib$(x64) -lX11
-# detect if libXext can be found
-ifeq ($(shell sh -c "[ -f /usr/X11R6/lib$(x64)/libXext.so -o -f /usr/lib$(x64)/libXext.so ] && echo 0"),0)
-LIBS += -lXext
-else  # no libXext
-CXXFLAGS += -DX_NOSHMEM
-endif # libXext
-else # ! X
-
-ifeq ($(UI),mac)
-TBBLIBSPATH ?= /Library/Frameworks/TBB.framework/Libraries
-CXXFLAGS += -L$(TBBLIBSPATH) -arch i386 -mmacosx-version-min=10.4 -msse3 -ftree-vectorize
-LIBS += -framework OpenGL -framework AGL -framework Carbon
-APPRES = $(NAME).app/Contents/Resources
-EXE = ./$(NAME).app/Contents/MacOS/$(NAME)
-# look in /System and /Developer (for Xcode 3)
-PBXCP = $(wildcard /[SD]*/Library/PrivateFrameworks/DevToolsCore.framework/Resources/pbxcp) -resolve-src-symlinks -exclude .DS_Store -exclude CVS -exclude .svn
-else # ! Mac
-UI=con
-EXE=./$(NAME)
-endif # Mac
+CXXFLAGS += -DX_FULLSYNC # TODO: is this necessary? -DUSE_SCALABLE_ALLOC=0 
 endif # X
-SRCFILES = polymain.cpp polyover.cpp
-GUIFILES = ../../common/gui/$(UI)video.cpp pover_video.cpp
+
+SRCFILES = ../../common/gui/$(UI)video.cpp pover_video.cpp polymain.cpp polyover.cpp
 
 all:	release test
 
 resources:
 ifeq ($(UI),mac)
 	mkdir -p $(APPRES)/English.lproj $(NAME).app/Contents/MacOS
-	$(PBXCP) xcode/English.lproj/InfoPlist.strings xcode/English.lproj/main.nib $(APPRES)/English.lproj
+	$(PBXCP) xcode/English.lproj/main.nib $(APPRES)/English.lproj
 	$(PBXCP) xcode/Info.plist $(APPRES)
 endif
 
-release: $(GUIFILES) $(SRCFILES) resources
-	$(CXX) -O3 -DNDEBUG $(CXXFLAGS) -o $(EXE) $< *.cpp -ltbb -ltbbmalloc $(LIBS)
+release: $(SRCFILES) resources
+	$(CXX) -O3 -DNDEBUG $(CXXFLAGS) -o $(EXE) $(SRCFILES) -ltbb -ltbbmalloc $(LIBS)
 
-debug:  $(GUIFILES) $(SRCFILES) resources
-	$(CXX) -g -O0 -DTBB_DO_ASSERT -D_DEBUG $(CXXFLAGS) -o $(EXE) $< *.cpp -ltbb_debug -ltbbmalloc_debug $(LIBS)
+debug:  $(SRCFILES) resources
+	$(CXX) -g -O0 -DTBB_USE_DEBUG -D_DEBUG $(CXXFLAGS) -o $(EXE) $(SRCFILES) -ltbb_debug -ltbbmalloc_debug $(LIBS)
 
 clean:
-	rm -f $(EXE) *.o *.d
+	$(RM) $(EXE) *.o *.d
 ifeq ($(UI),mac)
 	rm -rf $(NAME).app
 endif
 
 test:
 ifeq ($(UI),mac)
-	export DYLD_LIBRARY_PATH="$(DYLD_LIBRARY_PATH):$(TBBLIBSPATH)"; $(EXE)
+	export DYLD_LIBRARY_PATH="$(DYLD_LIBRARY_PATH):$(TBBLIBSPATH)"; ./$(EXE) $(ARGS)
 else
-	$(EXE)
+	./$(EXE) $(ARGS)
 endif

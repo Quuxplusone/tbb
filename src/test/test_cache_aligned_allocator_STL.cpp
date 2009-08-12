@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,22 +32,14 @@
 #include "tbb/tbb_allocator.h"
 
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
-#include "test_allocator.h"
+#include "test_allocator_STL.h"
 
-// Test whether an allocator works with some of the host's STL containers.
-
-#include <vector>
-#include <list>
-#include <deque>
-
+__TBB_TEST_EXPORT
 int main() {
-    TestContainer<std::vector<int,tbb::cache_aligned_allocator<int> > >();
-    TestContainer<std::vector<int,tbb::tbb_allocator<int> > >();    
-    TestContainer<std::list<int,tbb::cache_aligned_allocator<int> > >();
-    TestContainer<std::list<int,tbb::tbb_allocator<int> > >();
-    TestContainer<std::deque<int,tbb::cache_aligned_allocator<int> > >();
-    TestContainer<std::deque<int,tbb::tbb_allocator<int> > >();
-    printf("done\n");
+    TestAllocatorWithSTL<tbb::cache_aligned_allocator<void> >();
+    TestAllocatorWithSTL<tbb::tbb_allocator<void> >();
+    TestAllocatorWithSTL<tbb::zero_allocator<void> >();
+    REPORT("done\n");
     return 0;
 }
 

@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -25,8 +25,8 @@
 # the GNU General Public License.
 
 # Common Makefile that builds and runs example.
-
-# Just specify your program basename
+PROG=convex_hull_bench
+ARGS=
 
 # The C++ compiler options
 CXX = cl.exe
@@ -38,9 +38,9 @@ release:
 	$(CXX) convex_hull_sample.cpp /MD /O2 /D NDEBUG $(MYCXXFLAGS) /link tbb.lib $(LIBS) $(MYLDFLAGS) /OUT:convex_hull_sample.exe
 	$(CXX) convex_hull_bench.cpp /MD /O2 /D NDEBUG $(MYCXXFLAGS) /link tbb.lib $(LIBS) $(MYLDFLAGS) /OUT:convex_hull_bench.exe
 debug:
-	$(CXX) convex_hull_sample.cpp /MDd /Od /Zi /D TBB_DO_ASSERT /D _DEBUG $(MYCXXFLAGS) /link tbb_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:convex_hull_sample.exe
-	$(CXX) convex_hull_bench.cpp /MDd /Od /Zi /D TBB_DO_ASSERT /D _DEBUG $(MYCXXFLAGS) /link tbb_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:convex_hull_bench.exe
+	$(CXX) convex_hull_sample.cpp /MDd /Od /Zi /D TBB_USE_DEBUG /D _DEBUG $(MYCXXFLAGS) /link tbb_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:convex_hull_sample.exe
+	$(CXX) convex_hull_bench.cpp /MDd /Od /Zi /D TBB_USE_DEBUG /D _DEBUG $(MYCXXFLAGS) /link tbb_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:convex_hull_bench.exe
 clean:
 	@cmd.exe /C del convex_hull*.exe *.obj *.?db *.manifest
 test:
-	convex_hull_bench
+	$(PROG) $(ARGS)

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,6 +26,8 @@
     the GNU General Public License.
 */
 
+#include "tbb/tbb_config.h"
+
 {
 global:
 
@@ -40,6 +42,7 @@ _ZN3tbb8internal17is_malloc_used_v3Ev;
 /* task.cpp v3 */
 _ZN3tbb4task13note_affinityEt;
 _ZN3tbb4task22internal_set_ref_countEi;
+_ZN3tbb4task28internal_decrement_ref_countEv;
 _ZN3tbb4task22spawn_and_wait_for_allERNS_9task_listE;
 _ZN3tbb4task4selfEv;
 _ZN3tbb4task7destroyERS0_;
@@ -69,10 +72,12 @@ _ZTSN3tbb10empty_taskE;
 _ZTVN3tbb10empty_taskE;
 
 /* exception handling support */
+#if __TBB_EXCEPTIONS
 _ZNK3tbb8internal32allocate_root_with_context_proxy8allocateEm;
 _ZNK3tbb8internal32allocate_root_with_context_proxy4freeERNS_4taskE;
 _ZNK3tbb18task_group_context28is_group_execution_cancelledEv;
 _ZN3tbb18task_group_context22cancel_group_executionEv;
+_ZN3tbb18task_group_context26register_pending_exceptionEv;
 _ZN3tbb18task_group_context5resetEv;
 _ZN3tbb18task_group_context4initEv;
 _ZN3tbb18task_group_contextD1Ev;
@@ -100,6 +105,7 @@ _ZNK3tbb14bad_last_alloc4whatEv;
 _ZTIN3tbb14bad_last_allocE;
 _ZTSN3tbb14bad_last_allocE;
 _ZTVN3tbb14bad_last_allocE;
+#endif /* __TBB_EXCEPTIONS */
 
 /* tbb_misc.cpp */
 _ZN3tbb17assertion_failureEPKciS1_S1_;
@@ -107,10 +113,14 @@ _ZN3tbb21set_assertion_handlerEPFvPKciS1_S1_E;
 _ZN3tbb8internal36get_initial_auto_partitioner_divisorEv;
 _ZN3tbb8internal13handle_perrorEiPKc;
 _ZN3tbb8internal15runtime_warningEPKcz;
+TBB_runtime_interface_version;
+_ZN3tbb8internal33throw_bad_last_alloc_exception_v4Ev;
 
 /* itt_notify.cpp */
 _ZN3tbb8internal32itt_load_pointer_with_acquire_v3EPKv;
 _ZN3tbb8internal33itt_store_pointer_with_release_v3EPvS1_;
+_ZN3tbb8internal20itt_set_sync_name_v3EPvPKc;
+_ZN3tbb8internal19itt_load_pointer_v3EPKv;
 
 /* pipeline.cpp */
 _ZTIN3tbb6filterE;
@@ -121,7 +131,12 @@ _ZN3tbb8pipeline10add_filterERNS_6filterE;
 _ZN3tbb8pipeline12inject_tokenERNS_4taskE;
 _ZN3tbb8pipeline13remove_filterERNS_6filterE;
 _ZN3tbb8pipeline3runEm;
+#if __TBB_EXCEPTIONS
+_ZN3tbb8pipeline3runEmRNS_18task_group_contextE;
+#endif
 _ZN3tbb8pipeline5clearEv;
+_ZN3tbb19thread_bound_filter12process_itemEv;
+_ZN3tbb19thread_bound_filter16try_process_itemEv;
 _ZTIN3tbb8pipelineE;
 _ZTSN3tbb8pipelineE;
 _ZTVN3tbb8pipelineE;
@@ -132,6 +147,7 @@ _ZN3tbb8pipelineD1Ev;
 _ZN3tbb8pipelineD2Ev;
 
 /* queuing_rw_mutex.cpp */
+_ZN3tbb16queuing_rw_mutex18internal_constructEv;
 _ZN3tbb16queuing_rw_mutex11scoped_lock17upgrade_to_writerEv;
 _ZN3tbb16queuing_rw_mutex11scoped_lock19downgrade_to_readerEv;
 _ZN3tbb16queuing_rw_mutex11scoped_lock7acquireERS0_b;
@@ -152,6 +168,7 @@ _ZN3tbb13spin_rw_mutex27internal_try_acquire_writerEPS0_;
 #endif
 
 /* spin_rw_mutex v3 */
+_ZN3tbb16spin_rw_mutex_v318internal_constructEv;
 _ZN3tbb16spin_rw_mutex_v316internal_upgradeEv;
 _ZN3tbb16spin_rw_mutex_v318internal_downgradeEv;
 _ZN3tbb16spin_rw_mutex_v323internal_acquire_readerEv;
@@ -162,6 +179,7 @@ _ZN3tbb16spin_rw_mutex_v327internal_try_acquire_readerEv;
 _ZN3tbb16spin_rw_mutex_v327internal_try_acquire_writerEv;
 
 /* spin_mutex.cpp */
+_ZN3tbb10spin_mutex18internal_constructEv;
 _ZN3tbb10spin_mutex11scoped_lock16internal_acquireERS0_;
 _ZN3tbb10spin_mutex11scoped_lock16internal_releaseEv;
 _ZN3tbb10spin_mutex11scoped_lock20internal_try_acquireERS0_;
@@ -181,14 +199,15 @@ _ZN3tbb15recursive_mutex16internal_destroyEv;
 _ZN3tbb15recursive_mutex18internal_constructEv;
 
 /* QueuingMutex.cpp */
+_ZN3tbb13queuing_mutex18internal_constructEv;
 _ZN3tbb13queuing_mutex11scoped_lock7acquireERS0_;
 _ZN3tbb13queuing_mutex11scoped_lock7releaseEv;
 _ZN3tbb13queuing_mutex11scoped_lock11try_acquireERS0_;
 
+#if !TBB_NO_LEGACY
 /* concurrent_hash_map */
 _ZNK3tbb8internal21hash_map_segment_base23internal_grow_predicateEv;
 
-#if !TBB_NO_LEGACY
 /* concurrent_queue.cpp v2 */
 _ZN3tbb8internal21concurrent_queue_base12internal_popEPv;
 _ZN3tbb8internal21concurrent_queue_base13internal_pushEPKv;
@@ -229,7 +248,9 @@ _ZN3tbb8internal24concurrent_queue_base_v323internal_pop_if_presentEPv;
 _ZN3tbb8internal24concurrent_queue_base_v321internal_finish_clearEv;
 _ZN3tbb8internal24concurrent_queue_base_v321internal_set_capacityElm;
 _ZNK3tbb8internal24concurrent_queue_base_v313internal_sizeEv;
+_ZNK3tbb8internal24concurrent_queue_base_v314internal_emptyEv;
 _ZNK3tbb8internal24concurrent_queue_base_v324internal_throw_exceptionEv;
+_ZN3tbb8internal24concurrent_queue_base_v36assignERKS1_;
 
 #if !TBB_NO_LEGACY
 /* concurrent_vector.cpp v2 */
@@ -256,6 +277,8 @@ _ZN3tbb8internal25concurrent_vector_base_v316internal_compactEmPvPFvS2_mEPFvS2_P
 _ZN3tbb8internal25concurrent_vector_base_v313internal_swapERS1_;
 _ZNK3tbb8internal25concurrent_vector_base_v324internal_throw_exceptionEm;
 _ZN3tbb8internal25concurrent_vector_base_v3D2Ev;
+_ZN3tbb8internal25concurrent_vector_base_v315internal_resizeEmmmPKvPFvPvmEPFvS4_S3_mE;
+_ZN3tbb8internal25concurrent_vector_base_v337internal_grow_to_at_least_with_resultEmmPFvPvPKvmES4_;
 
 /* tbb_thread */
 _ZN3tbb8internal13tbb_thread_v320hardware_concurrencyEv;

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,6 +32,7 @@
 #if __linux__ || __APPLE__
 #include <sys/mman.h>
 
+#define MEMORY_MAPPING_USES_MALLOC 0
 void* MapMemory (size_t bytes)
 {
     void* result = 0;
@@ -51,6 +52,7 @@ int UnmapMemory(void *area, size_t bytes)
 #elif _WIN32 || _WIN64
 #include <windows.h>
 
+#define MEMORY_MAPPING_USES_MALLOC 0
 void* MapMemory (size_t bytes)
 {
     /* Is VirtualAlloc thread safe? */

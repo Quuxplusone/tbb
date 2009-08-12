@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -87,13 +87,13 @@ void TestSimpleDelay( int ntrial, double duration, double tolerance ) {
     double worktime = total_worktime/ntrial;
     double delta = worktime-duration;
     if (Verbose)
-        printf("worktime=%g delta=%g tolerance=%g\n", worktime, delta, tolerance);
+        REPORT("worktime=%g delta=%g tolerance=%g\n", worktime, delta, tolerance);
 
     // Check that delta is acceptable
     if( delta<0 ) 
-        printf("ERROR: delta=%g < 0\n",delta); 
+        REPORT("ERROR: delta=%g < 0\n",delta); 
     if( delta>tolerance )
-        printf("%s: delta=%g > %g=tolerance where duration=%g\n",delta>3*tolerance?"ERROR":"WARNING",delta,tolerance,duration);
+        REPORT("%s: delta=%g > %g=tolerance where duration=%g\n",delta>3*tolerance?"ERROR":"Warning",delta,tolerance,duration);
 }
 
 //------------------------------------------------------------------------
@@ -101,16 +101,13 @@ void TestSimpleDelay( int ntrial, double duration, double tolerance ) {
 //------------------------------------------------------------------------
 
 #include "tbb/atomic.h"
-#include "tbb/blocked_range.h"
 const int MAX_NTHREAD = 1000;
 static tbb::atomic<int> Counter;
 static volatile bool Flag;
 static tbb::tick_count tick_countArray[MAX_NTHREAD];
 
 struct tick_countDifferenceBody {
-    void operator()( const tbb::blocked_range<int>& range ) const {
-        ASSERT( range.begin()+1==range.end(), "grainsize must be 1" );
-        int id = range.begin();
+    void operator()( int id ) const {
         if( --Counter==0 ) Flag = true;
         while( !Flag ) continue;
         tick_countArray[id] = tbb::tick_count::now();
@@ -123,25 +120,21 @@ void Testtick_countDifference( int n ) {
     for( int trial=0; trial<10; ++trial ) {
         Counter = n;
         Flag = false;
-        NativeParallelFor( tbb::blocked_range<int>(0,n,1), tick_countDifferenceBody() ); 
+        NativeParallelFor( n, tick_countDifferenceBody() ); 
         ASSERT( Counter==0, NULL ); 
         for( int i=0; i<n; ++i )
             for( int j=0; j<i; ++j ) {
                 double diff = (tick_countArray[i]-tick_countArray[j]).seconds();
                 if( diff<0 ) diff = -diff;
                 if( diff>tolerance ) {
-                    printf("%s: cross-thread tick_count difference = %g > %g = tolerance\n",
-                           diff>3*tolerance?"ERROR":"WARNING",diff,tolerance);
+                    REPORT("%s: cross-thread tick_count difference = %g > %g = tolerance\n",
+                           diff>3*tolerance?"ERROR":"Warning",diff,tolerance);
                 }
             }
     }
 }
 
-//------------------------------------------------------------------------
-// Test driver
-//------------------------------------------------------------------------
-
-//! Top level test driver. 
+__TBB_TEST_EXPORT
 int main( int argc, char* argv[]) {
     ParseCommandLine(argc, argv);
 
@@ -155,6 +148,6 @@ int main( int argc, char* argv[]) {
     for( int n=MinThread; n<=MaxThread; ++n ) {
         Testtick_countDifference(n);
     }
-    printf("done\n");
+    REPORT("done\n");
     return 0;
 }

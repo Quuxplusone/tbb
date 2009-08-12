@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,7 +35,7 @@
 // Test that important assertions in class task fail as expected.
 //------------------------------------------------------------------------
 
-#include "tbb/blocked_range.h"
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
 #include "harness.h"
 #include "harness_bad_expr.h"
 
@@ -47,32 +47,37 @@ int AbuseOneTaskRan;
 
 //! Body used to create task in thread 0 and abuse it in thread 1.
 struct AbuseOneTask {
-    void operator()( const tbb::blocked_range<int>& r ) const {
+    void operator()( int ) const {
         tbb::task_scheduler_init init;
         // Thread 1 attempts to incorrectly use the task created by thread 0.
+        tbb::task_list list;
+#if !__TBB_RELAXED_OWNERSHIP
         TRY_BAD_EXPR(AbusedTask->spawn(*AbusedTask),"owne");
         TRY_BAD_EXPR(AbusedTask->spawn_and_wait_for_all(*AbusedTask),"owne");
         TRY_BAD_EXPR(tbb::task::spawn_root_and_wait(*AbusedTask),"owne");
 
         // Try variant that operate on a tbb::task_list
-        tbb::task_list list;
         TRY_BAD_EXPR(AbusedTask->spawn(list),"owne");
         TRY_BAD_EXPR(AbusedTask->spawn_and_wait_for_all(list),"owne");
+#endif /* !__TBB_RELAXED_OWNERSHIP */
         // spawn_root_and_wait over empty list should vacuously succeed.
         tbb::task::spawn_root_and_wait(list);
 
         // Check that spawn_root_and_wait fails on non-empty list. 
         list.push_back(*AbusedTask);
+#if !__TBB_RELAXED_OWNERSHIP
         TRY_BAD_EXPR(tbb::task::spawn_root_and_wait(list),"owne");
 
         TRY_BAD_EXPR(AbusedTask->destroy(*AbusedTask),"owne");
         TRY_BAD_EXPR(AbusedTask->wait_for_all(),"owne");
+#endif /* !__TBB_RELAXED_OWNERSHIP */
 
         // Try abusing recycle_as_continuation
         TRY_BAD_EXPR(AbusedTask->recycle_as_continuation(), "execute" );
         TRY_BAD_EXPR(AbusedTask->recycle_as_safe_continuation(), "execute" );
         TRY_BAD_EXPR(AbusedTask->recycle_to_reexecute(), "execute" );
 
+#if !__TBB_TASK_DEQUE
         // Check correct use of depth parameter
         tbb::task::depth_type depth = AbusedTask->depth();
         ASSERT( depth==0, NULL );
@@ -87,6 +92,7 @@ struct AbuseOneTask {
         // Try abusing the depth parameter
         TRY_BAD_EXPR(AbusedTask->set_depth(-1),"negative");
         TRY_BAD_EXPR(AbusedTask->add_to_depth(-1),"negative");
+#endif /* !__TBB_TASK_DEQUE */
 
         ++AbuseOneTaskRan;
     }
@@ -94,26 +100,27 @@ struct AbuseOneTask {
 
 //! Test various __TBB_ASSERT assertions related to class tbb::task.
 void TestTaskAssertions() {
-#if TBB_DO_ASSERT
+#if TBB_USE_ASSERT
     // Catch assertion failures
     tbb::set_assertion_handler( AssertionFailureHandler );
     tbb::task_scheduler_init init;
     // Create task to be abused
     AbusedTask = new( tbb::task::allocate_root() ) tbb::empty_task;
-    NativeParallelFor( tbb::blocked_range<int>(0,1,1), AbuseOneTask() );
+    NativeParallelFor( 1, AbuseOneTask() );
     ASSERT( AbuseOneTaskRan==1, NULL );
     AbusedTask->destroy(*AbusedTask);
     // Restore normal assertion handling
     tbb::set_assertion_handler( NULL );
-#endif /* TBB_DO_ASSERT */
+#endif /* TBB_USE_ASSERT */
 }
 
-//------------------------------------------------------------------------
+__TBB_TEST_EXPORT
 int main(int argc, char* argv[]) {
-    srand(2);
-    MinThread = 1;
-    ParseCommandLine( argc, argv );
+#if __GLIBC__==2 && __GLIBC_MINOR__==3 || __TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
+    REPORT("skip\n");
+#else
     TestTaskAssertions();
-    printf("done\n");
+    REPORT("done\n");
+#endif
     return 0;
 }

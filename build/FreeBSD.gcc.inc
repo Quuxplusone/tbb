@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -34,20 +34,20 @@ PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -Wall
 DYLIB_KEY = -shared
-#LIBDL = -ldl
 
 TBB_NOSTRICT = 1
 
 CPLUS = g++ 
+CONLY = gcc
 LIB_LINK_FLAGS = -shared
 LIBS = -lpthread 
-C_FLAGS = $(CPLUS_FLAGS) -x c
+C_FLAGS = $(CPLUS_FLAGS)
 
 ifeq ($(cfg), release)
         CPLUS_FLAGS = -O2 -DUSE_PTHREAD
 endif
 ifeq ($(cfg), debug)
-        CPLUS_FLAGS = -DTBB_DO_ASSERT -g -O0 -DUSE_PTHREAD
+        CPLUS_FLAGS = -DTBB_USE_DEBUG -g -O0 -DUSE_PTHREAD
 endif
 
 ASM=
@@ -55,12 +55,12 @@ ASM_FLAGS=
 
 TBB_ASM.OBJ=
 
-ifeq (itanium,$(arch))
+ifeq (ia64,$(arch))
 # Position-independent code (PIC) is a must on IA-64, even for regular (not shared) executables
     CPLUS_FLAGS += $(PIC_KEY)
 endif 
 
-ifeq (em64t,$(arch))
+ifeq (intel64,$(arch))
     CPLUS_FLAGS += -m64
     LIB_LINK_FLAGS += -m64
 endif 
@@ -73,13 +73,8 @@ endif
 #------------------------------------------------------------------------------
 # Setting assembler data.
 #------------------------------------------------------------------------------
-%.$(OBJ): %.s
-	cpp $(ASM_FLAGS) <$< | grep -v '^#' >$*.tmp
-	$(ASM) -o $@ $*.tmp
-	rm $*.tmp
-
 ASSEMBLY_SOURCE=$(arch)-gas
-ifeq (itanium,$(arch))
+ifeq (ia64,$(arch))
     ASM=as
     TBB_ASM.OBJ = atomic_support.o lock_byte.o log2.o pause.o
 endif 

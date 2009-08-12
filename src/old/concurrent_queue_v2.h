@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -74,26 +74,26 @@ private:
     virtual void copy_item( page& dst, size_t index, const void* src ) = 0;
     virtual void assign_and_destroy_item( void* dst, page& src, size_t index ) = 0;
 protected:
-    concurrent_queue_base( size_t item_size );
-    virtual ~concurrent_queue_base();
+    __TBB_EXPORTED_METHOD concurrent_queue_base( size_t item_size );
+    virtual __TBB_EXPORTED_METHOD ~concurrent_queue_base();
 
     //! Enqueue item at tail of queue
-    void internal_push( const void* src );
+    void __TBB_EXPORTED_METHOD internal_push( const void* src );
 
     //! Dequeue item from head of queue
-    void internal_pop( void* dst );
+    void __TBB_EXPORTED_METHOD internal_pop( void* dst );
 
     //! Attempt to enqueue item onto queue.
-    bool internal_push_if_not_full( const void* src );
+    bool __TBB_EXPORTED_METHOD internal_push_if_not_full( const void* src );
 
     //! Attempt to dequeue item from queue.
     /** NULL if there was no item to dequeue. */
-    bool internal_pop_if_present( void* dst );
+    bool __TBB_EXPORTED_METHOD internal_pop_if_present( void* dst );
 
     //! Get size of queue
-    ptrdiff_t internal_size() const;
+    ptrdiff_t __TBB_EXPORTED_METHOD internal_size() const;
 
-    void internal_set_capacity( ptrdiff_t capacity, size_t element_size );
+    void __TBB_EXPORTED_METHOD internal_set_capacity( ptrdiff_t capacity, size_t element_size );
 };
 
 //! Type-independent portion of concurrent_queue_iterator.
@@ -113,7 +113,7 @@ protected:
     mutable void* my_item;
 
     //! Default constructor
-    concurrent_queue_iterator_base() : my_rep(NULL), my_item(NULL) {}
+    __TBB_EXPORTED_METHOD concurrent_queue_iterator_base() : my_rep(NULL), my_item(NULL) {}
 
     //! Copy constructor
     concurrent_queue_iterator_base( const concurrent_queue_iterator_base& i ) : my_rep(NULL), my_item(NULL) {
@@ -124,13 +124,13 @@ protected:
     concurrent_queue_iterator_base( const concurrent_queue_base& queue );
 
     //! Assignment
-    void assign( const concurrent_queue_iterator_base& i );
+    void __TBB_EXPORTED_METHOD assign( const concurrent_queue_iterator_base& i );
 
     //! Advance iterator one step towards tail of queue.
-    void advance();
+    void __TBB_EXPORTED_METHOD advance();
 
     //! Destructor
-    ~concurrent_queue_iterator_base();
+    __TBB_EXPORTED_METHOD ~concurrent_queue_iterator_base();
 };
 
 //! Meets requirements of a forward iterator for STL.

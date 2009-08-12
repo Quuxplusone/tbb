@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -48,18 +48,25 @@ const size_t shared_size = 0;
 #elif _WIN32
 #include <windows.h>
 #include <psapi.h>
+#if _MSC_VER
 #pragma comment(lib, "psapi")
 #endif
 
+#endif /* OS selection */
+
 //! Return estimate of number of bytes of memory that this program is currently using.
 /* Returns 0 if not implemented on platform. */
-static size_t GetMemoryUsage() { 
+size_t GetMemoryUsage() { 
 #if __linux__
     FILE* statsfile = fopen("/proc/self/statm","r");
     size_t pagesize = getpagesize();
     ASSERT(statsfile, NULL);
     long total_mem;
-    fscanf(statsfile,"%lu",&total_mem);
+    int n = fscanf(statsfile,"%lu",&total_mem);
+    if( n!=1 ) {
+        REPORT("Warning: memory usage statistics wasn't obtained\n");
+        return 0;
+    }
     fclose(statsfile);
     return total_mem*pagesize;
 #elif __APPLE__
@@ -79,3 +86,14 @@ static size_t GetMemoryUsage() {
 #endif
 }
 
+//! Use approximately a specified amount of stack space.
+/** Recursion is used here instead of alloca because some implementations of alloca do not use the stack. */
+void UseStackSpace( size_t amount, char* top=0 ) {
+    char x[1000];
+    memset( x, -1, sizeof(x) );
+    if( !top ) 
+        top = x;
+    ASSERT( x<=top, "test assumes that stacks grow downwards" );
+    if( size_t(top-x)<amount )
+        UseStackSpace( amount, top );
+}

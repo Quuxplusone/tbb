@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,8 +28,8 @@
 
 #include <iostream>
 #include <string>
-#include <algorithm>							
-#include "tbb/task_scheduler_init.h"
+#include <algorithm>
+
 #include "tbb/parallel_for.h"
 #include "tbb/blocked_range.h"
 #include "tbb/tick_count.h"
@@ -57,35 +57,35 @@ void SerialSubStringFinder ( const string &str, size_t *max_array, size_t *pos_a
   }
 }
 
-class SubStringFinder {							
- const string str;							
- size_t *max_array;							
- size_t *pos_array;							
- public:									
- void operator() ( const blocked_range<size_t>& r ) const {	
-  for ( size_t i = r.begin(); i != r.end(); ++i ) {		
-   size_t max_size = 0, max_pos = 0;				
-   for (size_t j = 0; j < str.size(); ++j) 					
-    if (j != i) {								
-     size_t limit = str.size()-( i > j ? i : j );		
+class SubStringFinder {
+ const string str;
+ size_t *max_array;
+ size_t *pos_array;
+ public:
+ void operator() ( const blocked_range<size_t>& r ) const {
+  for ( size_t i = r.begin(); i != r.end(); ++i ) {
+   size_t max_size = 0, max_pos = 0;
+   for (size_t j = 0; j < str.size(); ++j) 
+    if (j != i) {
+     size_t limit = str.size()-( i > j ? i : j );
      for (size_t k = 0; k < limit; ++k) {
-      if (str[i + k] != str[j + k]) break;		
-      if (k > max_size) {						
-       max_size = k;							
-       max_pos = j;							
-      }									
+      if (str[i + k] != str[j + k]) break;
+      if (k > max_size) {
+       max_size = k;
+       max_pos = j;
+      }
      }
-    }										
-   max_array[i] = max_size;						
-   pos_array[i] = max_pos;						
-  }										
- }										
- SubStringFinder(string &s, size_t *m, size_t *p) : 	
-  str(s), max_array(m), pos_array(p) { }										
-};				
+    }
+   max_array[i] = max_size;
+   pos_array[i] = max_pos;
+  }
+ }
+ SubStringFinder(string &s, size_t *m, size_t *p) : 
+  str(s), max_array(m), pos_array(p) { }
+};
 
 int main(int argc, char *argv[]) {
- task_scheduler_init init;
+ 
 
  string str[N] = { string("a"), string("b") };
  for (size_t i = 2; i < N; ++i) str[i] = str[i-1]+str[i-2];
@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
  tick_count parallel_t0 = tick_count::now();
  parallel_for(blocked_range<size_t>(0, to_scan.size(), 100),
-       SubStringFinder( to_scan, max, pos ) );			 
+       SubStringFinder( to_scan, max, pos ) );
  tick_count parallel_t1 = tick_count::now();
  cout << " Done with parallel version." << endl;
 
@@ -119,6 +119,10 @@ int main(int argc, char *argv[]) {
  cout << "Serial version ran in " << (serial_t1 - serial_t0).seconds() << " seconds" << endl
            << "Parallel version ran in " <<  (parallel_t1 - parallel_t0).seconds() << " seconds" << endl
            << "Resulting in a speedup of " << (serial_t1 - serial_t0).seconds() / (parallel_t1 - parallel_t0).seconds() << endl;
+ delete[] max;
+ delete[] pos;
+ delete[] max2;
+ delete[] pos2;
  return 0;
 }
 

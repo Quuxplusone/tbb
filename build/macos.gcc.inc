@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -25,6 +25,7 @@
 # the GNU General Public License.
 
 CPLUS = g++
+CONLY = gcc
 COMPILE_ONLY = -c -MMD
 PREPROC_ONLY = -E -x c
 INCLUDE_KEY = -I
@@ -34,6 +35,7 @@ OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -Wall
+WARNING_SUPPRESS =
 DYLIB_KEY = -dynamiclib
 EXPORT_KEY = -Wl,-exported_symbols_list,
 LIBDL = -ldl
@@ -41,26 +43,32 @@ LIBDL = -ldl
 LIBS = -lpthread
 LINK_FLAGS = 
 LIB_LINK_FLAGS = -dynamiclib
-C_FLAGS = $(CPLUS_FLAGS) -x c
+C_FLAGS = $(CPLUS_FLAGS)
 
 ifeq ($(cfg), release)
     CPLUS_FLAGS = -O2
 else
-    CPLUS_FLAGS = -g -O0 -DTBB_DO_ASSERT
+    CPLUS_FLAGS = -g -O0 -DTBB_USE_DEBUG
 endif
 
 CPLUS_FLAGS += -DUSE_PTHREAD
 
-ifeq (em64t,$(arch))
+ifeq (intel64,$(arch))
     CPLUS_FLAGS += -m64
     LINK_FLAGS += -m64
     LIB_LINK_FLAGS += -m64
 endif
 
 ifeq (ppc64,$(arch))
-    CPLUS_FLAGS += -m64
-    LINK_FLAGS += -m64
-    LIB_LINK_FLAGS += -m64
+    CPLUS_FLAGS += -arch ppc64
+    LINK_FLAGS += -arch ppc64
+    LIB_LINK_FLAGS += -arch ppc64
+endif
+
+ifeq (ppc,$(arch))
+    CPLUS_FLAGS += -arch ppc
+    LINK_FLAGS += -arch ppc
+    LIB_LINK_FLAGS += -arch ppc
 endif
 
 #------------------------------------------------------------------------------

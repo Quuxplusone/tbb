@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -40,7 +40,7 @@ class MinimalRange {
     size_t begin, end;
     friend class FooBody;
     explicit MinimalRange( size_t i ) : begin(0), end(i) {}
-    friend void Flog( int nthread );
+    friend void Flog( int nthread, bool inteference );
 public:
     MinimalRange( MinimalRange& r, tbb::split ) : end(r.end) {
         begin = r.end = (r.begin+r.end)/2;
@@ -54,7 +54,7 @@ class FooBody {
 private:
     FooBody( const FooBody& );          // Deny access
     void operator=( const FooBody& );   // Deny access
-    friend void Flog( int nthread );
+    friend void Flog( int nthread, bool interference );
     //! Parent that created this body via split operation.  NULL if original body.
     FooBody* parent;
     //! Total number of index values processed by body and its children.
@@ -110,7 +110,7 @@ public:
 #include "harness.h"
 #include "tbb/tick_count.h"
 
-void Flog( int nthread ) {
+void Flog( int nthread, bool interference=false ) {
     for (int mode = 0;  mode < 4; mode++) {
         tbb::tick_count T0 = tbb::tick_count::now();
         long join_count = 0;        
@@ -147,28 +147,131 @@ void Flog( int nthread ) {
         }
         tbb::tick_count T1 = tbb::tick_count::now();
         if( Verbose )
-            printf("time=%g join_count=%ld ForkCount=%ld nthread=%d\n",(T1-T0).seconds(),join_count,long(ForkCount), nthread);
+            REPORT("time=%g join_count=%ld ForkCount=%ld nthread=%d%s\n",
+                   (T1-T0).seconds(),join_count,long(ForkCount), nthread, interference ? " with interference)":"");
     }
+}
+
+class DeepThief: public tbb::task {
+    /*override*/tbb::task* execute() {
+        if( !is_stolen_task() )
+            spawn(*child);
+        wait_for_all();
+        return NULL;
+    }
+    task* child;
+    friend void FlogWithInterference(int);
+public:
+    DeepThief() : child() {}
+};
+
+//! Test for problem in TBB 2.1 parallel_reduce where middle of a range is stolen.
+/** Warning: this test is a somewhat abusive use of TBB somewhat because 
+    it requires two or more threads to avoid deadlock. */
+void FlogWithInterference( int nthread ) {
+    ASSERT( nthread>=2, "requires too or more threads" );
+
+    // Build linear chain of tasks. 
+    // The purpose is to drive up "task depth" in TBB 2.1.
+    // An alternative would be to use add_to_depth, but that method is deprecated in TBB 2.2,
+    // and this way we generalize to catching problems with implicit depth calculations.
+    tbb::task* root = new( tbb::task::allocate_root() ) tbb::empty_task;
+    root->set_ref_count(2);
+    tbb::task* t = root;
+    for( int i=0; i<3; ++i ) {
+        t = new( t->allocate_child() ) tbb::empty_task;
+        t->set_ref_count(1);
+    }
+
+    // Append a DeepThief to the chain.
+    DeepThief* deep_thief = new( t->allocate_child() ) DeepThief;
+    deep_thief->set_ref_count(2);
+
+    // Append a leaf to the chain. 
+    tbb::task* leaf = new( deep_thief->allocate_child() ) tbb::empty_task;
+    deep_thief->child = leaf;
+
+    root->spawn(*deep_thief);
+
+    Flog(nthread,true);
+
+    if( root->ref_count()==2 ) {
+        // Spawn leaf, which when it finishes, cause the DeepThief and rest of the chain to finish.
+        root->spawn( *leaf );
+    }
+    // Wait for all tasks in the chain from root to leaf to finish.
+    root->wait_for_all();
+    root->destroy( *root );
+}
+
+#include "tbb/blocked_range.h"
+
+#if _MSC_VER
+    typedef tbb::internal::uint64_t ValueType;
+#else
+    typedef uint64_t ValueType;
+#endif
+
+struct Sum {
+    template<typename T>
+    T operator() ( const T& v1, const T& v2 ) const {
+        return v1 + v2;
+    }
+};
+
+struct Accumulator {
+    ValueType operator() ( const tbb::blocked_range<ValueType*>& r, ValueType value ) const {
+        for ( ValueType* pv = r.begin(); pv != r.end(); ++pv )
+            value += *pv;
+        return value;
+    }
+};
+
+void ParallelSum () {
+    const ValueType I = 0,
+                    N = 1000000,
+                    R = N * (N + 1) / 2;
+    ValueType *array = new ValueType[N + 1];
+    for ( ValueType i = 0; i < N; ++i )
+        array[i] = i + 1;
+    tbb::blocked_range<ValueType*> range(array, array + N);
+    ValueType r1 = tbb::parallel_reduce( range, I, Accumulator(), Sum() );
+    ASSERT( r1 == R, NULL );
+#if __TBB_LAMBDAS_PRESENT && !__TBB_LAMBDA_AS_TEMPL_PARAM_BROKEN
+    ValueType r2 = tbb::parallel_reduce( range, I, 
+        [](const tbb::blocked_range<ValueType*>& r, ValueType value) -> ValueType { 
+            for ( ValueType* pv = r.begin(); pv != r.end(); ++pv )
+                value += *pv;
+            return value;
+        },
+        Sum()
+    );
+    ASSERT( r2 == R, NULL );
+#endif /* LAMBDAS */
+    delete array;
 }
 
 #include "tbb/task_scheduler_init.h"
 #include "harness_cpu.h"
 
+__TBB_TEST_EXPORT
 int main( int argc, char* argv[] ) {
     // Set default number of threads
     MinThread = MaxThread = 2;
     ParseCommandLine( argc, argv );
     if( MinThread<0 ) {
-        printf("Usage: nthread must be positive\n");
+        REPORT("Usage: nthread must be positive\n");
         exit(1);
     }
     for( int p=MinThread; p<=MaxThread; ++p ) {
         tbb::task_scheduler_init init( p );
         Flog(p);
-
+        if( p>=2 )
+            FlogWithInterference(p);
+        ParallelSum();
         // Test that all workers sleep when no work
         TestCPUUserTime(p);
     }
-    printf("done\n");
+    REPORT("done\n");
     return 0;
 }

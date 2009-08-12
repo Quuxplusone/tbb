@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -60,6 +60,7 @@
 #include "tbb/mutex.h"
 #include "tbb/spin_mutex.h"
 #include "tbb/queuing_mutex.h"
+#include "tbb/tbb_thread.h"
 
 using namespace std;
 using namespace tbb;
@@ -126,9 +127,9 @@ value SerialQueueFib(int n)
         Q.push(Matrix1110);
     Matrix2x2 A, B;
     while(true) {
-        Q.pop(A);
+        while( !Q.try_pop(A) ) this_tbb_thread::yield();
         if(Q.empty()) break;
-        Q.pop(B);
+        while( !Q.try_pop(B) ) this_tbb_thread::yield();
         Q.push(A * B);
     }
     return A.v[0][0];
@@ -244,9 +245,9 @@ struct QueueStream {
     //! Get pair of matricies if present
     bool pop_if_present( pair<Matrix2x2, Matrix2x2> &mm ) {
         // get first matrix if present
-        if(!Queue.pop_if_present(mm.first)) return false;
+        if(!Queue.try_pop(mm.first)) return false;
         // get second matrix if present
-        if(!Queue.pop_if_present(mm.second)) {
+        if(!Queue.try_pop(mm.second)) {
             // if not, then push back first matrix
             Queue.push(mm.first); return false;
         }
@@ -281,7 +282,7 @@ public:
     void operator() (argument_type mm) const {
         mm.first = mm.first * mm.second;
         // note: it can run concurrently with QueueStream::pop_if_present()
-        if(my_stream.Queue.pop_if_present(mm.second))
+        if(my_stream.Queue.try_pop(mm.second))
              my_while.add( mm ); // now, two matrices available. Add next iteration.
         else my_stream.Queue.push( mm.first ); // or push back calculated value if queue is empty
     }
@@ -308,7 +309,7 @@ struct QueueProcessTask: public task {
     QueueProcessTask( QueueStream &s ) : my_stream(s) { }
     //! executing task
     /*override*/ task* execute() {
-        while( !my_stream.producer_is_done || my_stream.Queue.size()>1 ) {
+        while( !my_stream.producer_is_done || my_stream.Queue.unsafe_size()>1 ) {
             parallel_while<parallel_whileFibBody> w; // run while loop in parallel
             w.run( my_stream, parallel_whileFibBody( w, my_stream ) );
         }
@@ -323,10 +324,13 @@ value ParallelQueueFib(int n)
     task_list list;
     list.push_back(*new(task::allocate_root()) QueueInsertTask( n, stream ));
     list.push_back(*new(task::allocate_root()) QueueProcessTask( stream ));
-    // last runs first - scheduler is as LIFO
+    // If there is only a single thread, the first task in the list runs to completion
+    // before the second task in the list starts.
     task::spawn_root_and_wait(list);
-    assert(stream.Queue.size() == 1); // it is easy to lose some work
-    Matrix2x2 M; stream.Queue.pop( M ); // get last matrix
+    assert(stream.Queue.unsafe_size() == 1); // it is easy to lose some work
+    Matrix2x2 M; 
+    bool result = stream.Queue.try_pop( M ); // get last matrix
+    assert( result );
     return M.v[0][0]; // and result number
 }
 
@@ -357,7 +361,9 @@ public:
     {
         concurrent_queue<Matrix2x2> &Queue = *static_cast<concurrent_queue<Matrix2x2> *>(p);
         Matrix2x2 m1, m2;
-        Queue.pop( m1 ); Queue.pop( m2 ); // get two elements
+        // get two elements
+        while( !Queue.try_pop( m1 ) ) this_tbb_thread::yield(); 
+        while( !Queue.try_pop( m2 ) ) this_tbb_thread::yield();
         m1 = m1 * m2; // process them
         Queue.push( m1 ); // and push back
         return this; // just nothing
@@ -379,7 +385,10 @@ value ParallelPipeFib(int n)
     pipeline.run( n ); // must be larger then max threads number
     pipeline.clear(); // do not forget clear the pipeline
 
-    Matrix2x2 M; input.Queue.pop( M ); // get last element
+    assert( input.Queue.unsafe_size()==1 );
+    Matrix2x2 M; 
+    bool result = input.Queue.try_pop( M ); // get last element
+    assert( result );
     return M.v[0][0]; // get value
 }
 
@@ -523,7 +532,7 @@ typedef value (*MeasureFunc)(int);
 value Measure(const char *name, MeasureFunc func, int n)
 {
     value result;
-    if(Verbose) printf(name);
+    if(Verbose) printf("%s",name);
     t0 = tick_count::now();
     for(int number = 2; number <= n; number++)
         result = func(number);

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -36,6 +36,11 @@
 // are supposed to work in the abscense of STL.
 
 #include "harness.h"
+
+template<typename A>
+struct is_zero_filling {
+    static const bool value = false;
+};
 
 int NumberOfFoo;
 
@@ -143,9 +148,14 @@ void TestBasic( A& a ) {
 
 #include "tbb/blocked_range.h"
 
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+    // Workaround for erroneous "conditional expression is constant" warning in method check_allocate.
+    #pragma warning (disable: 4127)
+#endif
+
 // A is an allocator for some type
 template<typename A>
-struct Body {
+struct Body: NoAssign {
     static const size_t max_k = 100000;
     A &a;
     Body(A &a_) : a(a_) {}
@@ -155,8 +165,11 @@ struct Body {
         size_t size = i * (i&3);
         array[i] = i&1 ? a.allocate(size, array[i>>3]) : a.allocate(size);
         char* s = reinterpret_cast<char*>(reinterpret_cast<void*>(array[i]));
-        for( size_t j=0; j<size*sizeof(A); ++j )
+        for( size_t j=0; j<size*sizeof(A); ++j ) {
+            if(is_zero_filling<typename A::template rebind<void>::other>::value)
+                ASSERT( !s[j], NULL);
             s[j] = PseudoRandomValue(i, t);
+        }
     }
 
     void check_deallocate( typename A::pointer array[], size_t i, size_t t ) const
@@ -170,11 +183,8 @@ struct Body {
         array[i] = 0;
     }
 
-    void operator()( const tbb::blocked_range<size_t>& r ) const {
-        ASSERT( r.begin()+1==r.end(), NULL );
-
+    void operator()( size_t thread_id ) const {
         typename A::pointer array[256];
-        size_t thread_id = r.begin();
 
         for( size_t k=0; k<256; ++k )
             array[k] = 0;
@@ -200,7 +210,7 @@ void Test() {
 
     // thread safety
     int n = NumberOfFoo;
-    NativeParallelFor( tbb::blocked_range<size_t>(0,4,1), Body<A>(a) );
+    NativeParallelFor( 4, Body<A>(a) );
     ASSERT( NumberOfFoo==n, "Allocate/deallocate count mismatched" );
  
     ASSERT( a==b, NULL );
@@ -214,14 +224,3 @@ int TestMain() {
     return 0;
 }
 
-template<typename Container>
-void TestContainer() {
-    Container c;
-    for( int i=0; i<1000; ++i )
-        c.push_back(i*i);    
-    typename Container::const_iterator p = c.begin();
-    for( int i=0; i<1000; ++i ) {
-        ASSERT( *p==i*i, NULL );
-        ++p;
-    }
-}

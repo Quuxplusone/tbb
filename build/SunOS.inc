@@ -1,4 +1,4 @@
-# Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -25,9 +25,17 @@
 # the GNU General Public License.
 
 ifndef arch
-        ifeq ($(shell arch),i86pc)
-                export arch:=ia32
+        arch:=$(shell uname -p)
+        ifeq ($(arch),i386)
+            ifeq ($(shell isainfo -b),64)
+                arch:=intel64
+            else
+                arch:=ia32
+            endif
         endif
+        export arch
+# For non-IA systems running Sun OS, 'arch' will contain whatever is printed by uname -p.
+# In particular, for SPARC architecture it will contain "sparc".
 endif
 
 ifndef runtime
@@ -52,8 +60,8 @@ MAKE_VERSIONS=bash $(tbb_root)/build/version_info_sunos.sh $(CPLUS) $(CPLUS_FLAG
 MAKE_TBBVARS=bash $(tbb_root)/build/generate_tbbvars.sh
 
 ifeq ($(compiler),suncc)
-        export TBB_CUSTOM_VARS_SH=CXXFLAGS="-I$(CWD)/include -library=stlport4 $(CXXFLAGS) -M$(CWD)/build/suncc.map.pause"
-        export TBB_CUSTOM_VARS_CSH=CXXFLAGS "-I$(CWD)/include -library=stlport4 $(CXXFLAGS) -M$(CWD)/build/suncc.map.pause"
+        export TBB_CUSTOM_VARS_SH=CXXFLAGS="-I$(CWD)/../include -library=stlport4 $(CXXFLAGS) -M$(CWD)/../build/suncc.map.pause"
+        export TBB_CUSTOM_VARS_CSH=CXXFLAGS "-I$(CWD)/../include -library=stlport4 $(CXXFLAGS) -M$(CWD)/../build/suncc.map.pause"
 endif
 	
 ifdef LD_LIBRARY_PATH
@@ -62,7 +70,7 @@ else
         export LD_LIBRARY_PATH := .
 endif
 
-####### Build settigns ########################################################
+####### Build settings ########################################################
 
 OBJ = o
 DLL = so
@@ -75,4 +83,8 @@ LINK_TBB.LIB = $(TBB.LIB)
 MALLOC.DLL = libtbbmalloc$(DEBUG_SUFFIX).$(DLL)
 MALLOC.LIB = $(MALLOC.DLL)
 
+MALLOCPROXY.DLL = libtbbmalloc_proxy$(DEBUG_SUFFIX).$(DLL)
+
 TBB_NOSTRICT=1
+
+TEST_LAUNCHER=sh $(tbb_root)/build/test_launcher.sh

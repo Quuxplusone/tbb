@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -36,8 +36,9 @@
 #define OLDTABLEHEADER "tbb/concurrent_hash_map-4078.h"//-4329
 
 //! enable/disable experimental implementation tests (correct include file also)
+
 #define TESTTABLE 0
-#define TESTTABLEHEADER "tbb/concurrent_hash_map-4148.h"
+#define TESTTABLEHEADER "tbb/concurrent_unordered_map.h"
 
 //////////////////////////////////////////////////////////////////////////////////
 
@@ -56,16 +57,17 @@
 #include "tbb/spin_rw_mutex.h"
 #include "tbb/aligned_space.h"
 #include "tbb/atomic.h"
-#include "../tbb/tbb_misc.h"  // tbb::internal::ExponentialBackoff
 // for test
 #include "tbb/spin_mutex.h"
 #include "time_framework.h"
+
 
 using namespace tbb;
 using namespace tbb::internal;
 
 struct IntHashCompare {
     size_t operator() ( int x ) const { return x; }
+    bool operator() ( int x, int y ) const { return x==y; }
     static long hash( int x ) { return x; }
     bool equal( int x, int y ) const { return x==y; }
 };
@@ -91,14 +93,14 @@ namespace version_new {
     namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
     #include TESTTABLEHEADER
 }
-typedef version_new::tbb::concurrent_hash_map<int,int,IntHashCompare> TestTable;
+typedef version_new::tbb::concurrent_unordered_map<int,int,IntHashCompare,IntHashCompare> TestTable;
 #define TESTTABLE 1
 #endif
 
 ///////////////////////////////////////
 
 static const char *map_testnames[] = {
-    "fill", "work", "clean"
+    "1.insert", "2.count(w/rehash)", "3.find/wr", "4.erase"
 };
 
 template<typename TableType>
@@ -108,7 +110,7 @@ struct TestTBBMap : TesterBase {
     TableType Table;
     int n_items;
 
-    TestTBBMap() : TesterBase(3) {}
+    TestTBBMap() : TesterBase(4) {}
     void init() { n_items = value/threads_count; }
 
     std::string get_name(int testn) {
@@ -125,16 +127,23 @@ struct TestTBBMap : TesterBase {
                 a->second = 0;
             }
             break;
-          case 1: // work
+          case 1: // work1
+            for(int i = t*n_items, e = (t+1)*n_items; i < e; i++) {
+                size_t c = Table.count( i );
+                ASSERT( c == 1, NULL);
+            }
+            break;
+          case 2: // work2
             for(int i = t*n_items, e = (t+1)*n_items; i < e; i++) {
                 accessor a;
                 Table.find( a, i );
+                ASSERT( !a->second, "A key should be incremented only once");
                 a->second += 1;
             }
             break;
-          case 2: // clean
+          case 3: // clean
             for(int i = t*n_items, e = (t+1)*n_items; i < e; i++) {
-                Table.erase( i );
+                ASSERT( Table.erase( i ), NULL);
             }
         }
         return 0;
@@ -147,7 +156,7 @@ struct TestSTLMap : TesterBase {
     M mutex;
 
     int n_items;
-    TestSTLMap() : TesterBase(3) {}
+    TestSTLMap() : TesterBase(4) {}
     void init() { n_items = value/threads_count; }
 
     std::string get_name(int testn) {
@@ -163,13 +172,20 @@ struct TestSTLMap : TesterBase {
                 Table[i] = 0;
             }
             break;
-          case 1: // work
+          case 1: // work1
+            for(int i = t*n_items, e = (t+1)*n_items; i < e; i++) {
+                typename M::scoped_lock with(mutex);
+                size_t c = Table.count(i);
+                ASSERT( c == 1, NULL);
+            }
+            break;
+          case 2: // work2
             for(int i = t*n_items, e = (t+1)*n_items; i < e; i++) {
                 typename M::scoped_lock with(mutex);
                 Table[i] += 1;
             }
             break;
-          case 2: // clean
+          case 3: // clean
             for(int i = t*n_items, e = (t+1)*n_items; i < e; i++) {
                 typename M::scoped_lock with(mutex);
                 Table.erase(i);
@@ -225,7 +241,7 @@ struct TestHashMapFind : TesterBase {
     int n_items;
 
     std::string get_name(int testn) {
-        return std::string(!testn?"find()":"insert()");
+        return std::string(!testn?"find":"insert");
     }
 
     TestHashMapFind() : TesterBase(2) {}
@@ -269,7 +285,7 @@ struct TestHashCountStrings : TesterBase {
     int n_items;
 
     std::string get_name(int testn) {
-        return !testn?"example":"just find";
+        return !testn?"insert":"find";
     }
 
     TestHashCountStrings() : TesterBase(2) {}
@@ -299,15 +315,18 @@ public:
         if(Verbose) printf("Processing with %d threads: %d...\n", threads, value);
         process( value, threads,
 #if OLDTABLE
-            run("old::hashmap", new NanosecPerValue<TestHashMapFind<OldTable> >() ),
+            run("Filled old::hashmap", new NanosecPerValue<TestHashMapFind<OldTable> >() ),
 #endif
-            run("tbb::hashmap", new NanosecPerValue<TestHashMapFind<IntTable> >() ),
-#if OLDTABLE
-            run("old::countstr", new TimeTest<TestHashCountStrings<OldTable> >() ),
-#endif
-            run("tbb::countstr", new TimeTest<TestHashCountStrings<IntTable> >() ),
+            run("Filled tbb::hashmap", new NanosecPerValue<TestHashMapFind<IntTable> >() ),
 #if TESTTABLE
-            run("new::countstr", new TimeTest<TestHashCountStrings<TestTable> >() ),
+            run("Filled new::hashmap", new NanosecPerValue<TestHashMapFind<TestTable> >() ),
+#endif
+#if OLDTABLE
+            run("CountStr old::hashmap", new TimeTest<TestHashCountStrings<OldTable> >() ),
+#endif
+            run("CountStr tbb::hashmap", new TimeTest<TestHashCountStrings<IntTable> >() ),
+#if TESTTABLE
+            run("CountStr new::hashmap", new TimeTest<TestHashCountStrings<TestTable> >() ),
 #endif
         end );
         //stat->Print(StatisticsCollector::HTMLFile);
@@ -319,7 +338,7 @@ public:
 int main(int argc, char* argv[]) {
     if(argc>1) Verbose = true;
     //if(argc>2) ExtraVerbose = true;
-    MinThread = 1; MaxThread = 8;
+    MinThread = 1; MaxThread = task_scheduler_init::default_num_threads();
     ParseCommandLine( argc, argv );
 
     ASSERT(tbb_allocator<int>::allocator_type() == tbb_allocator<int>::scalable, "expecting scalable allocator library to be loaded. Please build it by:\n\t\tmake tbbmalloc");
@@ -336,7 +355,7 @@ int main(int argc, char* argv[]) {
     {
         test_hash_map the_test;
         for( int t=MinThread; t <= MaxThread; t*=2)
-            for( int o=/*4096*/(1<<8)*8*2; o<2200000; o*=2 )
+            for( int o=/*2048*/(1<<8)*8; o<2200000; o*=2 )
                 the_test.factory(o, t);
         the_test.report.SetTitle("Nanoseconds per operation of (Mode) for N items in container (Name)");
         the_test.report.SetStatisticFormula("1AVG per size", "=AVERAGE(ROUNDS)");

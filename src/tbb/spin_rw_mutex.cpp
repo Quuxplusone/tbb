@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2008 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,13 +27,14 @@
 */
 
 #include "tbb/spin_rw_mutex.h"
-#include "tbb_misc.h"
+#include "tbb/tbb_machine.h"
 #include "itt_notify.h"
+#include "itt_annotate.h"
 
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
     #pragma warning (disable: 4244)
-#endif /* _MSC_VER && _Wp64 */
+#endif
 
 namespace tbb {
 
@@ -48,8 +49,8 @@ static inline T CAS(volatile T &addr, T newv, T oldv) {
 bool spin_rw_mutex_v3::internal_acquire_writer()
 {
     ITT_NOTIFY(sync_prepare, this);
-    internal::ExponentialBackoff backoff;
-    while(true) {
+    internal::atomic_backoff backoff;
+    for(;;) {
         state_t s = const_cast<volatile state_t&>(state); // ensure reloading
         if( !(s & BUSY) ) { // no readers, no writers
             if( CAS(state, WRITER, s)==s )
@@ -61,6 +62,7 @@ bool spin_rw_mutex_v3::internal_acquire_writer()
         backoff.pause();
     }
     ITT_NOTIFY(sync_acquired, this);
+    ITT_ANNOTATE_ACQUIRE_WRITE_LOCK(this);
     return false;
 }
 
@@ -69,14 +71,15 @@ void spin_rw_mutex_v3::internal_release_writer()
 {
     ITT_NOTIFY(sync_releasing, this);
     __TBB_AtomicAND( &state, READERS );
+    ITT_ANNOTATE_RELEASE_WRITE_LOCK(this);
 }
 
 //! Acquire read lock on given mutex.
 void spin_rw_mutex_v3::internal_acquire_reader() 
 {
     ITT_NOTIFY(sync_prepare, this);
-    internal::ExponentialBackoff backoff;
-    while(true) {
+    internal::atomic_backoff backoff;
+    for(;;) {
         state_t s = const_cast<volatile state_t&>(state); // ensure reloading
         if( !(s & (WRITER|WRITER_PENDING)) ) { // no writer or write requests
             state_t t = (state_t)__TBB_FetchAndAddW( &state, (intptr_t) ONE_READER );
@@ -90,6 +93,7 @@ void spin_rw_mutex_v3::internal_acquire_reader()
 
     ITT_NOTIFY(sync_acquired, this);
     __TBB_ASSERT( state & READERS, "invalid state of a read lock: no readers" );
+    ITT_ANNOTATE_ACQUIRE_READ_LOCK(this);
 }
 
 //! Upgrade reader to become a writer.
@@ -104,7 +108,7 @@ bool spin_rw_mutex_v3::internal_upgrade()
     while( (s & READERS)==ONE_READER || !(s & WRITER_PENDING) ) {
         state_t old_s = s;
         if( (s=CAS(state, s | WRITER | WRITER_PENDING, s))==old_s ) {
-            internal::ExponentialBackoff backoff;
+            internal::atomic_backoff backoff;
             ITT_NOTIFY(sync_prepare, this);
             // the state should be 0...0111, i.e. 1 reader and waiting writer;
             // both new readers and writers are blocked
@@ -114,6 +118,8 @@ bool spin_rw_mutex_v3::internal_upgrade()
 
             __TBB_FetchAndAddW( &state,  - (intptr_t)(ONE_READER+WRITER_PENDING));
             ITT_NOTIFY(sync_acquired, this);
+            ITT_ANNOTATE_RELEASE_READ_LOCK(this);
+            ITT_ANNOTATE_ACQUIRE_WRITE_LOCK(this);
             return true; // successfully upgraded
         }
     }
@@ -127,6 +133,8 @@ void spin_rw_mutex_v3::internal_downgrade() {
     ITT_NOTIFY(sync_releasing, this);
     __TBB_FetchAndAddW( &state, (intptr_t)(ONE_READER-WRITER));
     __TBB_ASSERT( state & READERS, "invalid state after downgrade: no readers" );
+    ITT_ANNOTATE_RELEASE_WRITE_LOCK(this);
+    ITT_ANNOTATE_ACQUIRE_READ_LOCK(this);
 }
 
 //! Release read lock on the given mutex
@@ -135,6 +143,7 @@ void spin_rw_mutex_v3::internal_release_reader()
     __TBB_ASSERT( state & READERS, "invalid state of a read lock: no readers" );
     ITT_NOTIFY(sync_releasing, this); // release reader
     __TBB_FetchAndAddWrelease( &state,-(intptr_t)ONE_READER);
+    ITT_ANNOTATE_RELEASE_READ_LOCK(this);
 }
 
 //! Try to acquire write lock on the given mutex
@@ -145,6 +154,7 @@ bool spin_rw_mutex_v3::internal_try_acquire_writer()
     if( !(s & BUSY) ) // no readers, no writers; mask is 1..1101
         if( CAS(state, WRITER, s)==s ) {
             ITT_NOTIFY(sync_acquired, this);
+            ITT_ANNOTATE_ACQUIRE_WRITE_LOCK(this);
             return true; // successfully stored writer flag
         }
     return false;
@@ -159,6 +169,7 @@ bool spin_rw_mutex_v3::internal_try_acquire_reader()
         state_t t = (state_t)__TBB_FetchAndAddW( &state, (intptr_t) ONE_READER );
         if( !( t&WRITER )) {  // got the lock
             ITT_NOTIFY(sync_acquired, this);
+            ITT_ANNOTATE_ACQUIRE_READ_LOCK(this);
             return true; // successfully stored increased number of readers
         }
         // writer got there first, undo the increment
@@ -167,4 +178,8 @@ bool spin_rw_mutex_v3::internal_try_acquire_reader()
     return false;
 }
 
+
+void spin_rw_mutex_v3::internal_construct() {
+    ITT_SYNC_CREATE(this, _T("tbb::spin_rw_mutex"), _T(""));
+}
 } // namespace tbb
