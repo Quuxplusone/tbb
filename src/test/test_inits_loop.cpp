@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,6 +28,7 @@
 
 #if __APPLE__
 
+#define HARNESS_CUSTOM_MAIN 1
 #include "harness.h"
 #include <cstdlib>
 #include "tbb/task_scheduler_init.h"
@@ -72,22 +73,21 @@ bool exec_test(const char *self) {
     return true;
 }
 
-__TBB_TEST_EXPORT
+HARNESS_EXPORT
 int main( int argc, char * argv[] ) {
     MinThread = 3000;
     ParseCommandLine( argc, argv );
     if( MinThread <= 0 ) {
         tbb::task_scheduler_init init( 2 ); // even number required for an error
     } else {
-        for(int i = 0; i<MinThread; i++)
+        for(int i = 0; i<MinThread; i++) {
             if(exec_test(argv[0])) {
                 REPORT("ERROR: execution fails at %d-th iteration!\n", i);
                 exit(1);
             }
-
+        }
         REPORT("done\n");
     }
-    return 0;
 }
 
 #else /* !__APPLE__ */
@@ -95,10 +95,8 @@ int main( int argc, char * argv[] ) {
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 #include "harness.h"
 
-__TBB_TEST_EXPORT
-int main() {
-    REPORT("skip\n");
-    return 0;
+int TestMain () {
+    return Harness::Skipped;
 }
 
 #endif /* !__APPLE__ */

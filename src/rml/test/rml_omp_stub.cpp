@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -60,7 +60,12 @@ public:
 //! Never actually set, because point of test is to find linkage issues.
 __kmp::rml::omp_server* MyServerPtr;
 
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#define HARNESS_CUSTOM_MAIN 1
+#include "harness.h"
+
 extern "C" void Cplusplus() {
     MyClient client;
     Version = client.version();
+    REPORT("done\n");
 }

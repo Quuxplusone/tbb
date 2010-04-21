@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,12 +34,10 @@
 **/
 
 #include "tbb/tbb.h"
-#define HARNESS_NO_PARSE_COMMAND_LINE 1
-#include "harness.h"
 
-volatile size_t g_sink;
+static volatile size_t g_sink;
 
-#define TestTypeDefinitionPresence( Type) g_sink = sizeof(tbb::Type);
+#define TestTypeDefinitionPresence( Type ) g_sink = sizeof(tbb::Type);
 #define TestTypeDefinitionPresence2(TypeStart, TypeEnd) g_sink = sizeof(tbb::TypeStart,TypeEnd);
 #define TestFuncDefinitionPresence(Fn, Args, ReturnType) { ReturnType (*pfn)Args = &tbb::Fn; (void)pfn; }
 
@@ -48,6 +46,12 @@ struct Body {
 };
 struct Body1 {
     void operator() ( int ) const {}
+};
+struct Body1a {
+    int operator() ( const tbb::blocked_range<int>&, const int ) const { return 0; }
+};
+struct Body1b {
+    int operator() ( const int, const int ) const { return 0; }
 };
 struct Body2 {
     Body2 () {}
@@ -64,16 +68,27 @@ struct Body3 {
     void assign( const Body3& ) {}
 };
 
-__TBB_TEST_EXPORT
-int main(int /*argc*/, char* /*argv*/[]) {
+#if __TBB_TEST_SECONDARY
+/* This mode is used to produce secondary object file that should be linked with
+   main object file in order to detect "multiple definition" linker error.
+*/
+void secondary()
+#else
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#include "harness.h"
+int TestMain ()
+#endif
+{
     TestTypeDefinitionPresence2(aligned_space<int, 1> );
     TestTypeDefinitionPresence( atomic<int> );
     TestTypeDefinitionPresence( cache_aligned_allocator<int> );
     TestTypeDefinitionPresence( tbb_hash_compare<int> );
     TestTypeDefinitionPresence2(concurrent_hash_map<int, int> );
+    TestTypeDefinitionPresence2(concurrent_unordered_map<int, int> );
     TestTypeDefinitionPresence( concurrent_bounded_queue<int> );
     TestTypeDefinitionPresence( deprecated::concurrent_queue<int> );
     TestTypeDefinitionPresence( strict_ppl::concurrent_queue<int> );
+    TestTypeDefinitionPresence( combinable<int> );
     TestTypeDefinitionPresence( concurrent_vector<int> );
     TestTypeDefinitionPresence( enumerable_thread_specific<int> );
     TestTypeDefinitionPresence( mutex );
@@ -84,21 +99,26 @@ int main(int /*argc*/, char* /*argv*/[]) {
     TestTypeDefinitionPresence( recursive_mutex );
     TestTypeDefinitionPresence( spin_mutex );
     TestTypeDefinitionPresence( spin_rw_mutex );
+    TestTypeDefinitionPresence( critical_section );
+    TestTypeDefinitionPresence( reader_writer_lock );
     TestTypeDefinitionPresence( tbb_exception );
     TestTypeDefinitionPresence( captured_exception );
     TestTypeDefinitionPresence( movable_exception<int> );
 #if !TBB_USE_CAPTURED_EXCEPTION
-    TestTypeDefinitionPresence( tbb_exception_ptr );
+    TestTypeDefinitionPresence( internal::tbb_exception_ptr );
 #endif /* !TBB_USE_CAPTURED_EXCEPTION */
     TestTypeDefinitionPresence( blocked_range3d<int> );
-    TestFuncDefinitionPresence( parallel_invoke, (Body&, Body&), void );
+    TestFuncDefinitionPresence( parallel_invoke, (const Body&, const Body&), void );
     TestFuncDefinitionPresence( parallel_do, (int*, int*, const Body1&), void );
-    TestFuncDefinitionPresence( parallel_for_each, (int*, int*, Body1), Body1 );
+    TestFuncDefinitionPresence( parallel_for_each, (int*, int*, const Body1&), void );
+    TestFuncDefinitionPresence( parallel_for, (int, int, int, const Body1&), void );
     TestFuncDefinitionPresence( parallel_for, (const tbb::blocked_range<int>&, const Body2&, const tbb::simple_partitioner&), void );
+    TestFuncDefinitionPresence( parallel_reduce, (const tbb::blocked_range<int>&, const int&, const Body1a&, const Body1b&, const tbb::auto_partitioner&), int );
     TestFuncDefinitionPresence( parallel_reduce, (const tbb::blocked_range<int>&, Body2&, tbb::affinity_partitioner&), void );
     TestFuncDefinitionPresence( parallel_scan, (const tbb::blocked_range2d<int>&, Body3&, const tbb::auto_partitioner&), void );
     TestFuncDefinitionPresence( parallel_sort, (int*, int*), void );
     TestTypeDefinitionPresence( pipeline );
+    TestFuncDefinitionPresence( parallel_pipeline, (size_t, const tbb::filter_t<void,void>&), void );
     TestTypeDefinitionPresence( task );
     TestTypeDefinitionPresence( empty_task );
     TestTypeDefinitionPresence( task_list );
@@ -111,6 +131,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
     TestTypeDefinitionPresence( tbb_allocator<int> );
     TestTypeDefinitionPresence( zero_allocator<int> );
     TestTypeDefinitionPresence( tick_count );
-    REPORT("done\n");
-    return 0;
+#if !__TBB_TEST_SECONDARY
+    return Harness::Done;
+#endif
 }

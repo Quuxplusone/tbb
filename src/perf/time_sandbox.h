@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -115,7 +115,7 @@ namespace sandbox9 {
 //if harness.h included
 #if defined(ASSERT) && !HARNESS_NO_PARSE_COMMAND_LINE
 #ifndef TEST_PREFIX
-#define TEST_PREFIX if(Verbose) printf("Processing with %d threads: %ld...\n", threads, value);
+#define TEST_PREFIX if(Verbose) printf("Processing with %d threads: %ld...\n", threads, long(value));
 #endif
 #endif//harness included
 

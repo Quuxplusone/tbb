@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -36,10 +36,28 @@
 #elif __APPLE__ || __sun
 #include <unistd.h>
 #elif _WIN32
+#if _XBOX
+    #define NONET
+    #define NOD3D
+    #include <xtl.h>
+#else
 #include <windows.h>
 #endif
+#endif /* OS specific */
 #include <new>
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
+#endif
+
 #include <stdexcept>
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
+
 #include <tbb/atomic.h>
 
 #if __SUNPRO_CC
@@ -77,10 +95,12 @@ public:
 
     static_counting_allocator() throw() { }
 
-    static_counting_allocator(const static_counting_allocator&) throw() { }
+    static_counting_allocator(const static_counting_allocator& src) throw() 
+    : base_alloc_t(src) { }
 
     template<typename U, typename C>
-    static_counting_allocator(const static_counting_allocator<U, C>&) throw() { }
+    static_counting_allocator(const static_counting_allocator<U, C>& src) throw()
+    : base_alloc_t(src) { }
 
     bool operator==(const static_counting_allocator &a) const
     { return true; }
@@ -90,7 +110,8 @@ public:
         if(verbose) printf("\t+%d|", int(n));
         if(max_items && items_allocated + n >= max_items) {
             if(verbose) printf("items limit hits!");
-            if(throwing) throw std::bad_alloc();
+            if(throwing)
+                __TBB_THROW( std::bad_alloc() );
             return NULL;
         }
         allocations++;
@@ -170,7 +191,8 @@ public:
     }
 
     local_counting_allocator(const local_counting_allocator &a) throw()
-        : items_allocated(a.items_allocated)
+        : base_alloc_t(a)
+		, items_allocated(a.items_allocated)
         , items_freed(a.items_freed)
         , allocations(a.allocations)
         , frees(a.frees)
@@ -201,7 +223,7 @@ public:
     pointer allocate(const size_type n)
     {
         if(max_items && items_allocated + n >= max_items)
-            throw std::bad_alloc();
+            __TBB_THROW( std::bad_alloc() );
         ++allocations;
         items_allocated += n;
         return base_alloc_t::allocate(n, pointer(0));

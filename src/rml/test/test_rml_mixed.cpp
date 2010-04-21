@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,6 +30,8 @@
 #include "rml_omp.h"
 #include "tbb/atomic.h"
 #include "tbb/tick_count.h"
+
+#define HARNESS_DEFAULT_MIN_THREADS 4
 #include "harness.h"
 
 const int OMP_ParallelRegionSize = 16;
@@ -70,6 +72,9 @@ public:
     Factory factory;
     Client* client;
     typename Factory::server_type* server;
+#if _WIN32||_WIN64
+    ::rml::server::execution_resource_t me;
+#endif
     RunTime() {
         factory.open();
     }
@@ -150,10 +155,16 @@ void RunTime<Factory,Client>::create_connection() {
     client = new Client;
     typename Factory::status_type status = factory.make_server( server, *client );
     ASSERT( status==Factory::st_success, NULL );
+#if _WIN32||_WIN64
+    server->register_master( me );
+#endif /* _WIN32||_WIN64 */
 }
 
 template<typename Factory, typename Client>
 void RunTime<Factory,Client>::destroy_connection() {
+#if _WIN32||_WIN64
+    server->unregister_master( me );
+#endif /* _WIN32||_WIN64 */
     server->request_close_connection();
     server = NULL;
 }
@@ -228,13 +239,9 @@ void TBBOutSideOpenMPInside() {
     TotalThreadLevel.change_level(-1);
 }  
 
-int main( int argc, char* argv[] ) {
-    // Set defaults
-    MinThread = 4;
-    MaxThread = 4;
-    ParseCommandLine(argc,argv);
+int TestMain () {
     for( int TBB_MaxThread=MinThread; TBB_MaxThread<=MaxThread; ++TBB_MaxThread ) {
-        if( Verbose ) printf("Testing with TBB_MaxThread=%d\n", TBB_MaxThread);
+        REMARK("Testing with TBB_MaxThread=%d\n", TBB_MaxThread);
         TBB_RunTime.create_connection();
         OMP_RunTime.create_connection();
         TBBOutSideOpenMPInside();
@@ -242,6 +249,5 @@ int main( int argc, char* argv[] ) {
         TBB_RunTime.destroy_connection();
     }
     TotalThreadLevel.dump();
-    printf("done\n");
-    return 0;
+    return Harness::Done;
 }

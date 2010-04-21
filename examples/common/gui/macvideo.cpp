@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -1307,7 +1307,7 @@ WindowRef HandleNew()
     pWindowInfo->maxTextureSize = gpOpenGLCaps->maxTextureSize;
     pWindowInfo->fNPOTTextures = gpOpenGLCaps->f_ext_texture_rectangle;
     pWindowInfo->fClientTextures = gpOpenGLCaps->f_ext_client_storage; // texture from client memory if available
-    pWindowInfo->fAGPTexturing = true; // if AGP texturing selected
+    pWindowInfo->fAGPTexturing = false; // if AGP texturing selected
     pWindowInfo->pImageBuffer = (unsigned char*) g_pImg;
     // set default parameters for this image
     pWindowInfo->zoomX = 1.0f; // pixel 1 to 1 size

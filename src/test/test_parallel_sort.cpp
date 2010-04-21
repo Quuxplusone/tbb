@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,18 +26,28 @@
     the GNU General Public License.
 */
 
+#include "tbb/parallel_sort.h"
+#include "tbb/task_scheduler_init.h"
+#include "tbb/concurrent_vector.h"
+#include "harness.h"
 #include <math.h>
+#include <exception>
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
+#endif
+
 #include <algorithm>
 #include <iterator>
 #include <functional>
 #include <string>
 #include <cstring>
-#include <exception>
 
-#include "tbb/parallel_sort.h"
-#include "tbb/task_scheduler_init.h"
-#include "tbb/concurrent_vector.h"
-#include "harness.h"
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
 
 /** Has tightly controlled interface so that we can verify
     that parallel_sort uses only the required interface. */
@@ -336,8 +346,7 @@ bool parallel_sortTest(size_t n, RandomAccessIterator iter, RandomAccessIterator
 
     init_iter(iter, sorted_list, n, local_comp, true);
     do {
-        if ( Verbose) 
-            REPORT("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(), 
+        REMARK("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(), 
                    static_cast<unsigned long long>(current_p), static_cast<unsigned long long>(n));
         if (comp != NULL) {
             tbb::parallel_sort(iter, iter + n, local_comp );
@@ -346,7 +355,7 @@ bool parallel_sortTest(size_t n, RandomAccessIterator iter, RandomAccessIterator
          }
         if (!Validate(iter, sorted_list, n)) 
             passed = false;
-        if ( Verbose ) REPORT("passed\n");
+        REMARK("passed\n");
     } while (init_iter(iter, sorted_list, n, local_comp, false));
     return passed;
 }
@@ -360,15 +369,14 @@ bool parallel_sortTest(size_t n, Minimal * iter, Minimal * sorted_list, const Mi
 
     init_iter(iter, sorted_list, n, *compare, true);
     do {
-        if ( Verbose) 
-            REPORT("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(),
+        REMARK("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(),
                     static_cast<unsigned long long>(current_p), static_cast<unsigned long long>(n));
 
         tbb::parallel_sort(iter, iter + n, *compare );
 
         if (!Validate(iter, sorted_list, n))
             passed = false;
-        if ( Verbose ) REPORT("passed\n");
+        REMARK("passed\n");
     } while (init_iter(iter, sorted_list, n, *compare, false));
     return passed;
 }
@@ -383,15 +391,14 @@ bool parallel_sortTest(size_t n, tbb::concurrent_vector<Minimal>::iterator iter,
     
     init_iter(iter, sorted_list, n, *compare, true);
     do {
-        if ( Verbose) 
-            REPORT("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(),
+        REMARK("%s %s p=%llu n=%llu :",current_type.c_str(), test_type.c_str(),
                     static_cast<unsigned long long>(current_p), static_cast<unsigned long long>(n));
     
         tbb::parallel_sort(iter, iter + n, *compare );
 
         if (!Validate(iter, sorted_list, n))
             passed = false;
-        if ( Verbose ) REPORT("passed\n");
+        REMARK("passed\n");
     } while (init_iter(iter, sorted_list, n, *compare, false));
     return passed;
 }
@@ -508,9 +515,7 @@ void Flog() {
 #include <cstdio>
 #include "harness_cpu.h"
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    ParseCommandLine(argc,argv);
+int TestMain () {
     if( MinThread<1 ) {
         REPORT("Usage: number of threads must be positive\n");
         exit(1);
@@ -525,7 +530,6 @@ int main( int argc, char* argv[] ) {
             TestCPUUserTime(p);
         }
     } 
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }
 

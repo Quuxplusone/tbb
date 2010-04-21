@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -37,6 +37,7 @@
 #include "tbb/tbb_stddef.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tick_count.h"
+#define HARNESS_CUSTOM_MAIN 1
 #include "../test/harness.h"
 #include "../test/harness_barrier.h"
 #define STATISTICS_INLINE

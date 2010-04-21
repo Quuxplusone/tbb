@@ -1,4 +1,4 @@
-# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -41,16 +41,18 @@ include ../build/common.inc
 ifeq ($(filter /% $(SLASH)%, $(subst :, ,$(tbb_root)) ),)
     # also changes related variables like work_dir
     override tbb_root := $(CWD)$(SLASH)..
-    export TBB22_INSTALL_DIR := $(tbb_root)
+    export TBB30_INSTALL_DIR := $(tbb_root)
 endif
 
 ifeq ($(tbb_os),windows)
-    ifeq ($(compiler),gcc)
+    ifeq ($(UNIXMODE),1)
         EXAMPLE_MAKEFILE = Makefile
         EXAMPLES = $(wildcard */*/$(EXAMPLE_MAKEFILE))
+        ifeq ($(compiler),gcc)
+            override CXXFLAGS += -Wl,--enable-auto-import
+        endif
         export CPATH := $(CPATH);$(tbb_root)/include
         export LIBRARY_PATH := $(LIBRARY_PATH);$(work_dir)_release;$(work_dir)_debug
-        export CXXFLAGS += -Wl,--enable-auto-import
         export RM = cmd /C del /Q /F
     else
         EXAMPLE_MAKEFILE = Makefile.windows
@@ -62,6 +64,7 @@ ifeq ($(tbb_os),windows)
     work_dir := $(subst /,$(SLASH),$(work_dir))
     export PATH := $(work_dir)_release;$(work_dir)_debug;$(PATH)
     export TBB_ARCH_PLATFORM = $(arch)\$(runtime)
+    export TBB_TARGET_ARCH = $(arch)
 else
     EXAMPLE_MAKEFILE = Makefile
     EXAMPLES := $(wildcard */*/$(EXAMPLE_MAKEFILE))
@@ -87,7 +90,7 @@ else
         endif
     endif
     ifeq ($(compiler),suncc)
-        override CXXFLAGS += -I$(tbb_root)$(SLASH)include -library=stlport4 -M$(tbb_root)/build/suncc.map.pause
+        override CXXFLAGS += -I$(tbb_root)$(SLASH)include -library=stlport4 -M$(tbb_root)/build/suncc.map.pause -erroff=unassigned,attrskipunsup,badargtype2w,badbinaryopw,wbadasg,wvarhidemem,wbadinit
         ifeq ($(arch),intel64)
             override CXXFLAGS += -m64
         endif

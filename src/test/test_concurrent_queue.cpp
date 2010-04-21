@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -60,7 +60,7 @@ public:
         thread_id=0xDEAD;
         serial=0xDEAD;
     }
-    void operator=( Foo& item ) {
+    void operator=( const Foo& item ) {
         ASSERT( item.state==LIVE, NULL );
         ASSERT( state==LIVE, NULL );
         thread_id = item.thread_id;
@@ -73,6 +73,7 @@ public:
 // problem size
 static const int N = 50000;     // # of bytes
 
+#if TBB_USE_EXCEPTIONS
 //! Exception for concurrent_queue
 class Foo_exception : public std::bad_alloc {
 public:
@@ -119,6 +120,7 @@ public:
             throw Foo_exception();
     }
 } ;
+#endif /* TBB_USE_EXCEPTIONS */
 
 const size_t MAXTHREAD = 256;
 
@@ -213,10 +215,9 @@ void TestPushPop( size_t prefill, ptrdiff_t capacity, int nthread ) {
         tbb::tick_count t1 = tbb::tick_count::now();
 #if !__TBB_FLOATING_POINT_BROKEN
         double timing = (t1-t0).seconds();
-        if( Verbose )
-            REPORT("prefill=%d capacity=%d time = %g = %g nsec/operation\n", int(prefill), int(capacity), timing, timing/(2*M*nthread)*1.E9);
+        REMARK("prefill=%d capacity=%d threads=%d time = %g = %g nsec/operation\n", int(prefill), int(capacity), nthread, timing, timing/(2*M*nthread)*1.E9);
 #else
-        ((void)capacity);   // touch it to suppress the warning
+        REMARK("prefill=%d capacity=%d threads=%d time=%g\n", int(prefill), int(capacity), (t1-t0).seconds(), nthread);
 #endif /* !__TBB_FLOATING_POINT_BROKEN */
         int sum = 0;
         for( int k=0; k<nthread; ++k )
@@ -339,14 +340,14 @@ bool operator!=(const BarIterator& bia, const BarIterator& bib) {
     return bia.bar_ptr!=bib.bar_ptr;
 }
 
+#if TBB_USE_EXCEPTIONS
 class Bar_exception : public std::bad_alloc {
 public:
     virtual const char *what() const throw() { return "making the entry invalid"; }
     virtual ~Bar_exception() throw() {}
 };
 
-class BarEx
-{
+class BarEx {
     enum state_t {
         LIVE=0x1234,
         DEAD=0xDEAD
@@ -397,6 +398,7 @@ bool operator==(const BarEx& bar1, const BarEx& bar2) {
     ASSERT( (bar2.my_id ^ bar2.my_tilda_id) == -1, NULL );
     return bar1.my_id==bar2.my_id && bar1.my_tilda_id==bar2.my_tilda_id;
 }
+#endif /* TBB_USE_EXCEPTIONS */
 
 #if TBB_DEPRECATED
 #define CALL_BEGIN(q,i) (((i)&0x1)?q.begin():q.unsafe_begin())
@@ -503,9 +505,9 @@ void TestConstructors ()
         ASSERT( *dqb == *iter, "unexpected element" );
     ASSERT( iter==src_queue.unsafe_end(), "different size?" );
 
-#if __TBB_EXCEPTION_HANDLING_BROKEN || __TBB_PLACEMENT_NEW_EXCEPTION_SAFETY_BROKEN
-    REPORT("Warning: Part of the constructor test is skipped due to a known issue.\n");
-#else
+#if __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN || __TBB_PLACEMENT_NEW_EXCEPTION_SAFETY_BROKEN
+    REPORT("Known issue: part of the constructor test is skipped.\n");
+#elif TBB_USE_EXCEPTIONS
     k = 0;
 #if TBB_DEPRECATED==0
     unsigned
@@ -545,7 +547,7 @@ void TestConstructors ()
             ASSERT( *dqb_ex == *iter_ex, "unexpected element" );
         ASSERT( iter_ex==CALL_END(src_queue_ex,size), "different size?" );
     }
-#endif
+#endif /* TBB_USE_EXCEPTIONS */
 }
 
 template<typename Iterator1, typename Iterator2>
@@ -603,7 +605,7 @@ void TestIteratorTraits() {
 //! Test the iterators for concurrent_queue
 void TestIterator() {
     tbb::concurrent_queue<Foo> queue;
-    tbb::concurrent_queue<Foo>& const_queue = queue;
+    const tbb::concurrent_queue<Foo>& const_queue = queue;
     for( int j=0; j<500; ++j ) {
         TestIteratorAux( CALL_BEGIN(queue,j)      , CALL_END(queue,j)      , j );
         TestIteratorAux( CALL_BEGIN(const_queue,j), CALL_END(const_queue,j), j );
@@ -746,6 +748,7 @@ void TestNegativeQueue( int nthread ) {
 }
 #endif /* if TBB_DEPRECATED */
 
+#if TBB_USE_EXCEPTIONS
 void TestExceptions() {
     typedef static_counting_allocator<std::allocator<FooEx>, size_t> allocator_t;
     typedef static_counting_allocator<std::allocator<char>, size_t> allocator_char_t;
@@ -756,22 +759,31 @@ void TestExceptions() {
         m_pop
     };  
 
-    if( Verbose )
-        REPORT("Testing exception safety\n");
+    REMARK("Testing exception safety\n");
     // verify 'clear()' on exception; queue's destructor calls its clear()
+    // Do test on queues of two different types at the same time to 
+    // catch problem with incorrect sharing between templates.
     {
-        concur_queue_t queue_clear;
-        try {
-            allocator_char_t::init_counters();
-            allocator_char_t::set_limits(N/2);
-            for( int k=0; k<N; k++ )
-                queue_clear.push( FooEx() );
-        } catch (...) {
-            // TODO: some assert here?
+        concur_queue_t queue0;
+        tbb::concurrent_queue<int,allocator_t> queue1;
+        for( int i=0; i<2; ++i ) {
+            bool caught = false;
+            try {
+                allocator_char_t::init_counters();
+                allocator_char_t::set_limits(N/2);
+                for( int k=0; k<N; k++ ) {
+                    if( i==0 )
+                        queue0.push( FooEx() );
+                    else
+                        queue1.push( k );
+                }
+            } catch (...) {
+                caught = true;
+            }
+            ASSERT( caught, "call to push should have thrown exception" );
         }
     }
-    if( Verbose )
-        REPORT("... queue destruction test passed\n");
+    REMARK("... queue destruction test passed\n");
 
     try {
         int n_pushed=0, n_popped=0;
@@ -848,21 +860,77 @@ void TestExceptions() {
                             break;
                     }
                 }
-                if( Verbose )
-                    REPORT("... for t=%d and m=%d, exception test passed\n", t, m);
+                REMARK("... for t=%d and m=%d, exception test passed\n", t, m);
             }
         }
     } catch(...) {
         ASSERT(false, "unexpected exception");
     }
 }
+#endif /* TBB_USE_EXCEPTIONS */
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    // Set default for minimum number of threads.
-    MinThread = 1;
-    ParseCommandLine(argc,argv);
+template<typename T>
+struct TestQueueElements: NoAssign {
+    tbb::concurrent_queue<T>& queue;
+    const int nthread;
+    TestQueueElements( tbb::concurrent_queue<T>& q, int n ) : queue(q), nthread(n) {}
+    void operator()( int k ) const {
+        for( int i=0; i<1000; ++i ) {
+            if( (i&0x1)==0 ) {
+                __TBB_ASSERT( T(k)<T(nthread), NULL );
+                queue.push( T(k) );
+            } else {
+                // Pop item from queue
+                T item;
+                queue.try_pop(item);
+                __TBB_ASSERT( item<=T(nthread), NULL );
+            }
+        }
+    }
+};
 
+//! Test concurrent queue with primitive data type
+template<typename T>
+void TestPrimitiveTypes( int nthread, T exemplar )
+{
+    tbb::concurrent_queue<T> queue;
+    for( int i=0; i<100; ++i )
+        queue.push( exemplar );
+    NativeParallelFor( nthread, TestQueueElements<T>(queue,nthread) );
+}
+
+#include "harness_m128.h"
+
+#if HAVE_m128
+
+//! Test concurrent queue with SSE type
+/** Type Queue should be a queue of ClassWithSSE. */
+template<typename Queue>
+void TestSSE() {
+    Queue q1;
+    for( int i=0; i<100; ++i )
+        q1.push(ClassWithSSE(i));
+
+    // Copy the queue
+    Queue q2 = q1;
+    // Check that elements of the copy are correct
+    typename Queue::const_iterator ci = q2.unsafe_begin();
+    for( int i=0; i<100; ++i ) {
+        ClassWithSSE foo = *ci;
+        ASSERT( *ci==ClassWithSSE(i), NULL );
+        ++ci;
+    }
+
+    for( int i=0; i<101; ++i ) {
+        ClassWithSSE tmp;
+        bool b = q1.try_pop( tmp );
+        ASSERT( b==(i<100), NULL );
+        ASSERT( !b || tmp==ClassWithSSE(i), NULL );
+    }
+}
+#endif /* HAVE_m128 */
+
+int TestMain () {
     TestEmptyQueue<char>();
     TestEmptyQueue<Foo>();
 #if TBB_DEPRECATED
@@ -872,6 +940,15 @@ int main( int argc, char* argv[] ) {
     TestConcurrentQueueType();
     TestIterator();
     TestConstructors();
+
+    TestPrimitiveTypes( MaxThread, (char)1 );
+    TestPrimitiveTypes( MaxThread, (int)-12 );
+    TestPrimitiveTypes( MaxThread, (float)-1.2f );
+    TestPrimitiveTypes( MaxThread, (double)-4.3 );
+#if HAVE_m128
+    TestSSE<tbb::concurrent_queue<ClassWithSSE> >();
+    TestSSE<tbb::concurrent_bounded_queue<ClassWithSSE> >();
+#endif /* HAVE_m128 */
 
     // Test concurrent operations
     for( int nthread=MinThread; nthread<=MaxThread; ++nthread ) {
@@ -886,11 +963,10 @@ int main( int argc, char* argv[] ) {
             TestPushPop(prefill,ptrdiff_t(100),nthread);
         }
     }
-#if __TBB_EXCEPTION_HANDLING_BROKEN
-    REPORT("Warning: Exception safety test is skipped due to a known issue.\n");
-#else
+#if __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
+    REPORT("Known issue: exception safety test is skipped.\n");
+#elif TBB_USE_EXCEPTIONS
     TestExceptions();
-#endif
-    REPORT("done\n");
-    return 0;
+#endif /* TBB_USE_EXCEPTIONS */
+    return Harness::Done;
 }

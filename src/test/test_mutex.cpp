@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -36,6 +36,7 @@
 // Compile with _OPENMP and -openmp
 //------------------------------------------------------------------------
 #include "tbb/spin_mutex.h"
+#include "tbb/critical_section.h"
 #include "tbb/spin_rw_mutex.h"
 #include "tbb/queuing_rw_mutex.h"
 #include "tbb/queuing_mutex.h"
@@ -55,8 +56,8 @@
 #endif /* _OPENMP */
 #include "tbb/tbb_profiling.h"
 
-#ifndef TBBTEST_LOW_WORKLOAD
-    #define TBBTEST_LOW_WORKLOAD TBB_USE_THREADING_TOOLS
+#ifndef TBB_TEST_LOW_WORKLOAD
+    #define TBB_TEST_LOW_WORKLOAD TBB_USE_THREADING_TOOLS
 #endif
 
 // This test deliberately avoids a "using tbb" statement,
@@ -180,11 +181,11 @@ void Test( const char * name ) {
     Counter<M> counter;
     counter.value = 0;
     tbb::profiling::set_name(counter.mutex, name);
-#if TBBTEST_LOW_WORKLOAD
+#if TBB_TEST_LOW_WORKLOAD
     const int n = 10000;
 #else
     const int n = 100000;
-#endif /* TBBTEST_LOW_WORKLOAD */
+#endif /* TBB_TEST_LOW_WORKLOAD */
     tbb::tick_count t0 = tbb::tick_count::now();
     tbb::parallel_for(tbb::blocked_range<size_t>(0,n,n/10),AddOne<Counter<M> >(counter));
     tbb::tick_count t1 = tbb::tick_count::now();
@@ -301,11 +302,11 @@ template<typename M>
 void TestReaderWriterLock( const char * mutex_name ) {
     REMARK( "%s readers & writers time = ", mutex_name );
     Invariant<M,8> invariant(mutex_name);
-#if TBBTEST_LOW_WORKLOAD
+#if TBB_TEST_LOW_WORKLOAD
     const size_t n = 10000;
 #else
     const size_t n = 500000;
-#endif /* TBBTEST_LOW_WORKLOAD */
+#endif /* TBB_TEST_LOW_WORKLOAD */
     tbb::tick_count t0 = tbb::tick_count::now();
     tbb::parallel_for(tbb::blocked_range<size_t>(0,n,n/100),TwiddleInvariant<Invariant<M,8> >(invariant));
     tbb::tick_count t1 = tbb::tick_count::now();
@@ -511,7 +512,7 @@ void TestNullMutex( const char * name ) {
     Counter<M> counter;
     counter.value = 0;
     const int n = 100;
-    if( Verbose ) REPORT("%s ",name);
+    REMARK("%s ",name);
     {
         tbb::parallel_for(tbb::blocked_range<size_t>(0,n,10),AddOne<Counter<M> >(counter));
     }
@@ -524,7 +525,7 @@ void TestNullMutex( const char * name ) {
 
 template<typename M>
 void TestNullRWMutex( const char * name ) {
-    if( Verbose ) REPORT("%s ",name);
+    REMARK("%s ",name);
     const int n = 100;
     M m;
     tbb::parallel_for(tbb::blocked_range<size_t>(0,n,10),NullUpgradeDowngrade<M>(m, name));
@@ -561,15 +562,11 @@ void TestRecursiveMutexISO( const char * name ) {
 
 #include "tbb/task_scheduler_init.h"
 
-__TBB_TEST_EXPORT
-int main( int argc, char * argv[] ) {
-    // Default is to run on two threads
-    MinThread = MaxThread = 2;
-    ParseCommandLine( argc, argv );
+int TestMain () {
     for( int p=MinThread; p<=MaxThread; ++p ) {
         tbb::task_scheduler_init init( p );
         REMARK( "testing with %d workers\n", static_cast<int>(p) );
-#if TBBTEST_LOW_WORKLOAD
+#if TBB_TEST_LOW_WORKLOAD
         // The amount of work is decreased in this mode to bring the length 
         // of the runs under tools into the tolerable limits.
         const int n = 1;
@@ -613,6 +610,7 @@ int main( int argc, char * argv[] ) {
             TestISO<tbb::mutex>( "ISO Mutex" );
             TestISO<tbb::spin_rw_mutex>( "ISO Spin RW Mutex" );
             TestISO<tbb::recursive_mutex>( "ISO Recursive Mutex" );
+            TestISO<tbb::critical_section>( "ISO Critical Section" );
             TestTryAcquire_OneThreadISO<tbb::spin_mutex>( "ISO Spin Mutex" );
 #if USE_PTHREAD 
             // under ifdef because on Windows tbb::mutex is reenterable and the test will fail
@@ -620,11 +618,11 @@ int main( int argc, char * argv[] ) {
 #endif /* USE_PTHREAD */
             TestTryAcquire_OneThreadISO<tbb::spin_rw_mutex>( "ISO Spin RW Mutex" );
             TestTryAcquire_OneThreadISO<tbb::recursive_mutex>( "ISO Recursive Mutex" );
+            TestTryAcquire_OneThreadISO<tbb::critical_section>( "ISO Critical Section" );
             TestReaderWriterLockISO<tbb::spin_rw_mutex>( "ISO Spin RW Mutex" );
             TestRecursiveMutexISO<tbb::recursive_mutex>( "ISO Recursive Mutex" );
         }
         REMARK( "calling destructor for task_scheduler_init\n" );
     }
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,9 +28,17 @@
 
 #include "TypeDefinitions.h" // Customize.h and proxy.h get included
 
-#include "tbb/itt_notify.cpp"
+#include "tbb/itt_notify.h" // for __TBB_load_ittnotify()
 
-#if MALLOC_LD_PRELOAD
+#undef UNICODE
+
+#if USE_PTHREAD
+#include <dlfcn.h>
+#elif USE_WINTHREAD
+#include <windows.h>
+#endif
+
+#if MALLOC_CHECK_RECURSION
 
 #include <pthread.h>
 #include <stdio.h>
@@ -40,55 +48,64 @@
 #include <errno.h>
 #endif
 
+#if MALLOC_LD_PRELOAD
+
 extern "C" {
 
 void   safer_scalable_free( void*, void (*)(void*) );
-void * safer_scalable_realloc( void*, size_t, void* (*)(void*,size_t) );
+void * safer_scalable_realloc( void*, size_t, void* );
 
 bool __TBB_internal_find_original_malloc(int num, const char *names[], void *table[])  __attribute__ ((weak));
 
 }
 
-#define malloc_proxy __TBB_malloc_proxy
-
 #endif /* MALLOC_LD_PRELOAD */
+#endif /* MALLOC_CHECK_RECURSION */
 
 namespace rml {
 namespace internal {
 
-#if MALLOC_LD_PRELOAD
+#if MALLOC_CHECK_RECURSION
 
 void* (*original_malloc_ptr)(size_t) = 0;
 void  (*original_free_ptr)(void*) = 0;
 static void* (*original_calloc_ptr)(size_t,size_t) = 0;
 static void* (*original_realloc_ptr)(void*,size_t) = 0;
 
-#endif /* MALLOC_LD_PRELOAD */
-
-#if __TBB_NEW_ITT_NOTIFY
-extern "C" 
-#endif
-void ITT_DoOneTimeInitialization() {} // required for itt_notify.cpp to work
+#endif /* MALLOC_CHECK_RECURSION */
 
 #if DO_ITT_NOTIFY
 /** Caller is responsible for ensuring this routine is called exactly once. */
 void MallocInitializeITT() {
-#if __TBB_NEW_ITT_NOTIFY
     tbb::internal::__TBB_load_ittnotify();
-#else
-    bool success = false;
-    // Check if we are running under control of VTune.
-    if( GetBoolEnvironmentVariable("KMP_FOR_TCHECK") || GetBoolEnvironmentVariable("KMP_FOR_TPROFILE") ) {
-        // Yes, we are under control of VTune.  Check for libittnotify library.
-        success = dynamic_link( LIBITTNOTIFY_NAME, ITT_HandlerTable, 5 );
-    }
-    if (!success){
-        for (int i = 0; i < 5; i++)
-            *ITT_HandlerTable[i].handler = NULL;
-    }
-#endif /* !__TBB_NEW_ITT_NOTIFY */
 }
+#else
+void MallocInitializeITT() {}
 #endif /* DO_ITT_NOTIFY */
+
+extern "C" 
+void ITT_DoOneTimeInitialization() {
+    MallocInitializeITT();
+} // required for itt_notify.cpp to work
+
+#if TBB_USE_DEBUG
+#define DEBUG_SUFFIX "_debug"
+#else
+#define DEBUG_SUFFIX
+#endif /* TBB_USE_DEBUG */
+
+// MALLOCLIB_NAME is the name of the TBB memory allocator library.
+#if _WIN32||_WIN64
+#define MALLOCLIB_NAME "tbbmalloc" DEBUG_SUFFIX ".dll"
+#elif __APPLE__
+#define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".dylib"
+#elif __linux__
+#define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX  __TBB_STRING(.so.TBB_COMPATIBLE_INTERFACE_VERSION)
+#elif __FreeBSD__ || __sun
+#define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".so"
+#else
+#error Unknown OS
+#endif
 
 void init_tbbmalloc() {
 #if MALLOC_LD_PRELOAD
@@ -115,6 +132,18 @@ void init_tbbmalloc() {
 #if DO_ITT_NOTIFY
     MallocInitializeITT();
 #endif
+
+/* Preventing TBB allocator library from unloading to prevent
+   resource leak, as memory is not released on the library unload.
+*/
+#if USE_PTHREAD
+    dlopen(MALLOCLIB_NAME, RTLD_NOW);
+#elif USE_WINTHREAD
+    // Prevent Windows from displaying message boxes if it fails to load library
+    UINT prev_mode = SetErrorMode (SEM_FAILCRITICALERRORS);
+    LoadLibrary(MALLOCLIB_NAME);
+    SetErrorMode (prev_mode);
+#endif /* USE_PTHREAD */
 }
 
 #if !(_WIN32||_WIN64)
@@ -127,75 +156,32 @@ struct RegisterProcessShutdownNotification {
 static RegisterProcessShutdownNotification reg;
 #endif
 
-#if MALLOC_LD_PRELOAD
+#if MALLOC_CHECK_RECURSION
 
 bool  original_malloc_found;
 
-pthread_t   recursive_malloc_call_thread;
-int         recursive_malloc_call_flag;
-
-void lockRecursiveMallocFlag()
-{
-    recursive_malloc_call_thread = pthread_self();
-    recursive_malloc_call_flag = 1;
-}
-void unlockRecursiveMallocFlag()
-{
-    recursive_malloc_call_flag = 0;
-}
-static inline bool underRecursiveMallocFlag()
-{
-    return recursive_malloc_call_flag
-        && pthread_equal( recursive_malloc_call_thread, pthread_self());
-}
+#if MALLOC_LD_PRELOAD
 
 extern "C" {
 
 void * __TBB_internal_malloc(size_t size)
 {
-    if ( underRecursiveMallocFlag() ) {
-        if ( original_malloc_found ){
-            return original_malloc_ptr(size);
-        }else{
-            return NULL;
-        }
-    }else{
-        return (void*)scalable_malloc(size);
-    }
+    return scalable_malloc(size);
 }
 
 void * __TBB_internal_calloc(size_t num, size_t size)
 {
-    if ( underRecursiveMallocFlag() ) {
-        if ( original_malloc_found ){
-#if __sun
-            /* There seem to be run time problems on Solaris if original_calloc_ptr is used. */
-            size_t arraySize = num * size;
-            void *result = original_malloc_ptr(arraySize);
-            if (result)
-                memset(result, 0, arraySize);
-            return result;
-#else
-            return original_calloc_ptr(num, size);
-#endif
-        }else{
-            return NULL;
-        }
-    }else{
-        return scalable_calloc(num, size);
-    }
+    return scalable_calloc(num, size);
 }
 
 int __TBB_internal_posix_memalign(void **memptr, size_t alignment, size_t size)
 {
-    MALLOC_ASSERT( !underRecursiveMallocFlag(), 
-                   "posix_memalign not expected to create a cyclic dependency" );
     return scalable_posix_memalign(memptr, alignment, size);
 }
 
 void* __TBB_internal_realloc(void* ptr, size_t sz)
 {
-    return safer_scalable_realloc(ptr, sz, original_realloc_ptr);
+    return safer_scalable_realloc(ptr, sz, (void*&)original_realloc_ptr);
 }
 
 void __TBB_internal_free(void *object)
@@ -207,10 +193,19 @@ void __TBB_internal_free(void *object)
 
 #endif /* MALLOC_LD_PRELOAD */
 
+#endif /* MALLOC_CHECK_RECURSION */
+
 } } // namespaces
 
 #ifdef _WIN32
+
+#if _XBOX
+    #define NONET
+    #define NOD3D
+    #include <xtl.h>
+#else
 #include <windows.h>
+#endif    
 
 extern "C" BOOL WINAPI DllMain( HINSTANCE hInst, DWORD callReason, LPVOID )
 {

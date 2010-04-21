@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,8 +32,10 @@
  Bellow is workaround to compile test within enviroment of Intel Compiler
  but by Microsoft Compiler. So, there is wrong "omp.h" file included and
  manifest section is missed from .exe file - restoring here.
+
+ As of Visual Studio 2010, crtassem.h is no longer shipped.
  */
-#if !defined(__INTEL_COMPILER) && _MSC_VER >= 1400
+#if !defined(__INTEL_COMPILER) && _MSC_VER >= 1400 && _MSC_VER < 1600
     #include <crtassem.h>
     #if !defined(_OPENMP)
         #define _OPENMP
@@ -144,8 +146,7 @@ public:
 
 //! Test OpenMMP loop around TBB loop
 void OpenMP_TBB_Convolve( T c[], const T a[], int m, const T b[], int n ) {
-    if( Verbose )
-        REPORT("testing OpenMP loop around TBB loop\n");
+    REMARK("testing OpenMP loop around TBB loop\n");
 #pragma omp parallel 
     {
         task_scheduler_init init;
@@ -186,8 +187,7 @@ public:
 
 //! Test TBB loop around OpenMP loop
 void TBB_OpenMP_Convolve( T c[], const T a[], int m, const T b[], int n ) {
-    if( Verbose )
-        REPORT("testing TBB loop around OpenMP loop\n");
+    REMARK("testing TBB loop around OpenMP loop\n");
     parallel_for( blocked_range<int>(0,m+n-1,10), OuterBody( c, a, m, b, n ) );
 }
 
@@ -196,13 +196,11 @@ void TBB_OpenMP_Convolve( T c[], const T a[], int m, const T b[], int n ) {
 const int M = 17*17;
 const int N = 13*13;
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
+int TestMain () {
 #ifdef _PGO_INSTRUMENT
-    REPORT("Warning: test_openmp.exe has problems if compiled with -prof-genx; skipping\n");
-    return 0;
+    REPORT("Known issue: test_openmp.exe has problems if compiled with -prof-genx; skipping\n");
+    return Harness::Skipped;
 #endif
-    ParseCommandLine(argc,argv);
     MinThread = 1;
     for( int p=MinThread; p<=MaxThread; ++p ) {
         T a[M];
@@ -232,6 +230,5 @@ int main( int argc, char* argv[] ) {
             }
         } 
     }
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

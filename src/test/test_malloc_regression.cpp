@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -52,11 +52,7 @@ void RunThread(const Body& body, const Arg& arg) {
 #include "harness_memory.h"
 
 // The regression test for bug #1518 where thread boot strap allocations "leaked"
-bool test_bootstrap_leak(void) {
-    // Check whether memory usage data can be obtained; if not, skip the test.
-    if( !GetMemoryUsage() )
-        return true;
-
+bool TestBootstrapLeak() {
     /* In the bug 1518, each thread leaked ~384 bytes.
        Initially, scalable allocator maps 1MB. Thus it is necessary to take out most of this space.
        1MB is chunked into 16K blocks; of those, one block is for thread boot strap, and one more 
@@ -80,12 +76,18 @@ bool test_bootstrap_leak(void) {
         }
     }
 
+    ptrdiff_t memory_leak = 0;
     // Notice that 16K boot strap memory block is enough to serve 42 threads.
     const int num_thread_runs = 200;
-    for( int i=0; i<num_thread_runs; ++i )
-        RunThread( minimalAllocFree(), alloc_size );
+    for (int run=0; run<3; run++) {
+        memory_in_use = GetMemoryUsage();
+        for( int i=0; i<num_thread_runs; ++i )
+            RunThread( minimalAllocFree(), alloc_size );
 
-    ptrdiff_t memory_leak = GetMemoryUsage() - memory_in_use;
+        memory_leak = GetMemoryUsage() - memory_in_use;
+        if (!memory_leak)
+            break;
+    }
     if( memory_leak>0 ) { // possibly too strong?
         REPORT( "Error: memory leak of up to %ld bytes\n", static_cast<long>(memory_leak));
     }
@@ -96,14 +98,44 @@ bool test_bootstrap_leak(void) {
     return memory_leak<=0;
 }
 
-__TBB_TEST_EXPORT
-int main( int /*argc*/, char* argv[] ) {
+bool TestReallocMsize(size_t startSz) {
     bool passed = true;
 
-    passed &= test_bootstrap_leak();
+    char *buf = (char*)scalable_malloc(startSz);
+    ASSERT(buf, "");
+    size_t realSz = scalable_msize(buf);
+    ASSERT(realSz>=startSz, "scalable_msize must be not less then allocated size");
+    memset(buf, 'a', realSz-1);
+    buf[realSz-1] = 0;
+    char *buf1 = (char*)scalable_realloc(buf, 2*realSz);
+    ASSERT(buf1, "");
+    ASSERT(scalable_msize(buf1)>=2*realSz, 
+           "scalable_msize must be not less then allocated size");
+    buf1[2*realSz-1] = 0;
+    if ( strspn(buf1, "a") < realSz-1 ) {
+        REPORT( "Error: data broken for %d Bytes object.\n", startSz);
+        passed = false;
+    }
+    scalable_free(buf1);
 
-    if(passed) REPORT("done\n");
-    else       REPORT("%s failed\n", argv[0]);
+    return passed;
+}
 
-    return passed?0:1;
+int TestMain () {
+    bool passed = true;
+    // Check whether memory usage data can be obtained; if not, skip test_bootstrap_leak.
+    if( GetMemoryUsage() )
+        passed &= TestBootstrapLeak();
+
+    for (size_t a=1, b=1, sum=1; sum<=64*1024; ) {
+        passed &= TestReallocMsize(sum);
+        a = b;
+        b = sum;
+        sum = a+b;
+    }
+    for (size_t a=2; a<=64*1024; a*=2)
+        passed &= TestReallocMsize(a);
+    
+    ASSERT( passed, "Test failed" );
+    return Harness::Done;
 }

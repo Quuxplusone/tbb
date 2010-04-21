@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,27 +26,48 @@
     the GNU General Public License.
 */
 
-// to avoid usage of #pragma comment
-#define __TBB_NO_IMPLICIT_LINKAGE 1
+/*  The test uses "single produces multiple consumers" (SPMC )pattern to check 
+    if the memory of the tasks stolen by consumer threads is returned to the 
+    producer thread and is reused.
 
-#define  COUNT_TASK_NODES 1
-#define __TBB_TASK_CPP_DIRECTLY_INCLUDED 1
-#include "../tbb/task.cpp"
+    The test consists of a series of iterations, which execute a task tree.
+    the test fails is the memory consumption is not stabilized during some
+    number of iterations.
+
+    After the memory consumption stabilized the memory state is perturbed by 
+    switching producer thread, and the check is repeated.
+*/
+
+#define  __TBB_COUNT_TASK_NODES 1
+#include "harness_inject_scheduler.h"
 
 #include "tbb/atomic.h"
 #include "harness_assert.h"
 #include <cstdlib>
 
-//------------------------------------------------------------------------
-// Test for task::spawn_children
-//------------------------------------------------------------------------
+
+// Test configuration parameters
+
+//! Maximal number of test iterations
+const int MaxIterations = 600;
+//! Number of iterations during which the memory consumption must stabilize
+const int AsymptoticRange = 100;
+//! Number of times the memory state is perturbed to repeat the check
+const int NumProducerSwitches = 2;
+//! Number of iterations after which the success of producer switch is checked
+const int ProducerCheckTimeout = 10;
+//! Number of initial iteration used to collect statistics to be used in later checks
+const int InitialStatsIterations = 20;
 
 tbb::atomic<int> Count;
 tbb::atomic<tbb::task*> Exchanger;
 tbb::internal::scheduler* Producer;
 
 #include "tbb/task_scheduler_init.h"
+
+#define HARNESS_DEFAULT_MIN_THREADS -1
 #include "harness.h"
+
 using namespace tbb;
 using namespace tbb::internal;
 
@@ -54,7 +75,7 @@ class ChangeProducer: public tbb::task {
 public:
     /*override*/ tbb::task* execute() {
         if( is_stolen_task() ) {
-            Producer = internal::Governor::local_scheduler();
+            Producer = internal::governor::local_scheduler();
         }
         return NULL;
     }
@@ -70,7 +91,7 @@ public:
     /*override*/ tbb::task* execute() {
         if( my_depth>0 ) {
             int child_count = my_child_count;
-            scheduler* my_sched = internal::Governor::local_scheduler();
+            scheduler* my_sched = internal::governor::local_scheduler();
             tbb::task& c  = *new( tbb::task::allocate_continuation() ) tbb::empty_task;
             c.set_ref_count( child_count );
             recycle_as_child_of(c);
@@ -80,20 +101,22 @@ public:
                 tbb::task* t = new( c.allocate_child() ) tbb::empty_task;
                 --child_count;
                 t = Exchanger.fetch_and_store(t);
-                if( t ) this->spawn(*t);
+                if( t ) spawn(*t);
             } else {
                 tbb::task* t = Exchanger.fetch_and_store(NULL);
-                if( t ) this->spawn(*t);
+                if( t ) spawn(*t);
             }
             while( child_count ) {
-                c.spawn( *new( c.allocate_child() ) TaskGenerator(my_child_count, my_depth-1) );
+                tbb::task* t = new( c.allocate_child() ) TaskGenerator(my_child_count, my_depth-1);
+                if( my_depth >4 ) enqueue(*t);
+                else              spawn(*t);
                 --child_count;
             }
             --my_depth;
             return this;
         } else {
             tbb::task* t = Exchanger.fetch_and_store(NULL);
-            if( t ) this->spawn(*t);
+            if( t ) spawn(*t);
             return NULL;
         }
     }
@@ -110,24 +133,27 @@ public:
     #pragma warning( pop )
 #endif
 
-void RunTaskGenerators( int i ) {
-    tbb::task* dummy_root;
-    if( i==250 ) {
+void RunTaskGenerators( bool switchProducer = false, bool checkProducer = false ) {
+    if( switchProducer )
         Producer = NULL;
-    }
-    dummy_root = new( tbb::task::allocate_root() ) tbb::empty_task;
+    tbb::task* dummy_root = new( tbb::task::allocate_root() ) tbb::empty_task;
     dummy_root->set_ref_count( 2 );
     // If no producer, start elections; some worker will take the role
     if( Producer )
         dummy_root->spawn( *new( dummy_root->allocate_child() ) tbb::empty_task );
     else
         dummy_root->spawn( *new( dummy_root->allocate_child() ) ChangeProducer );
-    if( i==260 && !Producer ) {
+    if( checkProducer && !Producer )
         REPORT("Warning: producer has not changed after 10 attempts; running on a single core?\n");
-    }
     for( int j=0; j<100; ++j ) {
-        tbb::task& t = *new( tbb::task::allocate_root() ) TaskGenerator(/*child_count=*/4, /*depth=*/6);
-        tbb::task::spawn_root_and_wait(t);
+        if( j&1 ) {
+            tbb::task& t = *new( tbb::task::allocate_root() ) TaskGenerator(/*child_count=*/4, /*depth=*/6);
+            tbb::task::spawn_root_and_wait(t);
+        } else {
+            tbb::task& t = *new (dummy_root->allocate_additional_child_of(*dummy_root))
+                                TaskGenerator(/*child_count=*/4, /*depth=*/6);
+            tbb::task::enqueue(t);
+        }
     }
     dummy_root->wait_for_all();
     dummy_root->destroy( *dummy_root );
@@ -137,8 +163,7 @@ void RunTaskGenerators( int i ) {
 /** The test takes a while to run, so we run it only with the default
     number of threads. */
 void TestTaskReclamation() {
-    if( Verbose )
-        REPORT("testing task reclamation\n");
+    REMARK("testing task reclamation\n");
 
     size_t initial_amount_of_memory = 0;
     double task_count_sum = 0;
@@ -146,68 +171,73 @@ void TestTaskReclamation() {
     double average, sigma;
 
     tbb::task_scheduler_init init (MinThread);
-    if( Verbose )
-        REPORT("Starting with %d threads\n", MinThread);
+    REMARK("Starting with %d threads\n", MinThread);
     // For now, the master will produce "additional" tasks; later a worker will replace it;
-    Producer  = internal::Governor::local_scheduler();
-    int N = 20;
+    Producer  = internal::governor::local_scheduler();
+    int N = InitialStatsIterations;
     // First N iterations fill internal buffers and collect initial statistics
     for( int i=0; i<N; ++i ) {
         // First N iterations fill internal buffers and collect initial statistics
-        RunTaskGenerators( i );
+        RunTaskGenerators();
 
         size_t m = GetMemoryUsage();
         if( m-initial_amount_of_memory > 0)
             initial_amount_of_memory = m;
 
-        intptr_t n = internal::Governor::local_scheduler()->get_task_node_count( /*count_arena_workers=*/true );
+        intptr_t n = internal::governor::local_scheduler()->get_task_node_count( /*count_arena_workers=*/true );
         task_count_sum += n;
         task_count_sum_square += n*n;
 
-        if( Verbose )
-            REPORT( "Consumed %ld bytes and %ld objects (iteration=%d)\n", long(m), long(n), i );
+        REMARK( "Consumed %ld bytes and %ld objects (iteration=%d)\n", long(m), long(n), i );
     }
     // Calculate statistical values
     average = task_count_sum / N;
     sigma   = sqrt( (task_count_sum_square - task_count_sum*task_count_sum/N)/N );
-    if( Verbose )
-        REPORT("Average task count: %g, sigma: %g, sum: %g, square sum:%g \n", average, sigma, task_count_sum, task_count_sum_square);
+    REMARK("Average task count: %g, sigma: %g, sum: %g, square sum:%g \n", average, sigma, task_count_sum, task_count_sum_square);
 
-    int error_count = 0;
-    for( int i=0; i<500; ++i ) {
+    int     last_error_iteration = 0,
+            producer_switch_iteration = 0,
+            producer_switches = 0;
+    bool    switchProducer = false, 
+            checkProducer = false;
+    for( int i=0; i < MaxIterations; ++i ) {
         // These iterations check for excessive memory use and unreasonable task count
-        RunTaskGenerators( i );
+        RunTaskGenerators( switchProducer, checkProducer );
 
-        intptr_t n = internal::Governor::local_scheduler()->get_task_node_count( /*count_arena_workers=*/true );
+        intptr_t n = internal::governor::local_scheduler()->get_task_node_count( /*count_arena_workers=*/true );
         size_t m = GetMemoryUsage();
 
         if( (m-initial_amount_of_memory > 0) && (n > average+4*sigma) ) {
-            ++error_count;
             // Use 4*sigma interval (for normal distribution, 3*sigma contains ~99% of values).
-            // Issue a warning for the first couple of times, then errors
-            REPORT( "%s: possible leak of up to %ld bytes; currently %ld cached task objects (iteration=%d)\n",
-                    error_count>3?"Error":"Warning", static_cast<unsigned long>(m-initial_amount_of_memory), long(n), i );
+            REMARK( "Warning: possible leak of up to %ld bytes; currently %ld cached task objects (iteration=%d)\n",
+                    static_cast<unsigned long>(m-initial_amount_of_memory), long(n), i );
+            last_error_iteration = i;
             initial_amount_of_memory = m;
-            if( error_count>5 ) break;
         } else {
-            if( Verbose )
-                REPORT( "Consumed %ld bytes and %ld objects (iteration=%d)\n", long(m), long(n), i );
+            REMARK( "Consumed %ld bytes and %ld objects (iteration=%d)\n", long(m), long(n), i );
+        }
+        if ( i == last_error_iteration + AsymptoticRange ) {
+            if ( producer_switches++ == NumProducerSwitches )
+                break;
+            else {
+                last_error_iteration = producer_switch_iteration = i;
+                switchProducer = true;
+            }
+        }
+        else {
+            switchProducer = false;
+            checkProducer = producer_switch_iteration && (i == producer_switch_iteration + ProducerCheckTimeout);
         }
     }
+    ASSERT( last_error_iteration < MaxIterations - AsymptoticRange, "The amount of allocated tasks keeps growing. Leak is possible." );
 }
 
-__TBB_TEST_EXPORT
-int main(int argc, char* argv[]) {
-    MinThread = -1;
-    ParseCommandLine( argc, argv );
+int TestMain () {
     if( !GetMemoryUsage() ) {
-        if( Verbose )
-            REPORT("GetMemoryUsage is not implemented for this platform\n");
-        REPORT("skip\n");
-    } else {
-        TestTaskReclamation();
-        REPORT("done\n");
+        REMARK("GetMemoryUsage is not implemented for this platform\n");
+        return Harness::Skipped;
     }
-    return 0;
+    TestTaskReclamation();
+    return Harness::Done;
 }
 

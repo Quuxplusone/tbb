@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -55,9 +55,6 @@
 
 #include <cstdarg>
 
-#if __LRB__
-#include "harness_lrb.h"
-#endif
 
 #if _MSC_VER
     #define snprintf _snprintf
@@ -82,7 +79,6 @@ namespace Harness {
 #endif /* !TbbHarnessReporter */
 
     class Tracer {
-    public:
         int         m_flags;
         const char  *m_file;
         const char  *m_func;
@@ -90,18 +86,19 @@ namespace Harness {
 
         TbbHarnessReporter m_reporter;
 
+    public:
         enum  { 
             prefix = 1,
             need_lf = 2
         };
 
-	    Tracer*  set_trace_info ( int flags, const char *file, size_t line, const char *func ) {
-		    m_flags = flags;
-		    m_line = line;
+        Tracer*  set_trace_info ( int flags, const char *file, size_t line, const char *func ) {
+            m_flags = flags;
+            m_line = line;
             m_file = file;
             m_func = func;
-		    return  this;
-	    }
+            return  this;
+        }
 
         void  trace ( const char* fmt, ... ) {
             char    msg[MAX_TRACE_SIZE];
@@ -139,9 +136,9 @@ namespace Harness {
 } // namespace Harness
 
 #if defined(_MSC_VER)  &&  _MSC_VER >= 1300  ||  defined(__GNUC__)  ||  defined(__GNUG__)
-	#define HARNESS_TRACE_ORIG_INFO __FILE__, __LINE__, __FUNCTION__
+    #define HARNESS_TRACE_ORIG_INFO __FILE__, __LINE__, __FUNCTION__
 #else
-	#define HARNESS_TRACE_ORIG_INFO __FILE__, __LINE__, ""
+    #define HARNESS_TRACE_ORIG_INFO __FILE__, __LINE__, ""
     #define __FUNCTION__ ""
 #endif
 
@@ -159,7 +156,7 @@ namespace Harness {
 
 //! printf style remark macro
 /** Produces output only when the test is run with the -v (verbose) option. **/
-#define REMARK  !Verbose ? (void)0 : TRACE
+#define REMARK  !Verbose ? (void)0 : TRACENL
 
 //! printf style remark macro
 /** Produces output only when invoked first time. 

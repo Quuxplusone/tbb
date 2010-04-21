@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,30 +30,48 @@
 // to the TBB shared library.
 
 #include <cerrno>
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
+#endif
+
 #include <stdexcept>
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
+
 #include "../tbb/tbb_misc.h"
 #include "harness.h"
+
+#if TBB_USE_EXCEPTIONS
 
 static void TestHandlePerror() {
     bool caught = false;
     try {
         tbb::internal::handle_perror( EAGAIN, "apple" );
     } catch( std::runtime_error& e ) {
-	if( Verbose )
-	    REPORT("caught runtime_exception('%s')\n",e.what());
- 	ASSERT( memcmp(e.what(),"apple: ",7)==0, NULL );
+#if TBB_USE_EXCEPTIONS
+        REMARK("caught runtime_exception('%s')\n",e.what());
+        ASSERT( memcmp(e.what(),"apple: ",7)==0, NULL );
         ASSERT( strstr(e.what(),"unavailable")!=NULL, "bad error message?" ); 
-	caught = true;
+#endif /* TBB_USE_EXCEPTIONS */
+        caught = true;
     }
     ASSERT(caught,NULL);
 }
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    ParseCommandLine( argc, argv );
-#if !__TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
+int TestMain () {
     TestHandlePerror();
-#endif
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }
+
+#else /* !TBB_USE_EXCEPTIONS */
+
+int TestMain () {
+    return Harness::Skipped;
+}
+
+#endif /* TBB_USE_EXCEPTIONS */

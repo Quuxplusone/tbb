@@ -1,4 +1,4 @@
-# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -29,7 +29,9 @@ PROG=parallel_preorder
 ARGS=1:4
 
 # The C++ compiler
-#CXX=g++
+ifneq (,$(shell which icc 2>/dev/null))
+CXX=icc
+endif # icc
 
 all:	release test
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -81,11 +81,7 @@ void Test( const char * name ) {
 
 #endif /* !DO_ITT_NOTIFY */
 
-__TBB_TEST_EXPORT
-int main( int argc, char * argv[] ) {
-    // Default is to run on two threads
-    MinThread = MaxThread = 2;
-    ParseCommandLine( argc, argv );
+int TestMain () {
 #if DO_ITT_NOTIFY
     for( int p=MinThread; p<=MaxThread; ++p ) {
         REMARK( "testing with %d workers\n", p );
@@ -95,9 +91,8 @@ int main( int argc, char * argv[] ) {
         TEST_MUTEX( queuing_rw_mutex, "Queuing RW Mutex" );
         TEST_MUTEX( spin_rw_mutex, "Spin RW Mutex" );
     }
-    REPORT("done\n");
+    return Harness::Done;
 #else /* !DO_ITT_NOTIFY */
-    REPORT("skip\n");
+    return Harness::Skipped;
 #endif /* !DO_ITT_NOTIFY */
-    return 0;
 }

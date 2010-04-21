@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,6 +29,10 @@
 // Declarations for checking __TBB_ASSERT checks inside TBB.
 // This header is an optional part of the test harness.
 // It assumes that "harness.h" has already been included.
+
+#define TRY_BAD_EXPR_ENABLED (TBB_USE_ASSERT && TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN)
+
+#if TRY_BAD_EXPR_ENABLED
 
 //! Check that expression x raises assertion failure with message containing given substring.
 /** Assumes that tbb::set_assertion_handler( AssertionFailureHandler ) was called earlier. */
@@ -78,3 +82,4 @@ void CheckAssertionFailure( int line, const char* expression, bool okay, const c
     }
 }
 
+#endif /* TRY_BAD_EXPR_ENABLED */

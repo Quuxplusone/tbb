@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -46,6 +46,7 @@
 #include "tbb/parallel_for.h"
 #include "tbb/tick_count.h"
 #include "tbb/blocked_range.h"
+#define HARNESS_CUSTOM_MAIN 1
 #include "../test/harness.h"
 //#include "harness_barrier.h"
 #include "../test/harness_allocator.h"

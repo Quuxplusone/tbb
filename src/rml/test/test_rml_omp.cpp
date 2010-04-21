@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,6 +27,7 @@
 */
 
 #include "rml_omp.h"
+#define HARNESS_DEFAULT_MIN_THREADS 0
 #include "test_server.h"
 #include "tbb/tbb_misc.h"
 
@@ -76,6 +77,23 @@ public:
             DoOneConnection<MyFactory,MyClient> doc(MaxThread,Nesting(nesting.level+1,nesting.limit),0,false);
             doc(0);
         }
+#if _WIN32||_WIN64
+        // test activate/deactivate
+        if( t.n_thread>1 && t.n_thread%2==0 ) {
+            if( nesting.level==0 ) {
+                if( index&1 ) {
+                    size_type target = index-1;
+                    ASSERT(  target<t.max_thread, NULL ); 
+                    // wait until t.info[target].job is defined
+                    tbb::internal::spin_wait_until_eq( t.info[target].ran, true );
+                    server->try_increase_load( 1, true );
+                    server->reactivate( t.info[target].job );
+                } else {
+                    server->deactivate( &j );
+                }
+            }
+        }
+#endif /* _WIN32||_WIN64 */
         ++t.barrier;
     }
     static const bool is_omp = true;
@@ -84,11 +102,15 @@ public:
 
 void FireUpJobs( MyServer& server, MyClient& client, int max_thread, int n_extra, Checker* checker ) {
     ASSERT( max_thread>=0, NULL );
+#if _WIN32||_WIN64
+    ::rml::server::execution_resource_t me;
+    server.register_master( me );
+#endif /* _WIN32||_WIN64 */
     client.server = &server;
     MyTeam team(server,size_t(max_thread));
     MyServer::size_type n_thread = 0;
     for( int iteration=0; iteration<4; ++iteration ) {
-        for( size_t i=0; i<team.max_thread; ++i ) 
+        for( size_t i=0; i<team.max_thread; ++i )
             team.info[i].ran = false;
         switch( iteration ) {
             default:
@@ -104,49 +126,52 @@ void FireUpJobs( MyServer& server, MyClient& client, int max_thread, int n_extra
             // Case 3 is same code as the default, but has effect of increasing the number of threads.
         }
         team.barrier = 0;
-        if( Verbose ) {
-            printf("client %d: server.run with n_thread=%d\n", client.client_id(), int(n_thread) );
-        }
+        REMARK("client %d: server.run with n_thread=%d\n", client.client_id(), int(n_thread) );
         server.independent_thread_number_changed( n_extra );
         if( checker ) {
             // Give RML time to respond to change in number of threads.
             MilliSleep(1);
         }
         int n_delivered = server.try_increase_load( n_thread, StrictTeam );
-        team.n_thread = n_delivered;
-        ::rml::job* job_array[JobArraySize];
-        job_array[n_delivered] = (::rml::job*)intptr_t(-1);
-        server.get_threads( n_delivered, &team, job_array );
-        __TBB_ASSERT( job_array[n_delivered]== (::rml::job*)intptr_t(-1), NULL );
-        for( int i=0; i<n_delivered; ++i ) {
-            MyJob* j = static_cast<MyJob*>(job_array[i]);
-            int s = j->state;
-            ASSERT( s==MyJob::idle||s==MyJob::busy, NULL );
-        }
-        server.independent_thread_number_changed( -n_extra );
-        if( Verbose ) {
-            printf("client %d: team size is %d\n", client.client_id(), n_delivered);
-        }
-        if( checker ) {
-            checker->check_number_of_threads_delivered( n_delivered, n_thread, n_extra );
-        }      
-        // Protocol requires that master wait until workers have called "done_processing"
-        while( team.barrier!=n_delivered ) {
-            ASSERT( team.barrier>=0, NULL );
-            ASSERT( team.barrier<=n_delivered, NULL );
-            __TBB_Yield();
-        }
-        if( Verbose ) {
-            printf("client %d: team completed\n", client.client_id() );
-        }
-        for( int i=0; i<n_delivered; ++i ) {
-            ASSERT( team.info[i].ran, "thread on team allegedly delivered, but did not run?" );
+        ASSERT( !StrictTeam || n_delivered==int(n_thread), "server failed to satisfy strict request" );
+        if( n_delivered<0 ) {
+            REMARK( "client %d: oversubscription occurred (by %d)\n", client.client_id(), -n_delivered );
+            server.independent_thread_number_changed( -n_extra );
+            n_delivered = 0;
+        } else {
+            team.n_thread = n_delivered;
+            ::rml::job* job_array[JobArraySize];
+            job_array[n_delivered] = (::rml::job*)intptr_t(-1);
+            server.get_threads( n_delivered, &team, job_array );
+            __TBB_ASSERT( job_array[n_delivered]== (::rml::job*)intptr_t(-1), NULL );
+            for( int i=0; i<n_delivered; ++i ) {
+                MyJob* j = static_cast<MyJob*>(job_array[i]);
+                int s = j->state;
+                ASSERT( s==MyJob::idle||s==MyJob::busy, NULL );
+            }
+            server.independent_thread_number_changed( -n_extra );
+            REMARK("client %d: team size is %d\n", client.client_id(), n_delivered);
+            if( checker ) {
+                checker->check_number_of_threads_delivered( n_delivered, n_thread, n_extra );
+            }      
+            // Protocol requires that master wait until workers have called "done_processing"
+            while( team.barrier!=n_delivered ) {
+                ASSERT( team.barrier>=0, NULL );
+                ASSERT( team.barrier<=n_delivered, NULL );
+                __TBB_Yield();
+            }
+            REMARK("client %d: team completed\n", client.client_id() );
+            for( int i=0; i<n_delivered; ++i ) {
+                ASSERT( team.info[i].ran, "thread on team allegedly delivered, but did not run?" );
+            }
         }
         for( MyServer::size_type i=n_delivered; i<MyServer::size_type(max_thread); ++i ) {
             ASSERT( !team.info[i].ran, "thread on team ran with illegal index" );
         }
-        ASSERT( !StrictTeam || n_delivered==int(n_thread), "server failed to satisfy strict request" );
     }
+#if _WIN32||_WIN64
+    server.unregister_master( me );
+#endif
 }
 
 void DoClientSpecificVerification( MyServer& server, int /*n_thread*/ )
@@ -154,12 +179,7 @@ void DoClientSpecificVerification( MyServer& server, int /*n_thread*/ )
     ASSERT( server.current_balance()==int(tbb::internal::DetectNumberOfWorkers())-1, NULL );
 }
 
-int main( int argc, char* argv[] ) {
-    // Set defaults
-    MinThread = 0;
-    MaxThread = 4;
-    ParseCommandLine(argc,argv);
-
+int TestMain () {
     StrictTeam = true;
     VerifyInitialization<MyFactory,MyClient>( MaxThread );
     SimpleTest<MyFactory,MyClient>();
@@ -168,6 +188,5 @@ int main( int argc, char* argv[] ) {
     VerifyInitialization<MyFactory,MyClient>( MaxThread );
     SimpleTest<MyFactory,MyClient>();
 
-    printf("done\n");
-    return 0;
+    return Harness::Done;
 }

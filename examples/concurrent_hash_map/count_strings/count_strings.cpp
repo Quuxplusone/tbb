@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,7 +30,6 @@
 #if __linux__ && defined(__INTEL_COMPILER)
 #define __sync_fetch_and_add(ptr,addend) _InterlockedExchangeAdd(const_cast<void*>(reinterpret_cast<volatile void*>(ptr)), addend)
 #endif
-
 #include <string>
 #include <cstring>
 #include <cctype>
@@ -59,7 +58,7 @@ static bool Verbose = false;
 static int NThread = 1;
 
 //! Problem size
-size_t N = 1000000;
+long N = 1000000;
 const int size_factor = 2;
 
 //! Indicates if the number of threads wasn't set explicitly

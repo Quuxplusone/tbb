@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,40 +28,84 @@
 
 // Declarations for rock-bottom simple test harness.
 // Just include this file to use it.
-// Every test is presumed to have a command line of the form "foo [-v] [nthread]"
-// The default for nthread is 2.
+// Every test is presumed to have a command line of the form "test [-v] [MinThreads[:MaxThreads]]"
+// The default for MinThreads is 1, for MaxThreads 4.
+// The defaults can be overridden by defining macros HARNESS_DEFAULT_MIN_THREADS
+// and HARNESS_DEFAULT_MAX_THREADS before including harness.h
 
 #ifndef tbb_tests_harness_H
 #define tbb_tests_harness_H
 
-#define __TBB_LAMBDAS_PRESENT  ( _MSC_VER >= 1600 && !__INTEL_COMPILER || __INTEL_COMPILER >= 1100 && _TBB_CPP0X )
-#define __TBB_LAMBDA_AS_TEMPL_PARAM_BROKEN (__INTEL_COMPILER == 1100 || __INTEL_COMPILER == 1110)
+#include "tbb/tbb_config.h"
+
+namespace Harness {
+    enum TestResult {
+        Done,
+        Skipped
+    };
+}
+
+//! Entry point to a TBB unit test application
+/** It MUST be defined by the test application.
+    
+    If HARNESS_NO_PARSE_COMMAND_LINE macro was not explicitly set before including harness.h,
+    then global variables Verbose, MinThread, and MaxThread will be available and 
+    initialized when it is called.
+
+    Returns Harness::Done when the tests passed successfully. When the test fail, it must 
+    not return, calling exit(errcode) or abort() instead. When the test is not supported 
+    for the given platform/compiler/etc, it should return Harness::Skipped.
+    
+    To provide non-standard variant of main() for the test, define HARNESS_CUSTOM_MAIN
+    before including harness.h **/
+int TestMain ();
+
+#define __TBB_LAMBDAS_PRESENT  ( _MSC_VER >= 1600 && !__INTEL_COMPILER || __INTEL_COMPILER > 1100 && _TBB_CPP0X )
+
+#if defined(_MSC_VER) && _MSC_VER < 1400
+    #define __TBB_EXCEPTION_TYPE_INFO_BROKEN 1
+#else
+    #define __TBB_EXCEPTION_TYPE_INFO_BROKEN 0
+#endif
 
 #if __SUNPRO_CC
-#include <stdlib.h>
-#include <string.h>
-#else
-#include <cstdlib>
-#include <cstring>
+    #include <stdlib.h>
+    #include <string.h>
+#else /* !__SUNPRO_CC */
+    #include <cstdlib>
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
 #endif
+    #include <cstring>
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
+#endif /* !__SUNPRO_CC */
+
 #include <new>
 
-#if __LRB__
-#include "harness_lrb.h"
-#else
-#define __TBB_TEST_EXPORT
-#define REPORT_FATAL_ERROR REPORT
-#endif /* !__LRB__ */
+    #define HARNESS_EXPORT
+    #define REPORT_FATAL_ERROR REPORT
 
 #if _WIN32||_WIN64
+#if _XBOX
+    #define NONET
+    #define NOD3D
+    #include <xtl.h>
+    #undef HARNESS_NO_PARSE_COMMAND_LINE
+    #define HARNESS_NO_PARSE_COMMAND_LINE 1
+#else
     #include <windows.h>
+#endif
     #include <process.h>
 #else
     #include <pthread.h>
 #endif
 #if __linux__
-#include <sys/utsname.h> /* for uname */
-#include <errno.h>       /* for use in LinuxKernelVersion() */
+    #include <sys/utsname.h> /* for uname */
+    #include <errno.h>       /* for use in LinuxKernelVersion() */
 #endif
 
 #include "harness_report.h"
@@ -78,16 +122,20 @@ void SetHarnessErrorProcessing( test_error_extra_t extra_call ) {
 }
 //! Reports errors issued by failed assertions
 void ReportError( const char* filename, int line, const char* expression, const char * message ) {
+#if __TBB_ICL_11_1_CODE_GEN_BROKEN
+    printf("%s:%d, assertion %s: %s\n", filename, line, expression, message ? message : "failed" );
+#else
     REPORT_FATAL_ERROR("%s:%d, assertion %s: %s\n", filename, line, expression, message ? message : "failed" );
+#endif
     if( ErrorExtraCall )
         (*ErrorExtraCall)();
-#if TBB_TERMINATE_ON_ASSERT
+#if HARNESS_TERMINATE_ON_ASSERT
     TerminateProcess(GetCurrentProcess(), 1);
-#elif TBB_EXIT_ON_ASSERT
+#elif HARNESS_EXIT_ON_ASSERT
     exit(1);
 #else
     abort();
-#endif /* TBB_EXIT_ON_ASSERT */
+#endif /* HARNESS_EXIT_ON_ASSERT */
 }
 //! Reports warnings issued by failed warning assertions
 void ReportWarning( const char* filename, int line, const char* expression, const char * message ) {
@@ -99,27 +147,36 @@ void ReportWarning( const char* filename, int line, const char* expression, cons
 #endif /* HARNESS_NO_ASSERT */
 
 #if !HARNESS_NO_PARSE_COMMAND_LINE
-//! Controls level of commentary.
+
+//! Controls level of commentary printed via printf-like REMARK() macro.
 /** If true, makes the test print commentary.  If false, test should print "done" and nothing more. */
 static bool Verbose;
 
+#ifndef HARNESS_DEFAULT_MIN_THREADS
+    #define HARNESS_DEFAULT_MIN_THREADS 1
+#endif
+
 //! Minimum number of threads
-/** The default is 0, which is typically interpreted by tests as "run without TBB". */
-static int MinThread = 0;
+static int MinThread = HARNESS_DEFAULT_MIN_THREADS;
+
+#ifndef HARNESS_DEFAULT_MAX_THREADS
+    #define HARNESS_DEFAULT_MAX_THREADS 4
+#endif
 
 //! Maximum number of threads
-static int MaxThread = 2;
+static int MaxThread = HARNESS_DEFAULT_MAX_THREADS;
 
-//! Parse command line of the form "name [-v] [nthread]"
+//! Parse command line of the form "name [-v] [MinThreads[:MaxThreads]]"
 /** Sets Verbose, MinThread, and MaxThread accordingly.
     The nthread argument can be a single number or a range of the form m:n.
     A single number m is interpreted as if written m:m. 
     The numbers must be non-negative.  
     Clients often treat the value 0 as "run sequentially." */
 static void ParseCommandLine( int argc, char* argv[] ) {
+    if( !argc ) REPORT("Command line with 0 arguments\n");
     int i = 1;  
     if( i<argc ) {
-        if( strcmp( argv[i], "-v" )==0 ) {
+        if( strncmp( argv[i], "-v", 2 )==0 ) {
             Verbose = true;
             ++i;
         }
@@ -159,6 +216,23 @@ static void ParseCommandLine( int argc, char* argv[] ) {
     }
 }
 #endif /* HARNESS_NO_PARSE_COMMAND_LINE */
+
+#if !HARNESS_CUSTOM_MAIN
+
+HARNESS_EXPORT
+#if HARNESS_NO_PARSE_COMMAND_LINE
+int main() {
+#else
+int main(int argc, char* argv[]) {
+    ParseCommandLine( argc, argv );
+#endif
+    int res = TestMain ();
+    ASSERT( res==Harness::Done || res==Harness::Skipped, "Wrong return code by TestMain");
+    REPORT( res==Harness::Done ? "done\n" : "skip\n" );
+    return 0;
+}
+
+#endif /* !HARNESS_CUSTOM_MAIN */
 
 //! Base class for prohibiting compiler-generated operator=
 class NoAssign {
@@ -257,15 +331,15 @@ private:
 #endif
     {
         NativeParallelForTask& self = *static_cast<NativeParallelForTask*>(object);
-#if defined(__EXCEPTIONS) || defined(_CPPUNWIND) || defined(__SUNPRO_CC)
+#if TBB_USE_EXCEPTIONS
         try {
             (self.body)(self.index);
         } catch(...) {
             ASSERT( false, "uncaught exception" );
         }
-#else
+#else /* !TBB_USE_EXCEPTIONS */
         (self.body)(self.index);
-#endif// exceptions are enabled
+#endif /* !TBB_USE_EXCEPTIONS */
         return 0;
     }
 };
@@ -301,47 +375,52 @@ void NativeParallelFor( Index n, const Body& body ) {
 
 //! The function to zero-initialize arrays; useful to avoid warnings
 template <typename T>
-void zero_fill(void* array, size_t N) {
-    memset(array, 0, sizeof(T)*N);
+void zero_fill(void* array, size_t n) {
+    memset(array, 0, sizeof(T)*n);
 }
 
+#if __SUNPRO_CC && defined(min)
+#undef min
+#undef max
+#endif
+
 #ifndef min
-    //! Utility template function returning lesser of the two values.
-    /** Provided here to avoid including not strict safe <algorithm>.\n
-        In case operands cause signed/unsigned or size mismatch warnings it is caller's
-        responsibility to do the appropriate cast before calling the function. **/
-    template<typename T1, typename T2>
-    T1 min ( const T1& val1, const T2& val2 ) {
-        return val1 < val2 ? val1 : val2;
-    }
+//! Utility template function returning lesser of the two values.
+/** Provided here to avoid including not strict safe <algorithm>.\n
+    In case operands cause signed/unsigned or size mismatch warnings it is caller's
+    responsibility to do the appropriate cast before calling the function. **/
+template<typename T1, typename T2>
+T1 min ( const T1& val1, const T2& val2 ) {
+    return val1 < val2 ? val1 : val2;
+}
 #endif /* !min */
 
 #ifndef max
-    //! Utility template function returning greater of the two values. Provided here to avoid including not strict safe <algorithm>.
-    /** Provided here to avoid including not strict safe <algorithm>.\n
-        In case operands cause signed/unsigned or size mismatch warnings it is caller's
-        responsibility to do the appropriate cast before calling the function. **/
-    template<typename T1, typename T2>
-    T1 max ( const T1& val1, const T2& val2 ) {
-        return val1 < val2 ? val2 : val1;
-    }
+//! Utility template function returning greater of the two values.
+/** Provided here to avoid including not strict safe <algorithm>.\n
+    In case operands cause signed/unsigned or size mismatch warnings it is caller's
+    responsibility to do the appropriate cast before calling the function. **/
+template<typename T1, typename T2>
+T1 max ( const T1& val1, const T2& val2 ) {
+    return val1 < val2 ? val2 : val1;
+}
 #endif /* !max */
 
 #if __linux__
 inline unsigned LinuxKernelVersion()
 {
-    unsigned a, b, c;
+    unsigned digit1, digit2, digit3;
     struct utsname utsnameBuf;
     
     if (-1 == uname(&utsnameBuf)) {
         REPORT_FATAL_ERROR("Can't call uname: errno %d\n", errno);
         exit(1);
     }
-    if (3 != sscanf(utsnameBuf.release, "%u.%u.%u", &a, &b, &c)) {
+    if (3 != sscanf(utsnameBuf.release, "%u.%u.%u", &digit1, &digit2, &digit3)) {
         REPORT_FATAL_ERROR("Unable to parse OS release '%s'\n", utsnameBuf.release);
         exit(1);
     }
-    return 1000000*a+1000*b+c;
+    return 1000000*digit1+1000*digit2+digit3;
 }
 #endif
 
@@ -384,7 +463,7 @@ public:
 #else /* !WIN */
     void Sleep ( int ms ) {
         timespec  requested = { ms / 1000, (ms % 1000)*1000000 };
-        timespec  remaining = {0};
+        timespec  remaining = { 0, 0 };
         nanosleep(&requested, &remaining);
     }
 #endif /* !WIN */

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -38,6 +38,7 @@ int main( int argc, char* argv[] ) {
         printf("%u\n",a);
         b+=a;
         a=(b-a)%10000;
+        if (a<0) a=-a;
     }
     return 0;
 }

@@ -1,4 +1,4 @@
-# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -72,9 +72,8 @@ clean_examples:
 
 mkdir:
 	$(shell $(MD) "$(work_dir)_release" >$(NUL) 2>$(NUL))
-	$(if $(subst undefined,,$(origin_build_dir)),,cd "$(work_dir)_release" && $(MAKE_TBBVARS) $(tbb_build_prefix)_release)
 	$(shell $(MD) "$(work_dir)_debug" >$(NUL) 2>$(NUL))
-	$(if $(subst undefined,,$(origin_build_dir)),,cd "$(work_dir)_debug" && $(MAKE_TBBVARS) $(tbb_build_prefix)_debug)
+	@echo Created $(work_dir)_release and ..._debug directories
 
 info:
 	@echo OS: $(tbb_os)

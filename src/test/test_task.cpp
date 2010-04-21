@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -33,10 +33,16 @@
 #include <cstdlib>
 
 //------------------------------------------------------------------------
+// Helper for verifying that old use cases of spawn syntax still work.
+//------------------------------------------------------------------------
+tbb::task* GetTaskPtr( int& counter ) {
+    ++counter;
+    return NULL;
+}
+ 
+//------------------------------------------------------------------------
 // Test for task::spawn_children and task_list
 //------------------------------------------------------------------------
-
-#if __TBB_TASK_DEQUE
 
 class UnboundedlyRecursiveOnUnboundedStealingTask : public tbb::task {
     typedef UnboundedlyRecursiveOnUnboundedStealingTask this_type;
@@ -45,21 +51,21 @@ class UnboundedlyRecursiveOnUnboundedStealingTask : public tbb::task {
     const int m_Depth; 
     volatile bool m_GoAhead;
 
-    volatile uintptr_t m_Anchor;
-
     // Well, virtually unboundedly, for any practical purpose
     static const int max_depth = 1000000; 
 
 public:
-    UnboundedlyRecursiveOnUnboundedStealingTask( this_type *parent = NULL, int depth = max_depth )
-        : m_Parent(parent)
-        , m_Depth(depth)
+    UnboundedlyRecursiveOnUnboundedStealingTask( this_type *parent_ = NULL, int depth_ = max_depth )
+        : m_Parent(parent_)
+        , m_Depth(depth_)
         , m_GoAhead(true)
-        , m_Anchor(0)
     {}
 
     /*override*/
     tbb::task* execute() {
+        // Using large padding array sppeds up reaching stealing limit
+        const int paddingSize = 16 * 1024;
+        volatile char padding[paddingSize];
         if( !m_Parent || (m_Depth > 0 &&  m_Parent->m_GoAhead) ) {
             if ( m_Parent ) {
                 // We are stolen, let our parent to start waiting for us
@@ -70,7 +76,7 @@ public:
             spawn( t );
             // Give a willing thief a chance to steal
             for( int i = 0; i < 1000000 && m_GoAhead; ++i ) {
-                m_Anchor += 1;
+                ++padding[i % paddingSize];
                 __TBB_Yield();
             }
             // If our child has not been stolen yet, then prohibit it siring ones 
@@ -82,9 +88,6 @@ public:
     }
 }; // UnboundedlyRecursiveOnUnboundedStealingTask
 
-#endif /* __TBB_TASK_DEQUE */
-
-
 tbb::atomic<int> Count;
 
 class RecursiveTask: public tbb::task {
@@ -93,7 +96,9 @@ class RecursiveTask: public tbb::task {
     //! Spawn tasks in list.  Exact method depends upon m_Depth&bit_mask.
     void SpawnList( tbb::task_list& list, int bit_mask ) {
         if( m_Depth&bit_mask ) {
-            spawn(list);
+            // Take address to check that signature of spawn(task_list&) is static.
+            void (*s)(tbb::task_list&) = &tbb::task::spawn;
+            (*s)(list);
             ASSERT( list.empty(), NULL );
             wait_for_all();
         } else {
@@ -102,7 +107,7 @@ class RecursiveTask: public tbb::task {
         }
     }
 public:
-    RecursiveTask( int child_count, int depth ) : m_ChildCount(child_count), m_Depth(depth) {}
+    RecursiveTask( int child_count, int depth_ ) : m_ChildCount(child_count), m_Depth(depth_) {}
     /*override*/ tbb::task* execute() {
         ++Count;
         if( m_Depth>0 ) {
@@ -131,18 +136,16 @@ static int Expected( int child_count, int depth ) {
 #include "tbb/task_scheduler_init.h"
 #include "harness.h"
 
-#if __TBB_TASK_DEQUE
 void TestStealLimit( int nthread ) {
     REMARK( "testing steal limiting heuristics for %d threads\n", nthread );
     tbb::task_scheduler_init init(nthread);
     tbb::task &t = *new( tbb::task::allocate_root() ) UnboundedlyRecursiveOnUnboundedStealingTask();
     tbb::task::spawn_root_and_wait(t);
 }
-#endif /* __TBB_TASK_DEQUE */
 
 //! Test task::spawn( task_list& )
 void TestSpawnChildren( int nthread ) {
-    REMARK("testing task::spawn_children for %d threads\n",nthread);
+    REMARK("testing task::spawn(task_list&) for %d threads\n",nthread);
     tbb::task_scheduler_init init(nthread);
     for( int j=0; j<50; ++j ) {
         Count = 0;
@@ -178,7 +181,7 @@ class TaskGenerator: public tbb::task {
     int m_Depth;
     
 public:
-    TaskGenerator( int child_count, int depth ) : m_ChildCount(child_count), m_Depth(depth) {}
+    TaskGenerator( int child_count, int _depth ) : m_ChildCount(child_count), m_Depth(_depth) {}
     ~TaskGenerator( ) { m_ChildCount = m_Depth = -125; }
 
     /*override*/ tbb::task* execute() {
@@ -186,10 +189,12 @@ public:
         if( m_Depth>0 ) {
             recycle_as_safe_continuation();
             set_ref_count( m_ChildCount+1 );
+            int k=0; 
             for( int j=0; j<m_ChildCount; ++j ) {
                 tbb::task& t = *new( allocate_child() ) TaskGenerator(m_ChildCount/2,m_Depth-1);
-                spawn(t);
+                GetTaskPtr(k)->spawn(t);
             }
+            ASSERT(k==m_ChildCount,NULL);
             --m_Depth;
             __TBB_Yield();
             ASSERT( state()==recycle && ref_count()>0, NULL);
@@ -256,7 +261,7 @@ void TestAffinity( int nthread ) {
     t->set_ref_count(n);
     // Spawn n-1 affinitized children.
     for( int i=1; i<n; ++i ) 
-        t->spawn( *new(t->allocate_child()) AffinityTask(i) );
+        tbb::task::spawn( *new(t->allocate_child()) AffinityTask(i) );
     if( n>1 ) {
         // Keep master from stealing
         while( TotalCount!=n-1 ) 
@@ -264,7 +269,9 @@ void TestAffinity( int nthread ) {
     }
     // Wait for the children
     t->wait_for_all();
-    t->destroy(*t);
+    int k = 0;
+    GetTaskPtr(k)->destroy(*t);
+    ASSERT(k==1,NULL);
 }
 
 struct NoteAffinityTask: public tbb::task {
@@ -288,15 +295,17 @@ struct NoteAffinityTask: public tbb::task {
 // This test checks one of the paths inside the scheduler by affinitizing the child task 
 // to non-existent thread so that it is proxied in the local task pool but not retrieved 
 // by another thread. 
+// If no workers requested, the extra slot #2 is allocated for a worker thread to serve
+// "enqueued" tasks. In this test, it is used only for the affinity purpose.
 void TestNoteAffinityContext() {
     tbb::task_scheduler_init init(1);
     tbb::empty_task* t = new( tbb::task::allocate_root() ) tbb::empty_task;
     t->set_ref_count(2);
     // This master in the absence of workers will have an affinity id of 1. 
     // So use another number to make the task get proxied.
-    t->spawn( *new(t->allocate_child()) NoteAffinityTask(2) );
+    tbb::task::spawn( *new(t->allocate_child()) NoteAffinityTask(2) );
     t->wait_for_all();
-    t->destroy(*t);
+    tbb::task::destroy(*t);
 }
 
 //------------------------------------------------------------------------
@@ -304,6 +313,7 @@ void TestNoteAffinityContext() {
 // when a task's constructor throws an exception.
 //------------------------------------------------------------------------
 
+#if TBB_USE_EXCEPTIONS
 static int TestUnconstructibleTaskCount;
 
 struct ConstructionFailure {
@@ -361,6 +371,7 @@ void TestUnconstructibleTask() {
     tbb::task::spawn_root_and_wait(*t);
     ASSERT( TestUnconstructibleTaskCount==4, NULL );
 }
+#endif /* TBB_USE_EXCEPTIONS */
 
 //------------------------------------------------------------------------
 // Test for alignment problems with task objects.
@@ -446,10 +457,10 @@ int Fib( int n ) {
         int y=-1;
         tbb::task* root_task = new( tbb::task::allocate_root() ) tbb::empty_task;
         root_task->set_ref_count(2);
-        root_task->spawn( *new( root_task->allocate_child() ) RightFibTask(&y,n) );
+        tbb::task::spawn( *new( root_task->allocate_child() ) RightFibTask(&y,n) );
         int x = Fib(n-2);
         root_task->wait_for_all();
-        tbb::task::self().destroy(*root_task);
+        tbb::task::destroy(*root_task);
         return y+x;
     }
 }
@@ -528,7 +539,7 @@ void TestDag( int p ) {
     a[n-1][n-1]->increment_ref_count();
     a[n-1][n-1]->spawn_and_wait_for_all(*a[0][0]);
     ASSERT( DagTask::execution_count == n*n - 1, NULL );
-    a[n-1][n-1]->destroy(*a[n-1][n-1]);
+    tbb::task::destroy(*a[n-1][n-1]);
     ASSERT( DagTask::destruction_count > n*n - p, NULL );
     while ( DagTask::destruction_count != n*n )
         __TBB_Yield();
@@ -548,7 +559,7 @@ class RelaxedOwnershipTask: public tbb::task {
         r.set_ref_count( 1 );
         m_barrier.wait();
         p.spawn( *new(p.allocate_child()) tbb::empty_task );
-        p.spawn( *new(p.allocate_additional_child_of(p)) tbb::empty_task );
+        p.spawn( *new(task::allocate_additional_child_of(p)) tbb::empty_task );
         p.spawn( m_taskToSpawn );
         p.destroy( m_taskToDestroy );
         r.spawn_and_wait_for_all( m_taskToExecute );
@@ -569,10 +580,10 @@ Harness::SpinBarrier RelaxedOwnershipTask::m_barrier;
 void TestRelaxedOwnership( int p ) {
     if ( p < 2 )
         return;
-#if __TEST_TBB_RML
+
     if( unsigned(p)>tbb::tbb_thread::hardware_concurrency() )
         return;
-#endif
+
     REMARK("testing tasks exercising relaxed ownership freedom for %d threads\n", p);
     tbb::task_scheduler_init init(p);
     RelaxedOwnershipTask::SetBarrier(p);
@@ -585,7 +596,10 @@ void TestRelaxedOwnership( int p ) {
         tl.push_back( *new( r.allocate_child() ) RelaxedOwnershipTask(tS, tD, tE) );
     }
     r.set_ref_count( 5 * p + 1 );
-    r.spawn_and_wait_for_all( tl );
+    int k=0;
+    GetTaskPtr(k)->spawn( tl );
+    ASSERT(k==1,NULL);
+    r.wait_for_all();
     r.destroy( r );
 }
 
@@ -597,7 +611,7 @@ void RunSchedulerInstanceOnUserThread( int n_child ) {
     tbb::task* e = new( tbb::task::allocate_root() ) tbb::empty_task;
     e->set_ref_count(1+n_child);
     for( int i=0; i<n_child; ++i )
-        e->spawn( *new(e->allocate_child()) tbb::empty_task );
+        tbb::task::spawn( *new(e->allocate_child()) tbb::empty_task );
     e->wait_for_all();
     e->destroy(*e);
 }
@@ -617,8 +631,8 @@ class TaskWithChildToSteal : public tbb::task {
     volatile bool m_GoAhead;
 
 public:
-    TaskWithChildToSteal( int depth )
-        : m_Depth(depth)
+    TaskWithChildToSteal( int depth_ )
+        : m_Depth(depth_)
         , m_GoAhead(false)
     {}
 
@@ -627,19 +641,19 @@ public:
         m_GoAhead = true;
         if ( m_Depth > 0 ) {
             TaskWithChildToSteal &t = *new( tbb::task::allocate_child() ) TaskWithChildToSteal(m_Depth - 1);
-            t.SpawnMeAndWaitOn( *this );
+            t.SpawnAndWaitOnParent();
         }
         else
             Harness::Sleep(50); // The last task in chain sleeps for 50 ms
         return NULL;
     }
 
-    void SpawnMeAndWaitOn( tbb::task& parent ) {
-        parent.set_ref_count( 2 );
-        parent.spawn( *this );
+    void SpawnAndWaitOnParent() {
+        parent()->set_ref_count( 2 );
+        parent()->spawn( *this );
         while (!this->m_GoAhead )
             __TBB_Yield();
-        parent.wait_for_all();
+        parent()->wait_for_all();
     }
 }; // TaskWithChildToSteal
 
@@ -653,39 +667,323 @@ void TestDispatchLoopResponsiveness() {
     tbb::task &r = *new( tbb::task::allocate_root() ) tbb::empty_task;
     for ( int depth = 0; depth < 3; ++depth ) {
         TaskWithChildToSteal &t = *new( r.allocate_child() ) TaskWithChildToSteal(depth);
-        t.SpawnMeAndWaitOn(r);
+        t.SpawnAndWaitOnParent();
     }
     r.destroy(r);
     // The success criteria of this test is not hanging
 }
 
-__TBB_TEST_EXPORT
-int main(int argc, char* argv[]) {
-    MinThread = 1;
-    ParseCommandLine( argc, argv );
-#if !__TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
+void TestWaitDiscriminativenessWithoutStealing() {
+    REMARK( "testing that task::wait_for_all is specific to the root it is called on (no workers)\n" );
+    // The test relies on the strict LIFO scheduling order in the absence of workers
+    tbb::task_scheduler_init init(1);
+    tbb::task &r1 = *new( tbb::task::allocate_root() ) tbb::empty_task;
+    tbb::task &r2 = *new( tbb::task::allocate_root() ) tbb::empty_task;
+    const int NumChildren = 10;
+    r1.set_ref_count( NumChildren + 1 );
+    r2.set_ref_count( NumChildren + 1 );
+    for( int i=0; i < NumChildren; ++i ) {
+        tbb::empty_task &t1 = *new( r1.allocate_child() ) tbb::empty_task;
+        tbb::empty_task &t2 = *new( r2.allocate_child() ) tbb::empty_task;
+        tbb::task::spawn(t1);
+        tbb::task::spawn(t2);
+    }
+    r2.wait_for_all();
+    ASSERT( r2.ref_count() <= 1, "Not all children of r2 executed" );
+    ASSERT( r1.ref_count() > 1, "All children of r1 prematurely executed" );
+    r1.wait_for_all();
+    ASSERT( r1.ref_count() <= 1, "Not all children of r1 executed" );
+    r1.destroy(r1);
+    r2.destroy(r2);
+}
+
+
+using tbb::internal::spin_wait_until_eq;
+
+//! Deterministic emulation of a long running task
+class LongRunningTask : public tbb::task {
+    volatile bool& m_CanProceed;
+
+    tbb::task* execute() {
+        spin_wait_until_eq( m_CanProceed, true );
+        return NULL;
+    }
+public:
+    LongRunningTask ( volatile bool& canProceed ) : m_CanProceed(canProceed) {}
+};
+
+void TestWaitDiscriminativenessWithStealing() {
+    if( tbb::tbb_thread::hardware_concurrency() < 2 )
+        return;
+    REMARK( "testing that task::wait_for_all is specific to the root it is called on (one worker)\n" );
+    volatile bool canProceed = false;
+    tbb::task_scheduler_init init(2);
+    tbb::task &r1 = *new( tbb::task::allocate_root() ) tbb::empty_task;
+    tbb::task &r2 = *new( tbb::task::allocate_root() ) tbb::empty_task;
+    r1.set_ref_count( 2 );
+    r2.set_ref_count( 2 );
+    tbb::task& t1 = *new( r1.allocate_child() ) tbb::empty_task;
+    tbb::task& t2 = *new( r2.allocate_child() ) LongRunningTask(canProceed);
+    tbb::task::spawn(t2);
+    tbb::task::spawn(t1);
+    r1.wait_for_all();
+    ASSERT( r1.ref_count() <= 1, "Not all children of r1 executed" );
+    ASSERT( r2.ref_count() == 2, "All children of r2 prematurely executed" );
+    canProceed = true;
+    r2.wait_for_all();
+    ASSERT( r2.ref_count() <= 1, "Not all children of r2 executed" );
+    r1.destroy(r1);
+    r2.destroy(r2);
+}
+
+struct MasterBody : NoAssign, Harness::NoAfterlife {
+    static Harness::SpinBarrier my_barrier;
+
+    class BarrenButLongTask : public tbb::task {
+        volatile bool& m_Started;
+        volatile bool& m_CanProceed;
+
+        tbb::task* execute() {
+            m_Started = true;
+            spin_wait_until_eq( m_CanProceed, true );
+            volatile int k = 0;
+            for ( int i = 0; i < 1000000; ++i ) ++k;
+            return NULL;
+        }
+    public:
+        BarrenButLongTask ( volatile bool& started, volatile bool& can_proceed )
+            : m_Started(started), m_CanProceed(can_proceed)
+        {}
+    };
+
+    class BinaryRecursiveTask : public tbb::task {
+        int m_Depth;
+
+        tbb::task* execute() {
+            if( !m_Depth )
+                return NULL;
+            set_ref_count(3);
+            spawn( *new( tbb::task::allocate_child() ) BinaryRecursiveTask(m_Depth - 1) );
+            spawn( *new( tbb::task::allocate_child() ) BinaryRecursiveTask(m_Depth - 1) );
+            wait_for_all();
+            return NULL;
+        }
+
+        void note_affinity( affinity_id ) {
+            __TBB_ASSERT( false, "These tasks cannot be stolen" );
+        }
+    public:
+        BinaryRecursiveTask ( int depth_ ) : m_Depth(depth_) {}
+    };
+
+    void operator() ( int id ) const {
+        if ( id ) {
+            tbb::task_scheduler_init init(2);
+            volatile bool child_started = false,
+                          can_proceed = false;
+            tbb::task& r = *new( tbb::task::allocate_root() ) tbb::empty_task;
+            r.set_ref_count(2);
+            r.spawn( *new(r.allocate_child()) BarrenButLongTask(child_started, can_proceed) );
+            spin_wait_until_eq( child_started, true );
+            my_barrier.wait();
+            can_proceed = true;
+            r.wait_for_all();
+            r.destroy(r);
+        }
+        else {
+            my_barrier.wait();
+            tbb::task_scheduler_init init(1);
+            Count = 0;
+            int depth = 16;
+            BinaryRecursiveTask& r = *new( tbb::task::allocate_root() ) BinaryRecursiveTask(depth);
+            tbb::task::spawn_root_and_wait(r);
+        }
+    }
+public:
+    MasterBody ( int num_masters ) { my_barrier.initialize(num_masters); }
+};
+
+Harness::SpinBarrier MasterBody::my_barrier;
+
+/** Ensures that tasks spawned by a master thread or one of the workers servicing
+    it cannot be stolen by another master thread. **/
+void TestMastersIsolation ( int p ) {
+    // The test requires at least 3-way parallelism to work correctly
+    if ( p > 2 && tbb::task_scheduler_init::default_num_threads() >= p ) {
+        tbb::task_scheduler_init init(p);
+        NativeParallelFor( p, MasterBody(p) );
+    }
+}
+
+//------------------------------------------------------------------------
+// Test for tbb::task::enqueue
+//------------------------------------------------------------------------
+
+const int PairsPerTrack = 100;
+
+class EnqueuedTask : public tbb::task {
+    task* my_successor;
+    int my_enqueue_order;
+    int* my_track;
+    tbb::task* execute() {
+        // Capture execution order in the very beginning
+        int execution_order = 2 - my_successor->decrement_ref_count();
+        // Create some local work.
+        TaskGenerator& p = *new( tbb::task::allocate_root() ) TaskGenerator(2,2);
+        tbb::task::spawn_root_and_wait(p);
+        if( execution_order==2 ) { // the "slower" of two peer tasks
+            ++nCompletedPairs;
+            // Of course execution order can differ from dequeue order.
+            // But there is no better approximation at hand; and a single worker
+            // will execute in dequeue order, which is enough for our check.
+            if (my_enqueue_order==execution_order)
+                ++nOrderedPairs;
+            FireTwoTasks(my_track);
+            destroy(*my_successor);
+        }
+        return NULL;
+    }
+public:
+    EnqueuedTask( task* successor, int enq_order, int* track )
+    : my_successor(successor), my_enqueue_order(enq_order), my_track(track) {}
+
+    // Create and enqueue two tasks
+    static void FireTwoTasks( int* track ) {
+        int progress = ++*track;
+        if( progress < PairsPerTrack ) {
+            task* successor = new (tbb::task::allocate_root()) tbb::empty_task;
+            successor->set_ref_count(2);
+            enqueue( *new (tbb::task::allocate_root()) EnqueuedTask(successor, 1, track) );
+            enqueue( *new (tbb::task::allocate_root()) EnqueuedTask(successor, 2, track) );
+        }
+    }
+
+    static tbb::atomic<int> nCompletedPairs;
+    static tbb::atomic<int> nOrderedPairs;
+};
+
+tbb::atomic<int> EnqueuedTask::nCompletedPairs;
+tbb::atomic<int> EnqueuedTask::nOrderedPairs;
+
+const int nTracks = 10;
+static int TaskTracks[nTracks];
+const int stall_threshold = 100000;
+
+void TimedYield( double pause_time );
+
+class ProgressMonitor {
+public:
+    void operator() ( ) {
+        int track_snapshot[nTracks];
+        int stall_count = 0, uneven_progress_count = 0, last_progress_mask = 0;
+        for(int i=0; i<nTracks; ++i)
+            track_snapshot[i]=0;
+        bool completed;
+        do {
+            // Yield repeatedly for at least 1 usec
+            TimedYield( 1E-6 );
+            int overall_progress = 0, progress_mask = 0;
+            const int all_progressed = (1<<nTracks) - 1;
+            completed = true;
+            for(int i=0; i<nTracks; ++i) {
+                int ti = TaskTracks[i];
+                int pi = ti-track_snapshot[i];
+                if( pi ) progress_mask |= 1<<i;
+                overall_progress += pi;
+                completed = completed && ti==PairsPerTrack;
+                track_snapshot[i]=ti;
+            }
+            // The constants in the next asserts are subjective and may need correction.
+            if( overall_progress )
+                stall_count=0;
+            else {
+                ++stall_count;
+                // no progress for at least 0.1 s; consider it dead.
+                ASSERT(stall_count < stall_threshold, "no progress on enqueued tasks; deadlock?");
+            }
+            if( progress_mask==all_progressed || progress_mask^last_progress_mask ) {
+                uneven_progress_count = 0;
+                last_progress_mask = progress_mask;
+            }
+            else if ( overall_progress > 2 ) {
+                ++uneven_progress_count;
+                ASSERT(uneven_progress_count < 5, "some enqueued tasks seem stalling; no simultaneous progress?");
+            }
+        } while( !completed );
+    }
+};
+
+void TestEnqueue( int p ) {
+    REMARK("testing task::enqueue for %d threads\n", p);
+    for(int mode=0;mode<3;++mode) {
+        tbb::task_scheduler_init init(p);
+        EnqueuedTask::nCompletedPairs = EnqueuedTask::nOrderedPairs = 0;
+        for(int i=0; i<nTracks; ++i) {
+            TaskTracks[i] = -1; // to accomodate for the starting call
+            EnqueuedTask::FireTwoTasks(TaskTracks+i);
+        }
+        ProgressMonitor pm;
+        tbb::tbb_thread thr( pm );
+        if(mode==1) {
+            // do some parallel work in the meantime
+            for(int i=0; i<10; i++) {
+                TaskGenerator& g = *new( tbb::task::allocate_root() ) TaskGenerator(2,5);
+                tbb::task::spawn_root_and_wait(g);
+                TimedYield( 1E-6 );
+            }
+        }
+        if( mode==2 ) {
+            // Additionally enqueue a bunch of empty tasks. The goal is to test that tasks
+            // allocated and enqueued by a thread are safe to use after the thread leaves TBB.
+            tbb::task* root = new (tbb::task::allocate_root()) tbb::empty_task;
+            root->set_ref_count(100);
+            for( int i=0; i<100; ++i )
+                tbb::task::enqueue( *new (root->allocate_child()) tbb::empty_task );
+            init.terminate(); // master thread deregistered
+        }
+        thr.join();
+        ASSERT(EnqueuedTask::nCompletedPairs==nTracks*PairsPerTrack, NULL);
+        ASSERT(EnqueuedTask::nOrderedPairs<EnqueuedTask::nCompletedPairs,
+            "all task pairs executed in enqueue order; de facto guarantee is too strong?");
+    }
+}
+
+//------------------------------------------------------------------------
+// Run all tests.
+//------------------------------------------------------------------------
+
+int TestMain () {
+#if TBB_USE_EXCEPTIONS
     TestUnconstructibleTask<1>();
     TestUnconstructibleTask<10000>();
 #endif
     TestAlignment();
     TestNoteAffinityContext();
     TestDispatchLoopResponsiveness();
+    TestWaitDiscriminativenessWithoutStealing();
+    TestWaitDiscriminativenessWithStealing();
     for( int p=MinThread; p<=MaxThread; ++p ) {
         TestSpawnChildren( p );
         TestSpawnRootList( p );
         TestSafeContinuation( p );
+        TestEnqueue( p );
         TestLeftRecursion( p );
         TestDag( p );
         TestAffinity( p );
         TestUserThread( p );
-#if __TBB_TASK_DEQUE
         TestStealLimit( p );
-#endif /* __TBB_TASK_DEQUE */
-#if __TBB_RELAXED_OWNERSHIP
         TestRelaxedOwnership( p );
-#endif /* __TBB_RELAXED_OWNERSHIP */
+#if __TBB_ARENA_PER_MASTER
+        TestMastersIsolation( p );
+#endif /* __TBB_ARENA_PER_MASTER */
     }
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
+}
+
+#include "tbb/tick_count.h"
+void TimedYield( double pause_time ) {
+    tbb::tick_count start = tbb::tick_count::now();
+    while( (tbb::tick_count::now()-start).seconds() < pause_time )
+        __TBB_Yield();
 }
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -49,11 +49,35 @@ namespace tbb {
         }
     } // namespace internal
 } // namespace tbb
-
+#define __TBB_EXTRA_DEBUG 1 // enables additional checks
 #include "tbb/concurrent_hash_map.h"
 
 // Restore runtime_warning as an entry point into the TBB library.
 #undef runtime_warning
+
+namespace Jungle {
+    struct Tiger {};
+    size_t tbb_hasher( const Tiger& ) {return 0;}
+}
+
+#if !defined(_MSC_VER) || _MSC_VER>=1400 || __INTEL_COMPILER
+void test_ADL() {
+    tbb::tbb_hash_compare<Jungle::Tiger>::hash(Jungle::Tiger()); // Instantiation chain finds tbb_hasher via Argument Dependent Lookup
+}
+#endif
+
+struct UserDefinedKeyType {
+};
+
+namespace tbb {
+    // Test whether tbb_hash_compare can be partially specialized as stated in Reference manual.
+    template<> struct tbb_hash_compare<UserDefinedKeyType> {
+        size_t hash( UserDefinedKeyType ) const {return 0;}
+        bool equal( UserDefinedKeyType /*x*/, UserDefinedKeyType /*y*/ ) {return true;}
+    };
+};
+
+tbb::concurrent_hash_map<UserDefinedKeyType,int> TestInstantiationWithUserDefinedKeyType;
 
 // Test whether a sufficient set of headers were included to instantiate a concurernt_hash_map. OSS Bug #120 (& #130):
 // http://www.threadingbuildingblocks.org/bug_desc.php?id=120
@@ -72,7 +96,7 @@ public:
     virtual ~MyException() throw() {}
 };
 
-/** Has tighly controlled interface so that we can verify
+/** Has tightly controlled interface so that we can verify
     that concurrent_hash_map uses only the required interface. */
 class MyKey {
 private:
@@ -100,13 +124,13 @@ protected:
         LIVE=0x1234,
         DEAD=0x5678
     } my_state;
-    void operator=( const MyData& );    // Deny acces
+    void operator=( const MyData& );    // Deny access
 public:
     MyData(int i = 0) {
         my_state = LIVE;
         data = i;
         if(MyDataCountLimit && MyDataCount + 1 >= MyDataCountLimit)
-            throw MyException();
+            __TBB_THROW( MyException() );
         ++MyDataCount;
     }
     MyData( const MyData& other ) {
@@ -114,7 +138,7 @@ public:
         my_state = LIVE;
         data = other.data;
         if(MyDataCountLimit && MyDataCount + 1 >= MyDataCountLimit)
-            throw MyException();
+            __TBB_THROW( MyException() );
         ++MyDataCount;
     }
     ~MyData() {
@@ -195,8 +219,7 @@ template<typename MyTable>
 inline void CheckAllocator(MyTable &table, size_t expected_allocs, size_t expected_frees, bool exact = true) {
     size_t items_allocated = table.get_allocator().items_allocated, items_freed = table.get_allocator().items_freed;
     size_t allocations = table.get_allocator().allocations, frees = table.get_allocator().frees;
-    if(Verbose)
-        REPORT("checking allocators: items %u/%u, allocs %u/%u\n",
+    REMARK("checking allocators: items %u/%u, allocs %u/%u\n",
             unsigned(items_allocated), unsigned(items_freed), unsigned(allocations), unsigned(frees) );
     ASSERT( items_allocated == allocations, NULL); ASSERT( items_freed == frees, NULL);
     if(exact) {
@@ -344,19 +367,16 @@ public:
 
 template<typename Op, typename TableType>
 void DoConcurrentOperations( TableType& table, int n, const char* what, int nthread ) {
-    if( Verbose ) 
-        REPORT("testing %s with %d threads\n",what,nthread);
+    REMARK("testing %s with %d threads\n",what,nthread);
     tbb::tick_count t0 = tbb::tick_count::now();
     tbb::parallel_for( tbb::blocked_range<int>(0,n,100), TableOperation<Op,TableType>(table) );
     tbb::tick_count t1 = tbb::tick_count::now();
-    if( Verbose )
-        REPORT("time for %s = %g with %d threads\n",what,(t1-t0).seconds(),nthread);
+    REMARK("time for %s = %g with %d threads\n",what,(t1-t0).seconds(),nthread);
 }
 
 //! Test traversing the table with an iterator.
 void TraverseTable( MyTable& table, size_t n, size_t expected_size ) {
-    if( Verbose ) 
-        REPORT("testing traversal\n");
+    REMARK("testing traversal\n");
     size_t actual_size = table.size();
     ASSERT( actual_size==expected_size, NULL );
     size_t count = 0;
@@ -425,8 +445,7 @@ void Check( AtomicByte array[], size_t n, size_t expected_size ) {
 
 //! Test travering the tabel with a parallel range
 void ParallelTraverseTable( MyTable& table, size_t n, size_t expected_size ) {
-    if( Verbose ) 
-        REPORT("testing parallel traversal\n");
+    REMARK("testing parallel traversal\n");
     ASSERT( table.size()==expected_size, NULL );
     AtomicByte* array = new AtomicByte[n];
 
@@ -560,8 +579,7 @@ public:
 
 //! Test for memory leak in concurrent_hash_map (TR #153).
 void TestConcurrency( int nthread ) {
-    if( Verbose ) 
-        REPORT("testing multiple insertions/deletions of same key with %d threads\n", nthread);
+    REMARK("testing multiple insertions/deletions of same key with %d threads\n", nthread);
     {
         ASSERT( MyDataCount==0, NULL );
         MyTable table;
@@ -570,16 +588,14 @@ void TestConcurrency( int nthread ) {
         tbb::tick_count t0 = tbb::tick_count::now();
         NativeParallelFor( nthread, AddToTable(table,nthread,m) );
         tbb::tick_count t1 = tbb::tick_count::now();
-        if( Verbose )
-            REPORT("time for %u insertions = %g with %d threads\n",unsigned(MyDataCount),(t1-t0).seconds(),nthread);
+        REMARK("time for %u insertions = %g with %d threads\n",unsigned(MyDataCount),(t1-t0).seconds(),nthread);
         ASSERT( MyDataCount==m, "memory leak detected" );
 
         EraseCount = 0;
         t0 = tbb::tick_count::now();
         NativeParallelFor( nthread, RemoveFromTable(table,nthread,m) );
         t1 = tbb::tick_count::now();
-        if( Verbose )
-            REPORT("time for %u deletions = %g with %d threads\n",unsigned(EraseCount),(t1-t0).seconds(),nthread);
+        REMARK("time for %u deletions = %g with %d threads\n",unsigned(EraseCount),(t1-t0).seconds(),nthread);
         ASSERT( MyDataCount==0, "memory leak detected" );
         ASSERT( EraseCount==m, "return value of erase() is broken" );
 
@@ -629,10 +645,10 @@ void TestRangeAssignment( Range2 r2 ) {
 template<typename MyTable>
 static void FillTable( MyTable& x, int n ) {
     for( int i=1; i<=n; ++i ) {
-        MyKey key( MyKey::make(i) );
+        MyKey key( MyKey::make(-i) ); // hash values must not be specified in direct order
         typename MyTable::accessor a;
         bool b = x.insert(a,key); 
-        ASSERT(b,NULL); 
+        ASSERT(b, NULL);
         a->second.set_value( i*i );
     }
 }
@@ -643,7 +659,7 @@ static void CheckTable( const MyTable& x, int n ) {
     ASSERT( x.empty()==(n==0), NULL );
     ASSERT( x.size()<=x.max_size(), NULL );
     for( int i=1; i<=n; ++i ) {
-        MyKey key( MyKey::make(i) );
+        MyKey key( MyKey::make(-i) );
         typename MyTable::const_accessor a;
         bool b = x.find(a,key); 
         ASSERT( b, NULL ); 
@@ -653,21 +669,20 @@ static void CheckTable( const MyTable& x, int n ) {
     int key_sum = 0;
     for( typename MyTable::const_iterator i(x.begin()); i!=x.end(); ++i ) {
         ++count;
-        key_sum += i->first.value_of();
+        key_sum += -i->first.value_of();
     }
     ASSERT( count==n, NULL );
     ASSERT( key_sum==n*(n+1)/2, NULL );
 }
 
 static void TestCopy() {
-    if( Verbose )
-        REPORT("testing copy\n");
+    REMARK("testing copy\n");
     MyTable t1;
     for( int i=0; i<10000; i=(i<100 ? i+1 : i*3) ) {
         MyDataCount = 0;
 
-        FillTable( t1, i );
-        CheckTable(t1,i);
+        FillTable(t1,i);
+        // Do not call CheckTable(t1,i) before copying, it enforces rehashing
 
         MyTable t2(t1);
         // Check that copy constructor did not mangle source table.
@@ -692,8 +707,7 @@ static void TestCopy() {
 }
 
 void TestAssignment() {
-    if( Verbose )
-        REPORT("testing assignment\n");
+    REMARK("testing assignment\n");
     for( int i=0; i<1000; i=(i<30 ? i+1 : i*5) ) {
         for( int j=0; j<1000; j=(j<30 ? j+1 : j*7) ) {
             MyTable t1;
@@ -701,11 +715,11 @@ void TestAssignment() {
             FillTable(t1,i);
             FillTable(t2,j);
             ASSERT( (t1 == t2) == (i == j), NULL );
-            CheckTable(t1,i);
             CheckTable(t2,j);
 
             MyTable& tref = t2=t1; 
             ASSERT( &tref==&t2, NULL );
+            ASSERT( t1 == t2, NULL );
             CheckTable(t1,i);
             CheckTable(t2,i);
 
@@ -723,8 +737,7 @@ void TestAssignment() {
 }
 
 void TestIteratorsAndRanges() {
-    if( Verbose )
-        REPORT("testing iterators compliance\n");
+    REMARK("testing iterators compliance\n");
     TestIteratorTraits<MyTable::iterator,MyTable::value_type>();
     TestIteratorTraits<MyTable::const_iterator,const MyTable::value_type>();
 
@@ -740,17 +753,16 @@ void TestIteratorsAndRanges() {
     ASSERT(v.equal_range(MyKey::make(-1)) == std::make_pair(v.end(), v.end()), NULL);
     ASSERT(u.equal_range(MyKey::make(-1)) == std::make_pair(u.end(), u.end()), NULL);
 
-    if( Verbose )
-        REPORT("testing ranges compliance\n");
+    REMARK("testing ranges compliance\n");
     TestRangeAssignment<MyTable::const_range_type>( u.range() );
     TestRangeAssignment<MyTable::const_range_type>( v.range() );
     TestRangeAssignment<MyTable::range_type>( v.range() );
     // doesn't compile as expected: TestRangeAssignment<typename V::range_type>( u.range() );
 
-    if( Verbose )
-        REPORT("testing construction and insertion from iterators range\n");
+    REMARK("testing construction and insertion from iterators range\n");
     FillTable( v, 1000 );
     MyTable2 t(v.begin(), v.end());
+    v.rehash();
     CheckTable(t, 1000);
     t.insert(v.begin(), v.end()); // do nothing
     CheckTable(t, 1000);
@@ -758,15 +770,14 @@ void TestIteratorsAndRanges() {
     t.insert(v.begin(), v.end()); // restore
     CheckTable(t, 1000);
 
-    if( Verbose )
-        REPORT("testing comparison\n");
+    REMARK("testing comparison\n");
     typedef tbb::concurrent_hash_map<MyKey,MyData2,YourHashCompare,MyAllocator> YourTable1;
     typedef tbb::concurrent_hash_map<MyKey,MyData2,YourHashCompare> YourTable2;
     YourTable1 t1;
     FillTable( t1, 10 );
     CheckTable(t1, 10 );
     YourTable2 t2(t1.begin(), t1.end());
-    MyKey key( MyKey::make(5) ); MyData2 data;
+    MyKey key( MyKey::make(-5) ); MyData2 data;
     ASSERT(t2.erase(key), NULL);
     YourTable2::accessor a;
     ASSERT(t2.insert(a, key), NULL);
@@ -776,6 +787,30 @@ void TestIteratorsAndRanges() {
     ASSERT( t1 == t2, NULL);
 }
 
+void TestRehash() {
+    REMARK("testing rehashing\n");
+    MyTable w;
+    w.insert( std::make_pair(MyKey::make(-5), MyData()) );
+    w.rehash(); // without this, assertion will fail
+    MyTable::const_iterator it = w.begin();
+    int i = 0; // check for non-rehashed buckets
+    for( ; it != w.end(); ++it, i++ )
+        w.count( it->first );
+    ASSERT( i == 1, NULL );
+    for( i=0; i<1000; i=(i<29 ? i+1 : i*2) ) {
+        for( int j=max(256+i, i*2); j<10000; j*=3 ) {
+            MyTable v;
+            FillTable( v, i );
+            ASSERT(int(v.size()) == i, NULL);
+            ASSERT(int(v.bucket_count()) <= j, NULL);
+            v.rehash( j );
+            ASSERT(int(v.bucket_count()) >= j, NULL);
+            CheckTable( v, i );
+        }
+    }
+}
+
+#if TBB_USE_EXCEPTIONS
 void TestExceptions() {
     typedef local_counting_allocator<tbb::tbb_allocator<MyData2> > allocator_t;
     typedef tbb::concurrent_hash_map<MyKey,MyData2,MyHashCompare,allocator_t> ThrowingTable;
@@ -784,8 +819,7 @@ void TestExceptions() {
         ctor_copy, op_assign, op_insert,
         all_methods
     };
-    if( Verbose )
-        REPORT("testing exception-safety guarantees\n");
+    REMARK("testing exception-safety guarantees\n");
     ThrowingTable src;
     FillTable( src, 1000 );
     ASSERT( MyDataCount==1000, NULL );
@@ -834,7 +868,10 @@ void TestExceptions() {
 
                 default:; // nothing to check here
                 }
-                if( Verbose ) REPORT("Exception %d: %s\t- ok ()\n", m, e.what());
+                REMARK("Exception %d: %s\t- ok ()\n", m, e.what());
+            }
+            catch ( ... ) {
+                ASSERT ( __TBB_EXCEPTION_TYPE_INFO_BROKEN, "Unrecognized exception" );
             }
         }
     } catch(...) {
@@ -842,6 +879,7 @@ void TestExceptions() {
     }
     src.clear(); MyDataCount = 0;
 }
+#endif /* TBB_USE_EXCEPTIONS */
 
 //------------------------------------------------------------------------
 // Test driver
@@ -849,12 +887,7 @@ void TestExceptions() {
 
 #include "tbb/task_scheduler_init.h"
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    // Default minimum number of threads is 1.
-    MinThread = 1;
-
-    ParseCommandLine(argc,argv);
+int TestMain () {
     if( MinThread<0 ) {
         REPORT("ERROR: must use at least one thread\n");
         exit(1);
@@ -863,11 +896,12 @@ int main( int argc, char* argv[] ) {
     // Do serial tests
     TestTypes();
     TestCopy();
+    TestRehash();
     TestAssignment();
     TestIteratorsAndRanges();
-#if !__TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
+#if TBB_USE_EXCEPTIONS
     TestExceptions();
-#endif
+#endif /* TBB_USE_EXCEPTIONS */
 
     // Do concurrency tests.
     for( int nthread=MinThread; nthread<=MaxThread; ++nthread ) {
@@ -880,6 +914,5 @@ int main( int argc, char* argv[] ) {
         tbb::internal::runtime_warning("none\nERROR: it must not be executed");
     }
 
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

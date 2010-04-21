@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -40,12 +40,10 @@ struct is_zero_filling<tbb::zero_allocator<void> > {
     static const bool value = true;
 };
 
-__TBB_TEST_EXPORT
-int main() {
+int TestMain () {
     int result = TestMain<tbb::cache_aligned_allocator<void> >();
     result += TestMain<tbb::tbb_allocator<void> >();
     result += TestMain<tbb::zero_allocator<void> >();
-
-    REPORT("done\n");
-    return result;
+    ASSERT( !result, NULL );
+    return Harness::Done;
 }

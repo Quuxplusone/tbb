@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -40,7 +40,8 @@ public:
     template<typename OtherTag>
     friend AbstractValueType<OtherTag> MakeAbstractValueType( int i );
 
-    friend int GetValueOf( const AbstractValueType& v ) {return v.value;}
+    template<typename OtherTag>
+    friend int GetValueOf( const AbstractValueType<OtherTag>& v ) ;
 };
 
 template<typename Tag>
@@ -49,6 +50,9 @@ AbstractValueType<Tag> MakeAbstractValueType( int i ) {
     x.value = i;
     return x;
 }
+
+template<typename Tag>
+int GetValueOf( const AbstractValueType<Tag>& v ) {return v.value;}
 
 template<typename Tag>
 bool operator<( const AbstractValueType<Tag>& u, const AbstractValueType<Tag>& v ) {
@@ -91,21 +95,21 @@ static void SerialTest() {
                                     for( int colg=1; colg<4; ++colg ) {
                                         range_type r( pagei, pagej, pageg, rowi, rowj, rowg, coli, colj, colg );
                                         AssertSameType( r.is_divisible(), true );
-                                   
+
                                         AssertSameType( r.empty(), true );
-                                       
+
                                         AssertSameType( static_cast<range_type::page_range_type::const_iterator*>(0), static_cast<page_type*>(0) );
                                         AssertSameType( static_cast<range_type::row_range_type::const_iterator*>(0), static_cast<row_type*>(0) );
                                         AssertSameType( static_cast<range_type::col_range_type::const_iterator*>(0), static_cast<col_type*>(0) );
-                            
+
                                         AssertSameType( r.pages(), tbb::blocked_range<page_type>( pagei, pagej, 1 ));
                                         AssertSameType( r.rows(), tbb::blocked_range<row_type>( rowi, rowj, 1 ));
                                         AssertSameType( r.cols(), tbb::blocked_range<col_type>( coli, colj, 1 ));
-            
+
                                         ASSERT( r.empty()==(pagex==pagey||rowx==rowy||colx==coly), NULL );
-                         
+
                                         ASSERT( r.is_divisible()==(pagey-pagex>pageg||rowy-rowx>rowg||coly-colx>colg), NULL );
-                            
+
                                         if( r.is_divisible() ) {
                                             range_type r2(r,tbb::split());
                                             if( (GetValueOf(r2.pages().begin())==GetValueOf(r.pages().begin())) && (GetValueOf(r2.rows().begin())==GetValueOf(r.rows().begin())) ) {
@@ -135,8 +139,8 @@ static void SerialTest() {
     }
 }
 
-#include "harness.h"
 #include "tbb/parallel_for.h"
+#include "harness.h"
 
 const int N = 1<<5;
 
@@ -153,8 +157,8 @@ struct Striker {
 };
 
 void ParallelTest() {
-	for( int i=0; i<N; i=i<3 ? i+1 : i*3 ) {
-          for( int j=0; j<N; j=j<3 ? j+1 : j*3 ) {
+    for( int i=0; i<N; i=i<3 ? i+1 : i*3 ) {
+        for( int j=0; j<N; j=j<3 ? j+1 : j*3 ) {
             for( int k=0; k<N; k=k<3 ? k+1 : k*3 ) {
                 const tbb::blocked_range3d<int> r( 0, i, 5, 0, j, 3, 0, k, 1 );
                 tbb::parallel_for( r, Striker() );
@@ -173,14 +177,11 @@ void ParallelTest() {
 
 #include "tbb/task_scheduler_init.h"
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    ParseCommandLine(argc,argv);
+int TestMain () {
     SerialTest(); 
-	    for( int p=MinThread; p<=MaxThread; ++p ) {
-            tbb::task_scheduler_init init(p);
-            ParallelTest();
+    for( int p=MinThread; p<=MaxThread; ++p ) {
+        tbb::task_scheduler_init init(p);
+        ParallelTest();
     }
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

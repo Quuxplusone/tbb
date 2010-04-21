@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -61,18 +61,13 @@ struct RoundRobin: NoAssign {
     }
 };
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    // Set defaults
-    MaxThread = MinThread = 3;
-    ParseCommandLine( argc, argv );
+int TestMain () {
     for( int p=MinThread; p<=MaxThread; ++p ) {
-        if( Verbose ) REPORT("testing with %d threads\n", p );
+        REMARK("testing with %d threads\n", p );
         CyclicCounter = 0;
         Quit = false;
         NativeParallelFor( long(p), RoundRobin(p) );
     }
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }
 

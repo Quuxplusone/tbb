@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -291,19 +291,14 @@ void waiting_probe::probe( ) {
 
 #include "tbb/task_scheduler_init.h"
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    // Default is at least one thread.
-    MinThread = 1;
+int TestMain () {
     out_of_order_count = 0;
-    ParseCommandLine(argc,argv);
     if( MinThread<1 ) {
         REPORT("must have at least one thread");
         exit(1);
     }
     if( tbb::TBB_runtime_interface_version()>TBB_INTERFACE_VERSION) {
-        if( Verbose )
-            REPORT("Warning: implementation dependent tests disabled\n");
+        REMARK("Warning: implementation dependent tests disabled\n");
         do_hacking_tests = false;
     }
 
@@ -321,6 +316,5 @@ int main( int argc, char* argv[] ) {
     }
     if( !out_of_order_count )
         REPORT("Warning: out of order serial filter received tokens in order\n");
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

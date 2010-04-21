@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -78,7 +78,7 @@ struct FibTask: public tbb::task {
 };
 
 long ParallelFib( const long n ) {
-    long sum;
+    long sum = 0;
     FibTask& a = *new(tbb::task::allocate_root()) FibTask(n,&sum);
     tbb::task::spawn_root_and_wait(a);
     return sum;

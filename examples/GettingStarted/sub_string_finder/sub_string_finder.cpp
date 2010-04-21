@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,59 +29,56 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
-
 #include "tbb/parallel_for.h"
 #include "tbb/blocked_range.h"
 
 using namespace tbb;
 using namespace std;
-
 static const size_t N = 23;
 
 class SubStringFinder {
- const string str;
- size_t *max_array;
- size_t *pos_array;
- public:
- void operator() ( const blocked_range<size_t>& r ) const {
-  for ( size_t i = r.begin(); i != r.end(); ++i ) {
-   size_t max_size = 0, max_pos = 0;
-   for (size_t j = 0; j < str.size(); ++j) 
-    if (j != i) {
-     size_t limit = str.size()-( i > j ? i : j );
-     for (size_t k = 0; k < limit; ++k) {
-      if (str[i + k] != str[j + k]) break;
-      if (k > max_size) {
-       max_size = k;
-       max_pos = j;
+  const string str;
+  size_t *max_array;
+  size_t *pos_array;
+public: 
+  void operator() ( const blocked_range<size_t>& r ) const { 
+    for ( size_t i = r.begin(); i != r.end(); ++i ) {
+      size_t max_size = 0, max_pos = 0;
+      for (size_t j = 0; j < str.size(); ++j)
+      if (j != i) {
+        size_t limit = str.size()-max(i,j);
+        for (size_t k = 0; k < limit; ++k) {
+          if (str[i + k] != str[j + k]) break;
+          if (k > max_size) {
+            max_size = k;
+            max_pos = j;
+          }
+        }
       }
-     }
+      max_array[i] = max_size;
+      pos_array[i] = max_pos;
     }
-   max_array[i] = max_size;
-   pos_array[i] = max_pos;
   }
- }
- SubStringFinder(string &s, size_t *m, size_t *p) : 
-  str(s), max_array(m), pos_array(p) { }
+  SubStringFinder(string &s, size_t *m, size_t *p) :
+    str(s), max_array(m), pos_array(p) { }
 };
 
-int main(int argc, char *argv[]) {
- 
+int main() {
 
- string str[N] = { string("a"), string("b") };
- for (size_t i = 2; i < N; ++i) str[i] = str[i-1]+str[i-2];
- string &to_scan = str[N-1]; 
+  string str[N] = { string("a"), string("b") };
+  for (size_t i = 2; i < N; ++i) str[i] = str[i-1]+str[i-2];
+  string &to_scan = str[N-1]; 
 
- size_t *max = new size_t[to_scan.size()];
- size_t *pos = new size_t[to_scan.size()];
+  size_t *max = new size_t[to_scan.size()];
+  size_t *pos = new size_t[to_scan.size()];
 
- parallel_for(blocked_range<size_t>(0, to_scan.size(), 100),
-       SubStringFinder( to_scan, max, pos ) );
+  parallel_for(blocked_range<size_t>(0, to_scan.size() ),
+               SubStringFinder( to_scan, max, pos ) );
 
- for (size_t i = 0; i < to_scan.size(); ++i)
-  cout << " " << (int)max[i] << "(" << (int)pos[i] << ")" << endl;
- delete[] max;
- delete[] pos;
- return 0;
+  for (size_t i = 0; i < to_scan.size(); ++i)
+    cout << " " << max[i] << "(" << pos[i] << ")" << endl;
+  delete[] pos;
+  delete[] max;
+  return 0;
 }
 

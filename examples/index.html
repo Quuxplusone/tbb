@@ -7,7 +7,7 @@ This directory has example usages of Threading Building Blocks.
 <H2>Directories</H2>
 <DL>
 <DT><A HREF="GettingStarted/index.html">GettingStarted</A>
-<DD>Examples from the <A HREF="../doc/Getting_Started.pdf">Getting Started Guide</A>.
+<DD>Examples from the Getting Started Guide.
 <DT><A HREF="concurrent_hash_map/index.html">concurrent_hash_map</A>
 <DD>Examples using <CODE>concurrent_hash_map</CODE>.
 <DT><A HREF="parallel_do/index.html">parallel_do</A>
@@ -16,8 +16,6 @@ This directory has example usages of Threading Building Blocks.
 <DD>Examples using <CODE>parallel_for</CODE>.
 <DT><A HREF="parallel_reduce/index.html">parallel_reduce</A>
 <DD>Examples using <CODE>parallel_reduce</CODE>.
-<DT><A HREF="parallel_while/index.html">parallel_while</A>
-<DD>Examples using <CODE>parallel_while</CODE>.
 <DT><A HREF="pipeline/index.html">pipeline</A>
 <DD>Examples using <CODE>pipeline</CODE>.
 <DT><A HREF="task/index.html">task</A>
@@ -47,10 +45,12 @@ sh, bash, csh, ksh, etc. (or compatible) shell window (Windows*, Linux* or Mac O
 <A NAME=build_1><H4>To build by using a Microsoft* Visual Studio* project (Windows* systems):</H4></A>
 Perform the following steps:
 <OL>
-<LI>Identify the solution (*.sln) file for the example you wish to build and run.
+<LI>Identify the solution (*.sln) file for the example you wish to build and run.For Microsoft* Visual Studio* 2005, the *.sln file is in the example's msvs sub-directory. For other versions please use Microsoft*
+    Visual Studio* project converter
     <UL>
-    <LI>For Microsoft* Visual Studio* .NET 2003, the *.sln file is in the example's vc7.1 sub-directory.
-    <LI>For Microsoft* Visual Studio* 2005, the *.sln file is in the example's vc8 sub-directory.
+      <li>&lt;example_name&gt;_cl.sln&nbsp; - Solution for Microsoft* Visual C++* compiler
+      </li>
+        <li>&lt;example_name&gt;_icl.sln - Solution for Intel&reg; C++ Compiler </li>
     </UL>
 <LI>Open the project by using one of the following methods:
     <UL>
@@ -122,19 +122,20 @@ during installation, or you wish to build for an alternate architecture or Micro
 it may be set up, for a given type of shell window, by using one of the following commands:
 <DL>
 <DT>For cmd.exe (command prompt):
-<DD><TT>&lt;<I>installdir</I>&gt;\{ia32,intel64}\{vc7.1,vc8}\bin\tbbvars.bat</TT>
+<DD><TT>&lt;<I>installdir</I>&gt;\{ia32,intel64}\{vc8,vc9,vc_mt}\bin\tbbvars.bat</TT>
 <DT>For sh, bash, ksh (or compatibles):
-<DD><TT>. &lt;<I>installdir</I>&gt;\{ia32,intel64}\{vc7.1,vc8}\bin\tbbvars.sh</TT>
+<DD><TT>. &lt;<I>installdir</I>&gt;\{ia32,intel64}\{vc8,vc9,vc_mt}\bin\tbbvars.sh</TT>
 <DT>For csh (or compatibles):
-<DD><TT>source &lt;<I>installdir</I>&gt;\{ia32,intel64}\{vc7.1,vc8}\bin\tbbvars.csh</TT>
+<DD><TT>source &lt;<I>installdir</I>&gt;\{ia32,intel64}\{vc8,vc9,vc_mt}\bin\tbbvars.csh</TT>
 <DT><I>Notes:</I>
 <DD><I><SL>
     <LI>Choose one of {ia32,intel64} depending on the architecture to be used.
-    <LI>Choose one of {vc7.1,vc8} depending on whether Microsoft* Visual Studio* .NET 2003 or
-	Microsoft* Visual Studio* 2005 is to be used.
     <LI>Environment setup need only be performed once per shell window to be used.
     <LI>Always source tbbvars.sh or tbbvars.csh rather than executing them directly.
-    </SL></I>
+    </SL>
+          {<span style="font-family: Courier New">vc8,vc9,vc_mt</span>}
+      {<span style="font-family: Courier New">vc8,vc9,vc_mt</span>} depending on which
+      Microsoft* Visual Studio* </I>
 </DL>
 
 <A NAME=env_23><H4>To set up the environment (Linux* or Mac OS* X systems):</H4></A>
@@ -143,7 +144,7 @@ The environment may be set up, for a given type of shell window, by using one of
 <DT>For sh, bash, ksh (or compatibles):
 <DD>. &lt;<I>installdir</I>&gt;/bin/tbbvars.sh
 <DT>For csh (or compatibles):
-<DD>source &lt;<I>installdir</I>&gt;/tbbvars.csh
+<DD>source &lt;<I>installdir</I>&gt;/bin/tbbvars.csh
 <DT>For sh, bash, ksh (or compatibles), when using an alternate architecture or platform:
 <DD>. &lt;<I>installdir</I>&gt;/{ia32,intel64,ia64}/cc&lt;<I>gccversion</I>&gt;_libc&lt;<I>libcversion</I>&gt;_kernel&lt;<I>kernelversion</I>&gt;/bin/tbbvars.sh
 <DT>For csh (or compatibles), when using an alternate architecture or platform:
@@ -163,7 +164,7 @@ The environment may be set up, for a given type of shell window, by using one of
 <HR>
 <A HREF="../index.html">Up to parent directory</A>
 <p></p>
-Copyright &copy; 2005-2009 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are 
 registered trademarks or trademarks of Intel Corporation or its 

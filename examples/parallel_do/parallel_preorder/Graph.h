@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,8 +29,6 @@
 #include "Matrix.h"
 #include "tbb/atomic.h"
 #include <vector>
-
-namespace TBB = tbb;
 
 enum OpKind {
     // Use Cell's value
@@ -65,7 +63,7 @@ public:
     std::vector<Cell*> successor;
 
     //! Reference count of number of inputs that are not yet updated.
-    TBB::atomic<int> ref_count;
+    tbb::atomic<int> ref_count;
 
     //! Update the Cell's value.
     void update();

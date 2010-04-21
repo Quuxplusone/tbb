@@ -1,4 +1,4 @@
-# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -35,7 +35,8 @@ OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -Wall
-WARNING_SUPPRESS =
+TEST_WARNING_KEY = -Wextra -Wshadow -Wcast-qual -Woverloaded-virtual -Wnon-virtual-dtor
+WARNING_SUPPRESS = -Wno-non-virtual-dtor
 DYLIB_KEY = -dynamiclib
 EXPORT_KEY = -Wl,-exported_symbols_list,
 LIBDL = -ldl
@@ -57,6 +58,12 @@ ifeq (intel64,$(arch))
     CPLUS_FLAGS += -m64
     LINK_FLAGS += -m64
     LIB_LINK_FLAGS += -m64
+endif
+
+ifeq (ia32,$(arch))
+    CPLUS_FLAGS += -m32
+    LINK_FLAGS += -m32
+    LIB_LINK_FLAGS += -m32
 endif
 
 ifeq (ppc64,$(arch))

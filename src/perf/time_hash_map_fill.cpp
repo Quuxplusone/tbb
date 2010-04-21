@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,17 +28,20 @@
 
 // configuration:
 
-//! enable/disable std::map tests
-#define STDTABLE 0
+// Size of input array
+const int INPUT_SIZE = 2000000;
+// Specify list of unique percents to test against. Max - 10
+#define SOURCE_ARRAY UNIQUE_PERCENT(5); UNIQUE_PERCENT(10); UNIQUE_PERCENT(20); UNIQUE_PERCENT(40)
 
-//! enable/disable old implementation tests (correct include file also)
-#define OLDTABLE 1
-#define OLDTABLEHEADER "tbb/concurrent_hash_map-5468.h"//-4329
+// enable/disable tests for:
+#define BOX1 "TBB"
+#define BOX1TEST ValuePerSecond<Uniques<tbb::concurrent_hash_map<int,int> >, 1000000/*ns*/>
+#define BOX1HEADER "tbb/concurrent_hash_map.h"
 
-//! enable/disable experimental implementation tests (correct include file also)
-
-#define TESTTABLE 0
-#define TESTTABLEHEADER "tbb/concurrent_hash_map-oneseg.h"
+// enable/disable tests for:
+#define BOX2 "OLD"
+#define BOX2TEST ValuePerSecond<Uniques<tbb::concurrent_hash_map<int,int> >, 1000000/*ns*/>
+#define BOX2HEADER "tbb/concurrent_hash_map-5468.h"
 
 #define TBB_USE_THREADING_TOOLS 0
 //////////////////////////////////////////////////////////////////////////////////
@@ -68,94 +71,67 @@
 using namespace tbb;
 using namespace tbb::internal;
 
-namespace version_current {
-    namespace tbb { using namespace ::tbb; namespace internal {
-        using namespace ::tbb::internal;
-    } }
-    namespace std { using namespace ::std; }
-    #include "tbb/concurrent_hash_map.h"
-}
-typedef version_current::tbb::concurrent_hash_map<int,int> IntTable;
-
-#if OLDTABLE
-#undef __TBB_concurrent_hash_map_H
-namespace version_base {
-    namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
-    using namespace ::std;
-    #include OLDTABLEHEADER
-}
-typedef version_base::tbb::concurrent_hash_map<int,int> OldTable;
-#endif
-
-#if TESTTABLE
-#undef __TBB_concurrent_hash_map_H
-namespace version_new {
-    namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
-    #include TESTTABLEHEADER
-}
-typedef version_new::tbb::concurrent_hash_map<int,int> TestTable;
-#define TESTTABLE 1
-#endif
-
 /////////////////////////////////////////////////////////////////////////////////////////
+// Input data built for SOURCE_ARRAY settings
+int Mixtures = 0;
+int Percents[10];
+int *Data[10];
 
-const int test2_size = 2000000;
-int Data[test2_size];
-
+// Main test class used to run the timing tests. All overridden methods are called by the framework
 template<typename TableType>
-struct TestHashCountStrings : TesterBase {
+struct Uniques : TesterBase {
     typedef typename TableType::accessor accessor;
     typedef typename TableType::const_accessor const_accessor;
-    TableType Table;
+    TableType *Table;
     int n_items;
 
-    std::string get_name(int testn) {
-        return Format("%d%% uniques", ++testn*10);
+    // Returns name of test mode specified by number
+    /*override*/ std::string get_name(int testn) {
+        return Format("%d%% uniques", Percents[testn]);
     }
 
-    TestHashCountStrings() : TesterBase(3) {}
-    void init() {
+    // Initializes base class with number of test modes
+    Uniques() : TesterBase(Mixtures), Table(0) {}
+    ~Uniques() { if(Table) delete Table; }
+    
+    // Informs the class that value and threads number become known
+    /*override*/ void init() {
         n_items = value/threads_count;
     }
 
-    void test_prefix(int testn, int t) {
+    // Informs the class that the test mode for specified thread is about to start
+    /*override*/ void test_prefix(int testn, int t) {
         barrier->wait();
         if( t ) return;
-        Table.clear();
-        int uniques = test2_size/10*(testn+1);
-        srand(10101);
-        for(int i = 0; i < test2_size; i++)
-            Data[i] = rand()%uniques;
+        if(Table) delete Table;
+        Table = new TableType(MaxThread*4);
     }
 
-    double test(int testn, int t)
+    // Executes test mode for a given thread. Return value is ignored when used with timing wrappers.
+    /*override*/ double test(int testn, int t)
     {
-            for(int i = t*n_items, e = (t+1)*n_items; i < e; i++) {
-                Table.insert( std::make_pair(Data[i],t) );
-            }
+        for(int i = t*n_items, e = (t+1)*n_items; i < e; i++) {
+            Table->insert( std::make_pair(Data[testn][i],t) );
+        }
         return 0;
     }
 };
 
-class test_hash_map_find : public TestProcessor {
-public:
-    test_hash_map_find() : TestProcessor("test_hash_map_fill") {}
-    void factory(int value, int threads) {
-        if(Verbose) printf("Processing with %d threads: %d...\n", threads, value);
-        process( value, threads,
-#if OLDTABLE
-            run("old", new ValuePerSecond<TestHashCountStrings<OldTable>, 1000000/*ns*/>() ),
-#endif
-            run("tbb", new ValuePerSecond<TestHashCountStrings<IntTable>, 1000000/*ns*/>() ),
-#if TESTTABLE
-            run("new", new ValuePerSecond<TestHashCountStrings<TestTable>,1000000/*ns*/>() ),
-#endif
-        end );
-        //stat->Print(StatisticsCollector::HTMLFile);
-    }
-};
-
 /////////////////////////////////////////////////////////////////////////////////////////
+
+// Using BOX declarations from configuration
+#include "time_sandbox.h"
+
+// Prepares the input data for given unique percent
+inline void UNIQUE_PERCENT(int p) {
+    Percents[Mixtures] = p;
+    Data[Mixtures] = new int[INPUT_SIZE];
+    int uniques = INPUT_SIZE/100*p;
+    srand(10101);
+    for(int i = 0; i < INPUT_SIZE; i++)
+        Data[Mixtures][i] = rand()%uniques;
+    Mixtures++;
+}
 
 int main(int argc, char* argv[]) {
     if(argc>1) Verbose = true;
@@ -164,13 +140,15 @@ int main(int argc, char* argv[]) {
     ParseCommandLine( argc, argv );
 
     ASSERT(tbb_allocator<int>::allocator_type() == tbb_allocator<int>::scalable, "expecting scalable allocator library to be loaded. Please build it by:\n\t\tmake tbbmalloc");
+    SOURCE_ARRAY; // prepare source array
 
     {
-        test_hash_map_find test_find; int o = test2_size;
+        // Declares test processor
+        TEST_PROCESSOR_NAME the_test("time_hash_map_fill"/*, StatisticsCollector::ByThreads*/);
         for( int t=MinThread; t <= MaxThread; t++)
-            test_find.factory(o, t);
-        test_find.report.SetTitle("Operations per nanosecond", o);
-        test_find.report.Print(StatisticsCollector::HTMLFile|StatisticsCollector::ExcelXML);
+            the_test.factory(INPUT_SIZE, t); // executes the tests specified in BOX-es for given 'value' and threads
+        the_test.report.SetTitle("Operations per nanosecond", INPUT_SIZE);
+        the_test.report.Print(StatisticsCollector::HTMLFile|StatisticsCollector::ExcelXML); // Write files
     }
     return 0;
 }

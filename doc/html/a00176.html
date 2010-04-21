@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::tick_count Class Reference</title>
+<title>tbb::null_rw_mutex Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,45 +21,42 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00229.html">tbb</a>::<a class="el" href="a00176.html">tick_count</a></div>
-<h1>tbb::tick_count Class Reference<br>
+<a class="el" href="a00267.html">tbb</a>::<a class="el" href="a00176.html">null_rw_mutex</a></div>
+<h1>tbb::null_rw_mutex Class Reference<br>
 <small>
-[<a class="el" href="a00237.html">Timing</a>]</small>
-</h1><!-- doxytag: class="tbb::tick_count" -->Absolute timestamp.  
+[<a class="el" href="a00277.html">Synchronization</a>]</small>
+</h1><!-- doxytag: class="tbb::null_rw_mutex" -->A rw mutex which does nothing.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00401.html">tick_count.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00365.html">null_rw_mutex.h</a>&gt;</code>
 <p>
-<a href="a00098.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00038.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="34593326ae4191e02a13c7cbdab9de4c"></a><!-- doxytag: member="tbb::tick_count::tick_count" ref="34593326ae4191e02a13c7cbdab9de4c" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00176.html#34593326ae4191e02a13c7cbdab9de4c">tick_count</a> ()</td></tr>
+<tr><td colspan="2"><br><h2>Static Public Attributes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2f3235cbf63812f72e5755a4c820f523"></a><!-- doxytag: member="tbb::null_rw_mutex::is_rw_mutex" ref="2f3235cbf63812f72e5755a4c820f523" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_rw_mutex</b> = true</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct an absolute timestamp initialized to zero. <br></td></tr>
-<tr><td colspan="2"><br><h2>Static Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fb7f78ca61cf28398645ace66e284473"></a><!-- doxytag: member="tbb::tick_count::now" ref="fb7f78ca61cf28398645ace66e284473" args="()" -->
-static <a class="el" href="a00176.html">tick_count</a>&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00176.html#fb7f78ca61cf28398645ace66e284473">now</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e33ac3b047901e69e7997a16e221a330"></a><!-- doxytag: member="tbb::null_rw_mutex::is_recursive_mutex" ref="e33ac3b047901e69e7997a16e221a330" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_recursive_mutex</b> = true</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Return current time. <br></td></tr>
-<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="09dde78a4100800c11bb883d6204b586"></a><!-- doxytag: member="tbb::tick_count::operator-" ref="09dde78a4100800c11bb883d6204b586" args="(const tick_count &amp;t1, const tick_count &amp;t0)" -->
-<a class="el" href="a00177.html">interval_t</a>&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00176.html#09dde78a4100800c11bb883d6204b586">operator-</a> (const <a class="el" href="a00176.html">tick_count</a> &amp;t1, const <a class="el" href="a00176.html">tick_count</a> &amp;t0)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e5248faf1412f9283185a0b5d72d7456"></a><!-- doxytag: member="tbb::null_rw_mutex::is_fair_mutex" ref="e5248faf1412f9283185a0b5d72d7456" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_fair_mutex</b> = true</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Subtract two timestamps to get the time interval between. <br></td></tr>
 <tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00177.html">interval_t</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00177.html">scoped_lock</a></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Relative time interval.  <a href="a00177.html#_details">More...</a><br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Represents acquisition of a mutex.  <a href="a00177.html#_details">More...</a><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Absolute timestamp. 
+A rw mutex which does nothing. 
+<p>
+A <a class="el" href="a00176.html">null_rw_mutex</a> is a rw mutex that does nothing and simulates successful operation. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00401.html">tick_count.h</a></ul>
+<li><a class="el" href="a00365.html">null_rw_mutex.h</a></ul>
 <hr>
 <p></p>
-Copyright &copy; 2005-2009 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

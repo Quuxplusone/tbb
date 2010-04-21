@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -178,8 +178,7 @@ struct Work: NoAssign {
 /** Does not test features specific to reader-writer locks. */
 template<typename M>
 void Test( const char * name, int nthread ) {
-    if( Verbose )
-        REPORT("testing %s\n",name);
+    REMARK("testing %s\n",name);
     Counter<M> counter;
     counter.value = 0;
     Order = 0;
@@ -188,8 +187,7 @@ void Test( const char * name, int nthread ) {
     NativeParallelFor( nthread, Work<Counter<M>, test_size>(counter) );
     tbb::tick_count t1 = tbb::tick_count::now();
 
-    if( Verbose )
-        REPORT("%s time = %g usec\n",name, (t1-t0).seconds() );
+    REMARK("%s time = %g usec\n",name, (t1-t0).seconds() );
     if( counter.value!=test_size )
         REPORT("ERROR for %s: counter.value=%ld != %ld=test_size\n",name,counter.value,test_size);
 }
@@ -198,8 +196,7 @@ void Test( const char * name, int nthread ) {
 //! Generic test of TBB ReaderWriterMutex type M
 template<typename M>
 void TestReaderWriter( const char * mutex_name, int nthread ) {
-    if( Verbose )
-        REPORT("testing %s\n",mutex_name);
+    REMARK("testing %s\n",mutex_name);
     Invariant<M,8> invariant(mutex_name);
     Order = 0;
     static const long test_size = 1000000;
@@ -210,16 +207,12 @@ void TestReaderWriter( const char * mutex_name, int nthread ) {
     long expected_value = test_size/4;
     if( !invariant.value_is(expected_value) )
         REPORT("ERROR for %s: final invariant value is wrong\n",mutex_name);
-    if( Verbose )
-        REPORT("%s readers & writers time = %g usec\n",mutex_name,(t1-t0).seconds());
+    REMARK("%s readers & writers time = %g usec\n",mutex_name,(t1-t0).seconds());
 }
 
-__TBB_TEST_EXPORT
-int main( int argc, char * argv[] ) {
-    ParseCommandLine( argc, argv );
+int TestMain () {
     for( int p=MinThread; p<=MaxThread; ++p ) {
-        if( Verbose )
-            REPORT( "testing with %d threads\n", p );
+        REMARK( "testing with %d threads\n", p );
         Test<tbb::spin_mutex>( "spin_mutex", p );
         Test<tbb::queuing_mutex>( "queuing_mutex", p );
         Test<tbb::queuing_rw_mutex>( "queuing_rw_mutex", p );
@@ -227,6 +220,5 @@ int main( int argc, char * argv[] ) {
         TestReaderWriter<tbb::queuing_rw_mutex>( "queuing_rw_mutex", p );
         TestReaderWriter<tbb::spin_rw_mutex>( "spin_rw_mutex", p );
     }
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

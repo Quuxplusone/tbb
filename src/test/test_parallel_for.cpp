@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,6 +27,18 @@
 */
 
 // Test for function template parallel_for.h
+
+#if _MSC_VER
+#pragma warning (push)
+#if !defined(__INTEL_COMPILER)
+    // Suppress pointless "unreachable code" warning.
+    #pragma warning (disable: 4702)
+#endif
+#if defined(_Wp64)
+    // Workaround for overzealous compiler warnings in /Wp64 mode
+    #pragma warning (disable: 4267)
+#endif
+#endif //#if _MSC_VER 
 
 #include "tbb/parallel_for.h"
 #include "tbb/atomic.h"
@@ -134,8 +146,7 @@ void Flog( int nthread ) {
         }
     }
     tbb::tick_count T1 = tbb::tick_count::now();
-    if( Verbose )
-        REPORT("time=%g\tnthread=%d\tpad=%d\n",(T1-T0).seconds(),nthread,int(Pad));
+    REMARK("time=%g\tnthread=%d\tpad=%d\n",(T1-T0).seconds(),nthread,int(Pad));
 }
 
 // Testing parallel_for with step support
@@ -145,11 +156,25 @@ const size_t PFOR_BUFFER_ACTUAL_SIZE = PFOR_BUFFER_TEST_SIZE + 1024;
 size_t pfor_buffer[PFOR_BUFFER_ACTUAL_SIZE];
 
 template<typename T>
-void TestFunction(T index){
-    pfor_buffer[index]++;
-}
+class TestFunctor{
+public:
+    void operator ()(T index) const {
+        pfor_buffer[index]++;
+    }
+};
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
+#endif
 
 #include <stdexcept> // std::invalid_argument
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
+
 template <typename T>
 void TestParallelForWithStepSupport()
 {
@@ -160,7 +185,11 @@ void TestParallelForWithStepSupport()
         T step;
         for (step = 1; step < pfor_buffer_test_size; step++) {
             memset(pfor_buffer, 0, pfor_buffer_actual_size * sizeof(size_t));
-            tbb::parallel_for(begin, pfor_buffer_test_size, step, TestFunction<T>);
+            if (step == 1){
+                tbb::parallel_for(begin, pfor_buffer_test_size, TestFunctor<T>());
+            } else {
+                tbb::parallel_for(begin, pfor_buffer_test_size, step, TestFunctor<T>());
+            }
             // Verifying that parallel_for processed all items it should
             for (T i = begin; i < pfor_buffer_test_size; i = i + step) {
                 ASSERT(pfor_buffer[i] == 1, "parallel_for didn't process all required elements");
@@ -174,15 +203,17 @@ void TestParallelForWithStepSupport()
     }
 
     // Testing some corner cases
-    tbb::parallel_for(static_cast<T>(2), static_cast<T>(1), static_cast<T>(1), TestFunction<T>);
-#if !__TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
+    tbb::parallel_for(static_cast<T>(2), static_cast<T>(1), static_cast<T>(1), TestFunctor<T>());
+#if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
     try{
-        tbb::parallel_for(static_cast<T>(1), static_cast<T>(100), static_cast<T>(0), TestFunction<T>);  // should cause std::invalid_argument
+        tbb::parallel_for(static_cast<T>(1), static_cast<T>(100), static_cast<T>(0), TestFunctor<T>());  // should cause std::invalid_argument
     }catch(std::invalid_argument){
         return;
     }
-    ASSERT(0, "std::invalid_argument should be thrown");
-#endif
+    catch ( ... ) {
+        ASSERT ( __TBB_EXCEPTION_TYPE_INFO_BROKEN, "Unrecognized exception. std::invalid_argument is expected" );
+    }
+#endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
 }
 
 // Exception support test
@@ -190,53 +221,98 @@ void TestParallelForWithStepSupport()
 #include "tbb/tbb_exception.h"
 #include "harness_eh.h"
 
-void test_function_with_exception(size_t)
-{
-    ThrowTestException();
-}
+#if TBB_USE_EXCEPTIONS
+class test_functor_with_exception {
+public:
+    void operator ()(size_t) const { ThrowTestException(); }
+};
 
-void TestExceptionsSupport()
-{
+void TestExceptionsSupport() {
     REMARK (__FUNCTION__);
-    ResetEhGlobals();
-    TRY();
-        tbb::parallel_for((size_t)0, (size_t)PFOR_BUFFER_TEST_SIZE, (size_t)1, test_function_with_exception);
-    CATCH_AND_ASSERT();
+    { // Tests version with a step provided
+        ResetEhGlobals();
+        TRY();
+            tbb::parallel_for((size_t)0, (size_t)PFOR_BUFFER_TEST_SIZE, (size_t)1, test_functor_with_exception());
+        CATCH_AND_ASSERT();
+    }
+    { // Tests version without a step
+        ResetEhGlobals();
+        TRY();
+            tbb::parallel_for((size_t)0, (size_t)PFOR_BUFFER_TEST_SIZE, test_functor_with_exception());
+        CATCH_AND_ASSERT();
+    }
 }
+#endif /* TBB_USE_EXCEPTIONS */
 
 // Cancellation support test
-void function_to_cancel(size_t ) {
-    ++g_CurExecuted;
-    CancellatorTask::WaitUntilReady();
-}
+class functor_to_cancel {
+public:
+    void operator()(size_t) const {
+        ++g_CurExecuted;
+        CancellatorTask::WaitUntilReady();
+    }
+};
+
+size_t g_worker_task_step = 0;
 
 class my_worker_pfor_step_task : public tbb::task
 {
     tbb::task_group_context &my_ctx;
 
     tbb::task* execute () {
-        tbb::parallel_for((size_t)0, (size_t)PFOR_BUFFER_TEST_SIZE, (size_t)1, function_to_cancel, my_ctx);
-        
+        if (g_worker_task_step == 0){
+            tbb::parallel_for((size_t)0, (size_t)PFOR_BUFFER_TEST_SIZE, functor_to_cancel(), my_ctx);
+        }else{
+            tbb::parallel_for((size_t)0, (size_t)PFOR_BUFFER_TEST_SIZE, g_worker_task_step, functor_to_cancel(), my_ctx);
+        }
         return NULL;
     }
 public:
-    my_worker_pfor_step_task ( tbb::task_group_context &context) : my_ctx(context) { }
+    my_worker_pfor_step_task ( tbb::task_group_context &context_) : my_ctx(context_) { }
 };
 
 void TestCancellation()
 {
+    // tests version without a step
+    g_worker_task_step = 0;
+    ResetEhGlobals();
+    RunCancellationTest<my_worker_pfor_step_task, CancellatorTask>();
+
+    // tests version with step
+    g_worker_task_step = 1;
     ResetEhGlobals();
     RunCancellationTest<my_worker_pfor_step_task, CancellatorTask>();
 }
+
+#include "harness_m128.h"
+
+#if HAVE_m128
+ClassWithSSE Global1[N], Global2[N];
+
+struct SSE_Functor {
+    void operator()( tbb::blocked_range<int>& r ) const {
+        for( int i=r.begin(); i!=r.end(); ++i )
+            Global2[i] = Global1[i];
+    }     
+};
+
+//! Test that parallel_for works with stack-allocated __m128
+void TestSSE() {
+    for( int i=0; i<N; ++i ) {
+        Global1[i] = ClassWithSSE(i);
+        Global2[i] = ClassWithSSE();
+    }
+    tbb::parallel_for( tbb::blocked_range<int>(0,N), SSE_Functor() );
+    for( int i=0; i<N; ++i )
+        ASSERT( Global2[i]==ClassWithSSE(i), NULL ) ;
+}
+#endif /* HAVE_m128 */
 
 #include <cstdio>
 #include "tbb/task_scheduler_init.h"
 #include "harness_cpu.h"
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    MinThread = 1;
-    ParseCommandLine(argc,argv);
+int TestMain () {
     if( MinThread<1 ) {
         REPORT("number of threads must be positive\n");
         exit(1);
@@ -260,17 +336,24 @@ int main( int argc, char* argv[] ) {
             TestParallelForWithStepSupport<long long>();
             TestParallelForWithStepSupport<unsigned long long>();
             TestParallelForWithStepSupport<size_t>();
-#if !__TBB_EXCEPTION_HANDLING_BROKEN && !(__GNUC__==4 && __GNUC_MINOR__==1 && __TBB_ipf)
+#if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
             TestExceptionsSupport();
-#endif
+#endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
             if (p>1) TestCancellation();
+#if HAVE_m128
+            TestSSE();
+#endif /* HAVE_m128 */
+
             // Test that all workers sleep when no work
             TestCPUUserTime(p);
         }
     }
-#if __TBB_EXCEPTION_HANDLING_BROKEN || (__GNUC__==4 && __GNUC_MINOR__==1 && __TBB_ipf)
-    REPORT("Warning: Exception handling tests are skipped due to a known issue.\n");
+#if __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
+    REPORT("Known issue: exception handling tests are skipped.\n");
 #endif
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }
+
+#if _MSC_VER
+#pragma warning (pop)
+#endif

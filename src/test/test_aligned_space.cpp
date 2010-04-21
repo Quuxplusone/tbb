@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -41,11 +41,14 @@ class Minimal {
     ~Minimal();
     void operator=( const Minimal& );
     T pad;
-public:
-    friend void AssignToCheckAlignment( Minimal& dst, const Minimal& src ) {
-        dst.pad = src.pad;
-    }  
+    template<typename U>
+    friend void AssignToCheckAlignment( Minimal<U>& dst, const Minimal<U>& src ) ;
 };
+
+template<typename T>
+void AssignToCheckAlignment( Minimal<T>& dst, const Minimal<T>& src ) {
+    dst.pad = src.pad;
+}
 
 #include "tbb/aligned_space.h"
 #include "harness_assert.h"
@@ -95,10 +98,8 @@ void TestAlignedSpace() {
 #include "harness.h"
 
 #include "harness_m128.h"
-//#include <cstdio>         // Inclusion of <cstdio> deferred, to improve odds of detecting accidental dependences on it.
 
-__TBB_TEST_EXPORT
-int main() {
+int TestMain () {
     TestAlignedSpace<char>();
     TestAlignedSpace<short>();
     TestAlignedSpace<int>();
@@ -109,8 +110,7 @@ int main() {
 #if HAVE_m128
     TestAlignedSpace<__m128>();
 #endif /* HAVE_m128 */
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }
 
 static void PrintSpaceWastingWarning( const char* type_name ) {

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,12 +35,22 @@
 #include "tbb/tbb_allocator.h"
 #include "tbb/tbb_thread.h"
 
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
+#endif
+
 #include <cstring>
 #include <vector>
 #include <deque>
 #include <list>
 #include <map>
 #include <utility>
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
 
 #include "harness_assert.h"
 #include "harness.h"
@@ -57,21 +67,21 @@ const int N = 100000;
 const int VALID_NUMBER_OF_KEYS = 100;
 const double EXPECTED_SUM = (REPETITIONS + 1) * N;
 
-//
-// A minimal class
-// Define: default and copy constructor, and allow implicit operator&
-// Hide: operator=
-//
-
+//! A minimal class that occupies N bytes. 
+/** Defines default and copy constructor, and allows implicit operator&.
+    Hides operator=. */
+template<size_t N=tbb::internal::NFS_MaxLineSize>
 class minimal: NoAssign {
 private:
     int my_value;
+    bool is_constructed;
+    char pad[N-sizeof(int) - sizeof(bool)];
 public:
-    minimal(int val=0) : my_value(val) { ++construction_counter; }
-    minimal( const minimal &m ) : my_value(m.my_value) { ++construction_counter; }
-    ~minimal() { ++destruction_counter; }
-    void set_value( const int i ) { my_value = i; }
-    int value( ) const { return my_value; }
+    minimal() : NoAssign(), my_value(0) { ++construction_counter; is_constructed = true; }
+    minimal( const minimal &m ) : NoAssign(), my_value(m.my_value) { ++construction_counter; is_constructed = true; }
+    ~minimal() { ++destruction_counter; ASSERT(is_constructed, NULL); is_constructed = false; }
+    void set_value( const int i ) { ASSERT(is_constructed, NULL); my_value = i; }
+    int value( ) const { ASSERT(is_constructed, NULL); return my_value; }
 };
 
 //
@@ -88,84 +98,64 @@ struct test_helper {
    static inline double get(const T &e ) { return static_cast<double>(e); }
 };
 
-template< >
-struct test_helper<minimal> {
-   static inline void init(minimal &sum) { sum.set_value( 0 ); }  
-   static inline void sum(minimal &sum, const int addend ) { sum.set_value( sum.value() + addend); }
-   static inline void sum(minimal &sum, const double addend ) { sum.set_value( sum.value() + static_cast<int>(addend)); }
-   static inline void sum(minimal &sum, const minimal &addend ) { sum.set_value( sum.value() + addend.value()); }
-   static inline void set(minimal &v, const int value ) { v.set_value( static_cast<int>(value) ); }
-   static inline double get(const minimal &sum ) { return static_cast<double>(sum.value()); }
+template<size_t N>
+struct test_helper<minimal<N> > {
+   static inline void init(minimal<N> &sum) { sum.set_value( 0 ); }  
+   static inline void sum(minimal<N> &sum, const int addend ) { sum.set_value( sum.value() + addend); }
+   static inline void sum(minimal<N> &sum, const double addend ) { sum.set_value( sum.value() + static_cast<int>(addend)); }
+   static inline void sum(minimal<N> &sum, const minimal<N> &addend ) { sum.set_value( sum.value() + addend.value()); }
+   static inline void set(minimal<N> &v, const int value ) { v.set_value( static_cast<int>(value) ); }
+   static inline double get(const minimal<N> &sum ) { return static_cast<double>(sum.value()); }
 };
 
-//// functors for initialization and combine
+//// functors and routines for initialization and combine
 
 // Addition
-template <typename T>
-struct FunctorAddFinit {
-    T operator()() { return 0; }
-};
-
-template <>
-struct FunctorAddFinit<minimal> {
-    minimal operator()() { return minimal(0); }
-};
 
 template <typename T>
-struct FunctorAddFinit7 {
-    T operator()() { return 7; }
+struct FunctorAddCombineRef {
+    T operator()(const T& left, const T& right) const {
+        return left+right;
+    }
 };
 
-template <>
-struct FunctorAddFinit7<minimal> {
-    minimal operator()() { return minimal(7); }
+template <size_t N>
+struct FunctorAddCombineRef<minimal<N> > {
+    minimal<N> operator()(const minimal<N>& left, const minimal<N>& right) const {
+        minimal<N> result;
+        result.set_value( left.value() + right.value() ); 
+        return result;
+    }
+};
+
+template <typename T, int Value>
+struct FunctorFinit {
+    T operator()() { return Value; }
+};
+
+template <size_t N, int Value>
+struct FunctorFinit<minimal<N>,Value> {
+    minimal<N> operator()() {   
+        minimal<N> result;
+        result.set_value( Value );
+        return result;
+    }
 };
 
 template <typename T>
 struct FunctorAddCombine {
     T operator()(T left, T right ) const {
-        return left + right;
-    }
-};
-
-template <>
-struct FunctorAddCombine<minimal> {
-    minimal operator()(minimal left, minimal right ) {
-        return minimal(left.value() + right.value()); 
+        return FunctorAddCombineRef<T>()( left, right );
     }
 };
 
 template <typename T>
-struct FunctorAddCombineRef {
-    T operator()(const T& left, const T& right ) const {
-        return left + right;
-    }
-};
-
-template <>
-struct FunctorAddCombineRef<minimal> {
-    minimal operator()(const minimal& left, const minimal& right ) const {
-        return minimal(left.value() + right.value());
-    }
-};
+T my_combine_ref( const T &left, const T &right) { 
+    return FunctorAddCombineRef<T>()( left, right );
+}
 
 template <typename T>
-T my_finit( ) { return 0; }
-
-template <typename T>
-T my_combine( T left, T right) { return left + right; }
-
-template <typename T>
-T my_combine_ref( const T &left, const T &right) { return left + right; }
-
-template <>
-minimal my_finit( ) { return minimal(0); }
-
-template <>
-minimal my_combine( minimal left, minimal right) { return minimal(left.value() + right.value()); }
-
-template <>
-minimal my_combine_ref( const minimal &left, const minimal &right) { return minimal(left.value() + right.value()); }
+T my_combine( T left, T right) { return my_combine_ref(left,right); }
 
 template <typename T>
 class combine_one_helper {
@@ -180,9 +170,7 @@ private:
     T& my_result;
 };
 
-
-
-//// end functors
+//// end functors and routines
 
 template< typename T >
 void run_serial_scalar_tests(const char *test_name) {
@@ -190,7 +178,7 @@ void run_serial_scalar_tests(const char *test_name) {
     T sum;
     test_helper<T>::init(sum);
 
-    if (Verbose) REPORT("Testing serial %s... ", test_name);  
+    REMARK("Testing serial %s... ", test_name);  
     for (int t = -1; t < REPETITIONS; ++t) {
         if (Verbose && t == 0) t0 = tbb::tick_count::now(); 
         for (int i = 0; i < N; ++i) {
@@ -200,8 +188,7 @@ void run_serial_scalar_tests(const char *test_name) {
  
     double result_value = test_helper<T>::get(sum);
     ASSERT( EXPECTED_SUM == result_value, NULL);
-    if (Verbose)
-        REPORT("done\nserial %s, 0, %g, %g\n", test_name, result_value, ( tbb::tick_count::now() - t0).seconds());
+    REMARK("done\nserial %s, 0, %g, %g\n", test_name, result_value, ( tbb::tick_count::now() - t0).seconds());
 }
 
 
@@ -222,24 +209,21 @@ public:
 };
 
 template< typename T >
-void run_parallel_scalar_tests(const char *test_name) {
+void run_parallel_scalar_tests_nocombine(const char *test_name) {
 
-    static tbb::enumerable_thread_specific<T> static_sums(static_cast<T>(0));
+    typedef tbb::enumerable_thread_specific<T> ets_type;
 
-    tbb::task_scheduler_init init(tbb::task_scheduler_init::deferred);
+    // We assume that static_sums zero-initialized or has a default constructor that zeros it.
+    static ets_type static_sums = ets_type( T() );
+
     T exemplar;
     test_helper<T>::init(exemplar);
     T exemplar23;
     test_helper<T>::set(exemplar23,23);
 
     for (int p = MinThread; p <= MaxThread; ++p) { 
-
-
-        if (p == 0) continue;
-
-        if (Verbose) REPORT("Testing parallel %s on %d thread(s)... ", test_name, p); 
-        init.initialize(p);
-
+        REMARK("Testing parallel %s on %d thread(s)... ", test_name, p); 
+        tbb::task_scheduler_init init(p);
         tbb::tick_count t0;
 
         T iterator_sum;
@@ -268,6 +252,132 @@ void run_parallel_scalar_tests(const char *test_name) {
         T non_cassgn_sum;
         test_helper<T>::init(non_cassgn_sum);
 
+        T static_sum;
+        test_helper<T>::init(static_sum);
+
+        for (int t = -1; t < REPETITIONS; ++t) {
+            if (Verbose && t == 0) t0 = tbb::tick_count::now(); 
+
+            static_sums.clear();
+
+            ets_type sums(exemplar);
+            FunctorFinit<T,0> my_finit;
+            ets_type finit_ets(my_finit);
+
+            ASSERT( sums.empty(), NULL);
+            tbb::parallel_for( tbb::blocked_range<int>( 0, N, 10000 ), parallel_scalar_body<T>( sums ) );
+            ASSERT( !sums.empty(), NULL);
+
+            ASSERT( finit_ets.empty(), NULL);
+            tbb::parallel_for( tbb::blocked_range<int>( 0, N, 10000 ), parallel_scalar_body<T>( finit_ets ) );
+            ASSERT( !finit_ets.empty(), NULL);
+
+            ASSERT(static_sums.empty(), NULL);
+            tbb::parallel_for( tbb::blocked_range<int>( 0, N, 10000 ), parallel_scalar_body<T>( static_sums ) );
+            ASSERT( !static_sums.empty(), NULL);
+
+            // use iterator
+            typename ets_type::size_type size = 0;
+            for ( typename ets_type::iterator i = sums.begin(); i != sums.end(); ++i ) {
+                 ++size;
+                 test_helper<T>::sum(iterator_sum, *i);
+            }
+            ASSERT( sums.size() == size, NULL);
+
+            // use const_iterator
+            for ( typename ets_type::const_iterator i = sums.begin(); i != sums.end(); ++i ) {
+                 test_helper<T>::sum(const_iterator_sum, *i);
+            }
+           
+            // use range_type
+            typename ets_type::range_type r = sums.range();  
+            for ( typename ets_type::range_type::const_iterator i = r.begin(); i != r.end(); ++i ) {
+                 test_helper<T>::sum(range_sum, *i);
+            }
+           
+            // use const_range_type
+            typename ets_type::const_range_type cr = sums.range();  
+            for ( typename ets_type::const_range_type::iterator i = cr.begin(); i != cr.end(); ++i ) {
+                 test_helper<T>::sum(const_range_sum, *i);
+            }
+
+            // test copy constructor, with TLS-cached locals
+            typedef typename tbb::enumerable_thread_specific<T, tbb::cache_aligned_allocator<T>, tbb::ets_key_per_instance> cached_ets_type;
+
+            cached_ets_type cconst(sums); 
+
+            for ( typename cached_ets_type::const_iterator i = cconst.begin(); i != cconst.end(); ++i ) {
+                 test_helper<T>::sum(cconst_sum, *i);
+            }
+           
+            // test assignment
+            ets_type assigned;
+            assigned = sums;
+
+            for ( typename ets_type::const_iterator i = assigned.begin(); i != assigned.end(); ++i ) {
+                 test_helper<T>::sum(assign_sum, *i);
+            }
+
+            // test assign to and from cached locals
+            cached_ets_type cassgn;
+            cassgn = sums;
+            for ( typename cached_ets_type::const_iterator i = cassgn.begin(); i != cassgn.end(); ++i ) {
+                 test_helper<T>::sum(cassgn_sum, *i);
+            }
+
+            ets_type non_cassgn;
+            non_cassgn = cassgn;
+            for ( typename ets_type::const_iterator i = non_cassgn.begin(); i != non_cassgn.end(); ++i ) {
+                 test_helper<T>::sum(non_cassgn_sum, *i);
+            }
+
+            // test finit-initialized ets
+            for(typename ets_type::const_iterator i = finit_ets.begin(); i != finit_ets.end(); ++i) {
+                test_helper<T>::sum(finit_ets_sum, *i);
+            }
+
+            // test static ets
+            for(typename ets_type::const_iterator i = static_sums.begin(); i != static_sums.end(); ++i) {
+                test_helper<T>::sum(static_sum, *i);
+            }
+
+        }
+
+        ASSERT( EXPECTED_SUM == test_helper<T>::get(iterator_sum), NULL);
+        ASSERT( EXPECTED_SUM == test_helper<T>::get(const_iterator_sum), NULL);
+        ASSERT( EXPECTED_SUM == test_helper<T>::get(range_sum), NULL);
+        ASSERT( EXPECTED_SUM == test_helper<T>::get(const_range_sum), NULL);
+
+        ASSERT( EXPECTED_SUM == test_helper<T>::get(cconst_sum), NULL);
+        ASSERT( EXPECTED_SUM == test_helper<T>::get(assign_sum), NULL);
+        ASSERT( EXPECTED_SUM == test_helper<T>::get(cassgn_sum), NULL);
+        ASSERT( EXPECTED_SUM == test_helper<T>::get(non_cassgn_sum), NULL);
+        ASSERT( EXPECTED_SUM == test_helper<T>::get(finit_ets_sum), NULL);
+        ASSERT( EXPECTED_SUM == test_helper<T>::get(static_sum), NULL);
+
+        REMARK("done\nparallel %s, %d, %g, %g\n", test_name, p, test_helper<T>::get(iterator_sum), 
+                                                      ( tbb::tick_count::now() - t0).seconds());
+    }
+}
+
+template< typename T >
+void run_parallel_scalar_tests(const char *test_name) {
+
+    typedef tbb::enumerable_thread_specific<T> ets_type;
+
+    // We assume that static_sums zero-initialized or has a default constructor that zeros it.
+    static ets_type static_sums = ets_type( T() );
+
+    T exemplar;
+    test_helper<T>::init(exemplar);
+
+    run_parallel_scalar_tests_nocombine<T>(test_name);
+
+    for (int p = MinThread; p <= MaxThread; ++p) { 
+        REMARK("Testing parallel %s on %d thread(s)... ", test_name, p); 
+        tbb::task_scheduler_init init(p);
+        tbb::tick_count t0;
+
         T combine_sum;
         test_helper<T>::init(combine_sum);
 
@@ -285,17 +395,11 @@ void run_parallel_scalar_tests(const char *test_name) {
 
             static_sums.clear();
 
-            tbb::enumerable_thread_specific<T> sums(exemplar);
-            FunctorAddFinit<T> my_finit;
-            tbb::enumerable_thread_specific<T> finit_ets(my_finit);
+            ets_type sums(exemplar);
 
             ASSERT( sums.empty(), NULL);
             tbb::parallel_for( tbb::blocked_range<int>( 0, N, 10000 ), parallel_scalar_body<T>( sums ) );
             ASSERT( !sums.empty(), NULL);
-
-            ASSERT( finit_ets.empty(), NULL);
-            tbb::parallel_for( tbb::blocked_range<int>( 0, N, 10000 ), parallel_scalar_body<T>( finit_ets ) );
-            ASSERT( !finit_ets.empty(), NULL);
 
             ASSERT(static_sums.empty(), NULL);
             tbb::parallel_for( tbb::blocked_range<int>( 0, N, 10000 ), parallel_scalar_body<T>( static_sums ) );
@@ -309,92 +413,17 @@ void run_parallel_scalar_tests(const char *test_name) {
 
             combine_one_helper<T> my_helper(combine_one_sum);
             sums.combine_each(my_helper);
-
-            // use iterator
-            typename tbb::enumerable_thread_specific<T>::size_type size = 0;
-            for ( typename tbb::enumerable_thread_specific<T>::iterator i = sums.begin(); i != sums.end(); ++i ) {
-                 ++size;
-                 test_helper<T>::sum(iterator_sum, *i);
-            }
-            ASSERT( sums.size() == size, NULL);
-
-            // use const_iterator
-            for ( typename tbb::enumerable_thread_specific<T>::const_iterator i = sums.begin(); i != sums.end(); ++i ) {
-                 test_helper<T>::sum(const_iterator_sum, *i);
-            }
-           
-            // use range_type
-            typename tbb::enumerable_thread_specific<T>::range_type r = sums.range();  
-            for ( typename tbb::enumerable_thread_specific<T>::range_type::const_iterator i = r.begin(); i != r.end(); ++i ) {
-                 test_helper<T>::sum(range_sum, *i);
-            }
-           
-            // use const_range_type
-            typename tbb::enumerable_thread_specific<T>::const_range_type cr = sums.range();  
-            for ( typename tbb::enumerable_thread_specific<T>::const_range_type::iterator i = cr.begin(); i != cr.end(); ++i ) {
-                 test_helper<T>::sum(const_range_sum, *i);
             }
 
-            // test copy constructor, with TLS-cached locals
-
-            typedef typename tbb::enumerable_thread_specific<T, tbb::cache_aligned_allocator<T>, tbb::ets_key_per_instance> cached_ets_type;
-
-            cached_ets_type cconst(sums); 
-            /// tbb::enumerable_thread_specific<T> cconst(sums);
-
-            for ( typename cached_ets_type::const_iterator i = cconst.begin(); i != cconst.end(); ++i ) {
-                 test_helper<T>::sum(cconst_sum, *i);
-            }
-           
-            // test assignment
-            tbb::enumerable_thread_specific<T> assigned;
-            assigned = sums;
-
-            for ( typename tbb::enumerable_thread_specific<T>::const_iterator i = assigned.begin(); i != assigned.end(); ++i ) {
-                 test_helper<T>::sum(assign_sum, *i);
-            }
-
-            // test assign to and from cached locals
-            cached_ets_type cassgn;
-            cassgn = sums;
-            for ( typename cached_ets_type::const_iterator i = cassgn.begin(); i != cassgn.end(); ++i ) {
-                 test_helper<T>::sum(cassgn_sum, *i);
-            }
-
-            tbb::enumerable_thread_specific<T> non_cassgn;
-            non_cassgn = cassgn;
-            for ( typename tbb::enumerable_thread_specific<T>::const_iterator i = non_cassgn.begin(); i != non_cassgn.end(); ++i ) {
-                 test_helper<T>::sum(non_cassgn_sum, *i);
-            }
-
-            // test finit-initialized ets
-            for(typename tbb::enumerable_thread_specific<T>::const_iterator i = finit_ets.begin(); i != finit_ets.end(); ++i) {
-                test_helper<T>::sum(finit_ets_sum, *i);
-            }
-
-        }
-
-        ASSERT( EXPECTED_SUM == test_helper<T>::get(iterator_sum), NULL);
-        ASSERT( EXPECTED_SUM == test_helper<T>::get(const_iterator_sum), NULL);
-        ASSERT( EXPECTED_SUM == test_helper<T>::get(range_sum), NULL);
-        ASSERT( EXPECTED_SUM == test_helper<T>::get(const_range_sum), NULL);
 
         ASSERT( EXPECTED_SUM == test_helper<T>::get(combine_sum), NULL);
         ASSERT( EXPECTED_SUM == test_helper<T>::get(combine_ref_sum), NULL);
-        ASSERT( EXPECTED_SUM == test_helper<T>::get(cconst_sum), NULL);
-        ASSERT( EXPECTED_SUM == test_helper<T>::get(assign_sum), NULL);
-        ASSERT( EXPECTED_SUM == test_helper<T>::get(cassgn_sum), NULL);
-        ASSERT( EXPECTED_SUM == test_helper<T>::get(non_cassgn_sum), NULL);
-        ASSERT( EXPECTED_SUM == test_helper<T>::get(finit_ets_sum), NULL);
         ASSERT( EXPECTED_SUM == test_helper<T>::get(static_sum), NULL);
 
-        if (Verbose)
-            REPORT("done\nparallel %s, %d, %g, %g\n", test_name, p, test_helper<T>::get(iterator_sum), 
+        REMARK("done\nparallel combine %s, %d, %g, %g\n", test_name, p, test_helper<T>::get(combine_sum), 
                                                       ( tbb::tick_count::now() - t0).seconds());
-        init.terminate();
     }
 }
-
 
 template <typename T>
 class parallel_vector_for_body: NoAssign {
@@ -445,14 +474,11 @@ struct parallel_vector_reduce_body {
 template< typename T >
 void run_parallel_vector_tests(const char *test_name) {
     tbb::tick_count t0;
-    tbb::task_scheduler_init init(tbb::task_scheduler_init::deferred);
     typedef std::vector<T, tbb::tbb_allocator<T> > container_type;
 
-    for (int p = MinThread; p <= MaxThread; ++p) { 
-
-        if (p == 0) continue;
-        if (Verbose) REPORT("Testing parallel %s on %d thread(s)... ", test_name, p);
-        init.initialize(p);
+    for (int p = MinThread; p <= MaxThread; ++p) {
+        REMARK("Testing parallel %s on %d thread(s)... ", test_name, p);
+        tbb::task_scheduler_init init(p);
 
         T sum;
         test_helper<T>::init(sum);
@@ -497,23 +523,18 @@ void run_parallel_vector_tests(const char *test_name) {
 
         double result_value = test_helper<T>::get(sum);
         ASSERT( EXPECTED_SUM == result_value, NULL);
-        if (Verbose)
-            REPORT("done\nparallel %s, %d, %g, %g\n", test_name, p, result_value, ( tbb::tick_count::now() - t0).seconds());
-        init.terminate();
+        REMARK("done\nparallel %s, %d, %g, %g\n", test_name, p, result_value, ( tbb::tick_count::now() - t0).seconds());
     }
 }
 
 template<typename T>
 void run_cross_type_vector_tests(const char *test_name) {
     tbb::tick_count t0;
-    tbb::task_scheduler_init init(tbb::task_scheduler_init::deferred);
     typedef std::vector<T, tbb::tbb_allocator<T> > container_type;
 
-    for (int p = MinThread; p <= MaxThread; ++p) { 
-
-        if (p == 0) continue;
-        if (Verbose) REPORT("Testing parallel %s on %d thread(s)... ", test_name, p);
-        init.initialize(p);
+    for (int p = MinThread; p <= MaxThread; ++p) {
+        REMARK("Testing parallel %s on %d thread(s)... ", test_name, p);
+        tbb::task_scheduler_init init(p);
 
         T sum;
         test_helper<T>::init(sum);
@@ -559,9 +580,7 @@ void run_cross_type_vector_tests(const char *test_name) {
 
         double result_value = test_helper<T>::get(sum);
         ASSERT( EXPECTED_SUM == result_value, NULL);
-        if (Verbose)
-            REPORT("done\nparallel %s, %d, %g, %g\n", test_name, p, result_value, ( tbb::tick_count::now() - t0).seconds());
-        init.terminate();
+        REMARK("done\nparallel %s, %d, %g, %g\n", test_name, p, result_value, ( tbb::tick_count::now() - t0).seconds());
     }
 }
 
@@ -573,7 +592,7 @@ void run_serial_vector_tests(const char *test_name) {
     T one;
     test_helper<T>::set(one, 1);
 
-    if (Verbose) REPORT("Testing serial %s... ", test_name);
+    REMARK("Testing serial %s... ", test_name);
     for (int t = -1; t < REPETITIONS; ++t) {
         if (Verbose && t == 0) t0 = tbb::tick_count::now(); 
         std::vector<T, tbb::tbb_allocator<T> > v; 
@@ -586,15 +605,16 @@ void run_serial_vector_tests(const char *test_name) {
 
     double result_value = test_helper<T>::get(sum);
     ASSERT( EXPECTED_SUM == result_value, NULL);
-    if (Verbose)
-        REPORT("done\nserial %s, 0, %g, %g\n", test_name, result_value, ( tbb::tick_count::now() - t0).seconds());
+    REMARK("done\nserial %s, 0, %g, %g\n", test_name, result_value, ( tbb::tick_count::now() - t0).seconds());
 }
+
+const size_t line_size = tbb::internal::NFS_MaxLineSize;
 
 void 
 run_serial_tests() {
     run_serial_scalar_tests<int>("int");
     run_serial_scalar_tests<double>("double");
-    run_serial_scalar_tests<minimal>("minimal");
+    run_serial_scalar_tests<minimal<> >("minimal<>");
     run_serial_vector_tests<int>("std::vector<int, tbb::tbb_allocator<int> >");
     run_serial_vector_tests<double>("std::vector<double, tbb::tbb_allocator<double> >");
 }
@@ -603,7 +623,7 @@ void
 run_parallel_tests() {
     run_parallel_scalar_tests<int>("int");
     run_parallel_scalar_tests<double>("double");
-    run_parallel_scalar_tests<minimal>("minimal");
+    run_parallel_scalar_tests_nocombine<minimal<> >("minimal<>");
     run_parallel_vector_tests<int>("std::vector<int, tbb::tbb_allocator<int> >");
     run_parallel_vector_tests<double>("std::vector<double, tbb::tbb_allocator<double> >");
 }
@@ -615,23 +635,23 @@ run_cross_type_tests() {
     run_parallel_vector_tests<double>("std::vector<double, tbb::tbb_allocator<double> >");
 }
 
-typedef tbb::enumerable_thread_specific<minimal> * minimal_ptr;
+typedef tbb::enumerable_thread_specific<minimal<line_size> > flogged_ets;
 
 class set_body {
-    minimal_ptr *a;
+    flogged_ets *a;
 
 public:
-    set_body( minimal_ptr *_a ) : a(_a) { }
+    set_body( flogged_ets*_a ) : a(_a) { }
 
     void operator() ( ) const {
         for (int i = 0; i < VALID_NUMBER_OF_KEYS; ++i) {
-            a[i]->local().set_value(i + 1);
+            a[i].local().set_value(i + 1);
         }
     }
  
 };
 
-void do_tbb_threads( int max_threads, minimal_ptr *a ) {
+void do_tbb_threads( int max_threads, flogged_ets a[] ) {
     std::vector< tbb::tbb_thread * > threads;
 
     for (int p = 0; p < max_threads; ++p) { 
@@ -641,6 +661,7 @@ void do_tbb_threads( int max_threads, minimal_ptr *a ) {
     for (int p = 0; p < max_threads; ++p) {
         threads[p]->join();
     }
+
     for(int p = 0; p < max_threads; ++p) {
         delete threads[p];
     }
@@ -648,51 +669,44 @@ void do_tbb_threads( int max_threads, minimal_ptr *a ) {
 
 void
 flog_key_creation_and_deletion() {
-
     const int FLOG_REPETITIONS = 100;
-    minimal_ptr a[VALID_NUMBER_OF_KEYS];
-    tbb::task_scheduler_init init(tbb::task_scheduler_init::deferred);
 
     for (int p = MinThread; p <= MaxThread; ++p) { 
-
-        if (p == 0) continue;
-
-        if (Verbose) REPORT("Testing repeated deletes on %d threads... ", p);
+        REMARK("Testing repeated deletes on %d threads... ", p);
 
         for (int j = 0; j < FLOG_REPETITIONS; ++j) {
             construction_counter = 0;
             destruction_counter = 0;
 
             // causes VALID_NUMER_OF_KEYS exemplar instances to be constructed 
-            for (int i = 0; i < VALID_NUMBER_OF_KEYS; ++i) {
-                a[i] = new tbb::enumerable_thread_specific<minimal>;
-            }
+            flogged_ets* a = new flogged_ets[VALID_NUMBER_OF_KEYS];
+            ASSERT(int(construction_counter) == 0, NULL);   // no exemplars or actual locals have been constructed
+            ASSERT(int(destruction_counter) == 0, NULL);    // and none have been destroyed
 
             // causes p * VALID_NUMBER_OF_KEYS minimals to be created
             do_tbb_threads(p, a); 
 
             for (int i = 0; i < VALID_NUMBER_OF_KEYS; ++i) {
-                for ( tbb::enumerable_thread_specific< minimal >::iterator tli = a[i]->begin();
-                      tli != a[i]->end(); ++tli ) {
+                int pcnt = 0;
+                for ( flogged_ets::iterator tli = a[i].begin(); tli != a[i].end(); ++tli ) {
                     ASSERT( (*tli).value() == i+1, NULL );
+                    ++pcnt;
                 }
-                delete a[i];
-                a[i] = NULL;
+                ASSERT( pcnt == p, NULL);  // should be one local per thread.
             }
+            delete[] a;
         }
 
-        ASSERT( int(construction_counter) == (p+1)*VALID_NUMBER_OF_KEYS, NULL );
-        ASSERT( int(destruction_counter) == (p+1)*VALID_NUMBER_OF_KEYS, NULL );
+        ASSERT( int(construction_counter) == (p)*VALID_NUMBER_OF_KEYS, NULL );
+        ASSERT( int(destruction_counter) == (p)*VALID_NUMBER_OF_KEYS, NULL );
 
-        if (Verbose) REPORT("done\nTesting repeated clears on %d threads... ", p);
+        REMARK("done\nTesting repeated clears on %d threads... ", p);
 
         construction_counter = 0;
         destruction_counter = 0;
 
         // causes VALID_NUMER_OF_KEYS exemplar instances to be constructed 
-        for (int i = 0; i < VALID_NUMBER_OF_KEYS; ++i) {
-            a[i] = new tbb::enumerable_thread_specific<minimal>;
-        }
+        flogged_ets* a = new flogged_ets[VALID_NUMBER_OF_KEYS];
  
         for (int j = 0; j < FLOG_REPETITIONS; ++j) {
 
@@ -700,25 +714,21 @@ flog_key_creation_and_deletion() {
             do_tbb_threads(p, a);
 
             for (int i = 0; i < VALID_NUMBER_OF_KEYS; ++i) {
-                for ( tbb::enumerable_thread_specific< minimal >::iterator tli = a[i]->begin();
-                      tli != a[i]->end(); ++tli ) {
+                for ( flogged_ets::iterator tli = a[i].begin(); tli != a[i].end(); ++tli ) {
                     ASSERT( (*tli).value() == i+1, NULL );
                 }
-                a[i]->clear();
-                ASSERT( static_cast<int>(a[i]->end() - a[i]->begin()) == 0, NULL );
+                a[i].clear();
+                ASSERT( static_cast<int>(a[i].end() - a[i].begin()) == 0, NULL );
             }
 
         }
 
-        for (int i = 0; i < VALID_NUMBER_OF_KEYS; ++i) {
-            delete a[i];
-            a[i] = NULL;
-        }
+        delete[] a;
 
-        ASSERT( int(construction_counter) == (FLOG_REPETITIONS*p+1)*VALID_NUMBER_OF_KEYS, NULL );
-        ASSERT( int(destruction_counter) == (FLOG_REPETITIONS*p+1)*VALID_NUMBER_OF_KEYS, NULL );
+        ASSERT( int(construction_counter) == (FLOG_REPETITIONS*p)*VALID_NUMBER_OF_KEYS, NULL );
+        ASSERT( int(destruction_counter) == (FLOG_REPETITIONS*p)*VALID_NUMBER_OF_KEYS, NULL );
 
-        if (Verbose) REPORT("done\n");
+        REMARK("done\n");
     }
 
 }
@@ -749,7 +759,7 @@ flog_segmented_interator() {
     for(my_si=my_vec.begin(), ii=0; my_si != my_vec.end(); ++my_si, ++ii) {
         if((*my_si) != ii) {
             found_error = true;
-            if(Verbose) REPORT( "*my_si=%d\n", int(*my_si));
+            REMARK( "*my_si=%d\n", int(*my_si));
         }
     }
 
@@ -781,7 +791,7 @@ flog_segmented_interator() {
     for(my_si = my_vec.begin(), ii=0; my_si != my_vec.end(); ++my_si, ++ii) {
         if((*my_si) != ii) {
             found_error = true;
-            if(Verbose) REPORT("*my_si=%d, ii=%d\n", (int)(*my_si), (int)ii);
+            REMARK("*my_si=%d, ii=%d\n", (int)(*my_si), (int)ii);
         }
     }
 
@@ -789,7 +799,7 @@ flog_segmented_interator() {
     for(my_csi=my_vec.begin(), ii=0; my_csi != my_vec.end(); ++my_csi, ++ii) {
         if((*my_csi) != ii) {
             found_error = true;
-            if(Verbose) REPORT( "*my_csi=%d\n", int(*my_csi));
+            REMARK( "*my_csi=%d\n", int(*my_csi));
         }
     }
 
@@ -821,7 +831,7 @@ flog_segmented_interator() {
     for(my_csi = my_vec.begin(), ii=0; my_csi != my_vec.end(); ++my_csi, ++ii) {
         if((*my_csi) != ii) {
             found_error = true;
-            if(Verbose) REPORT("*my_csi=%d, ii=%d\n", (int)(*my_csi), (int)ii);
+            REMARK("*my_csi=%d, ii=%d\n", (int)(*my_csi), (int)ii);
         }
     }
 
@@ -854,7 +864,7 @@ flog_segmented_iterator_map() {
    for(my_si=my_vec.begin(), ii=0; my_si != my_vec.end(); ++my_si, ++ii) {
        if(((*my_si).first != ii) || ((*my_si).second != 2*ii)) {
            found_error = true;
-           if(Verbose) REPORT( "ii=%d, (*my_si).first=%d, second=%d\n",ii, int((*my_si).first), int((*my_si).second));
+           REMARK( "ii=%d, (*my_si).first=%d, second=%d\n",ii, int((*my_si).first), int((*my_si).second));
        }
    }
 
@@ -862,7 +872,7 @@ flog_segmented_iterator_map() {
    for(my_csi=my_vec.begin(), ii=0; my_csi != my_vec.end(); ++my_csi, ++ii) {
        if(((*my_csi).first != ii) || ((*my_csi).second != 2*ii)) {
            found_error = true;
-           if(Verbose) REPORT( "ii=%d, (*my_csi).first=%d, second=%d\n",ii, int((*my_csi).first), int((*my_csi).second));
+           REMARK( "ii=%d, (*my_csi).first=%d, second=%d\n",ii, int((*my_csi).first), int((*my_csi).second));
        }
    }
 }
@@ -870,7 +880,7 @@ flog_segmented_iterator_map() {
 void
 run_segmented_iterator_tests() {
    // only the following containers can be used with the segmented iterator.
-    if(Verbose) REPORT("Running Segmented Iterator Tests\n");
+   REMARK("Running Segmented Iterator Tests\n");
    flog_segmented_interator<std::vector< int > >();
    flog_segmented_interator<std::vector< double > >();
    flog_segmented_interator<std::deque< int > >();
@@ -885,67 +895,77 @@ run_segmented_iterator_tests() {
 template <typename T>
 void
 run_assign_and_copy_constructor_test(const char *test_name) {
-    if (Verbose) REPORT("Testing assignment and copy construction for %s\n", test_name);
+    REMARK("Testing assignment and copy construction for %s\n", test_name);
 
-    // test initializer with exemplar (combine returns the exemplar value if no threads have created locals.)
+    // test initializer with exemplar
     T initializer0;
     test_helper<T>::init(initializer0);
     T initializer7;
     test_helper<T>::set(initializer7,7);
     tbb::enumerable_thread_specific<T> create1(initializer7);
-    ASSERT(7 == test_helper<T>::get(create1.combine(my_combine<T>)), NULL);
+    (void) create1.local();  // create an initialized value
+    ASSERT(7 == test_helper<T>::get(create1.local()), NULL);
 
     // test copy construction with exemplar initializer
+    create1.clear();
     tbb::enumerable_thread_specific<T> copy1(create1);
-    ASSERT(7 == test_helper<T>::get(copy1.combine(my_combine<T>)), NULL);
+    (void) copy1.local();
+    ASSERT(7 == test_helper<T>::get(copy1.local()), NULL);
 
     // test copy assignment with exemplar initializer
+    create1.clear();
     tbb::enumerable_thread_specific<T> assign1(initializer0);
     assign1 = create1;
-    ASSERT(7 == test_helper<T>::get(assign1.combine(my_combine<T>)), NULL);
+    (void) assign1.local();
+    ASSERT(7 == test_helper<T>::get(assign1.local()), NULL);
 
-    // test creation with finit function (combine returns finit return value if no threads have created locals)
-    FunctorAddFinit7<T> my_finit7;
+    // test creation with finit function
+    FunctorFinit<T,7> my_finit7;
     tbb::enumerable_thread_specific<T> create2(my_finit7);
-    ASSERT(7 == test_helper<T>::get(create2.combine(my_combine<T>)), NULL);
+    (void) create2.local();
+    ASSERT(7 == test_helper<T>::get(create2.local()), NULL);
 
     // test copy construction with function initializer
+    create2.clear();
     tbb::enumerable_thread_specific<T> copy2(create2);
-    ASSERT(7 == test_helper<T>::get(copy2.combine(my_combine<T>)), NULL);
+    (void) copy2.local();
+    ASSERT(7 == test_helper<T>::get(copy2.local()), NULL);
 
     // test copy assignment with function initializer
-    FunctorAddFinit<T> my_finit;
+    create2.clear();
+    FunctorFinit<T,0> my_finit;
     tbb::enumerable_thread_specific<T> assign2(my_finit);
     assign2 = create2;
-    ASSERT(7 == test_helper<T>::get(assign2.combine(my_combine<T>)), NULL);
+    (void) assign2.local();
+    ASSERT(7 == test_helper<T>::get(assign2.local()), NULL);
 }
 
 void
 run_assignment_and_copy_constructor_tests() {
-    if(Verbose) REPORT("Running assignment and copy constructor tests\n");
+    REMARK("Running assignment and copy constructor tests\n");
     run_assign_and_copy_constructor_test<int>("int");
     run_assign_and_copy_constructor_test<double>("double");
-    run_assign_and_copy_constructor_test<minimal>("minimal");
+    // Try class sizes that are close to a cache line in size, in order to check padding calculations.
+    run_assign_and_copy_constructor_test<minimal<line_size-1> >("minimal<line_size-1>");
+    run_assign_and_copy_constructor_test<minimal<line_size> >("minimal<line_size>");
+    run_assign_and_copy_constructor_test<minimal<line_size+1> >("minimal<line_size+1>");
 }
 
-__TBB_TEST_EXPORT
-int main(int argc, char *argv[]) {
-   ParseCommandLine(argc, argv);
-   run_segmented_iterator_tests();
+int TestMain () {
+    run_segmented_iterator_tests();
+    flog_key_creation_and_deletion();
 
-   flog_key_creation_and_deletion();
-
-   if (MinThread == 0) 
-      run_serial_tests();
-
-   if (MaxThread > 0) {
-      run_parallel_tests();
-      run_cross_type_tests();
-   }
+    if (MinThread == 0) {
+        run_serial_tests();
+        MinThread = 1;
+    }
+    if (MaxThread > 0) {
+        run_parallel_tests();
+        run_cross_type_tests();
+    }
 
     run_assignment_and_copy_constructor_tests();
 
-   REPORT("done\n");
-   return 0;
+    return Harness::Done;
 }
 

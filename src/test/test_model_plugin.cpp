@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,6 +26,7 @@
     the GNU General Public License.
 */
 
+
 #if _WIN32 || _WIN64
 #include <windows.h>
 #else
@@ -34,8 +35,24 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+
+#include "tbb/tbb_config.h"
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
+#endif
+
 #include <stdexcept>
-#include "harness_report.h"
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
+
+#if TBB_USE_EXCEPTIONS
+    #include "harness_report.h"
+#endif
 
 #ifdef _USRDLL
 #include "tbb/task_scheduler_init.h"
@@ -84,11 +101,13 @@ __declspec(dllexport)
 void plugin_call(int maxthread)
 {
     srand(2);
-    try {
+    __TBB_TRY {
         CModel model;
         model.init_and_terminate(maxthread);
-    } catch( std::runtime_error& error ) {
+    } __TBB_CATCH( std::runtime_error& error ) {
+#if TBB_USE_EXCEPTIONS
         REPORT("ERROR: %s\n", error.what());
+#endif /* TBB_USE_EXCEPTIONS */
     }
 }
 
@@ -140,9 +159,9 @@ int use_lot_of_tls() {
            && count < 4096 ) // Sun Solaris doesn't have any built-in limit, so we set something big enough
     {
         last_handles[++count%10] = result;
-        if(Verbose) REPORT("%d\n", count);
         pthread_setspecific(result,&setspecific_dummy);
     }
+    REMARK("Created %d keys\n", count);
     for( int i=0; i<10; ++i )
         pthread_key_delete(last_handles[i]);
 #endif
@@ -151,26 +170,54 @@ int use_lot_of_tls() {
 
 typedef void (*PLUGIN_CALL)(int);
 
-__TBB_TEST_EXPORT
-int main(int argc, char* argv[]) {
-    ParseCommandLine( argc, argv );
-
+int TestMain () {
+#if !RML_USE_WCRM
     PLUGIN_CALL my_plugin_call;
 
     int tls_key_count = use_lot_of_tls();
-    if( Verbose )
-        REPORT("%d thread local objects allocated in advance\n", tls_key_count);
+    REMARK("%d thread local objects allocated in advance\n", tls_key_count);
 
-    for( int i=1; i<100; ++i ) {  
 #if _WIN32 || _WIN64
-        HMODULE hLib = LoadLibrary("test_model_plugin.dll");
-        if (hLib==NULL){
+    HMODULE hLib;
+#if __TBB_ARENA_PER_MASTER
+    hLib = LoadLibrary("irml.dll");
+    if ( !hLib )
+        hLib = LoadLibrary("irml_debug.dll");
+    if ( !hLib )
+        return Harness::Skipped; // No shared RML, skip the test
+    FreeLibrary(hLib);
+#endif /* __TBB_ARENA_PER_MASTER */
+#else /* !WIN */
+#if __APPLE__
+    #define LIBRARY_NAME(base) base".dylib"
+#else
+    #define LIBRARY_NAME(base) base".so"
+#endif
+    void* hLib;
+#if __TBB_ARENA_PER_MASTER
+#if __linux__
+    #define RML_LIBRARY_NAME(base) LIBRARY_NAME(base) ".1"
+#else
+    #define RML_LIBRARY_NAME(base) LIBRARY_NAME(base)
+#endif
+    hLib = dlopen(RML_LIBRARY_NAME("libirml"), RTLD_LAZY);
+    if ( !hLib )
+        hLib = dlopen(RML_LIBRARY_NAME("libirml_debug"), RTLD_LAZY);
+    if ( !hLib )
+        return Harness::Skipped;
+    dlclose(hLib);
+#endif /* __TBB_ARENA_PER_MASTER */
+#endif /* OS */
+    for( int i=1; i<100; ++i ) {  
+        REMARK("Iteration %d, loading plugin library...\n", i);
+#if _WIN32 || _WIN64
+        hLib = LoadLibrary("test_model_plugin_dll.dll");
+        if ( !hLib ) {
 #if !__TBB_NO_IMPLICIT_LINKAGE
             report_error_in("LoadLibrary");
             return -1;
 #else
-            REPORT("skip\n");
-            return 0;
+            return Harness::Skipped;
 #endif
         }
         my_plugin_call = (PLUGIN_CALL) GetProcAddress(hLib, "plugin_call");
@@ -178,20 +225,14 @@ int main(int argc, char* argv[]) {
             report_error_in("GetProcAddress");
             return -1;
         }
-#else
-#if __APPLE__
-        const char *dllname = "test_model_plugin.dylib";
-#else
-        const char *dllname = "test_model_plugin.so";
-#endif
-        void* hLib = dlopen( dllname, RTLD_LAZY ); 
-        if (hLib==NULL){
+#else /* !WIN */
+        hLib = dlopen( LIBRARY_NAME("test_model_plugin_dll"), RTLD_LAZY );
+        if ( !hLib ) {
 #if !__TBB_NO_IMPLICIT_LINKAGE
             report_error_in("dlopen");
             return -1;
 #else
-            REPORT("skip\n");
-            return 0;
+            return Harness::Skipped;
 #endif
         }
         my_plugin_call = PLUGIN_CALL (dlsym(hLib, "plugin_call"));
@@ -199,14 +240,12 @@ int main(int argc, char* argv[]) {
             report_error_in("dlsym");
             return -1;
         }
-#endif
+#endif /* !WIN */
 
-        if( Verbose )
-            REPORT("Iteration %d, calling plugin... ", i);
+        REMARK("Calling plugin method...\n");
         my_plugin_call(MaxThread);
-        if( Verbose )
-            REPORT("succeeded\n");
 
+        REMARK("Unloading plugin library...\n");
 #if _WIN32 || _WIN64
         FreeLibrary(hLib);
 #else
@@ -214,8 +253,10 @@ int main(int argc, char* argv[]) {
 #endif
     } // end for(1,100)
 
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
+#else
+    return Harness::Skipped;
+#endif /* !RML_USE_WCRM */
 }
 
-#endif
+#endif//_USRDLL

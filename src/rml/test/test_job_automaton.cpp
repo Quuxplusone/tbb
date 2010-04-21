@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -96,7 +96,7 @@ void State::exercise( bool is_owner ) {
         // Using extra bit of DelayMask for choosing whether to run wait_for_job or not.
         if( DelayMask&1<<N ) {
             rml::job* j= &ja.wait_for_job(); 
- if( j!=&job ) printf("%p\n",j);
+            if( j!=&job ) REPORT("%p\n",j);
             ASSERT( j==&job, NULL );
             job_received = true;
         }
@@ -133,13 +133,13 @@ bool CheckCoverage( bool report ) {
         if( Coverage[i]<min_coverage ) {
             okay = false;
             if( report )
-                printf("Warning: Coverage[%d]=%d is less than acceptable minimum of %d\n", i, int(Coverage[i]),min_coverage);
+                REPORT("Warning: Coverage[%d]=%d is less than acceptable minimum of %d\n", i, int(Coverage[i]),min_coverage);
         }
     }
     return okay;
 }
 
-int main() {
+int TestMain () {
     for( DelayMask=0; DelayMask<8<<N; ++DelayMask ) {
         State s;
         NativeParallelFor( 2, Loop(s) );
@@ -149,6 +149,5 @@ int main() {
         }
     }
     CheckCoverage(true);
-    printf("done\n");
-    return 0;
+    return Harness::Done;
 }

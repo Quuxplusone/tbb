@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -39,11 +39,37 @@ namespace Harness {
     typedef pthread_t tid_t;
     tid_t CurrentTid () { return pthread_self(); }
 #endif /* !WIN */
-} // namespace util
+} // namespace Harness
 
 int g_NumThreads = 0;
 Harness::tid_t  g_Master = 0;
 
+tbb::atomic<intptr_t> g_CurExecuted,
+                      g_ExecutedAtCatch,
+                      g_ExceptionsThrown;
+volatile bool g_ExceptionCaught = false,
+              g_UnknownException = false;
+
+volatile bool g_ThrowException = true,
+              g_Flog = false;
+
+bool    g_ExceptionInMaster = false;
+bool    g_SolitaryException = false;
+
+//! Number of exceptions propagated into the user code (i.e. intercepted by the tests)
+tbb::atomic<intptr_t> g_Exceptions;
+
+inline void ResetEhGlobals ( bool throwException = true, bool flog = false ) {
+    Harness::ConcurrencyTracker::Reset();
+    g_CurExecuted = g_ExecutedAtCatch = 0;
+    g_ExceptionCaught = false;
+    g_UnknownException = false;
+    g_ThrowException = throwException;
+    g_Flog = flog;
+    g_ExceptionsThrown = g_Exceptions = 0;
+}
+
+#if TBB_USE_EXCEPTIONS
 class test_exception : public std::exception {
     const char* my_description;
 public:
@@ -67,35 +93,10 @@ public:
 
 #define EXCEPTION_DESCR "Test exception"
 
-tbb::atomic<intptr_t> g_CurExecuted,
-                      g_ExecutedAtCatch;
-volatile intptr_t g_ExceptionThrown = 0;
-volatile bool g_ExceptionCaught = false,
-              g_UnknownException = false;
-
-volatile bool g_ThrowException = true,
-              g_Flog = false;
-
-bool    g_ExceptionInMaster = false;
-bool    g_SolitaryException = false;
-
-tbb::atomic<intptr_t> g_Exceptions; // number of exceptions propagated into the user users (i.e. intercepted by the tests)
-
-inline void ResetEhGlobals ( bool throwException = true, bool flog = false ) {
-    Harness::ConcurrencyTracker::Reset();
-    g_CurExecuted = g_ExecutedAtCatch = 0;
-    g_ExceptionCaught = false;
-    g_UnknownException = false;
-    g_ThrowException = throwException;
-    g_Flog = flog;
-    g_ExceptionThrown = 0;
-    g_Exceptions = 0;
-}
-
 #if HARNESS_EH_SIMPLE_MODE
 
 static void ThrowTestException () { 
-    g_ExceptionThrown = 1;
+    ++g_ExceptionsThrown;
     throw test_exception(EXCEPTION_DESCR);
 }
 
@@ -107,51 +108,81 @@ static void ThrowTestException ( intptr_t threshold ) {
     while ( Existed() < threshold )
         __TBB_Yield();
     if ( !g_SolitaryException ) {
-        g_ExceptionThrown = 1;
-        REMARK ("About to throw one of multiple test_exceptions (thread %08x):", Harness::CurrentTid());
+        ++g_ExceptionsThrown;
         throw test_exception(EXCEPTION_DESCR);
     }
-    if ( __TBB_CompareAndSwapW(&g_ExceptionThrown, 1, 0) == 0 ) {
-        REMARK ("About to throw solitary test_exception... :");
+    if ( g_ExceptionsThrown.compare_and_swap(1, 0) == 0 )
         throw solitary_test_exception(EXCEPTION_DESCR);
-    }
 }
 #endif /* !HARNESS_EH_SIMPLE_MODE */
-
-#define TRY()   \
-    bool exceptionCaught = false, unknownException = false;    \
-    try {
 
 #define CATCH()     \
     } catch ( PropagatedException& e ) { \
         g_ExecutedAtCatch = g_CurExecuted; \
-        ASSERT (strcmp(EXCEPTION_NAME(e), (g_SolitaryException ? typeid(solitary_test_exception) : typeid(test_exception)).name() ) == 0, "Unexpected original exception name"); \
-        ASSERT (strcmp(e.what(), EXCEPTION_DESCR) == 0, "Unexpected original exception info"); \
+        ASSERT( e.what(), "Empty what() string" );  \
+        ASSERT (__TBB_EXCEPTION_TYPE_INFO_BROKEN || strcmp(EXCEPTION_NAME(e), (g_SolitaryException ? typeid(solitary_test_exception) : typeid(test_exception)).name() ) == 0, "Unexpected original exception name"); \
+        ASSERT (__TBB_EXCEPTION_TYPE_INFO_BROKEN || strcmp(e.what(), EXCEPTION_DESCR) == 0, "Unexpected original exception info"); \
         g_ExceptionCaught = exceptionCaught = true; \
         ++g_Exceptions; \
+    } catch ( tbb::tbb_exception& e ) { \
+        REPORT("Unexpected %s\n", e.name()); \
+        ASSERT (g_UnknownException && !g_UnknownException, "Unexpected tbb::tbb_exception" ); \
+    } catch ( std::exception& e ) { \
+        REPORT("Unexpected %s\n", typeid(e).name()); \
+        ASSERT (g_UnknownException && !g_UnknownException, "Unexpected std::exception" ); \
     } catch ( ... ) { \
         g_ExceptionCaught = exceptionCaught = true; \
         g_UnknownException = unknownException = true; \
-    }
+    } \
+    if ( !g_SolitaryException ) \
+        REMARK_ONCE ("Multiple exceptions mode: %d throws", (intptr_t)g_ExceptionsThrown);
 
 #define ASSERT_EXCEPTION() \
-    ASSERT (g_ExceptionThrown ? g_ExceptionCaught : !g_ExceptionCaught, "throw without catch or catch without throw"); \
+    ASSERT (g_ExceptionsThrown ? g_ExceptionCaught : true, "throw without catch"); \
+    ASSERT (!g_ExceptionsThrown ? !g_ExceptionCaught : true, "catch without throw"); \
     ASSERT (g_ExceptionCaught, "no exception occurred"); \
-    ASSERT (!g_UnknownException, "unknown exception was caught")
+    ASSERT (__TBB_EXCEPTION_TYPE_INFO_BROKEN || !g_UnknownException, "unknown exception was caught")
 
 #define CATCH_AND_ASSERT() \
     CATCH() \
     ASSERT_EXCEPTION()
 
-const int c_Timeout = 10000;
+#else /* !TBB_USE_EXCEPTIONS */
 
-void WaitUntilConcurrencyPeaks () {
+inline void ThrowTestException ( intptr_t ) {}
+
+#endif /* !TBB_USE_EXCEPTIONS */
+
+#define TRY()   \
+    bool exceptionCaught = false, unknownException = false;    \
+    __TBB_TRY {
+
+// "exceptionCaught || unknownException" is used only to "touch" otherwise unused local variables
+#define CATCH_AND_FAIL() } __TBB_CATCH(...) { \
+        ASSERT (false, "Canceling tasks must not cause any exceptions");    \
+        (void)(exceptionCaught && unknownException);                        \
+    }
+
+const int c_Timeout = 1000000;
+
+void WaitUntilConcurrencyPeaks ( int expected_peak ) {
     if ( g_Flog )
         return;
     int n = 0;
-    while ( ++n < c_Timeout && (int)Harness::ConcurrencyTracker::InstantParallelism() < g_NumThreads )
+retry:
+    while ( ++n < c_Timeout && (int)Harness::ConcurrencyTracker::PeakParallelism() < expected_peak )
         __TBB_Yield();
+    ASSERT_WARNING( n < c_Timeout, "Missed wakeup or machine is overloaded?" );
+    // Workaround in case a missed wakeup takes place
+    if ( n == c_Timeout ) {
+        tbb::task &r = *new( tbb::task::allocate_root() ) tbb::empty_task();
+        r.spawn(r);
+        n = 0;
+        goto retry;
+    }
 }
+
+inline void WaitUntilConcurrencyPeaks () { WaitUntilConcurrencyPeaks(g_NumThreads); }
 
 inline bool IsMaster() {
     return Harness::CurrentTid() == g_Master;
@@ -167,6 +198,7 @@ class CancellatorTask : public tbb::task {
     intptr_t m_cancellationThreshold;
 
     tbb::task* execute () {
+        Harness::ConcurrencyTracker ct;
         s_Ready = true;
         while ( g_CurExecuted < m_cancellationThreshold )
             __TBB_Yield();
@@ -183,10 +215,14 @@ public:
 
     static void Reset () { s_Ready = false; }
 
-    static void WaitUntilReady () {
+    static bool WaitUntilReady () {
+        const intptr_t limit = 10000000;
+        intptr_t n = 0;
         do {
             __TBB_Yield();
-        } while( !s_Ready );
+        } while( !s_Ready && ++n < limit );
+        ASSERT( s_Ready || n == limit, NULL );
+        return s_Ready;
     }
 };
 
@@ -203,7 +239,6 @@ void RunCancellationTest ( intptr_t threshold = 1 )
     r.spawn( *new( r.allocate_child() ) LauncherTaskT(ctx) );
     TRY();
         r.wait_for_all();
-    CATCH();
+    CATCH_AND_FAIL();
     r.destroy(r);
-    ASSERT (!g_ExceptionCaught && !exceptionCaught, "Cancelling tasks should not cause any exceptions");
 }

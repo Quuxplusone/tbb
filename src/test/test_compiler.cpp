@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -40,23 +40,63 @@ union char2bool {
 // the value to 0 or 1 when the bool is cast to an unsigned char.
 // Compilers that pass this test do not do the normalization, and thus must
 // be assuming that a bool is a 0 or 1.
-int test_bool_representation() {
-    for( unsigned i=0; i<256; ++i ) {
+void TestBoolRepresentation () {
+    unsigned i = 0;
+    for( ; i<256; ++i ) {
         u.c = (unsigned char)i;
         unsigned char x = (unsigned char)u.b;
         if( x != i ) {
             REPORT("Test failed at iteration i=%d\n",i);
-            return 1;
+            break;
         }
     }
-    return 0;
+    ASSERT( i == 256, "bool representation differs from {0,1} set" );
 }
 
-__TBB_TEST_EXPORT
-int main() {
-    if( test_bool_representation()!=0 )
-        REPORT("ERROR: bool representation test failed\n");
-    else
-        REPORT("done\n");
-    return 0;
+// Test if all the necessary symbols are exported for the exceptions thrown by TBB.
+// Missing exports result either in link error or in runtime assertion failure.
+#include "tbb/tbb_exception.h"
+
+template <typename E>
+void TestExceptionClassExports ( const E& exc, tbb::internal::exception_id eid ) {
+    // The assertion here serves to shut up warnings about "eid not used". 
+    ASSERT( eid<tbb::internal::eid_max, NULL );
+#if TBB_USE_EXCEPTIONS
+    for ( int i = 0; i < 2; ++i ) {
+        try {
+            if ( i == 0 )
+                throw exc;
+#if !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
+            else
+                tbb::internal::throw_exception( eid );
+#endif
+        }
+        catch ( E& e ) {
+            ASSERT ( e.what(), "Missing what() string" );
+        }
+        catch ( ... ) {
+            ASSERT ( __TBB_EXCEPTION_TYPE_INFO_BROKEN, "Unrecognized exception. Likely RTTI related exports are missing" );
+        }
+    }
+#else /* !TBB_USE_EXCEPTIONS */
+    (void)exc;
+#endif /* !TBB_USE_EXCEPTIONS */
+}
+
+void TestExceptionClassesExports () {
+    TestExceptionClassExports( std::bad_alloc(), tbb::internal::eid_bad_alloc );
+    TestExceptionClassExports( tbb::bad_last_alloc(), tbb::internal::eid_bad_last_alloc );
+    TestExceptionClassExports( std::invalid_argument("test"), tbb::internal::eid_nonpositive_step );
+    TestExceptionClassExports( std::out_of_range("test"), tbb::internal::eid_out_of_range );
+    TestExceptionClassExports( std::range_error("test"), tbb::internal::eid_segment_range_error );
+    TestExceptionClassExports( std::range_error("test"), tbb::internal::eid_index_range_error );
+    TestExceptionClassExports( tbb::missing_wait(), tbb::internal::eid_missing_wait );
+    TestExceptionClassExports( tbb::invalid_multiple_scheduling(), tbb::internal::eid_invalid_multiple_scheduling );
+    TestExceptionClassExports( tbb::improper_lock(), tbb::internal::eid_improper_lock );
+}
+
+int TestMain () {
+    TestBoolRepresentation();
+    TestExceptionClassesExports();
+    return Harness::Done;
 }

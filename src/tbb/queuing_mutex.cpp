@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,7 +31,6 @@
 #include "tbb_misc.h"
 #include "tbb/queuing_mutex.h"
 #include "itt_notify.h"
-#include "itt_annotate.h"
 
 
 namespace tbb {
@@ -59,7 +58,6 @@ void queuing_mutex::scoped_lock::acquire( queuing_mutex& m )
         spin_wait_while_eq( going, 0ul );
     }
     ITT_NOTIFY(sync_acquired, mutex);
-    ITT_ANNOTATE_ACQUIRE_LOCK(mutex);
 
     // Force acquire so that user's critical section receives correct values
     // from processor that was previously in the user's critical section.
@@ -88,7 +86,6 @@ bool queuing_mutex::scoped_lock::try_acquire( queuing_mutex& m )
     if( !pred ) {
         mutex = &m;
         ITT_NOTIFY(sync_acquired, mutex);
-        ITT_ANNOTATE_ACQUIRE_LOCK(mutex);
         return true;
     } else return false;
 }
@@ -110,7 +107,6 @@ void queuing_mutex::scoped_lock::release( )
     __TBB_ASSERT(next,NULL);
     __TBB_store_with_release(next->going, 1);
 done:
-    ITT_ANNOTATE_RELEASE_LOCK(mutex);
     initialize();
 }
 

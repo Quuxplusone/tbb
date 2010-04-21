@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,12 +34,10 @@
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 #include "test_allocator_STL.h"
 
-__TBB_TEST_EXPORT
-int main() {
+int TestMain () {
     TestAllocatorWithSTL<tbb::cache_aligned_allocator<void> >();
     TestAllocatorWithSTL<tbb::tbb_allocator<void> >();
     TestAllocatorWithSTL<tbb::zero_allocator<void> >();
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }
 

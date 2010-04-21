@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,4 +31,49 @@
 #if (__SSE__||_M_IX86) && !defined(__sun)
 #include <xmmintrin.h>
 #define HAVE_m128 1
+
+//! Class for testing safety of using __m128
+/** Uses circuitous logic forces compiler to put __m128 objects on stack while
+    executing various methods, and thus tempt it to use aligned loads and stores
+    on the stack. */
+class ClassWithSSE {
+    static const int n = 16;
+    __m128 field[n];
+    void init( int start );
+public:
+    ClassWithSSE() {init(-n);} 
+    ClassWithSSE( int i ) {init(i);}
+    void operator=( const ClassWithSSE& src ) {
+        __m128 stack[n];
+        for( int i=0; i<n; ++i )
+            stack[i^5] = src.field[i];
+        for( int i=0; i<n; ++i )
+            field[i^5] = stack[i];
+    }
+    ~ClassWithSSE() {init(-2*n);}
+    friend bool operator==( const ClassWithSSE& x, const ClassWithSSE& y ) {
+        for( int i=0; i<4*n; ++i )
+            if( ((const float*)x.field)[i]!=((const float*)y.field)[i] )
+                return false;
+        return true;
+    }
+    friend bool operator!=( const ClassWithSSE& x, const ClassWithSSE& y ) {
+        return !(x==y);
+    }
+};
+
+void ClassWithSSE::init( int start ) {
+    __m128 stack[n];
+    for( int i=0; i<n; ++i ) {
+        // Declaring value as a one-element array instead of a scalar quites 
+        // gratuitous about possible use of "value" before it is used.
+        __m128 value[1];
+        for( int j=0; j<4; ++j )
+            ((float*)value)[j] = float(n*start+4*i+j);
+        stack[i^5] = value[0];
+    }
+    for( int i=0; i<n; ++i )
+        field[i^5] = stack[i];
+}
+
 #endif /* __SSE__||_M_IX86 */

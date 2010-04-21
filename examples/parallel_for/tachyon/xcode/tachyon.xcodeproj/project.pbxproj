@@ -513,10 +513,12 @@
 		20286C28FDCF999611CA2CEA /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = C0E91AC908A95435008D54AB /* Build configuration list for PBXProject "tachyon" */;
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 20286C29FDCF999611CA2CEA /* tachyon */;
 			productRefGroup = A1F58CD30B8DE85300073279 /* Products */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				A1F58D9B0B8DF06700073279 /* tachyon-serial */,
 				A1F58D910B8DF03600073279 /* tachyon-tbb1d */,
@@ -722,6 +724,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = "tachyon-tbb1d";
+				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -745,6 +748,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = "tachyon-tbb1d";
+				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -765,6 +769,7 @@
 				INSTALL_PATH = "$(HOME)/Applications";
 				PREBINDING = NO;
 				PRODUCT_NAME = "tachyon-serial";
+				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -783,6 +788,7 @@
 				INSTALL_PATH = "$(HOME)/Applications";
 				PREBINDING = NO;
 				PRODUCT_NAME = "tachyon-serial";
+				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -808,6 +814,7 @@
 				);
 				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = "tachyon-tbb";
+				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -830,6 +837,7 @@
 				);
 				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = "tachyon-tbb";
+				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -847,7 +855,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				GCC_VERSION = 4.0;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Debug;
@@ -864,7 +872,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				GCC_VERSION = 4.0;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Release;

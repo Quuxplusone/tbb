@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -46,7 +46,7 @@ using namespace std;
 
 namespace cfg {
     // convex hull problem parameter defaults
-    const long    NP = 5000000; // problem size
+    const long    NP  = 5000000;  // problem size
     const int     SNT = 1;        // minimal number of threads
     const int     ENT = 8;        // maximal number of threads
 

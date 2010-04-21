@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -217,11 +217,7 @@ void Run( int nthread ) {
     }
 }
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    MinThread=1;
-    MaxThread=2;
-    ParseCommandLine( argc, argv );
+int TestMain () {
     if( MinThread<1 ) {
         REPORT("number of threads must be positive\n");
         exit(1);
@@ -235,6 +231,5 @@ int main( int argc, char* argv[] ) {
     // This check must be performed after the scheduler terminated because only in this 
     // case there is a guarantee that the workers already destroyed their last tasks. 
     ASSERT( g_values_counter == 0, "Value objects were leaked" );
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

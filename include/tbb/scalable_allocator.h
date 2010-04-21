@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -79,6 +79,12 @@ void * __TBB_EXPORTED_FUNC scalable_aligned_realloc (void* ptr, size_t size, siz
     @ingroup memory_allocation */
 void __TBB_EXPORTED_FUNC scalable_aligned_free (void* ptr);
 
+/** The analogue of _msize/malloc_size/malloc_usable_size.
+    Returns the usable size of a memory block previously allocated by scalable_*,
+    or 0 (zero) if ptr does not point to such a block.
+    @ingroup memory_allocation */
+size_t __TBB_EXPORTED_FUNC scalable_msize (void* ptr);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif /* __cplusplus */
@@ -145,7 +151,7 @@ public:
         size_type absolutemax = static_cast<size_type>(-1) / sizeof (value_type);
         return (absolutemax > 0 ? absolutemax : 1);
     }
-    void construct( pointer p, const value_type& val ) { new(static_cast<void*>(p)) value_type(val); }
+    void construct( pointer p, const value_type& value ) {::new((void*)(p)) value_type(value);}
     void destroy( pointer p ) {p->~value_type();}
 };
 

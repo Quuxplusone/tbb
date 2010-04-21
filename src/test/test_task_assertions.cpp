@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,19 +26,29 @@
     the GNU General Public License.
 */
 
-// to avoid usage of #pragma comment
-#define __TBB_NO_IMPLICIT_LINKAGE 1
-#define __TBB_TASK_CPP_DIRECTLY_INCLUDED 1
-#include "../tbb/task.cpp"
+// Test correctness of forceful TBB initialization before any dynamic initialization
+// of static objects inside the library took place.
+namespace tbb { 
+namespace internal {
+    // Forward declaration of the TBB general initialization routine from task.cpp
+    void DoOneTimeInitializations();
+}}
+
+struct StaticInitializationChecker {
+    StaticInitializationChecker () { tbb::internal::DoOneTimeInitializations(); }
+} theChecker;
 
 //------------------------------------------------------------------------
 // Test that important assertions in class task fail as expected.
 //------------------------------------------------------------------------
 
+#include "harness_inject_scheduler.h"
+
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 #include "harness.h"
 #include "harness_bad_expr.h"
 
+#if TRY_BAD_EXPR_ENABLED
 //! Task that will be abused.
 tbb::task* volatile AbusedTask;
 
@@ -51,56 +61,22 @@ struct AbuseOneTask {
         tbb::task_scheduler_init init;
         // Thread 1 attempts to incorrectly use the task created by thread 0.
         tbb::task_list list;
-#if !__TBB_RELAXED_OWNERSHIP
-        TRY_BAD_EXPR(AbusedTask->spawn(*AbusedTask),"owne");
-        TRY_BAD_EXPR(AbusedTask->spawn_and_wait_for_all(*AbusedTask),"owne");
-        TRY_BAD_EXPR(tbb::task::spawn_root_and_wait(*AbusedTask),"owne");
-
-        // Try variant that operate on a tbb::task_list
-        TRY_BAD_EXPR(AbusedTask->spawn(list),"owne");
-        TRY_BAD_EXPR(AbusedTask->spawn_and_wait_for_all(list),"owne");
-#endif /* !__TBB_RELAXED_OWNERSHIP */
         // spawn_root_and_wait over empty list should vacuously succeed.
         tbb::task::spawn_root_and_wait(list);
 
         // Check that spawn_root_and_wait fails on non-empty list. 
         list.push_back(*AbusedTask);
-#if !__TBB_RELAXED_OWNERSHIP
-        TRY_BAD_EXPR(tbb::task::spawn_root_and_wait(list),"owne");
-
-        TRY_BAD_EXPR(AbusedTask->destroy(*AbusedTask),"owne");
-        TRY_BAD_EXPR(AbusedTask->wait_for_all(),"owne");
-#endif /* !__TBB_RELAXED_OWNERSHIP */
 
         // Try abusing recycle_as_continuation
         TRY_BAD_EXPR(AbusedTask->recycle_as_continuation(), "execute" );
         TRY_BAD_EXPR(AbusedTask->recycle_as_safe_continuation(), "execute" );
         TRY_BAD_EXPR(AbusedTask->recycle_to_reexecute(), "execute" );
-
-#if !__TBB_TASK_DEQUE
-        // Check correct use of depth parameter
-        tbb::task::depth_type depth = AbusedTask->depth();
-        ASSERT( depth==0, NULL );
-        for( int k=1; k<=81; k*=3 ) {
-            AbusedTask->set_depth(depth+k);
-            ASSERT( AbusedTask->depth()==depth+k, NULL );
-            AbusedTask->add_to_depth(k+1);
-            ASSERT( AbusedTask->depth()==depth+2*k+1, NULL );
-        }
-        AbusedTask->set_depth(0);
-
-        // Try abusing the depth parameter
-        TRY_BAD_EXPR(AbusedTask->set_depth(-1),"negative");
-        TRY_BAD_EXPR(AbusedTask->add_to_depth(-1),"negative");
-#endif /* !__TBB_TASK_DEQUE */
-
         ++AbuseOneTaskRan;
     }
 };
 
 //! Test various __TBB_ASSERT assertions related to class tbb::task.
 void TestTaskAssertions() {
-#if TBB_USE_ASSERT
     // Catch assertion failures
     tbb::set_assertion_handler( AssertionFailureHandler );
     tbb::task_scheduler_init init;
@@ -111,16 +87,17 @@ void TestTaskAssertions() {
     AbusedTask->destroy(*AbusedTask);
     // Restore normal assertion handling
     tbb::set_assertion_handler( NULL );
-#endif /* TBB_USE_ASSERT */
 }
 
-__TBB_TEST_EXPORT
-int main(int argc, char* argv[]) {
-#if __GLIBC__==2 && __GLIBC_MINOR__==3 || __TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
-    REPORT("skip\n");
-#else
+int TestMain () {
     TestTaskAssertions();
-    REPORT("done\n");
-#endif
-    return 0;
+    return Harness::Done;
 }
+
+#else /* !TRY_BAD_EXPR_ENABLED */
+
+int TestMain () {
+    return Harness::Skipped;
+}
+
+#endif /* !TRY_BAD_EXPR_ENABLED */

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,12 +26,20 @@
     the GNU General Public License.
 */
 
+/*
+    This file contains the TBB-based implementation of convex hull algortihm.
+    It corresponds to the following settings in convex_hull_bench.cpp:
+    - USETBB defined to 1
+    - USECONCVEC defined to 1
+    - INIT_ONCE defined to 0
+    - only buffered version is used
+*/
 #include "convex_hull.h"
 
 #include "tbb/task_scheduler_init.h"
-#include "tbb/blocked_range.h"
 #include "tbb/parallel_for.h"
 #include "tbb/parallel_reduce.h"
+#include "tbb/blocked_range.h"
 #include "tbb/tick_count.h"
 #include "tbb/concurrent_vector.h"
 
@@ -70,11 +78,14 @@ public:
     }
 };
 
-void initialize_buf(pointVec_t &points) {
+void initialize(pointVec_t &points) {
     points.clear();
 
-    tbb::parallel_for(range_t(0, cfg::MAXPOINTS,
-        FillRNDPointsVector_buf::grainSize), FillRNDPointsVector_buf(points));
+    // In the buffered version, a temporary storage for as much as grainSize elements 
+    // is allocated inside the body. Since auto_partitioner may increase effective
+    // range size which would cause a crash, simple partitioner has to be used.
+    tbb::parallel_for(range_t(0, cfg::MAXPOINTS, FillRNDPointsVector_buf::grainSize),
+                      FillRNDPointsVector_buf(points), tbb::simple_partitioner());
 }
 
 class FindXExtremum {
@@ -89,6 +100,8 @@ public:
         : points(points_), exType(exType_), extrXPoint(points[0]) {}
 
     FindXExtremum(const FindXExtremum& fxex, tbb::split)
+        // Can run in parallel with fxex.operator()() or fxex.join().
+        // The data race reported by tools is harmless.
         : points(fxex.points), exType(fxex.exType), extrXPoint(fxex.extrXPoint) {}
 
     void operator()(const range_t& range) {
@@ -187,10 +200,12 @@ public:
     }
 };
 
-point_t divide_buf(const pointVec_t &P, pointVec_t &P_reduced, 
-                  const point_t &p1, const point_t &p2) {
+point_t divide(const pointVec_t &P, pointVec_t &P_reduced, 
+                   const point_t &p1, const point_t &p2) {
     SplitByCP_buf sbcpb(p1, p2, P, P_reduced);
-    tbb::parallel_reduce(range_t(0, P.size(), SplitByCP_buf::grainSize), sbcpb);
+    // Must use simple_partitioner (see the comment in initialize() above)
+    tbb::parallel_reduce(range_t(0, P.size(), SplitByCP_buf::grainSize),
+                         sbcpb, tbb::simple_partitioner());
 
     if(util::VERBOSE) {
         std::stringstream ss;
@@ -203,7 +218,7 @@ point_t divide_buf(const pointVec_t &P, pointVec_t &P_reduced,
     return sbcpb.farthestPoint();
 }
 
-void divide_and_conquer_buf(const pointVec_t &P, pointVec_t &H,
+void divide_and_conquer(const pointVec_t &P, pointVec_t &H,
                             point_t p1, point_t p2) {
     if (P.size()<2) {
         H.push_back(p1);
@@ -213,17 +228,17 @@ void divide_and_conquer_buf(const pointVec_t &P, pointVec_t &H,
         pointVec_t P_reduced;
         pointVec_t H1, H2;
 
-        point_t p_far = divide_buf(P, P_reduced, p1, p2);
+        point_t p_far = divide(P, P_reduced, p1, p2);
 
-        divide_and_conquer_buf(P_reduced, H1, p1, p_far);
-        divide_and_conquer_buf(P_reduced, H2, p_far, p2);
+        divide_and_conquer(P_reduced, H1, p1, p_far);
+        divide_and_conquer(P_reduced, H2, p_far, p2);
 
         appendVector(H1, H);
         appendVector(H2, H);
     }
 }
 
-void quickhull_buf(const pointVec_t &points, pointVec_t &hull) {
+void quickhull(const pointVec_t &points, pointVec_t &hull) {
     hull.clear();
 
     point_t p_maxx = extremum<FindXExtremum::maxX>(points);
@@ -231,8 +246,8 @@ void quickhull_buf(const pointVec_t &points, pointVec_t &hull) {
 
     pointVec_t H;
 
-    divide_and_conquer_buf(points, hull, p_maxx, p_minx);
-    divide_and_conquer_buf(points, H, p_minx, p_maxx);
+    divide_and_conquer(points, hull, p_maxx, p_minx);
+    divide_and_conquer(points, H, p_minx, p_maxx);
 
     appendVector(H, hull);
 }
@@ -251,9 +266,9 @@ int main(int argc, char* argv[]) {
         ++nthreads) {
         tbb::task_scheduler_init init(nthreads);
         tm_init = util::gettime();
-        initialize_buf(points);
+        initialize(points);
         tm_start = util::gettime();
-        quickhull_buf(points, hull);
+        quickhull(points, hull);
         tm_end = util::gettime();
 
         util::WriteResults(nthreads, util::time_diff(tm_init, tm_start),

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -48,7 +48,7 @@ OPEN_INTERNAL_NAMESPACE
 
 #if __TBB_WEAK_SYMBOLS
 
-bool dynamic_link( const char* /*library*/, const dynamic_link_descriptor descriptors[], size_t n, size_t required )
+bool dynamic_link( void*, const dynamic_link_descriptor descriptors[], size_t n, size_t required )
 {
     if ( required == ~(size_t)0 )
         required = n;
@@ -92,6 +92,8 @@ bool dynamic_link( void* module, const dynamic_link_descriptor descriptors[], si
     return true;
 }
 
+#endif /* !__TBB_WEAK_SYMBOLS */
+
 bool dynamic_link( const char* library, const dynamic_link_descriptor descriptors[], size_t n, size_t required, dynamic_link_handle* handle )
 {
 #if _WIN32||_WIN64
@@ -101,9 +103,13 @@ bool dynamic_link( const char* library, const dynamic_link_descriptor descriptor
         return true;
     // Prevent Windows from displaying silly message boxes if it fails to load library
     // (e.g. because of MS runtime problems - one of those crazy manifest related ones)
+#if _XBOX
+    dynamic_link_handle module = LoadLibrary (library);
+#else
     UINT prev_mode = SetErrorMode (SEM_FAILCRITICALERRORS);
     dynamic_link_handle module = LoadLibrary (library);
     SetErrorMode (prev_mode);
+#endif /* _XBOX */
 #else
     dynamic_link_handle module = dlopen( library, RTLD_LAZY ); 
 #endif /* _WIN32||_WIN64 */
@@ -128,6 +134,5 @@ void dynamic_unlink( dynamic_link_handle handle ) {
 #endif /* _WIN32||_WIN64 */    
     }
 }
-#endif /* !__TBB_WEAK_SYMBOLS */
 
 CLOSE_INTERNAL_NAMESPACE

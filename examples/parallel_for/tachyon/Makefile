@@ -1,4 +1,4 @@
-# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -55,7 +55,9 @@
 NAME:=tachyon
 
 # The C++ compiler
-#CXX = g++
+ifneq (,$(shell which icc 2>/dev/null))
+CXX=icc
+endif # icc
 
 # The default dataset
 export DATASET = balls
@@ -161,7 +163,7 @@ endif
 
 clean: VERSION = *
 clean:
-	$(RM) $(EXE) *.o *.d
 ifeq ($(UI),mac)
 	rm -rf $(NAME).*
 endif
+	$(RM) $(EXE) *.o *.d

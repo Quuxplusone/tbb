@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -39,8 +39,7 @@
 #include <windows.h>
 #endif /* _MSC_VER */
 
-__TBB_TEST_EXPORT
-int main() {
+int TestMain () {
 #if _MSC_VER && !__TBBMALLOC_NO_IMPLICIT_LINKAGE
     #ifdef _DEBUG
         ASSERT(!GetModuleHandle("tbbmalloc.dll") && GetModuleHandle("tbbmalloc_debug.dll"),
@@ -51,6 +50,6 @@ int main() {
     #endif
 #endif /* _MSC_VER && !__TBBMALLOC_NO_IMPLICIT_LINKAGE */
     int result = TestMain<tbb::scalable_allocator<void> >();
-    REPORT("done\n");
-    return result;
+    ASSERT( !result, NULL );
+    return Harness::Done;
 }

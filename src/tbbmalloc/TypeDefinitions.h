@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -55,13 +55,23 @@
 #endif
 
 // Include files containing declarations of intptr_t and uintptr_t
+#include <stddef.h>  // size_t
 #if _MSC_VER
-#include <stddef.h>
+typedef unsigned __int16 uint16_t;
 typedef unsigned __int32 uint32_t;
 typedef unsigned __int64 uint64_t;
 #else
 #include <stdint.h>
 #endif
+
+namespace rml {
+namespace internal {
+
+extern bool  original_malloc_found;
+extern void* (*original_malloc_ptr)(size_t);
+extern void  (*original_free_ptr)(void*);
+
+} } // namespaces
 
 //! PROVIDE YOUR OWN Customize.h IF YOU FEEL NECESSARY
 #include "Customize.h"
@@ -91,17 +101,5 @@ static inline bool isPowerOfTwoMultiple(uintptr_t arg, uintptr_t divisor) {
     MALLOC_ASSERT( isPowerOfTwo(divisor), "Divisor should be a power of two" );
     return arg && (0==(arg & (arg-divisor)));
 }
-
-namespace rml {
-namespace internal {
-
-void lockRecursiveMallocFlag();
-void unlockRecursiveMallocFlag();
-
-extern bool  original_malloc_found;
-extern void* (*original_malloc_ptr)(size_t);
-extern void  (*original_free_ptr)(void*);
-
-} } // namespaces
 
 #endif /* _itt_shared_malloc_TypeDefinitions_H_ */

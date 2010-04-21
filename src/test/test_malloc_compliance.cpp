@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,6 +27,7 @@
 */
 
 const int MByte = 1048576; //1MB
+bool __tbb_test_errno = false;
 
 /* _WIN32_WINNT should be defined at the very beginning, 
    because other headers might include <windows.h>
@@ -62,6 +63,7 @@ void limitMem( int limit )
         exit(1);
     }
 }
+// Do not test errno with static VC runtime
 #else
 #include <sys/resource.h>
 #include <stdlib.h>
@@ -83,13 +85,16 @@ void limitMem( int limit )
 }
 #endif 
 
+#define ASSERT_ERRNO(cond, msg)  ASSERT( !__tbb_test_errno || (cond), msg )
+#define CHECK_ERRNO(cond) (__tbb_test_errno && (cond))
+
 #include <time.h>
 #include <errno.h>
-#include <vector>
 #define __TBB_NO_IMPLICIT_LINKAGE 1
 #include "tbb/scalable_allocator.h"
 #include "tbb/tbb_machine.h"
 
+#define HARNESS_CUSTOM_MAIN 1
 #include "harness.h"
 #include "harness_barrier.h"
 #if __linux__
@@ -99,9 +104,21 @@ void limitMem( int limit )
 #include <malloc.h> // _aligned_(malloc|free|realloc)
 #endif
 
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
+#endif
+
+#include <vector>
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
+
 const size_t COUNT_ELEM_CALLOC = 2;
 const int COUNT_TESTS = 1000;
-const int COUNT_ELEM = 50000;
+const int COUNT_ELEM = 25000;
 const size_t MAX_SIZE = 1000;
 const int COUNTEXPERIMENT = 10000;
 
@@ -182,22 +199,20 @@ struct MemStruct
 class CMemTest: NoAssign
 {
     UINT CountErrors;
-    int total_threads;
     bool FullLog;
     Harness::SpinBarrier *limitBarrier;
     static bool firstTime;
 
 public:
-    CMemTest(int total_threads, Harness::SpinBarrier *limitBarrier,
-             bool isVerbose=false) :
-        CountErrors(0), total_threads(total_threads), limitBarrier(limitBarrier)
+    CMemTest(Harness::SpinBarrier *limitBarrier, bool isVerbose=false) :
+        CountErrors(0), limitBarrier(limitBarrier)
         {
             srand((UINT)time(NULL));
             FullLog=isVerbose;
             rand();
         }
     void InvariantDataRealloc(bool aligned); //realloc does not change data
-    void NULLReturn(UINT MinSize, UINT MaxSize); // NULL pointer + check errno
+    void NULLReturn(UINT MinSize, UINT MaxSize, int total_threads); // NULL pointer + check errno
     void UniquePointer(); // unique pointer - check with padding
     void AddrArifm(); // unique pointer - check with pointer arithmetic
     bool ShouldReportError();
@@ -225,7 +240,7 @@ struct RoundRobin: NoAssign {
     mutable CMemTest test;
 
     RoundRobin( long p, Harness::SpinBarrier *limitBarrier, bool verbose ) :
-        number_of_threads(p), test(p, limitBarrier, verbose) {}
+        number_of_threads(p), test(limitBarrier, verbose) {}
     void operator()( int /*id*/ ) const 
         {
             test.RunAllTests(number_of_threads);
@@ -287,7 +302,7 @@ void ReallocParam()
         Trealloc(bufs[j], 0);
 }
 
-__TBB_TEST_EXPORT
+HARNESS_EXPORT
 int main(int argc, char* argv[]) {
     argC=argc;
     argV=argv;
@@ -328,14 +343,44 @@ int main(int argc, char* argv[]) {
     ReallocParam();
     limitMem(0);
 #endif
+    
+//for linux and dynamic runtime errno is used to check allocator fuctions
+//check if library compiled with /MD(d) and we can use errno
+#if _MSC_VER 
+#if defined(_MT) && defined(_DLL) //check errno if test itself compiled with /MD(d) only
+    #pragma comment(lib, "version.lib")
+    char*  version_info_block = NULL;
+    int version_info_block_size; 
+    LPVOID comments_block = NULL;
+    UINT comments_block_size;
+#ifdef _DEBUG
+#define __TBBMALLOCDLL "tbbmalloc_debug.dll"
+#else  //_DEBUG
+#define __TBBMALLOCDLL "tbbmalloc.dll"
+#endif //_DEBUG
+    version_info_block_size = GetFileVersionInfoSize( __TBBMALLOCDLL, (LPDWORD)&version_info_block_size );
+    if( version_info_block_size 
+        && ((version_info_block = (char*)malloc(version_info_block_size)) != NULL)
+        && GetFileVersionInfo(  __TBBMALLOCDLL, NULL, version_info_block_size, version_info_block )
+        && VerQueryValue( version_info_block, "\\StringFileInfo\\000004b0\\Comments", &comments_block, &comments_block_size )
+        && strstr( (char*)comments_block, "/MD" )
+        ){
+            __tbb_test_errno = true;
+     }
+     if( version_info_block ) free( version_info_block );
+#endif // defined(_MT) && defined(_DLL)
+#else  // _MSC_VER
+    __tbb_test_errno = true;
+#endif // _MSC_VER
+
     for( int p=MaxThread; p>=MinThread; --p ) {
-        if( Verbose )
-            REPORT("testing with %d threads\n", p );
+        REMARK("testing with %d threads\n", p );
         Harness::SpinBarrier *barrier = new Harness::SpinBarrier(p);
         NativeParallelFor( p, RoundRobin(p, barrier, Verbose) );
         delete barrier;
     }
-    if( !error_occurred ) REPORT("done\n");
+    if( !error_occurred ) 
+        REPORT("done\n");
     return 0;
 }
 
@@ -349,15 +394,19 @@ struct TestStruct
 //  std::string field6;
     std::vector<int> field7;
     double field8;
-    bool IzZero()
-        {
-            UCHAR *tmp;
-            tmp=(UCHAR*)this;
-            bool b=true;
-            for (int i=0; i<(int)sizeof(TestStruct); i++)
-                if (tmp[i]) b=false;
-            return b;
-        }
+    bool IsZero() {
+        int wordSz = sizeof(TestStruct) / sizeof(intptr_t);
+        int tailSz = sizeof(TestStruct) % sizeof(intptr_t);
+
+        intptr_t *buf =(intptr_t*)this;
+        char *bufTail =(char*) (buf+wordSz);
+
+        for (int i=0; i<wordSz; i++)
+            if (buf[i]) return false;
+        for (int i=0; i<tailSz; i++)
+            if (bufTail[i]) return false;
+        return true;
+    }
 };
 
 int Tposix_memalign(void **memptr, size_t alignment, size_t size)
@@ -531,7 +580,7 @@ void CMemTest::Zerofilling()
             continue;
         for (size_t j=0; j<CountElement; j++)
         {
-            if (!(TSMas+j)->IzZero())
+            if (!(TSMas+j)->IsZero())
             {
                 CountErrors++;
                 if (ShouldReportError()) REPORT("detect nonzero element at TestStruct\n");
@@ -544,38 +593,61 @@ void CMemTest::Zerofilling()
     error_occurred |= ( CountErrors>0 ) ;
 }
 
-// As several threads concurrently trying to push to memory limits, adding to 
-// vectors may have intermittent failures.  
-void reliablePushBack(std::vector<MemStruct> *vec, const MemStruct &mStruct)
+#if !__APPLE__
+void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
 {
-    for (int i=0; i<10000; i++) {
-        try {
-            vec->push_back(mStruct);
-        } catch(std::bad_alloc) {
-            continue;
-        }
-        return;
-    }
-    ASSERT(0, "Unable to get free memory.");
-}
+    // find size to guarantee getting NULL for 1024 B allocations
+    const int MAXNUM_1024 = (200+50)*1024;
 
-void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize)
-{
     std::vector<MemStruct> PointerList;
     void *tmp;
     CountErrors=0;
-    int CountNULL;
+    int CountNULL, num_1024;
     if (FullLog) REPORT("\nNULL return & check errno:\n");
     UINT Size;
+    Limit limit_200M(200*total_threads), no_limit(0);
+    void **buf_1024 = (void**)Tmalloc(MAXNUM_1024*sizeof(void*));
+
+    ASSERT(buf_1024, NULL);
+    /* We must have space for pointers when memory limit is hit. 
+       Reserve enough for the worst case. 
+    */
+    PointerList.reserve(200*MByte/MinSize);
+
+    /* There is a bug in the specific verion of GLIBC (2.5-12) shipped 
+       with RHEL5 that leads to erroneous working of the test 
+       on Intel64 and IPF systems when setrlimit-related part is enabled.
+       Switching to GLIBC 2.5-18 from RHEL5.1 resolved the issue.
+     */
+    if (perProcessLimits)
+        limitBarrier->wait(limit_200M);
+    else
+        limitMem(200);
+
+    /* regression test against the bug in allocator when it dereference NULL 
+       while lack of memory 
+    */
+    for (num_1024=0; num_1024<MAXNUM_1024; num_1024++) {
+        buf_1024[num_1024] = Tcalloc(1024, 1);
+        if (! buf_1024[num_1024]) {
+            ASSERT_ERRNO(errno == ENOMEM, NULL);
+            break;
+        }
+    }
+    for (int i=0; i<num_1024; i++)
+        Tfree(buf_1024[i]);
+    Tfree(buf_1024);
+
     do {
         Size=rand()%(MaxSize-MinSize)+MinSize;
         tmp=Tmalloc(Size);
         if (tmp != NULL)
         {
             memset(tmp, 0, Size);
-            reliablePushBack(&PointerList, MemStruct(tmp, Size));
+            PointerList.push_back(MemStruct(tmp, Size));
         }
     } while(tmp != NULL);
+    ASSERT_ERRNO(errno == ENOMEM, NULL);
     if (FullLog) REPORT("\n");
 
     // preparation complete, now running tests
@@ -591,7 +663,7 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize)
             if (tmp == NULL)
             {
                 CountNULL++;
-                if (errno != ENOMEM) {
+                if ( CHECK_ERRNO(errno != ENOMEM) ) {
                     CountErrors++;
                     if (ShouldReportError()) REPORT("NULL returned, error: errno (%d) != ENOMEM\n", errno);
                 }
@@ -602,14 +674,14 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize)
                 // However, on most systems it does not set errno.
                 bool known_issue = false;
 #if __linux__
-                if( errno==ENOMEM ) known_issue = true;
+                if( CHECK_ERRNO(errno==ENOMEM) ) known_issue = true;
 #endif /* __linux__ */
-                if (errno != ENOMEM+j+1 && !known_issue) {
+                if ( CHECK_ERRNO(errno != ENOMEM+j+1) && !known_issue) {
                     CountErrors++;
                     if (ShouldReportError()) REPORT("error: errno changed to %d though valid pointer was returned\n", errno);
-                }      
+                }
                 memset(tmp, 0, Size);
-                reliablePushBack(&PointerList, MemStruct(tmp, Size));
+                PointerList.push_back(MemStruct(tmp, Size));
             }
         }
     if (FullLog) REPORT("end malloc\n");
@@ -630,7 +702,7 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize)
             if (tmp == NULL)
             {
                 CountNULL++;
-                if (errno != ENOMEM) {
+                if ( CHECK_ERRNO(errno != ENOMEM) ){
                     CountErrors++;
                     if (ShouldReportError()) REPORT("NULL returned, error: errno(%d) != ENOMEM\n", errno);
                 }
@@ -641,13 +713,13 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize)
                 // However, on most systems it does not set errno.
                 bool known_issue = false;
 #if __linux__
-                if( errno==ENOMEM ) known_issue = true;
+                if( CHECK_ERRNO(errno==ENOMEM) ) known_issue = true;
 #endif /* __linux__ */
-                if (errno != ENOMEM+j+1 && !known_issue) {
+                if ( CHECK_ERRNO(errno != ENOMEM+j+1) && !known_issue ) {
                     CountErrors++;
                     if (ShouldReportError()) REPORT("error: errno changed to %d though valid pointer was returned\n", errno);
                 }      
-                reliablePushBack(&PointerList, MemStruct(tmp, Size));
+                PointerList.push_back(MemStruct(tmp, Size));
             }
         }
     if (FullLog) REPORT("end calloc\n");
@@ -691,7 +763,7 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize)
                 else if (tmp == NULL)
                 {
                     CountNULL++;
-                    if (errno != ENOMEM)
+                    if ( CHECK_ERRNO(errno != ENOMEM) )
                     {
                         CountErrors++;
                         if (ShouldReportError()) REPORT("NULL returned, error: errno(%d) != ENOMEM\n", errno);
@@ -714,8 +786,13 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize)
     {
         Tfree(PointerList[i].Pointer);
     }
-}
 
+    if (perProcessLimits)
+        limitBarrier->wait(no_limit);
+    else
+        limitMem(0);
+}
+#endif /* #if __APPLE__ */
 
 void CMemTest::UniquePointer()
 {
@@ -874,13 +951,13 @@ void CMemTest::TestAlignedParameters()
             if (bad_align&(bad_align-1)) {
                 memptr = Taligned_malloc(100, bad_align);
                 ASSERT(NULL==memptr, NULL);
-                ASSERT(EINVAL==errno, NULL);
+                ASSERT_ERRNO(EINVAL==errno, NULL);
             }
     
         // size is zero
         memptr = Taligned_malloc(0, 16);
         ASSERT(NULL==memptr, "size is zero, so must return NULL");
-        ASSERT(EINVAL==errno, NULL);
+        ASSERT_ERRNO(EINVAL==errno, NULL);
     }
     if (Taligned_free) {
         // NULL pointer is OK to free
@@ -889,7 +966,7 @@ void CMemTest::TestAlignedParameters()
         /* As there is no return value for free, strictly speaking we can't 
            check errno here. But checked implementations obey the assertion.
         */
-        ASSERT(0==errno, NULL);
+        ASSERT_ERRNO(0==errno, NULL);
     }
     if (Raligned_realloc) {
         for (int i=1; i<20; i++) {
@@ -897,11 +974,11 @@ void CMemTest::TestAlignedParameters()
             errno = i;
             void *ptr = Taligned_malloc(i*10, 128);
             ASSERT(NULL!=ptr, NULL);
-            ASSERT(0!=errno, NULL);
+            ASSERT_ERRNO(0!=errno, NULL);
             // if size is zero and pointer is not NULL, works like free
             memptr = Taligned_realloc(ptr, 0, 64);
             ASSERT(NULL==memptr, NULL);
-            ASSERT(0!=errno, NULL);
+            ASSERT_ERRNO(0!=errno, NULL);
         }
         // alignment isn't power of 2
         for (int bad_align=3; bad_align<16; bad_align++)
@@ -910,15 +987,13 @@ void CMemTest::TestAlignedParameters()
                 memptr = Taligned_realloc(&ptr, 100, bad_align);
                 ASSERT(NULL==memptr, NULL);
                 ASSERT(&bad_align==ptr, NULL);
-                ASSERT(EINVAL==errno, NULL);
+                ASSERT_ERRNO(EINVAL==errno, NULL);
             }
     }
 }
 
 void CMemTest::RunAllTests(int total_threads)
 {
-    Limit limit_200M(200*total_threads), no_limit(0);
-
     Zerofilling();
     Free_NULL();
     InvariantDataRealloc(/*aligned=*/false);
@@ -926,26 +1001,13 @@ void CMemTest::RunAllTests(int total_threads)
         InvariantDataRealloc(/*aligned=*/true);
     TestAlignedParameters();
 #if __APPLE__
-    REPORT("Warning: skipping some tests (known issue on Mac OS* X)\n");
+    REPORT("Known issue: some tests are skipped on Mac OS* X\n");
 #else
     UniquePointer();
     AddrArifm();
-    /* There is a bug in the specific verion of GLIBC (2.5-12) shipped 
-       with RHEL5 that leads to erroneous working of the test 
-       on Intel64 and IPF systems when setrlimit-related part is enabled.
-       Switching to GLIBC 2.5-18 from RHEL5.1 resolved the issue.
-     */
-    if (perProcessLimits)
-        limitBarrier->wait(limit_200M);
-    else
-        limitMem(200);
-#if !__TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
-    NULLReturn(1*MByte,100*MByte);
+#if !__TBB_LRB_NATIVE
+    NULLReturn(1*MByte,100*MByte,total_threads);
 #endif
-    if (perProcessLimits)
-        limitBarrier->wait(no_limit);
-    else
-        limitMem(0);
 #endif
     if (FullLog) REPORT("All tests ended\nclearing memory...");
 }

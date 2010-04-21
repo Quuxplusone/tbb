@@ -1,4 +1,4 @@
-# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -65,12 +65,16 @@ ASM_FLAGS=
 
 TBB_ASM.OBJ=
 
+ifeq (ia32,$(arch))
+    CPLUS_FLAGS += -falign-stack=maintain-16-byte
+endif
+
 ifeq (ia64,$(arch))
 # Position-independent code (PIC) is a must on IA-64, even for regular (not shared) executables
     CPLUS_FLAGS += $(PIC_KEY)
 endif 
 
-ifneq (0,$(lambdas))
+ifneq (00,$(lambdas)$(cpp0x))
 	CPLUS_FLAGS += -std=c++0x -D_TBB_CPP0X
 endif
 

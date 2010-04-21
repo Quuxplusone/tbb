@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,13 +26,22 @@
     the GNU General Public License.
 */
 
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+#pragma warning(disable: 4180) // "qualifier applied to function type has no meaning; ignored"
+#endif
+
 #include "tbb/parallel_for_each.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/atomic.h"
 #include "harness.h"
 #include "harness_iterator.h"
 
+// Some old compilers can't deduce template paremeter type for parallel_for_each
+// if the function name is passed without explicit cast to function pointer.
+typedef void (*TestFunctionType)(size_t);
+
 tbb::atomic<size_t> sum;
+
 // This function is called via parallel_for_each
 void TestFunction (size_t value) {
     sum += (unsigned int)value;
@@ -58,18 +67,38 @@ void RunPForEachTests()
     Iterator begin(&test_vector[0]);
     Iterator end(&test_vector[NUMBER_OF_ELEMENTS]);
 
-    tbb::parallel_for_each(begin, end, TestFunction);
+    tbb::parallel_for_each(begin, end, (TestFunctionType)TestFunction);
     ASSERT(sum == test_sum, "Not all items of test vector were processed by parallel_for_each");
     ASSERT(test_vector[NUMBER_OF_ELEMENTS] == 1000000, "parallel_for_each processed an extra element");
 }
 
-// Exception support test
+typedef void (*TestMutatorType)(size_t&);
+
+void TestMutator(size_t& value) {
+    ASSERT(value==0,NULL);
+    ++sum;
+    ++value;
+}
+
+//! Test that tbb::parallel_for_each works for mutable iterators.
+template <typename Iterator>
+void RunMutablePForEachTests() {
+    size_t test_vector[NUMBER_OF_ELEMENTS];
+    for( size_t i=0; i<NUMBER_OF_ELEMENTS; ++i )
+        test_vector[i] = 0;
+    sum = 0;
+    tbb::parallel_for_each( Iterator(test_vector), Iterator(test_vector+NUMBER_OF_ELEMENTS), (TestMutatorType)TestMutator );
+    ASSERT( sum==NUMBER_OF_ELEMENTS, "parallel_for_each called function wrong number of times" );
+    for( size_t i=0; i<NUMBER_OF_ELEMENTS; ++i )
+        ASSERT( test_vector[i]==1, "parallel_for_each did not process each element exactly once" );
+}
+
 #define HARNESS_EH_SIMPLE_MODE 1
 #include "tbb/tbb_exception.h"
 #include "harness_eh.h"
 
-void test_function_with_exception(size_t)
-{
+#if TBB_USE_EXCEPTIONS
+void test_function_with_exception(size_t) {
     ThrowTestException();
 }
 
@@ -87,11 +116,12 @@ void TestExceptionsSupport()
     Iterator end(&test_vector[NUMBER_OF_ELEMENTS]);
 
     TRY();
-        tbb::parallel_for_each(begin, end, test_function_with_exception);
+        tbb::parallel_for_each(begin, end, (TestFunctionType)test_function_with_exception);
     CATCH_AND_ASSERT();
 }
+#endif /* TBB_USE_EXCEPTIONS */
 
-// Cancellaton support test
+// Cancelation support test
 void function_to_cancel(size_t ) {
     ++g_CurExecuted;
     CancellatorTask::WaitUntilReady();
@@ -110,12 +140,12 @@ class my_worker_pforeach_task : public tbb::task
         Iterator begin(&test_vector[0]);
         Iterator end(&test_vector[NUMBER_OF_ELEMENTS]);
 
-        tbb::parallel_for_each(begin, end, function_to_cancel);
+        tbb::parallel_for_each(begin, end, (TestFunctionType)function_to_cancel);
         
         return NULL;
     }
 public:
-    my_worker_pforeach_task ( tbb::task_group_context &context) : my_ctx(context) { }
+    my_worker_pforeach_task ( tbb::task_group_context &ctx) : my_ctx(ctx) { }
 };
 
 template <typename Iterator>
@@ -128,27 +158,24 @@ void TestCancellation()
 
 #include "harness_cpu.h"
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    MinThread=1;
-    MaxThread=2;
-    ParseCommandLine( argc, argv );
+int TestMain () {
     if( MinThread<1 ) {
         REPORT("number of threads must be positive\n");
         exit(1);
     }
-
     for( int p=MinThread; p<=MaxThread; ++p ) {
         tbb::task_scheduler_init init( p );
         RunPForEachTests<Harness::RandomIterator<size_t> >();
         RunPForEachTests<Harness::InputIterator<size_t> >();
         RunPForEachTests<Harness::ForwardIterator<size_t> >();
+        RunMutablePForEachTests<Harness::RandomIterator<size_t> >();
+        RunMutablePForEachTests<Harness::ForwardIterator<size_t> >();
 
-#if !__TBB_EXCEPTION_HANDLING_BROKEN
+#if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
         TestExceptionsSupport<Harness::RandomIterator<size_t> >();
         TestExceptionsSupport<Harness::InputIterator<size_t> >();
         TestExceptionsSupport<Harness::ForwardIterator<size_t> >();
-#endif
+#endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
         if (p > 1) {
             TestCancellation<Harness::RandomIterator<size_t> >();
             TestCancellation<Harness::InputIterator<size_t> >();
@@ -157,9 +184,8 @@ int main( int argc, char* argv[] ) {
         // Test that all workers sleep when no work
         TestCPUUserTime(p);
     }
-#if __TBB_EXCEPTION_HANDLING_BROKEN
-    REPORT("Warning: Exception handling tests are skipped due to a known issue.\n");
+#if __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
+    REPORT("Known issue: exception handling tests are skipped.\n");
 #endif
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

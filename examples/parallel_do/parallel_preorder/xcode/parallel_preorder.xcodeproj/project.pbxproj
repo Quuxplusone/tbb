@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		05593AAB0B8F55D500DE73AB /* parallel_preorder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05593AA70B8F55D500DE73AB /* parallel_preorder.cpp */; };
 		05593AA80B8F55D500DE73AB /* Graph.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05593AA40B8F55D500DE73AB /* Graph.cpp */; };
+		05593AAB0B8F55D500DE73AB /* parallel_preorder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05593AA70B8F55D500DE73AB /* parallel_preorder.cpp */; };
 		A1F593B70B8F06F900073279 /* libtbb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A1F593B30B8F06F900073279 /* libtbb.dylib */; };
 		A1F593BB0B8F072500073279 /* libtbb.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = A1F593B30B8F06F900073279 /* libtbb.dylib */; };
 /* End PBXBuildFile section */
@@ -27,11 +27,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		8DD76F6C0486A84900D96B5E /* parallel_preorder */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = parallel_preorder; sourceTree = BUILT_PRODUCTS_DIR; };
-		05593AA70B8F55D500DE73AB /* parallel_preorder.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = parallel_preorder.cpp; path = ../parallel_preorder.cpp; sourceTree = SOURCE_ROOT; };
 		05593AA40B8F55D500DE73AB /* Graph.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = Graph.cpp; path = ../Graph.cpp; sourceTree = SOURCE_ROOT; };
 		05593AA50B8F55D500DE73AB /* Graph.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = Graph.h; path = ../Graph.h; sourceTree = SOURCE_ROOT; };
 		05593AA60B8F55D500DE73AB /* Matrix.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = Matrix.h; path = ../Matrix.h; sourceTree = SOURCE_ROOT; };
+		05593AA70B8F55D500DE73AB /* parallel_preorder.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = parallel_preorder.cpp; path = ../parallel_preorder.cpp; sourceTree = SOURCE_ROOT; };
+		8DD76F6C0486A84900D96B5E /* parallel_preorder */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = parallel_preorder; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1F593B30B8F06F900073279 /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = /Library/Frameworks/TBB.framework/Libraries/libtbb.dylib; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
@@ -111,9 +111,11 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 1DEB923508733DC60010E9CD /* Build configuration list for PBXProject "parallel_preorder" */;
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 08FB7794FE84155DC02AAC07 /* parallel_preorder */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				8DD76F620486A84900D96B5E /* parallel_preorder */,
 			);
@@ -140,6 +142,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_VERSION = 4.0;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -155,6 +158,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_VERSION = 4.0;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -173,11 +177,11 @@
 				ARCHS = i386;
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_MODEL_TUNING = "";
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Debug;
@@ -189,11 +193,11 @@
 				ARCHS = i386;
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_MODEL_TUNING = "";
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Release;
@@ -201,10 +205,13 @@
 		A1F593C60B8F0E6E00073279 /* Debug64 */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_VERSION = 4.0;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -219,7 +226,10 @@
 		A1F593C70B8F0E6E00073279 /* Release64 */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_VERSION = 4.0;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
@@ -238,6 +248,7 @@
 				ARCHS = i386;
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_MODEL_TUNING = "";
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				OTHER_CPLUSPLUSFLAGS = (
@@ -247,7 +258,6 @@
 				OTHER_LDFLAGS = "-m64";
 				PREBINDING = NO;
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Debug64;
@@ -259,6 +269,7 @@
 				ARCHS = i386;
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_MODEL_TUNING = "";
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				OTHER_CPLUSPLUSFLAGS = (
@@ -268,7 +279,6 @@
 				OTHER_LDFLAGS = "-m64";
 				PREBINDING = NO;
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Release64;

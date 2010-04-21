@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::parallel_while&lt; Body &gt; Class Template Reference</title>
+<title>tbb::blocked_range2d&lt; RowValue, ColValue &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,117 +21,63 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00229.html">tbb</a>::<a class="el" href="a00149.html">parallel_while</a></div>
-<h1>tbb::parallel_while&lt; Body &gt; Class Template Reference<br>
+<a class="el" href="a00267.html">tbb</a>::<a class="el" href="a00149.html">blocked_range2d</a></div>
+<h1>tbb::blocked_range2d&lt; RowValue, ColValue &gt; Class Template Reference<br>
 <small>
-[<a class="el" href="a00233.html">Algorithms</a>]</small>
-</h1><!-- doxytag: class="tbb::parallel_while" -->Parallel iteration over a stream, with optional addition of more work.  
+[<a class="el" href="a00274.html">Algorithms</a>]</small>
+</h1><!-- doxytag: class="tbb::blocked_range2d" -->A 2-dimensional range that models the Range concept.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00338.html">parallel_while.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00320.html">blocked_range2d.h</a>&gt;</code>
 <p>
-<a href="a00038.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00005.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fa297e53d3af2a101e712bc200233e9c"></a><!-- doxytag: member="tbb::parallel_while::value_type" ref="fa297e53d3af2a101e712bc200233e9c" args="" -->
-typedef Body::argument_type&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00149.html#fa297e53d3af2a101e712bc200233e9c">value_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a807a22fe658ec38b8edfd69521d0383"></a><!-- doxytag: member="tbb::blocked_range2d::row_range_type" ref="a807a22fe658ec38b8edfd69521d0383" args="" -->
+typedef <a class="el" href="a00148.html">blocked_range</a>&lt; RowValue &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00149.html#a807a22fe658ec38b8edfd69521d0383">row_range_type</a></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Type of items. <br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Type for size of an iteation range. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="750d5c6ac9915443df477a30031c07fd"></a><!-- doxytag: member="tbb::blocked_range2d::col_range_type" ref="750d5c6ac9915443df477a30031c07fd" args="" -->
+typedef <a class="el" href="a00148.html">blocked_range</a>&lt; ColValue &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>col_range_type</b></td></tr>
+
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="36e26ba3880c7bcf804a97ba0cbe133f"></a><!-- doxytag: member="tbb::parallel_while::parallel_while" ref="36e26ba3880c7bcf804a97ba0cbe133f" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00149.html#36e26ba3880c7bcf804a97ba0cbe133f">parallel_while</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4180bc35d4f8ed9f20045dba4f2a1bdc"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="4180bc35d4f8ed9f20045dba4f2a1bdc" args="(RowValue row_begin, RowValue row_end, typename row_range_type::size_type row_grainsize, ColValue col_begin, ColValue col_end, typename col_range_type::size_type col_grainsize)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (RowValue row_begin, RowValue row_end, typename <a class="el" href="a00148.html#f5707bffea38eee5c9680f37358afb8e">row_range_type::size_type</a> row_grainsize, ColValue col_begin, ColValue col_end, typename <a class="el" href="a00148.html#f5707bffea38eee5c9680f37358afb8e">col_range_type::size_type</a> col_grainsize)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct empty non-running parallel while. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6fcfc973cc56b79c6d0fbb8a31be7e84"></a><!-- doxytag: member="tbb::parallel_while::~parallel_while" ref="6fcfc973cc56b79c6d0fbb8a31be7e84" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00149.html#6fcfc973cc56b79c6d0fbb8a31be7e84">~parallel_while</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="485434db1609b2074d86cb604f3c674e"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="485434db1609b2074d86cb604f3c674e" args="(RowValue row_begin, RowValue row_end, ColValue col_begin, ColValue col_end)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (RowValue row_begin, RowValue row_end, ColValue col_begin, ColValue col_end)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destructor cleans up data members before returning. <br></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2">template&lt;typename Stream&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00149.html#b32a0a6e5e09ebb7fad3e6652c19afe5">run</a> (Stream &amp;stream, const Body &amp;body)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d144cb2d88cef553420311aca8667a44"></a><!-- doxytag: member="tbb::blocked_range2d::empty" ref="d144cb2d88cef553420311aca8667a44" args="() const " -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00149.html#d144cb2d88cef553420311aca8667a44">empty</a> () const </td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Apply body.apply to each item in the stream.  <a href="#b32a0a6e5e09ebb7fad3e6652c19afe5"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00149.html#e131c560057a58229992b61eb8dba4c6">add</a> (const <a class="el" href="a00149.html#fa297e53d3af2a101e712bc200233e9c">value_type</a> &amp;item)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if range is empty. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ad36a9b38e4fef26d376f99552ce2d92"></a><!-- doxytag: member="tbb::blocked_range2d::is_divisible" ref="ad36a9b38e4fef26d376f99552ce2d92" args="() const " -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00149.html#ad36a9b38e4fef26d376f99552ce2d92">is_divisible</a> () const </td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Add a work item while running.  <a href="#e131c560057a58229992b61eb8dba4c6"></a><br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if range is divisible into two pieces. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4f80e6db02bfa4e90e2a219de9f17461"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="4f80e6db02bfa4e90e2a219de9f17461" args="(blocked_range2d &amp;r, split)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (<a class="el" href="a00149.html">blocked_range2d</a> &amp;r, <a class="el" href="a00198.html">split</a>)</td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f496e7348a82652fba581203477cc07c"></a><!-- doxytag: member="tbb::blocked_range2d::rows" ref="f496e7348a82652fba581203477cc07c" args="() const " -->
+const <a class="el" href="a00148.html">row_range_type</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00149.html#f496e7348a82652fba581203477cc07c">rows</a> () const </td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The rows of the iteration space. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="392a46759af2c884957115771affa7f4"></a><!-- doxytag: member="tbb::blocked_range2d::cols" ref="392a46759af2c884957115771affa7f4" args="() const " -->
+const <a class="el" href="a00148.html">col_range_type</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00149.html#392a46759af2c884957115771affa7f4">cols</a> () const </td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The columns of the iteration space. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename Body&gt;<br>
- class tbb::parallel_while&lt; Body &gt;</h3>
+<h3>template&lt;typename RowValue, typename ColValue = RowValue&gt;<br>
+ class tbb::blocked_range2d&lt; RowValue, ColValue &gt;</h3>
 
-Parallel iteration over a stream, with optional addition of more work. 
+A 2-dimensional range that models the Range concept. 
 <p>
-The Body b has the requirement: <br>
- "b(v)" <br>
- "b.argument_type" <br>
- where v is an argument_type 
-<p>
-<hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="e131c560057a58229992b61eb8dba4c6"></a><!-- doxytag: member="tbb::parallel_while::add" ref="e131c560057a58229992b61eb8dba4c6" args="(const value_type &amp;item)" -->
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename Body&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">void <a class="el" href="a00149.html">tbb::parallel_while</a>&lt; Body &gt;::add           </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="a00149.html#fa297e53d3af2a101e712bc200233e9c">value_type</a> &amp;&nbsp;</td>
-          <td class="paramname"> <em>item</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Add a work item while running. 
-<p>
-Should be executed only by body.apply or a thread spawned therefrom. 
-</div>
-</div><p>
-<a class="anchor" name="b32a0a6e5e09ebb7fad3e6652c19afe5"></a><!-- doxytag: member="tbb::parallel_while::run" ref="b32a0a6e5e09ebb7fad3e6652c19afe5" args="(Stream &amp;stream, const Body &amp;body)" -->
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename Body&gt; </div>
-<div class="memtemplate">
-template&lt;typename Stream&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">void <a class="el" href="a00149.html">tbb::parallel_while</a>&lt; Body &gt;::run           </td>
-          <td>(</td>
-          <td class="paramtype">Stream &amp;&nbsp;</td>
-          <td class="paramname"> <em>stream</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const Body &amp;&nbsp;</td>
-          <td class="paramname"> <em>body</em></td><td>&nbsp;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td><td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Apply body.apply to each item in the stream. 
-<p>
-A Stream s has the requirements <br>
- "S::value_type" <br>
- "s.pop_if_present(value) is convertible to bool 
-</div>
-</div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00338.html">parallel_while.h</a></ul>
+<li><a class="el" href="a00320.html">blocked_range2d.h</a></ul>
 <hr>
 <p></p>
-Copyright &copy; 2005-2009 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

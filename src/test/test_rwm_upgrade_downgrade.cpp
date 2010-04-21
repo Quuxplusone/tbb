@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -44,7 +44,7 @@ struct Hammer: NoAssign {
         for( int j=0; j<100000; ++j ) {
             typename RWMutex::scoped_lock lock(MutexProtectingCount,false);
             int c = Count;
-            for( int j=0; j<10; ++j ) {
+            for( int k=0; k<10; ++k ) {
                 ++dummy;
             }
             if( lock.upgrade_to_writer() ) {
@@ -53,11 +53,11 @@ struct Hammer: NoAssign {
             } else {
                 c = Count;
             }
-            for( int j=0; j<10; ++j ) {
+            for( int k=0; k<10; ++k ) {
                 ++Count;
             }
             lock.downgrade_to_reader();
-            for( int j=0; j<10; ++j ) {
+            for( int k=0; k<10; ++k ) {
                 ++dummy;
             }
         }
@@ -67,15 +67,13 @@ struct Hammer: NoAssign {
 queuing_rw_mutex QRW_mutex;
 spin_rw_mutex SRW_mutex;
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[]) {
-    ParseCommandLine( argc, argv );
+int TestMain () {
     for( int p=MinThread; p<=MaxThread; ++p ) {
+        REMARK("Testing on %d threads", p);
         Count = 0;
         NativeParallelFor( p, Hammer<queuing_rw_mutex>(QRW_mutex) ); 
         Count = 0;
         NativeParallelFor( p, Hammer<spin_rw_mutex>(SRW_mutex) );
     }
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

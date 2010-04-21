@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,8 +29,20 @@
 #ifndef _itt_shared_malloc_MapMemory_H
 #define _itt_shared_malloc_MapMemory_H
 
-#if __linux__ || __APPLE__
+#if __linux__ || __APPLE__ || __sun || __FreeBSD__
+
+#if __sun && !defined(_XPG4_2)
+ // To have void* as mmap's 1st argument
+ #define _XPG4_2 1
+ #define XPG4_WAS_DEFINED 1
+#endif
+
 #include <sys/mman.h>
+
+#if XPG4_WAS_DEFINED
+ #undef _XPG4_2
+ #undef XPG4_WAS_DEFINED
+#endif
 
 #define MEMORY_MAPPING_USES_MALLOC 0
 void* MapMemory (size_t bytes)
@@ -68,6 +80,7 @@ int UnmapMemory(void *area, size_t bytes)
 #else
 #include <stdlib.h>
 
+#define MEMORY_MAPPING_USES_MALLOC 1
 void* MapMemory (size_t bytes)
 {
     return malloc( bytes );
@@ -80,5 +93,9 @@ int UnmapMemory(void *area, size_t bytes)
 }
 
 #endif /* OS dependent */
+
+#if MALLOC_CHECK_RECURSION && MEMORY_MAPPING_USES_MALLOC
+#error Impossible to protect against malloc recursion when memory mapping uses malloc.
+#endif
 
 #endif /* _itt_shared_malloc_MapMemory_H */

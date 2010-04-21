@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,11 +26,21 @@
     the GNU General Public License.
 */
 
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+#pragma warning(disable: 4180) // "qualifier applied to function type has no meaning; ignored"
+#endif
+
 #include "tbb/parallel_invoke.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/atomic.h"
 #include "tbb/tbb_exception.h"
 #include "harness.h"
+
+#if !defined(__INTEL_COMPILER)
+#if defined(_MSC_VER) && _MSC_VER <= 1400  ||  __GNUC__==3 && __GNUC_MINOR__<=3  ||  __SUNPRO_CC
+    #define __TBB_FUNCTION_BY_CONSTREF_IN_TEMPLATE_BROKEN 1
+#endif
+#endif
 
 static const size_t MAX_NUMBER_OF_PINVOKE_ARGS = 10;
 tbb::atomic<size_t> function_counter;
@@ -45,7 +55,7 @@ tbb::atomic<size_t> function_counter;
     ASSERT(!(function_counter & (1 << value)), "Test function has already been called"); \
     function_counter += 1 << value; \
 }   \
-void (*test_pointer##value)(void) = &test##value;
+void (*test_pointer##value)(void) = test##value;
 
 TEST_FUNCTION(0)
 TEST_FUNCTION(1)
@@ -149,17 +159,21 @@ void call_parallel_invoke( size_t n, F0& f0, F1& f1, F2& f2, F3& f3, F4 &f4, F5 
     }
 }
 
+#if !__TBB_FUNCTION_BY_CONSTREF_IN_TEMPLATE_BROKEN
+template<typename function> void aux_invoke(const function& f) {
+    f();
+}
+
+bool function_by_constref_in_template_codegen_broken() {
+    function_counter = 0;
+    aux_invoke(test1);
+    return function_counter==0;
+}
+#endif /* !__TBB_FUNCTION_BY_CONSTREF_IN_TEMPLATE_BROKEN */
+
 void test_parallel_invoke()
 {
     REMARK (__FUNCTION__);
-    // Testing parallel_invoke with functions
-    for (int n = 2; n <=10; n++)
-    {
-        INIT_TEST;
-        call_parallel_invoke(n, test0, test1, test2, test3, test4, test5, test6, test7, test8, test9, NULL);
-        VALIDATE_INVOKE_RUN(n, "functions");
-    }
-    
     // Testing with pointers to functions
     for (int n = 2; n <=10; n++)
     {
@@ -177,6 +191,22 @@ void test_parallel_invoke()
             functor5, functor6, functor7, functor8, functor9, NULL);
         VALIDATE_INVOKE_RUN(n, "functors");
     }
+
+#if __TBB_FUNCTION_BY_CONSTREF_IN_TEMPLATE_BROKEN
+    // some old compilers can't cope with passing function name into parallel_invoke
+#else
+    // and some compile but generate broken code that does not call the function
+    if (function_by_constref_in_template_codegen_broken())
+        return;
+
+    // Testing parallel_invoke with functions
+    for (int n = 2; n <=10; n++)
+    {
+        INIT_TEST;
+        call_parallel_invoke(n, test0, test1, test2, test3, test4, test5, test6, test7, test8, test9, NULL);
+        VALIDATE_INVOKE_RUN(n, "functions");
+    }
+#endif
 }
 
 // Exception handling support test
@@ -184,25 +214,28 @@ void test_parallel_invoke()
 #define HARNESS_EH_SIMPLE_MODE 1
 #include "harness_eh.h"
 
+#if TBB_USE_EXCEPTIONS
 volatile size_t exception_mask; // each bit represents whether the function should throw exception or not
 
 // throws exception if corresponding exception_mask bit is set
-#define TEST_FUNCTION_WITH_THROW(value) void test_with_throw##value () {\
-    if (exception_mask & (1 << value)){   \
-        ThrowTestException();    \
-    } \
-}
+#define TEST_FUNCTOR_WITH_THROW(value) \
+struct throwing_functor##value { \
+    void operator() () const {  \
+        if (exception_mask & (1 << value))   \
+            ThrowTestException();    \
+    }   \
+} test_with_throw##value;
 
-TEST_FUNCTION_WITH_THROW(0)
-TEST_FUNCTION_WITH_THROW(1)
-TEST_FUNCTION_WITH_THROW(2)
-TEST_FUNCTION_WITH_THROW(3)
-TEST_FUNCTION_WITH_THROW(4)
-TEST_FUNCTION_WITH_THROW(5)
-TEST_FUNCTION_WITH_THROW(6)
-TEST_FUNCTION_WITH_THROW(7)
-TEST_FUNCTION_WITH_THROW(8)
-TEST_FUNCTION_WITH_THROW(9)
+TEST_FUNCTOR_WITH_THROW(0)
+TEST_FUNCTOR_WITH_THROW(1)
+TEST_FUNCTOR_WITH_THROW(2)
+TEST_FUNCTOR_WITH_THROW(3)
+TEST_FUNCTOR_WITH_THROW(4)
+TEST_FUNCTOR_WITH_THROW(5)
+TEST_FUNCTOR_WITH_THROW(6)
+TEST_FUNCTOR_WITH_THROW(7)
+TEST_FUNCTOR_WITH_THROW(8)
+TEST_FUNCTOR_WITH_THROW(9)
 
 void TestExceptionHandling()
 {
@@ -218,8 +251,9 @@ void TestExceptionHandling()
         }
     }
 }
+#endif /* TBB_USE_EXCEPTIONS */
 
-// Cancellaton support test
+// Cancelation support test
 void function_to_cancel() {
     ++g_CurExecuted;
     CancellatorTask::WaitUntilReady();
@@ -270,27 +304,21 @@ void TestCancellation ()
 
 #include "harness_cpu.h"
 
-__TBB_TEST_EXPORT
-int main(int argc, char* argv[]) {
-    // Set default minimum number of threads
-    MinThread = 2;
-    ParseCommandLine( argc, argv );
+int TestMain () {
     MinThread = min(MinThread, MaxThread);
     ASSERT (MinThread>=1, "Minimal number of threads must be 1 or more");
     for ( int p = MinThread; p <= MaxThread; ++p ) {
         tbb::task_scheduler_init init(p);
         test_parallel_invoke();
         if (p > 1) {
-#if __TBB_EXCEPTION_HANDLING_BROKEN
-            REPORT("Warning: Exception handling tests are skipped due to a known issue.\n");
-#else
+#if __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
+            REPORT("Known issue: exception handling tests are skipped.\n");
+#elif TBB_USE_EXCEPTIONS
             TestExceptionHandling();
-#endif
+#endif /* TBB_USE_EXCEPTIONS */
             TestCancellation();
         }
         TestCPUUserTime(p);
     }
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }
-

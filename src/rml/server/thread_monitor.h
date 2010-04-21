@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,6 +34,7 @@
 #if USE_WINTHREAD
 #include <windows.h>
 #include <process.h>
+#include <malloc.h> //_alloca
 #elif USE_PTHREAD
 #include <pthread.h>
 #include <string.h>
@@ -42,12 +43,36 @@
 #error Unsupported platform
 #endif 
 #include <stdio.h>
+#include "tbb/itt_notify.h"
+
 
 // All platform-specific threading support is in this header.
+
+#if (_WIN32||_WIN64)&&!__TBB_ipf
+// Deal with 64K aliasing.  The formula for "offset" is a Fibonacci hash function,
+// which has the desirable feature of spreading out the offsets fairly evenly
+// without knowing the total number of offsets, and furthermore unlikely to
+// accidentally cancel out other 64K aliasing schemes that Microsoft might implement later.
+// See Knuth Vol 3. "Theorem S" for details on Fibonacci hashing.
+// The second statement is really does need "volatile", otherwise the compiler might remove the _alloca.
+#define AVOID_64K_ALIASING(idx)                       \
+    size_t offset = (idx+1) * 40503U % (1U<<16);      \
+    void* volatile sink_for_alloca = _alloca(offset); \
+    __TBB_ASSERT_EX(sink_for_alloca, "_alloca failed");
+#else
+// Linux thread allocators avoid 64K aliasing.
+#define AVOID_64K_ALIASING(idx)
+#endif /* _WIN32||_WIN64 */
 
 namespace rml {
 
 namespace internal {
+
+#if DO_ITT_NOTIFY
+static const ::tbb::tchar *SyncType_RML = _T("%Constant");
+static const ::tbb::tchar *SyncObj_ThreadMonitorLock = _T("RML Lock"),
+                          *SyncObj_ThreadMonitor = _T("RML Thr Monitor");
+#endif /* DO_ITT_NOTIFY */
 
 //! Monitor with limited two-phase commit form of wait.  
 /** At most one thread should wait on an instance at a time. */
@@ -89,6 +114,8 @@ public:
     static void launch( thread_routine_type thread_routine, void* arg, size_t stack_size );
     static void yield();
 
+
+
 private:
     cookie my_cookie;
 #if USE_WINTHREAD
@@ -103,7 +130,11 @@ private:
 };
 
 
+
 #if USE_WINTHREAD
+#ifndef STACK_SIZE_PARAM_IS_A_RESERVATION
+#define STACK_SIZE_PARAM_IS_A_RESERVATION 0x00010000
+#endif
 inline void thread_monitor::launch( thread_routine_type thread_routine, void* arg, size_t stack_size ) {
     unsigned thread_id;
     uintptr_t status = _beginthreadex( NULL, unsigned(stack_size), thread_routine, arg, STACK_SIZE_PARAM_IS_A_RESERVATION, &thread_id );
@@ -122,12 +153,17 @@ inline void thread_monitor::yield() {
 inline thread_monitor::thread_monitor() {
     event = CreateEvent( NULL, /*manualReset=*/true, /*initialState=*/false, NULL );
     InitializeCriticalSection( &critical_section );
+    ITT_SYNC_CREATE(&event, SyncType_RML, SyncObj_ThreadMonitor);
+    ITT_SYNC_CREATE(&critical_section, SyncType_RML, SyncObj_ThreadMonitorLock);
     my_cookie.my_version = 0;
 }
 
 inline thread_monitor::~thread_monitor() {
+    // Fake prepare/acquired pair for Intel(R) Parallel Amplifier to correctly attribute the operations below
+    ITT_NOTIFY( sync_prepare, &event );
     CloseHandle( event );
     DeleteCriticalSection( &critical_section );
+    ITT_NOTIFY( sync_acquired, &event );
 }
      
 inline void thread_monitor::notify() {
@@ -167,8 +203,7 @@ inline void thread_monitor::check( int error_code, const char* routine ) {
 inline void thread_monitor::launch( void* (*thread_routine)(void*), void* arg, size_t stack_size ) {
     // FIXME - consider more graceful recovery than just exiting if a thread cannot be launched.
     // Note that there are some tricky situations to deal with, such that the thread is already 
-    // grabbed as part of an OpenMP team, or is being launched as a replacement for a thread with
-    // too small a stack.
+    // grabbed as part of an OpenMP team. 
     pthread_attr_t s;
     check(pthread_attr_init( &s ), "pthread_attr_init");
     if( stack_size>0 ) {
@@ -184,8 +219,10 @@ inline void thread_monitor::yield() {
 }
 
 inline thread_monitor::thread_monitor() {
-    check( pthread_mutex_init(&my_mutex,NULL), "pthread_mutex_init" );
     check( pthread_cond_init(&my_cond,NULL), "pthread_cond_init" );
+    check( pthread_mutex_init(&my_mutex,NULL), "pthread_mutex_init" );
+    ITT_SYNC_CREATE(&my_cond, SyncType_RML, SyncObj_ThreadMonitor);
+    ITT_SYNC_CREATE(&my_mutex, SyncType_RML, SyncObj_ThreadMonitorLock);
     my_cookie.my_version = 0;
 }
 

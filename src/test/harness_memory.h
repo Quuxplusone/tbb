@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -38,14 +38,19 @@
 #elif __APPLE__
 #include <unistd.h>
 #include <mach/mach.h>
+#include <AvailabilityMacros.h>
+#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
+#include <mach/shared_region.h>
+#else
 #include <mach/shared_memory_server.h>
+#endif
 #if SHARED_TEXT_REGION_SIZE || SHARED_DATA_REGION_SIZE
 const size_t shared_size = SHARED_TEXT_REGION_SIZE+SHARED_DATA_REGION_SIZE;
 #else
 const size_t shared_size = 0;
 #endif
 
-#elif _WIN32
+#elif _WIN32 && !_XBOX
 #include <windows.h>
 #include <psapi.h>
 #if _MSC_VER
@@ -57,7 +62,14 @@ const size_t shared_size = 0;
 //! Return estimate of number of bytes of memory that this program is currently using.
 /* Returns 0 if not implemented on platform. */
 size_t GetMemoryUsage() { 
-#if __linux__
+#if _XBOX
+    return 0;
+#elif _WIN32
+    PROCESS_MEMORY_COUNTERS mem;
+    bool status = GetProcessMemoryInfo(GetCurrentProcess(), &mem, sizeof(mem))!=0;
+    ASSERT(status, NULL);
+    return mem.PagefileUsage;
+#elif __linux__
     FILE* statsfile = fopen("/proc/self/statm","r");
     size_t pagesize = getpagesize();
     ASSERT(statsfile, NULL);
@@ -76,11 +88,6 @@ size_t GetMemoryUsage() {
     status = task_info(mach_task_self(), TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&info), &msg_type);
     ASSERT(status==KERN_SUCCESS, NULL);
     return info.virtual_size - shared_size;
-#elif _WIN32
-    PROCESS_MEMORY_COUNTERS mem;
-    bool status = GetProcessMemoryInfo(GetCurrentProcess(), &mem, sizeof(mem))!=0;
-    ASSERT(status, NULL);
-    return mem.PagefileUsage;
 #else
     return 0;
 #endif

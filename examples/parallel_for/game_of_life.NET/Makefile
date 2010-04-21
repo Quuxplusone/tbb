@@ -1,4 +1,4 @@
-# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -27,6 +27,9 @@
 # GNU Makefile that builds and runs example.
 PROG=game_of_life
 ARGS=2:4 -t 5
+ifneq (,$(shell which icc 2>/dev/null))
+CXX=icc
+endif # icc
 
 all:	release test
 

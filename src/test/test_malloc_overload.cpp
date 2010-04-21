@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -36,9 +36,22 @@
 
 #if MALLOC_REPLACEMENT_AVAILABLE
 
+#if _WIN32 || _WIN64
+// As the test is intentionally build with /EHs-, suppress multiple VS2005's 
+// warnings like C4530: C++ exception handler used, but unwind semantics are not enabled
+#if defined(_MSC_VER) && !__INTEL_COMPILER
+/* ICC 10.1 and 11.0 generates code that uses std::_Raise_handler,
+   but it's only defined in libcpmt(d), which the test doesn't linked with.
+ */
+#define _HAS_EXCEPTIONS 0
+#endif
+// to use strdup and putenv w/o warnings
+#define _CRT_NONSTDC_NO_DEPRECATE 1
+#endif
 #include "harness_report.h"
 #include "harness_assert.h"
 #include <stdlib.h>
+#include <string.h>
 #include <malloc.h>
 #include <stdio.h>
 #include <new>
@@ -53,6 +66,7 @@
 #if __MINGW32__
 #include <unistd.h>
 #else
+typedef unsigned __int16 uint16_t;
 typedef unsigned __int32 uint32_t;
 typedef unsigned __int64 uint64_t;
 #endif
@@ -63,6 +77,13 @@ typedef unsigned __int64 uint64_t;
 // On Windows, the tricky way to print "done" is necessary to create 
 // dependence on msvcpXX.dll, for sake of a regression test.
 // On Linux, C++ RTL headers are undesirable because of breaking strict ANSI mode.
+#if defined(_MSC_VER) && _MSC_VER >= 1300 && _MSC_VER <= 1310 && !defined(__INTEL_COMPILER)
+/* Fixing compilation error reported by VS2003 for exception class
+   when _HAS_EXCEPTIONS is 0: 
+   bad_cast that inherited from exception is not in std namespace.
+*/
+using namespace std;
+#endif
 #include <string>
 #endif
 
@@ -78,16 +99,30 @@ static inline bool isAligned(T arg, uintptr_t alignment) {
 
 /* Below is part of MemoryAllocator.cpp. */
 
-/*
- * The identifier to make sure that memory is allocated by scalable_malloc.
- */
-const uint64_t theMallocUniqueID=0xE3C7AF89A1E2D8C1ULL; 
+union BackRefIdx { // index to backreference array
+    uint32_t t;
+    struct {
+        uint16_t master;  // index in BackRefMaster
+        uint16_t offset;  // offset from beginning of BackRefBlock
+    } s;
+};
 
-struct LargeObjectHeader {
-    void        *unalignedResult;   /* The base of the memory returned from getMemory, this is what is used to return this to the OS */
-    size_t       unalignedSize;     /* The size that was requested from getMemory */
-    uint64_t     mallocUniqueID;    /* The field to check whether the memory was allocated by scalable_malloc */
-    size_t       objectSize;        /* The size originally requested by a client */
+struct LargeMemoryBlock {
+    LargeMemoryBlock *next,          // ptrs in list of cached blocks
+                     *prev;
+    uintptr_t         age;           // age of block while in cache
+    size_t            objectSize;    // the size requested by a client
+    size_t            unalignedSize; // the size requested from getMemory
+    bool              fromMapMemory;
+    BackRefIdx        backRefIdx;    // cached here, used copy is in LargeObjectHdr
+};
+
+struct LargeObjectHdr {
+    LargeMemoryBlock *memoryBlock;
+    /* Have to duplicate it here from CachedObjectHdr, 
+       as backreference must be checked without further pointer dereference.
+       Points to LargeObjectHdr. */
+    BackRefIdx       backRefIdx;
 };
 
 /*
@@ -106,8 +141,8 @@ static bool scalableMallocLargeBlock(void *object, size_t size)
     ASSERT(_msize(object) >= size, NULL);
 #endif
 
-    LargeObjectHeader *h = (LargeObjectHeader*)((uintptr_t)object-sizeof(LargeObjectHeader));
-    return h->mallocUniqueID==theMallocUniqueID && h->objectSize==size;
+    LargeMemoryBlock *lmb = ((LargeObjectHdr*)object-1)->memoryBlock;
+    return uintptr_t(lmb)<uintptr_t(((LargeObjectHdr*)object-1)) && lmb->objectSize==size;
 }
 
 struct BigStruct {
@@ -123,6 +158,27 @@ int main(int , char *[]) {
         return 1;
     }
 #endif
+
+/* On Windows, memory block size returned by _msize() is sometimes used 
+   to calculate the size for an extended block. Substituting _msize, 
+   scalable_msize initially returned 0 for regions not allocated by the scalable 
+   allocator, which led to incorrect memory reallocation and subsequent crashes.
+   It was found that adding a new environment variable triggers the error.
+*/
+    ASSERT(getenv("PATH"), "We assume that PATH is set everywhere.");
+    char *pathCopy = strdup(getenv("PATH"));
+    const char *newEnvName = "__TBBMALLOC_OVERLOAD_REGRESSION_TEST_FOR_REALLOC_AND_MSIZE";
+    char *newEnv = (char*)malloc(3 + strlen(newEnvName));
+    
+    ASSERT(!getenv(newEnvName), "Environment variable should not be used before.");
+    strcpy(newEnv, newEnvName);
+    strcat(newEnv, "=1");
+    int r = putenv(newEnv);
+    ASSERT(!r, NULL);
+    char *path = getenv("PATH");
+    ASSERT(path && 0==strcmp(path, pathCopy), "Environment was changed erroneously.");
+    free(pathCopy);
+    free(newEnv);
 
     ptr = malloc(minLargeObjectSize);
     ASSERT(ptr!=NULL && scalableMallocLargeBlock(ptr, minLargeObjectSize), NULL);
@@ -199,6 +255,7 @@ int main(int , char *[]) {
 }
 
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
+#define HARNESS_CUSTOM_MAIN 1
 #include "harness.h"
 
 #else  /* !MALLOC_REPLACEMENT_AVAILABLE */

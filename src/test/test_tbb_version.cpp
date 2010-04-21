@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,21 +26,37 @@
     the GNU General Public License.
 */
 
+#include "tbb/tbb_stddef.h"
+
 #include <stdio.h>
 #include <stdlib.h>
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
+#endif
+
 #include <vector>
 #include <string>
 #include <utility>
 
-#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
+
 #include "tbb/task_scheduler_init.h"
+
+#define HARNESS_CUSTOM_MAIN 1
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#define HARNESS_NO_MAIN_ARGS 0
 #include "harness.h"
 
 #if defined (_WIN32) || defined (_WIN64)
-#define TEST_SYSTEM_COMMAND "test_tbb_version.exe 1"
+#define TEST_SYSTEM_COMMAND "test_tbb_version.exe @"
 #define putenv _putenv
 #else
-#define TEST_SYSTEM_COMMAND "./test_tbb_version.exe 1"
+#define TEST_SYSTEM_COMMAND "./test_tbb_version.exe @"
 #endif
 
 enum string_required {
@@ -55,8 +71,8 @@ void initialize_strings_vector(std::vector <string_pair>* vector);
 const char stderr_stream[] = "version_test.err";
 const char stdout_stream[] = "version_test.out";
 
-__TBB_TEST_EXPORT
-int main(int argc, char*[] ) {
+HARNESS_EXPORT
+int main(int argc, char *argv[] ) {
 /* We first introduced runtime version identification in 3014 */
 #if TBB_INTERFACE_VERSION>=3014 
     // For now, just test that run-time TBB version matches the compile-time version,
@@ -65,12 +81,12 @@ int main(int argc, char*[] ) {
     ASSERT(tbb::TBB_runtime_interface_version()==TBB_INTERFACE_VERSION,
            "Running with the library of different version than the test was compiled against");
 #endif
-    try{
+    __TBB_TRY {
         FILE *stream_out;
         FILE *stream_err;   
         char psBuffer[512];
         
-        if(argc>1) {
+        if(argc>1 && argv[1][0] == '@' ) {
             stream_err = freopen( stderr_stream, "w", stderr );
             if( stream_err == NULL ){
                 REPORT( "Internal test error (freopen)\n" );
@@ -185,7 +201,7 @@ int main(int argc, char*[] ) {
             }
         }
         fclose( stream_err );
-    } catch(...) {
+    } __TBB_CATCH(...) {
         ASSERT( 0,"unexpected exception" );
     }
     REPORT("done\n");
@@ -196,8 +212,8 @@ int main(int argc, char*[] ) {
 // Fill dictionary with version strings for platforms 
 void initialize_strings_vector(std::vector <string_pair>* vector)
 {
-    vector->push_back(string_pair("TBB: VERSION\t\t2.2", required));          // check TBB_VERSION
-    vector->push_back(string_pair("TBB: INTERFACE VERSION\t4001", required)); // check TBB_INTERFACE_VERSION
+    vector->push_back(string_pair("TBB: VERSION\t\t3.0", required));          // check TBB_VERSION
+    vector->push_back(string_pair("TBB: INTERFACE VERSION\t5000", required)); // check TBB_INTERFACE_VERSION
     vector->push_back(string_pair("TBB: BUILD_DATE", required));
     vector->push_back(string_pair("TBB: BUILD_HOST", required));
     vector->push_back(string_pair("TBB: BUILD_OS", required));
@@ -230,6 +246,7 @@ void initialize_strings_vector(std::vector <string_pair>* vector)
     vector->push_back(string_pair("TBB: ALLOCATOR", required));
     vector->push_back(string_pair("TBB: RML", not_required));
     vector->push_back(string_pair("TBB: Intel(R) RML library built:", not_required));
+    vector->push_back(string_pair("TBB: Intel(R) RML library version:", not_required));
     vector->push_back(string_pair("TBB: SCHEDULER", required));
 
     return;

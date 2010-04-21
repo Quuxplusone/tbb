@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -40,7 +40,8 @@ public:
     template<typename OtherTag>
     friend AbstractValueType<OtherTag> MakeAbstractValueType( int i );
 
-    friend int GetValueOf( const AbstractValueType& v ) {return v.value;}
+    template<typename OtherTag>
+    friend int GetValueOf( const AbstractValueType<OtherTag>& v ) ;
 };
 
 template<typename Tag>
@@ -49,6 +50,9 @@ AbstractValueType<Tag> MakeAbstractValueType( int i ) {
     x.value = i;
     return x;
 }
+
+template<typename Tag>
+int GetValueOf( const AbstractValueType<Tag>& v ) {return v.value;}
 
 template<typename Tag>
 bool operator<( const AbstractValueType<Tag>& u, const AbstractValueType<Tag>& v ) {
@@ -109,8 +113,8 @@ static void SerialTest() {
     }
 }
 
-#include "harness.h"
 #include "tbb/parallel_for.h"
+#include "harness.h"
 
 const int N = 1<<10;
 
@@ -142,14 +146,11 @@ void ParallelTest() {
 
 #include "tbb/task_scheduler_init.h"
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    ParseCommandLine(argc,argv);
+int TestMain () {
     SerialTest();
     for( int p=MinThread; p<=MaxThread; ++p ) {
         tbb::task_scheduler_init init(p);
         ParallelTest();
     }
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

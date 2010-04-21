@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -59,7 +59,9 @@ tbb::internal::tls<State*> LocalState;
 void MyObserver::on_scheduler_entry( bool is_worker ) {
     State& state = *LocalState;
     ASSERT( is_worker==!state.IsMaster, NULL );
+#if !__TBB_ARENA_PER_MASTER
     ASSERT( (state.MyFlags & flags)==0, NULL );
+#endif /* !__TBB_ARENA_PER_MASTER */
     ++EntryCount;
     state.MyFlags |= flags;
 }
@@ -104,12 +106,12 @@ public:
     void operator()( int i ) const {
         LocalState->IsMaster = true;
         if( i==0 ) {   
-            tbb::task_scheduler_init(nthread);
+            tbb::task_scheduler_init init(nthread);
             DoFib(0);
         } else {
             FlagType f = i<=MaxFlagIndex? 1<<i : 0;
             MyObserver w(f);
-            tbb::task_scheduler_init(nthread);
+            tbb::task_scheduler_init init(nthread);
             DoFib(f);
         }
     }
@@ -119,15 +121,11 @@ void TestObserver( int p, int q ) {
     NativeParallelFor( p, DoTest(q) );
 }
 
-__TBB_TEST_EXPORT
-int main(int argc, char* argv[]) {
-    ParseCommandLine( argc, argv );
-
+int TestMain () {
     for( int p=MinThread; p<=MaxThread; ++p ) 
         for( int q=MinThread; q<=MaxThread; ++q ) 
             TestObserver(p,q);
     ASSERT( EntryCount>0, "on_scheduler_entry not exercised" );
     ASSERT( ExitCount>0, "on_scheduler_exit not exercised" );
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

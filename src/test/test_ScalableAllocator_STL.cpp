@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,9 +34,7 @@
 // The actual body of the test is there:
 #include "test_allocator_STL.h"
 
-__TBB_TEST_EXPORT
-int main() {
+int TestMain () {
     TestAllocatorWithSTL<tbb::scalable_allocator<void> >();
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

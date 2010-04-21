@@ -1,4 +1,4 @@
-# Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -53,23 +53,22 @@
 
 # Common Makefile that builds and runs example.
 
-# The C++ compiler
-CXX = cl.exe
+# Trying to find if icl.exe is set
+CXX1 = $(TBB_CXX)-
+CXX2 = $(CXX1:icl.exe-=icl.exe)
+CXX  = $(CXX2:-=cl.exe)
 
 # Uncomment one of next lines to choose user interface type (console, gdiplus, direct draw)
 #UI = con
 UI = gdi
 #UI = dd
 
-# Machine architecture, auto-detected from TBB_ARCH_PLATFORM by default
+# Machine architecture, auto-detected from TBB_TARGET_ARCH by default
 # Use XARCH variable to change it. See index.html for more information
-ARCH0 = $(TBB_ARCH_PLATFORM)-
-ARCHA = $(ARCH0:\vc7.1-=)
-ARCHB = $(ARCHA:\vc8-=)
-ARCHC = $(ARCHB:\vc9-=)
-ARCH3 = $(ARCHC:ia32=x86)
-ARCH4 = $(ARCH3:intel64=AMD64)
-XARCH = $(ARCH4:-=x86)
+ARCH0 = $(TBB_TARGET_ARCH)-
+ARCH1 = $(ARCH0:ia32-=x86)
+ARCH2 = $(ARCH1:intel64-=AMD64)
+XARCH = $(ARCH2:-=x86)
 
 # The default dataset
 DATASET = balls
@@ -77,7 +76,8 @@ DATASET = balls
 ARGS =
 
 # Add these for tbb/tbb1d release builds
-CXXFLAGS_TBB_NDEBUG = $(CXXFLAGS)
+# /GL is a workaround to prevent run-time crash when built by VS2010
+CXXFLAGS_TBB_NDEBUG = $(CXXFLAGS) /GL
 LIBS_TBB_NDEBUG = tbb.lib $(LIBS)
 
 # Add these for tbb/tbb1d debug builds
@@ -128,4 +128,4 @@ run_tbb1d:
 
 
 clean:
-	@cmd.exe /C del tachyon.* *.manifest *.obj vc7.1\gui.res *.?db
+	@cmd.exe /C del tachyon.* *.manifest *.obj msvs\gui.res *.?db

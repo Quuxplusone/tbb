@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,6 +26,10 @@
     the GNU General Public License.
 */
 
+/*
+    This file contains a few implementations, so it may look overly complicated.
+    The most efficient implementation is also separated into convex_hull_sample.cpp
+*/
 #include "convex_hull.h"
 
 typedef util::point<double> point_t;
@@ -303,6 +307,9 @@ template<typename BodyType>
 void initialize(pointVec_t &points) {
     points.clear();
 
+    // In the buffered version, a temporary storage for as much as grainSize elements 
+    // is allocated inside the body. Since auto_partitioner may increase effective
+    // range size which would cause a crash, simple partitioner has to be used.
     tbb::parallel_for(range_t(0, cfg::MAXPOINTS, BodyType::grainSize),
                       BodyType(points), tbb::simple_partitioner());
 }
@@ -493,6 +500,7 @@ template <typename BodyType>
 point_t divide(const pointVec_t &P, pointVec_t &P_reduced,
               const point_t &p1, const point_t &p2) {
     BodyType body(p1, p2, P, P_reduced);
+    // Must use simple_partitioner (see the comment in initialize() above)
     tbb::parallel_reduce(range_t(0, P.size(), BodyType::grainSize),
                          body, tbb::simple_partitioner() );
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -283,18 +283,18 @@ void InitializeUniverse() {
         d *= 1-1.0f/(DamperSize*DamperSize);
         for( int j=1; j<UniverseWidth-1; ++j ) {
             D[k][j] *= d;
-            D[UniverseHeight-k][j] *= d;
+            D[UniverseHeight-1-k][j] *= d;
         }
         for( int i=1; i<UniverseHeight-1; ++i ) {
             D[i][k] *= d;
-            D[i][UniverseWidth-k] *= d;
+            D[i][UniverseWidth-1-k] *= d;
         }
     }
 }
 
 //////////////////////////////// Interface ////////////////////////////////////
 #ifdef _WINDOWS
-#include "vc7.1/resource.h"
+#include "msvs/resource.h"
 #endif
 
 int main(int argc, char *argv[])

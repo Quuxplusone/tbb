@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,19 +26,28 @@
     the GNU General Public License.
 */
 
-// to avoid usage of #pragma comment
-#define __TBB_NO_IMPLICIT_LINKAGE 1
+#define  __TBB_COUNT_TASK_NODES 1
+#include "harness_inject_scheduler.h"
 
-#define  COUNT_TASK_NODES 1
-#define __TBB_TASK_CPP_DIRECTLY_INCLUDED 1
-#include "../tbb/task.cpp"
+#if __TBB_TASK_GROUP_CONTEXT
 
-#if __TBB_EXCEPTIONS && !__TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
+#define __TBB_ATOMICS_CODEGEN_BROKEN __SUNPRO_CC
 
 #include "tbb/task_scheduler_init.h"
 #include "tbb/spin_mutex.h"
 #include "tbb/tick_count.h"
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
+    #pragma warning (push)
+    #pragma warning (disable: 4530)
+#endif
+
 #include <string>
+
+#if !TBB_USE_EXCEPTIONS && _MSC_VER
+    #pragma warning (pop)
+#endif
 
 #define NUM_CHILD_TASKS                 256
 #define NUM_ROOT_TASKS                  32
@@ -92,51 +101,26 @@ inline void ResetGlobals () {
     g_CurStat.Reset();
 }
 
-inline void WaitForException () {
-    while ( !g_ExceptionCaught )
-        __TBB_Yield();
-}
-
 #define ASSERT_TEST_POSTCOND() \
     ASSERT (g_CurStat.Existed() >= g_CurStat.Executed(), "Total number of tasks is less than executed");  \
     ASSERT (!g_CurStat.Existing(), "Not all task objects have been destroyed"); \
     ASSERT (!tbb::task::self().is_cancelled(), "Scheduler's default context has not been cleaned up properly");
 
-
-class SimpleThrowingTask : public tbb::task {
-public:
-    tbb::task* execute () { throw 0; }
-
-    ~SimpleThrowingTask() {
-#if !__TBB_RELAXED_OWNERSHIP
-        ASSERT( tbb::task::self().is_owned_by_current_thread(), NULL );
-#endif /* !__TBB_RELAXED_OWNERSHIP */
-    }
-};
-
-//! Checks if innermost running task information is updated correctly during cancellation processing
-void Test0 () {
-    tbb::task_scheduler_init init (1);
-    tbb::empty_task &r = *new( tbb::task::allocate_root() ) tbb::empty_task;
-    tbb::task_list tl;
-    tl.push_back( *new( r.allocate_child() ) SimpleThrowingTask );
-    tl.push_back( *new( r.allocate_child() ) SimpleThrowingTask );
-    r.set_ref_count( 3 );
-    try {
-        r.spawn_and_wait_for_all( tl );
-    }
-    catch (...) {}
-    r.destroy( r );
+inline void WaitForException () {
+    int n = 0;
+    while ( ++n < c_Timeout && !__TBB_load_with_acquire(g_ExceptionCaught) )
+        __TBB_Yield();
+    ASSERT_WARNING( n < c_Timeout, "WaitForException failed" );
 }
 
 class TaskBase : public tbb::task {
     tbb::task* execute () {
         tbb::task* t = NULL;
-        try { 
+        __TBB_TRY { 
             t = do_execute();
-        } catch ( ... ) { 
+        } __TBB_CATCH( ... ) { 
             g_CurStat.IncExecuted(); 
-            throw;
+            __TBB_RETHROW();
         }
         g_CurStat.IncExecuted();
         return t;
@@ -150,8 +134,7 @@ protected:
     bool m_Throw;
 }; // class TaskBase
 
-class LeafTask : public TaskBase
-{
+class LeafTask : public TaskBase {
     tbb::task* do_execute () {
         Harness::ConcurrencyTracker ct;
         WaitUntilConcurrencyPeaks();
@@ -178,6 +161,29 @@ class SimpleRootTask : public TaskBase {
 public:
     SimpleRootTask ( bool throw_exception = true ) : TaskBase(throw_exception) {}
 };
+
+#if TBB_USE_EXCEPTIONS
+
+class SimpleThrowingTask : public tbb::task {
+public:
+    tbb::task* execute () { throw 0; }
+    ~SimpleThrowingTask() {}
+};
+
+//! Checks if innermost running task information is updated correctly during cancellation processing
+void Test0 () {
+    tbb::task_scheduler_init init (1);
+    tbb::empty_task &r = *new( tbb::task::allocate_root() ) tbb::empty_task;
+    tbb::task_list tl;
+    tl.push_back( *new( r.allocate_child() ) SimpleThrowingTask );
+    tl.push_back( *new( r.allocate_child() ) SimpleThrowingTask );
+    r.set_ref_count( 3 );
+    try {
+        r.spawn_and_wait_for_all( tl );
+    }
+    catch (...) {}
+    r.destroy( r );
+}
 
 //! Default exception behavior test. 
 /** Allocates a root task that spawns a bunch of children, one or several of which throw 
@@ -234,14 +240,14 @@ class RootLauncherTask : public TaskBase {
     tbb::task_group_context::kind_type m_CtxKind;
  
     tbb::task* do_execute () {
-        tbb::task_group_context  ctx (tbb::task_group_context::isolated);
+        tbb::task_group_context  ctx(m_CtxKind);
         SimpleRootTask &r = *new( allocate_root(ctx) ) SimpleRootTask;
         TRY();
             spawn_root_and_wait(r);
             // Give a child of our siblings a chance to throw the test exception
             WaitForException();
         CATCH();
-        ASSERT (!g_UnknownException, "unknown exception was caught");
+        ASSERT (__TBB_EXCEPTION_TYPE_INFO_BROKEN || !g_UnknownException, "unknown exception was caught");
         return NULL;
     }
 public:
@@ -439,49 +445,22 @@ void Test8 () {
     ASSERT_TEST_POSTCOND();
 } // void Test8 ()
 
-template<class T>
-class CtxLauncherTask : public tbb::task {
-    tbb::task_group_context &m_Ctx;
-
-    tbb::task* execute () {
-        tbb::task::spawn_root_and_wait( *new( tbb::task::allocate_root(m_Ctx) ) T );
-        return NULL;
-    }
-public:
-    CtxLauncherTask ( tbb::task_group_context& ctx ) : m_Ctx(ctx) {}
-};
-
-//! Test for cancelling a task hierarchy from outside (from a task running in parallel with it).
-void Test9 () {
-    ResetGlobals();
-    g_ThrowException = false;
-    tbb::task_group_context  ctx;
-    tbb::task_list  tl;
-    tl.push_back( *new( tbb::task::allocate_root() ) CtxLauncherTask<SimpleRootTask>(ctx) );
-    tl.push_back( *new( tbb::task::allocate_root() ) CancellatorTask(ctx, NUM_CHILD_TASKS / 4) );
-    TRY();
-        tbb::task::spawn_root_and_wait(tl);
-    CATCH();
-    ASSERT (!exceptionCaught, "Cancelling tasks should not cause any exceptions");
-    ASSERT (g_CurStat.Executed() <= g_ExecutedAtCatch + g_NumThreads, "Too many tasks were executed after cancellation");
-    ASSERT_TEST_POSTCOND();
-} // void Test9 ()
-
 template<typename T>
 void ThrowMovableException ( intptr_t threshold, const T& data ) {
-    if ( IsThrowingThread() )
+    if ( !IsThrowingThread() )
         return; 
     if ( !g_SolitaryException ) {
-        g_ExceptionThrown = 1;
-        REMARK ("About to throw one of multiple movable_exceptions... :");
+#if __TBB_ATOMICS_CODEGEN_BROKEN
+        g_ExceptionsThrown = g_ExceptionsThrown + 1;
+#else
+        ++g_ExceptionsThrown;
+#endif
         throw tbb::movable_exception<T>(data);
     }
     while ( g_CurStat.Existed() < threshold )
         __TBB_Yield();
-    if ( __TBB_CompareAndSwapW(&g_ExceptionThrown, 1, 0) == 0 ) {
-        REMARK ("About to throw solitary movable_exception... :");
+    if ( g_ExceptionsThrown.compare_and_swap(1, 0) == 0 )
         throw tbb::movable_exception<T>(data);
-    }
 }
 
 const int g_IntExceptionData = -375;
@@ -552,7 +531,7 @@ void CheckException () {
 /** Allocates a root task that spawns a bunch of children, one or several of which throw 
     a movable exception in a worker or master thread (depending on the global settings).
     The test also checks the correctness of multiple rethrowing of the pending exception. **/
-void Test10 () {
+void TestMovableException () {
     ResetGlobals();
     tbb::task_group_context ctx;
     tbb::empty_task *r = new( tbb::task::allocate_root() ) tbb::empty_task;
@@ -597,12 +576,38 @@ void Test10 () {
         g_UnknownException = true;
     }
     ASSERT (g_ExceptionCaught, "no exception occurred");
-    ASSERT (!g_UnknownException, "unknown exception was caught");
+    ASSERT (__TBB_EXCEPTION_TYPE_INFO_BROKEN || !g_UnknownException, "unknown exception was caught");
     r->destroy(*r);
 } // void Test10 ()
 
+#endif /* TBB_USE_EXCEPTIONS */
 
-const int MaxNestingDepth = 256;
+template<class T>
+class CtxLauncherTask : public tbb::task {
+    tbb::task_group_context &m_Ctx;
+
+    tbb::task* execute () {
+        tbb::task::spawn_root_and_wait( *new( tbb::task::allocate_root(m_Ctx) ) T );
+        return NULL;
+    }
+public:
+    CtxLauncherTask ( tbb::task_group_context& ctx ) : m_Ctx(ctx) {}
+};
+
+//! Test for cancelling a task hierarchy from outside (from a task running in parallel with it).
+void TestCancelation () {
+    ResetGlobals();
+    g_ThrowException = false;
+    tbb::task_group_context  ctx;
+    tbb::task_list  tl;
+    tl.push_back( *new( tbb::task::allocate_root() ) CtxLauncherTask<SimpleRootTask>(ctx) );
+    tl.push_back( *new( tbb::task::allocate_root() ) CancellatorTask(ctx, NUM_CHILD_TASKS / 4) );
+    TRY();
+        tbb::task::spawn_root_and_wait(tl);
+    CATCH_AND_FAIL();
+    ASSERT (g_CurStat.Executed() <= g_ExecutedAtCatch + g_NumThreads, "Too many tasks were executed after cancellation");
+    ASSERT_TEST_POSTCOND();
+} // void Test9 ()
 
 class CtxDestroyerTask : public tbb::task {
     int m_nestingLevel;
@@ -616,7 +621,8 @@ class CtxDestroyerTask : public tbb::task {
             execute();
         }
         else {
-            CancellatorTask::WaitUntilReady();
+            if ( !CancellatorTask::WaitUntilReady() )
+                REPORT( "Warning: missing wakeup\n" );
             ++g_CurExecuted;
         }
         if ( ctx.is_group_execution_cancelled() )
@@ -627,6 +633,7 @@ class CtxDestroyerTask : public tbb::task {
 public:
     CtxDestroyerTask () : m_nestingLevel(0) { s_numCancelled = 0; }
 
+    static const int MaxNestingDepth = 256;
     static int s_numCancelled;
 };
 
@@ -642,21 +649,82 @@ void TestCtxDestruction () {
         g_BoostExecutedCount = false;
         g_ThrowException = false;
         CancellatorTask::Reset();
-        // CtxLauncherTask just runs some work to cancel
-        //tl.push_back( *new( tbb::task::allocate_root() ) CtxLauncherTask<SimpleRootTask>(ctx) );
+
         tl.push_back( *new( tbb::task::allocate_root() ) CtxLauncherTask<CtxDestroyerTask>(ctx) );
         tl.push_back( *new( tbb::task::allocate_root() ) CancellatorTask(ctx, 1) );
         tbb::task::spawn_root_and_wait(tl);
         ASSERT( g_CurExecuted == 1, "Test is broken" );
-        ASSERT( CtxDestroyerTask::s_numCancelled <= MaxNestingDepth, "Test is broken" );
+        ASSERT( CtxDestroyerTask::s_numCancelled <= CtxDestroyerTask::MaxNestingDepth, "Test is broken" );
     }
 } // void TestCtxDestruction()
 
-void RunTests ()
-{
-    REMARK ("Number of threads %d", g_NumThreads);
+#include <algorithm>
+#include "harness_barrier.h"
+
+class CtxConcurrentDestroyer : NoAssign, Harness::NoAfterlife {
+    static const int ContextsPerThread = 512;
+
+    static int s_Concurrency;
+    static int s_NumContexts;
+    static tbb::task_group_context** s_Contexts;
+    static char* s_Buffer;
+    static Harness::SpinBarrier s_Barrier;
+    static Harness::SpinBarrier s_ExitBarrier;
+
+    struct Shuffler {
+        void operator() () const { std::random_shuffle(s_Contexts, s_Contexts + s_NumContexts); }
+    };
+public:
+    static void Init ( int p ) {
+        s_Concurrency = p;
+        s_NumContexts = p * ContextsPerThread;
+        s_Contexts = new tbb::task_group_context*[s_NumContexts];
+        s_Buffer = new char[s_NumContexts * sizeof(tbb::task_group_context)];
+        s_Barrier.initialize( p );
+        s_ExitBarrier.initialize( p );
+    }
+    static void Uninit () {
+        for ( int i = 0; i < s_NumContexts; ++i ) {
+            tbb::internal::context_list_node_t &node = s_Contexts[i]->my_node;
+            ASSERT( !node.my_next && !node.my_prev, "Destroyed context was written to during context chain update" );
+        }
+        delete s_Contexts;
+        delete s_Buffer;
+    }
+
+    void operator() ( int id ) const {
+        int begin = ContextsPerThread * id,
+            end = begin + ContextsPerThread;
+        for ( int i = begin; i < end; ++i )
+            s_Contexts[i] = new( s_Buffer + i * sizeof(tbb::task_group_context) ) tbb::task_group_context;
+        s_Barrier.wait( Shuffler() );
+        for ( int i = begin; i < end; ++i ) {
+            s_Contexts[i]->tbb::task_group_context::~task_group_context();
+            memset( s_Contexts[i], 0, sizeof(tbb::task_group_context) );
+        }
+        s_ExitBarrier.wait();
+    }
+}; // class CtxConcurrentDestroyer
+
+int CtxConcurrentDestroyer::s_Concurrency;
+int CtxConcurrentDestroyer::s_NumContexts;
+tbb::task_group_context** CtxConcurrentDestroyer::s_Contexts;
+char* CtxConcurrentDestroyer::s_Buffer;
+Harness::SpinBarrier CtxConcurrentDestroyer::s_Barrier;
+Harness::SpinBarrier CtxConcurrentDestroyer::s_ExitBarrier;
+
+void TestConcurrentCtxDestruction () {
+    REMARK( "TestConcurrentCtxDestruction\n" );
+    CtxConcurrentDestroyer::Init(g_NumThreads);
+    NativeParallelFor( g_NumThreads, CtxConcurrentDestroyer() );
+    CtxConcurrentDestroyer::Uninit();
+}
+
+void RunTests () {
+    REMARK ("Number of threads %d\n", g_NumThreads);
     tbb::task_scheduler_init init (g_NumThreads);
     g_Master = Harness::CurrentTid();
+#if TBB_USE_EXCEPTIONS
     Test1();
     Test2();
     Test3();
@@ -665,30 +733,31 @@ void RunTests ()
     Test6();
     Test7();
     Test8();
-    Test9();
-    Test10();
+    TestMovableException();
+#endif /* TBB_USE_EXCEPTIONS */
+    TestCancelation();
     TestCtxDestruction();
+#if !RML_USE_WCRM
+    TestConcurrentCtxDestruction();
+#endif
 }
-#endif /* __TBB_EXCEPTIONS */
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
-__TBB_TEST_EXPORT
-int main(int argc, char* argv[]) {
-    ParseCommandLine( argc, argv );
-    MinThread = min(NUM_ROOTS_IN_GROUP, max(2, MinThread));
-    MaxThread = min(NUM_ROOTS_IN_GROUP, max(MinThread, MaxThread));
+int TestMain () {
+    REMARK ("Using %s", TBB_USE_CAPTURED_EXCEPTION ? "tbb:captured_exception" : "exact exception propagation");
+    MinThread = min(NUM_ROOTS_IN_GROUP, min(tbb::task_scheduler_init::default_num_threads(), max(2, MinThread)));
+    MaxThread = min(NUM_ROOTS_IN_GROUP, max(MinThread, min(tbb::task_scheduler_init::default_num_threads(), MaxThread)));
     ASSERT (NUM_ROOTS_IN_GROUP < NUM_ROOT_TASKS, "Fix defines");
-#if __TBB_EXCEPTIONS
+#if __TBB_TASK_GROUP_CONTEXT
+#if TBB_USE_EXCEPTIONS
     // Test0 always runs on one thread
     Test0();
-    for ( g_NumThreads = MinThread; g_NumThreads <= MaxThread; ++g_NumThreads ) {
-        for ( size_t j = 0; j < 2; ++j ) {
-            g_SolitaryException = (j & 2) == 1;
-            RunTests();
-        }
-    }
-    REPORT("done\n");
+#endif /* TBB_USE_EXCEPTIONS */
+    g_SolitaryException = 0;
+    for ( g_NumThreads = MinThread; g_NumThreads <= MaxThread; ++g_NumThreads )
+        RunTests();
+    return Harness::Done;
 #else
-    REPORT("skipped\n");
-#endif /* __TBB_EXCEPTIONS */
-    return 0;
+    return Harness::Skipped;
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 }

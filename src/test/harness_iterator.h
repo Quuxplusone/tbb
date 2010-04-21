@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -38,11 +38,13 @@ template <class T>
 class InputIterator {
     T * my_ptr;
 public:
+#if HARNESS_EXTENDED_STD_COMPLIANCE
     typedef std::input_iterator_tag iterator_category;
     typedef T value_type;
     typedef typename std::allocator<T>::difference_type difference_type;
     typedef typename std::allocator<T>::pointer pointer;
     typedef typename std::allocator<T>::reference reference;
+#endif /* HARNESS_EXTENDED_STD_COMPLIANCE */
    
     explicit InputIterator( T * ptr): my_ptr(ptr){}
     
@@ -57,11 +59,13 @@ template <class T>
 class ForwardIterator {
     T * my_ptr;
 public:
+#if HARNESS_EXTENDED_STD_COMPLIANCE
     typedef std::forward_iterator_tag iterator_category;
     typedef T value_type;
     typedef typename std::allocator<T>::difference_type difference_type;
     typedef typename std::allocator<T>::pointer pointer;
     typedef typename std::allocator<T>::reference reference;
+#endif /* HARNESS_EXTENDED_STD_COMPLIANCE */
    
     explicit ForwardIterator ( T * ptr ) : my_ptr(ptr){}
     
@@ -77,12 +81,18 @@ public:
 template <class T>
 class RandomIterator {
     T * my_ptr;
+#if !HARNESS_EXTENDED_STD_COMPLIANCE
+    typedef typename std::allocator<T>::difference_type difference_type;
+#endif
+
 public:
+#if HARNESS_EXTENDED_STD_COMPLIANCE
     typedef std::random_access_iterator_tag iterator_category;
     typedef T value_type;
-    typedef typename std::allocator<T>::difference_type difference_type;
     typedef typename std::allocator<T>::pointer pointer;
     typedef typename std::allocator<T>::reference reference;
+    typedef typename std::allocator<T>::difference_type difference_type;
+#endif /* HARNESS_EXTENDED_STD_COMPLIANCE */
 
     explicit RandomIterator ( T * ptr ) : my_ptr(ptr){}
     RandomIterator ( const RandomIterator& r ) : my_ptr(r.my_ptr){}
@@ -93,6 +103,28 @@ public:
     RandomIterator operator+ (difference_type n) {return RandomIterator(my_ptr + n);}
 };
 
-}
+} // namespace Harness
+
+#if !HARNESS_EXTENDED_STD_COMPLIANCE
+namespace std {
+    template<typename T>
+    struct iterator_traits< Harness::InputIterator<T> > {
+        typedef std::input_iterator_tag iterator_category;
+        typedef T value_type;
+    };
+
+    template<typename T>
+    struct iterator_traits< Harness::ForwardIterator<T> > {
+        typedef std::forward_iterator_tag iterator_category;
+        typedef T value_type;
+    };
+
+    template<typename T>
+    struct iterator_traits< Harness::RandomIterator<T> > {
+        typedef std::random_access_iterator_tag iterator_category;
+        typedef T value_type;
+    };
+} // namespace std
+#endif /* !HARNESS_EXTENDED_STD_COMPLIANCE */
 
 #endif //harness_iterator_H

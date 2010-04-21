@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,17 +30,19 @@
 // This header is an optional part of the test harness.
 // It assumes that "harness_assert.h" has already been included.
 
-#if _WIN32
-#include <windows.h>
+#if _WIN32 && !_XBOX
+    #include <windows.h>
 #else
-#include <sys/time.h>
-#include <sys/resource.h>
+    #include <sys/time.h>
+    #include <sys/resource.h>
 #endif
 
 //! Return time (in seconds) spent by the current process in user mode.
 /*  Returns 0 if not implemented on platform. */
 static double GetCPUUserTime() { 
-#if _WIN32
+#if _XBOX
+    return 0;
+#elif _WIN32
     FILETIME my_times[4];
     bool status = GetProcessTimes(GetCurrentProcess(), my_times, my_times+1, my_times+2, my_times+3)!=0;
     ASSERT( status, NULL );
@@ -76,23 +78,40 @@ static void TestCPUUserTime( int nthreads, int nactive = 1 ) {
     // The test will always pass on Linux; read the comments in GetCPUUserTime for details
     // Also it will not detect spinning issues on systems with only one processing core.
 
-    static double minimal_waittime = WAITTIME;
     int nworkers = nthreads-nactive;
     if( !nworkers ) return;
-
-    double usrtime;
     double lastusrtime = GetCPUUserTime();
-    while( (usrtime=GetCPUUserTime())-lastusrtime < THRESHOLD )
-        ; // wait for GetCPUUserTime update
-    lastusrtime = usrtime;
-    
-    // Test that all workers sleep when no work.
+    if( !lastusrtime ) return;
+
+    static double minimal_waittime = WAITTIME,
+                  maximal_waittime = WAITTIME * 10;
+    double usrtime;
     double waittime;
     tbb::tick_count stamp = tbb::tick_count::now();
+    // wait for GetCPUUserTime update
+    while( (usrtime=GetCPUUserTime())-lastusrtime < THRESHOLD ) {
+        volatile intptr_t k = (intptr_t)&usrtime;
+        for ( int i = 0; i < 1000; ++i ) ++k;
+        if ( (waittime = (tbb::tick_count::now()-stamp).seconds()) > maximal_waittime ) {
+            REPORT( "Warning: %.2f sec elapsed but user mode time is still below its threshold (%g < %g)\n", 
+                    waittime, usrtime - lastusrtime, THRESHOLD );
+            break;
+        }
+    }
+    lastusrtime = usrtime;
+    
+    // Wait for workers to go sleep
+    stamp = tbb::tick_count::now();
     while( ((waittime=(tbb::tick_count::now()-stamp).seconds()) < minimal_waittime) 
-        || ((usrtime=GetCPUUserTime()-lastusrtime) < THRESHOLD) )
-        ; // Wait for workers to go sleep
+            || ((usrtime=GetCPUUserTime()-lastusrtime) < THRESHOLD) )
+    {
+        if ( waittime > maximal_waittime ) {
+            REPORT( "Warning: %.2f sec elapsed but GetCPUUserTime reported only %g sec\n", waittime, usrtime );
+            break;
+        }
+    }
 
+    // Test that all workers sleep when no work.
     while( nactive>1 && usrtime-nactive*waittime<0 ) {
         // probably the number of active threads was mispredicted
         --nactive; ++nworkers;
@@ -102,7 +121,7 @@ static void TestCPUUserTime( int nthreads, int nactive = 1 ) {
     if( avg_worker_usrtime > waittime/2 )
         REPORT( "ERROR: %d worker threads are spinning; waittime: %g; usrtime: %g; avg worker usrtime: %g\n",
                 nworkers, waittime, usrtime, avg_worker_usrtime);
-    else if( Verbose )
-        REPORT("%d worker threads; waittime: %g; usrtime: %g; avg worker usrtime: %g\n",
+    else
+        REMARK("%d worker threads; waittime: %g; usrtime: %g; avg worker usrtime: %g\n",
                         nworkers, waittime, usrtime, avg_worker_usrtime);
 }

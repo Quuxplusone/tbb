@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -36,6 +36,13 @@
 
 // In the test, variables related to token counting are declared
 // as unsigned long to match definition of tbb::internal::Token.
+
+//! Id of thread that first executes work on non-thread-bound stages
+tbb::tbb_thread::id thread_id;
+//! Zero thread id
+tbb::tbb_thread::id id0;
+//! True if non-thread-bound stages must be executed on one thread
+bool is_serial_execution;
 
 struct Buffer {
     //! Indicates that the buffer is not used.
@@ -89,6 +96,18 @@ public:
         return static_cast<Buffer*>(item);
     } 
     /*override*/void* operator()( void* item ) {
+        // Check if work is done only on one thread when ntokens==1 or 
+        // when pipeline has only one filter that is serial and non-thread-bound
+        if( is_serial_execution && !this->is_bound() ) {
+            // Get id of current thread
+            tbb::tbb_thread::id id = tbb::this_tbb_thread::get_id();
+            // At first execution, set thread_id to current thread id.
+            // Serialized execution is expected, so there should be no race.
+            if( thread_id == id0 )
+                thread_id = id;
+            // Check if work is done on one thread 
+            ASSERT( thread_id == id, "non-thread-bound stages executed on different threads when must be executed on a single one");
+        }
         Harness::ConcurrencyTracker ct;
         if( this->is_serial() )
             ASSERT( !my_is_running, "premature entry to serial stage" );
@@ -133,11 +152,10 @@ public:
         unsigned long next_input;
         unsigned free_buffer = 0; 
         { // lock protected scope
-            tbb::atomic<tbb::internal::Token>& current_token = this->current_token;
             tbb::spin_mutex::scoped_lock lock(input_lock);
-            if( current_token>=StreamSize )
+            if( this->current_token>=StreamSize )
                 return NULL;
-            next_input = current_token++; 
+            next_input = this->current_token++; 
             // once in a while, emulate waiting for input; this only makes sense for serial input
             if( this->is_serial() && WaitTest.required() )
                 WaitTest.probe( );
@@ -212,6 +230,13 @@ struct hacked_filter {
     #pragma warning (disable: 4127)
 #endif
 
+void clear_global_state() {
+    Harness::ConcurrencyTracker::Reset();
+    memset( Done, 0, sizeof(Done) );
+    thread_id = id0;
+    is_serial_execution = false;
+}
+
 void TestTrivialPipeline( unsigned nthread, unsigned number_of_filters ) {
     // There are 3 non-thread-bound filter types: serial_in_order and serial_out_of_order, parallel
     static const tbb::filter::mode non_tb_filters_table[] = { tbb::filter::serial_in_order, tbb::filter::serial_out_of_order, tbb::filter::parallel}; 
@@ -224,85 +249,97 @@ void TestTrivialPipeline( unsigned nthread, unsigned number_of_filters ) {
 
     REMARK( "testing with %lu threads and %lu filters\n", nthread, number_of_filters );
     ASSERT( number_of_filters<=MaxFilters, "too many filters" );
-    tbb::internal::Token ntokens = nthread<MaxBuffer ? nthread : MaxBuffer;
-    // Count maximum iterations number
-    unsigned limit = 1;
-    for( unsigned i=0; i<number_of_filters; ++i)
-        limit *= number_of_filter_types;
-    // Iterate over possible filter sequences
-    for( unsigned numeral=0; numeral<limit; ++numeral ) {
-        REMARK( "testing configuration %lu of %lu\n", numeral, limit );
-        // Build pipeline
-        tbb::pipeline pipeline;
-        tbb::filter* filter[MaxFilters];
-        unsigned temp = numeral;
-        // parallelism_limit is the upper bound on the possible parallelism
-        unsigned parallelism_limit = 0;
-        // number of thread-bound-filters in the current sequence
-        unsigned number_of_tb_filters = 0;
-        // ordinal numbers of thread-bound-filters in the current sequence
-        unsigned array_of_tb_filter_numbers[MaxFilters];
-        for( unsigned i=0; i<number_of_filters; ++i, temp/=number_of_filter_types ) {
-            bool is_bound = temp%number_of_filter_types&0x1;
-            tbb::filter::mode filter_type;
-            if( is_bound ) {
-                filter_type = tb_filters_table[temp%number_of_filter_types/number_of_non_tb_filter_types];
-            } else
-                filter_type = non_tb_filters_table[temp%number_of_filter_types/number_of_tb_filter_types];
-            const bool is_last = i==number_of_filters-1;
-            if( is_bound ) {
-                if( i == 0 )
-                    filter[i] = new InputFilter<tbb::thread_bound_filter>(filter_type,ntokens,Done[i],is_last);
-                else
-                    filter[i] = new BaseFilter<tbb::thread_bound_filter>(filter_type,Done[i],is_last);
-                array_of_tb_filter_numbers[number_of_tb_filters] = i;
-                number_of_tb_filters++;
-            } else {
-                if( i == 0 )
-                   filter[i] = new InputFilter<tbb::filter>(filter_type,ntokens,Done[i],is_last);
-                else
-                    filter[i] = new BaseFilter<tbb::filter>(filter_type,Done[i],is_last);
+    tbb::internal::Token max_tokens = nthread < MaxBuffer ? nthread : MaxBuffer;
+    // The loop has 1 iteration if max_tokens=1 and 2 iterations if max_tokens>1:
+    // one iteration for ntokens=1 and second for ntokens=max_tokens 
+    // Iteration for ntokens=1 is required in each test case to check if pipeline run only on one thread 
+    unsigned max_iteration = max_tokens > 1 ? 2 : 1; 
+    tbb::internal::Token ntokens = 1;
+    for( unsigned iteration = 0; iteration < max_iteration; iteration++) {
+        if( iteration > 0 ) 
+            ntokens = max_tokens;
+        // Count maximum iterations number
+        unsigned limit = 1;
+        for( unsigned i=0; i<number_of_filters; ++i)
+            limit *= number_of_filter_types;
+        // Iterate over possible filter sequences
+        for( unsigned numeral=0; numeral<limit; ++numeral ) {
+            REMARK( "testing configuration %lu of %lu\n", numeral, limit );
+            // Build pipeline
+            tbb::pipeline pipeline;
+            tbb::filter* filter[MaxFilters];
+            unsigned temp = numeral;
+            // parallelism_limit is the upper bound on the possible parallelism
+            unsigned parallelism_limit = 0;
+            // number of thread-bound-filters in the current sequence
+            unsigned number_of_tb_filters = 0;
+            // ordinal numbers of thread-bound-filters in the current sequence
+            unsigned array_of_tb_filter_numbers[MaxFilters];
+            for( unsigned i=0; i<number_of_filters; ++i, temp/=number_of_filter_types ) {
+                bool is_bound = temp%number_of_filter_types&0x1;
+                tbb::filter::mode filter_type;
+                if( is_bound ) {
+                    filter_type = tb_filters_table[temp%number_of_filter_types/number_of_non_tb_filter_types];
+                } else
+                    filter_type = non_tb_filters_table[temp%number_of_filter_types/number_of_tb_filter_types];
+                const bool is_last = i==number_of_filters-1;
+                if( is_bound ) {
+                    if( i == 0 )
+                        filter[i] = new InputFilter<tbb::thread_bound_filter>(filter_type,ntokens,Done[i],is_last);
+                    else
+                        filter[i] = new BaseFilter<tbb::thread_bound_filter>(filter_type,Done[i],is_last);
+                    array_of_tb_filter_numbers[number_of_tb_filters] = i;
+                    number_of_tb_filters++;
+                } else {
+                    if( i == 0 )
+                       filter[i] = new InputFilter<tbb::filter>(filter_type,ntokens,Done[i],is_last);
+                    else
+                        filter[i] = new BaseFilter<tbb::filter>(filter_type,Done[i],is_last);
+                }
+                pipeline.add_filter(*filter[i]);
+                if ( filter[i]->is_serial() ) {
+                    parallelism_limit += 1;
+                } else {
+                    parallelism_limit = nthread;
+                }
             }
-            pipeline.add_filter(*filter[i]);
-            if ( filter[i]->is_serial() ) {
-                parallelism_limit += 1;
-            } else {
+            clear_global_state();
+            // Account for clipping of parallelism.
+            if( parallelism_limit>nthread ) 
                 parallelism_limit = nthread;
-            }
-        }
-        // Account for clipping of parallelism.
-        if( parallelism_limit>nthread ) 
-            parallelism_limit = nthread;
-        if( parallelism_limit>ntokens )
-            parallelism_limit = (unsigned)ntokens;
-        Harness::ConcurrencyTracker::Reset();
-        StreamSize = nthread; // min( MaxStreamSize, nthread * MaxStreamItemsPerThread );
+            if( parallelism_limit>ntokens )
+                parallelism_limit = (unsigned)ntokens;
+            StreamSize = nthread; // min( MaxStreamSize, nthread * MaxStreamItemsPerThread );
 
-        memset( Done, 0, sizeof(Done) );
-        for( unsigned i=0; i<number_of_filters; ++i ) {
-            static_cast<BaseFilter<tbb::filter>*>(filter[i])->current_token=0;
-        }
-        tbb::tbb_thread* t[MaxFilters];
-        for( unsigned j = 0; j<number_of_tb_filters; j++)
-            t[j] = new tbb::tbb_thread(process_loop(), static_cast<tbb::thread_bound_filter*>(filter[array_of_tb_filter_numbers[j]]));
-        pipeline.run( ntokens );
-        for( unsigned j = 0; j<number_of_tb_filters; j++)
-           t[j]->join();
-        ASSERT( !Harness::ConcurrencyTracker::InstantParallelism(), "filter still running?" );
-        for( unsigned i=0; i<number_of_filters; ++i )
-            ASSERT( static_cast<BaseFilter<tbb::filter>*>(filter[i])->current_token==StreamSize, NULL );
-        for( unsigned i=0; i<MaxFilters; ++i )
-            for( unsigned j=0; j<StreamSize; ++j ) {
-                ASSERT( Done[i][j]==(i<number_of_filters), NULL );
+            for( unsigned i=0; i<number_of_filters; ++i ) {
+                static_cast<BaseFilter<tbb::filter>*>(filter[i])->current_token=0;
             }
-        if( Harness::ConcurrencyTracker::PeakParallelism() < parallelism_limit ) 
-            REMARK( "nthread=%lu ntokens=%lu MaxParallelism=%lu parallelism_limit=%lu\n",
-                nthread, ntokens, Harness::ConcurrencyTracker::PeakParallelism(), parallelism_limit );
-        for( unsigned i=0; i < number_of_filters; ++i ) {
-            delete filter[i];
-            filter[i] = NULL;
+            tbb::tbb_thread* t[MaxFilters];
+            for( unsigned j = 0; j<number_of_tb_filters; j++)
+                t[j] = new tbb::tbb_thread(process_loop(), static_cast<tbb::thread_bound_filter*>(filter[array_of_tb_filter_numbers[j]]));
+            if( ntokens == 1 || ( number_of_filters == 1 && number_of_tb_filters == 0 && filter[0]->is_serial() ))
+                is_serial_execution = true;
+            pipeline.run( ntokens );
+            for( unsigned j = 0; j<number_of_tb_filters; j++)
+               t[j]->join();
+            ASSERT( !Harness::ConcurrencyTracker::InstantParallelism(), "filter still running?" );
+            for( unsigned i=0; i<number_of_filters; ++i )
+                ASSERT( static_cast<BaseFilter<tbb::filter>*>(filter[i])->current_token==StreamSize, NULL );
+            for( unsigned i=0; i<MaxFilters; ++i )
+                for( unsigned j=0; j<StreamSize; ++j ) {
+                    ASSERT( Done[i][j]==(i<number_of_filters), NULL );
+                }
+            if( Harness::ConcurrencyTracker::PeakParallelism() < parallelism_limit ) 
+                REMARK( "nthread=%lu ntokens=%lu MaxParallelism=%lu parallelism_limit=%lu\n",
+                    nthread, ntokens, Harness::ConcurrencyTracker::PeakParallelism(), parallelism_limit );
+            for( unsigned i=0; i < number_of_filters; ++i ) {
+                delete filter[i];
+                filter[i] = NULL;
+            }
+            for( unsigned j = 0; j<number_of_tb_filters; j++)
+                delete t[j];
+            pipeline.clear();
         }
-        pipeline.clear();
     }
 }
 
@@ -320,12 +357,8 @@ void waiting_probe::probe( ) {
 
 #include "tbb/task_scheduler_init.h"
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    // Default is at least one thread.
-    MinThread = 1;
+int TestMain () {
     out_of_order_count = 0;
-    ParseCommandLine(argc,argv);
     if( MinThread<1 ) {
         REPORT("must have at least one thread");
         exit(1);
@@ -336,8 +369,8 @@ int main( int argc, char* argv[] ) {
         // Initialize TBB task scheduler
         tbb::task_scheduler_init init(nthread);
 
-        // Test pipelines with n filters
-        for( unsigned n=MaxFilters; n<=MaxFilters; ++n ) {
+        // Test pipelines with 1 and maximal number of filters
+        for( unsigned n=1; n<=MaxFilters; n*=MaxFilters ) {
             // Thread-bound stages are serviced by user-created threads those 
             // don't run the pipeline and don't service non-thread-bound stages 
             TestTrivialPipeline(nthread,n);
@@ -348,6 +381,5 @@ int main( int argc, char* argv[] ) {
     }
     if( !out_of_order_count )
         REPORT("Warning: out of order serial filter received tokens in order\n");
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

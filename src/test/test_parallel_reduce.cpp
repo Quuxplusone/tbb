@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -146,8 +146,7 @@ void Flog( int nthread, bool interference=false ) {
             ASSERT( f.end==(i==0 ? ~size_t(0) : i), NULL );
         }
         tbb::tick_count T1 = tbb::tick_count::now();
-        if( Verbose )
-            REPORT("time=%g join_count=%ld ForkCount=%ld nthread=%d%s\n",
+        REMARK("time=%g join_count=%ld ForkCount=%ld nthread=%d%s\n",
                    (T1-T0).seconds(),join_count,long(ForkCount), nthread, interference ? " with interference)":"");
     }
 }
@@ -237,7 +236,7 @@ void ParallelSum () {
     tbb::blocked_range<ValueType*> range(array, array + N);
     ValueType r1 = tbb::parallel_reduce( range, I, Accumulator(), Sum() );
     ASSERT( r1 == R, NULL );
-#if __TBB_LAMBDAS_PRESENT && !__TBB_LAMBDA_AS_TEMPL_PARAM_BROKEN
+#if __TBB_LAMBDAS_PRESENT
     ValueType r2 = tbb::parallel_reduce( range, I, 
         [](const tbb::blocked_range<ValueType*>& r, ValueType value) -> ValueType { 
             for ( ValueType* pv = r.begin(); pv != r.end(); ++pv )
@@ -254,11 +253,7 @@ void ParallelSum () {
 #include "tbb/task_scheduler_init.h"
 #include "harness_cpu.h"
 
-__TBB_TEST_EXPORT
-int main( int argc, char* argv[] ) {
-    // Set default number of threads
-    MinThread = MaxThread = 2;
-    ParseCommandLine( argc, argv );
+int TestMain () {
     if( MinThread<0 ) {
         REPORT("Usage: nthread must be positive\n");
         exit(1);
@@ -272,6 +267,5 @@ int main( int argc, char* argv[] ) {
         // Test that all workers sleep when no work
         TestCPUUserTime(p);
     }
-    REPORT("done\n");
-    return 0;
+    return Harness::Done;
 }

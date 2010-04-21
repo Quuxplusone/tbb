@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,13 +26,19 @@
     the GNU General Public License.
 */
 
-//We works on windows only
+// Works on windows only
 #ifdef _WIN32
 #define _CRT_SECURE_NO_DEPRECATE 1
+#define __TBB_NO_IMPLICIT_LINKAGE 1
 
 #include <windows.h>
 #include <new>
+#include <stdio.h>
 #include "tbb_function_replacement.h"
+
+#include "tbb/tbb_config.h"
+#include "tbb/tbb_stddef.h"
+#include "../tbb/tbb_assert_impl.h"
 
 inline UINT_PTR Ptr2Addrint(LPVOID ptr)
 {
@@ -47,26 +53,6 @@ inline LPVOID Addrint2Ptr(UINT_PTR ptr)
     i2p.uip = ptr;
     return i2p.lpv;
 }
-
-// Use this value as the maximum size the trampoline region
-const int MAX_PROBE_SIZE = 16;
-
-// The size of a jump relative instruction "e9 00 00 00 00"
-const int SIZE_OF_RELJUMP = 5;
-
-// The size of jump RIP relative indirect "ff 25 00 00 00 00"
-const int SIZE_OF_INDJUMP = 6;
-
-// The size of address we put in the location (in Intel64)
-const int SIZE_OF_ADDRESS = 8;
-
-// The max distance covered in 32 bits: 2^31 - 1 - C
-// where C should not be smaller than any of SIZE_OF_* costants.
-// The latter is important to correctly handle "backward" jumps.
-const __int64 MAX_DISTANCE = (((__int64)1 << 31) - 1) - SIZE_OF_ADDRESS;
-
-// The maximum number of distinct buffers in memory
-const int MAX_NUM_BUFFERS = 256;
 
 // Is the distance between addr1 and addr2 smaller than dist
 inline bool IsInDistance(UINT_PTR addr1, UINT_PTR addr2, __int64 dist)
@@ -176,7 +162,7 @@ public:
             if (pBuff->m_next < pBuff->m_base + pBuff->m_size)
             {
                 UINT_PTR loc = pBuff->m_next;
-                pBuff->m_next += SIZE_OF_ADDRESS;
+                pBuff->m_next += MAX_PROBE_SIZE;
                 return loc;
             }
         }
@@ -186,7 +172,7 @@ public:
             return 0;
 
         UINT_PTR loc = pBuff->m_next;
-        pBuff->m_next += SIZE_OF_ADDRESS;
+        pBuff->m_next += MAX_PROBE_SIZE;
         return loc;
     }
 
@@ -198,36 +184,129 @@ private:
 
 static MemoryProvider memProvider;
 
+// Compare opcodes from dictionary (str1) and opcodes from code (str2)
+// str1 might contain '*' to mask adresses
+// RETURN: NULL if opcodes did not match, string lentgh of str1 on success
+size_t compareStrings( const char *str1, const char *str2 )
+{
+   size_t str1Lentgh = strlen(str1);
+   for (size_t i=0; i<str1Lentgh; i++){
+       if( str1[i] != '*' && str1[i] != str2[i] ) return 0;
+   }
+   return str1Lentgh;
+}
+
+// Check function prologue with know prologues from the dictionary
+// opcodes - dictionary
+// inpAddr - pointer to function prologue
+// Dictionary contains opcodes for several full asm instrutions
+// + one opcode byte for the next asm instruction for safe address processing
+// RETURN: number of bytes for safe bytes replacement 
+// (matched_pattern/2-1)
+UINT CheckOpcodes( const char ** opcodes, void *inpAddr )
+{
+    static size_t opcodesStringsCount = 0;
+    static size_t maxOpcodesLength = 0;
+    static size_t opcodes_pointer = (size_t)opcodes;
+    char opcodeString[61];
+    size_t i;
+    size_t result;
+
+    // Get the values for static variables
+    // max length and number of patterns
+    if( !opcodesStringsCount || opcodes_pointer != (size_t)opcodes ){
+        while( *(opcodes + opcodesStringsCount)!= NULL ){
+            if( (i=strlen(*(opcodes + opcodesStringsCount))) > maxOpcodesLength ) 
+                maxOpcodesLength = i;
+            opcodesStringsCount++;
+        }
+        opcodes_pointer = (size_t)opcodes;
+        __TBB_ASSERT( maxOpcodesLength < 61, "Limit is 30 opcodes/60 symbols per pattern" );
+    }
+
+    // Translate prologue opcodes to string format to compare
+    for( i=0; i< maxOpcodesLength/2; i++ ){
+        sprintf( opcodeString + 2*i, "%.2X", *((unsigned char*)inpAddr+i) ); 
+    }
+    opcodeString[maxOpcodesLength] = 0;
+    
+    // Compare translated opcodes with patterns
+    for( i=0; i< opcodesStringsCount; i++ ){
+        result = compareStrings( opcodes[i],opcodeString );
+        if( result ) 
+            return (UINT)(result/2-1);
+    }
+    // TODO: to add more stuff to patterns
+    __TBB_ASSERT( false, "CheckOpcodes failed" );
+
+    // No matches found just do not store original calls
+    return 0;
+}
+
 // Insert jump relative instruction to the input address
 // RETURN: the size of the trampoline or 0 on failure
-static DWORD InsertTrampoline32(void *inpAddr, void *targetAddr)
+static DWORD InsertTrampoline32(void *inpAddr, void *targetAddr, const char ** opcodes, void** storedAddr)
 {
+    UINT opcodesNumber = SIZE_OF_RELJUMP;
     UINT_PTR srcAddr = Ptr2Addrint(inpAddr);
     UINT_PTR tgtAddr = Ptr2Addrint(targetAddr);
     // Check that the target fits in 32 bits
     if (!IsInDistance(srcAddr, tgtAddr, MAX_DISTANCE))
         return 0;
 
-    // The following will work correctly even if srcAddr>tgtAddr, as long as
-    // address difference is less than 2^31, which is guaranteed by IsInDistance.
-    UINT_PTR offset = tgtAddr - srcAddr - SIZE_OF_RELJUMP;
-    UINT offset32 = (UINT)(offset & 0xFFFFFFFF);
+    UINT_PTR offset;
+    UINT offset32;
     UCHAR *codePtr = (UCHAR *)inpAddr;
 
-    // Fill the buffer
-    *codePtr++ = 0xE9;
-    memcpy(codePtr, &offset32, sizeof(offset32));
+    // If requested, store original function code
+    if ( storedAddr ){
+        opcodesNumber = CheckOpcodes( opcodes, inpAddr );
+        if( opcodesNumber >= SIZE_OF_RELJUMP ){
+            UINT_PTR strdAddr = memProvider.GetLocation(srcAddr);
+            if (!strdAddr)
+                return 0;
+            *storedAddr = Addrint2Ptr(strdAddr);
+            // Set 'executable' flag for original instructions in the new place
+            DWORD pageFlags = PAGE_EXECUTE_READWRITE;
+            if (!VirtualProtect(*storedAddr, MAX_PROBE_SIZE, pageFlags, &pageFlags)) return 0;
+            // Copy original instructions to the new place
+            memcpy(*storedAddr, codePtr, opcodesNumber);
+            // Set jump to the code after replacement
+            offset = srcAddr - strdAddr - SIZE_OF_RELJUMP;
+            offset32 = (UINT)((offset & 0xFFFFFFFF));
+            *((UCHAR*)*storedAddr+opcodesNumber) = 0xE9;
+            memcpy(((UCHAR*)*storedAddr+opcodesNumber+1), &offset32, sizeof(offset32));
+        }else{
+            // No matches found just do not store original calls
+            *storedAddr = NULL;
+        }
+    }
+
+    // The following will work correctly even if srcAddr>tgtAddr, as long as
+    // address difference is less than 2^31, which is guaranteed by IsInDistance.
+    offset = tgtAddr - srcAddr - SIZE_OF_RELJUMP;
+    offset32 = (UINT)(offset & 0xFFFFFFFF);
+    // Insert the jump to the new code
+    *codePtr = 0xE9;
+    memcpy(codePtr+1, &offset32, sizeof(offset32));
+
+    // Fill the rest with NOPs to correctly see disassembler of old code in debugger.
+    for( unsigned i=SIZE_OF_RELJUMP; i<opcodesNumber; i++ ){
+        *(codePtr+i) = 0x90;
+    }
+
     return SIZE_OF_RELJUMP;
 }
-
 
 // This function is called when the offset doesn't fit in 32 bits
 // 1  Find and allocate a page in the small distance (<2^31) from input address
 // 2  Put jump RIP relative indirect through the address in the close page
 // 3  Put the absolute address of the target in the allocated location
 // RETURN: the size of the trampoline or 0 on failure
-static DWORD InsertTrampoline64(void *inpAddr, void *targetAddr)
+static DWORD InsertTrampoline64(void *inpAddr, void *targetAddr, const char ** opcodes, void** storedAddr)
 {
+    UINT opcodesNumber = SIZE_OF_INDJUMP;
+
     UINT_PTR srcAddr = Ptr2Addrint(inpAddr);
     UINT_PTR tgtAddr = Ptr2Addrint(targetAddr);
 
@@ -236,21 +315,52 @@ static DWORD InsertTrampoline64(void *inpAddr, void *targetAddr)
     if (!location)
         return 0;
 
-    UINT_PTR offset = location - srcAddr - SIZE_OF_INDJUMP;
-    UINT offset32 = (INT)(offset & 0xFFFFFFFF);
+    UINT_PTR offset;
+    UINT offset32;
+    UCHAR *codePtr = (UCHAR *)inpAddr;
 
     // Fill the location
     UINT_PTR *locPtr = (UINT_PTR *)Addrint2Ptr(location);
     *locPtr = tgtAddr;
 
+    // If requested, store original function code
+    if( storedAddr ){
+        opcodesNumber = CheckOpcodes( opcodes, inpAddr );
+        if( opcodesNumber >= SIZE_OF_INDJUMP ){
+            UINT_PTR strdAddr = memProvider.GetLocation(srcAddr);
+            if (!strdAddr)
+                return 0;
+            *storedAddr = Addrint2Ptr(strdAddr);
+            // Set 'executable' flag for original instructions in the new place
+            DWORD pageFlags = PAGE_EXECUTE_READWRITE;
+            if (!VirtualProtect(*storedAddr, MAX_PROBE_SIZE, pageFlags, &pageFlags)) return 0;
+            // Copy original instructions to the new place
+            memcpy(*storedAddr, codePtr, opcodesNumber);
+            // Set jump to the code after replacement. It is within the distance of relative jump!
+            offset = srcAddr - strdAddr - SIZE_OF_RELJUMP;
+            offset32 = (UINT)((offset & 0xFFFFFFFF));
+            *((UCHAR*)*storedAddr+opcodesNumber) = 0xE9;
+            memcpy(((UCHAR*)*storedAddr+opcodesNumber+1), &offset32, sizeof(offset32));
+        }else{
+            // No matches found just do not store original calls
+            *storedAddr = NULL;
+        }
+    }
+
     // Fill the buffer
-    UCHAR *codePtr = (UCHAR *)inpAddr;
-    *codePtr++ = 0xFF;
-    *codePtr++ = 0x25;
-    memcpy(codePtr, &offset32, sizeof(offset32));
+     offset = location - srcAddr - SIZE_OF_INDJUMP;
+     offset32 = (UINT)(offset & 0xFFFFFFFF);
+    *(codePtr) = 0xFF;
+    *(codePtr+1) = 0x25;
+    memcpy(codePtr+2, &offset32, sizeof(offset32));
+
+    // Fill the rest with NOPs to correctly see disassembler of old code in debugger.
+    for( unsigned i=SIZE_OF_INDJUMP; i<opcodesNumber; i++ ){
+        *(codePtr+i) = 0x90;
+    }
+
     return SIZE_OF_INDJUMP;
 }
-
 
 // Insert a jump instruction in the inpAddr to the targetAddr
 // 1. Get the memory protection of the page containing the input address
@@ -258,18 +368,16 @@ static DWORD InsertTrampoline64(void *inpAddr, void *targetAddr)
 // 3. Call InsertTrampoline32 or InsertTrampoline64
 // 4. Restore memory protection
 // RETURN: FALSE on failure, TRUE on success
-static bool InsertTrampoline(void *inpAddr, void *targetAddr)
+static bool InsertTrampoline(void *inpAddr, void *targetAddr, const char ** opcodes, void** origFunc)
 {
     DWORD probeSize;
-
     // Change page protection to EXECUTE+WRITE
     DWORD origProt = 0;
     if (!VirtualProtect(inpAddr, MAX_PROBE_SIZE, PAGE_EXECUTE_WRITECOPY, &origProt))
         return FALSE;
-
-    probeSize = InsertTrampoline32(inpAddr, targetAddr);
+    probeSize = InsertTrampoline32(inpAddr, targetAddr, opcodes, origFunc);
     if (!probeSize)
-        probeSize = InsertTrampoline64(inpAddr, targetAddr);
+        probeSize = InsertTrampoline64(inpAddr, targetAddr, opcodes, origFunc);
 
     // Restore original protection
     VirtualProtect(inpAddr, MAX_PROBE_SIZE, origProt, &origProt);
@@ -278,10 +386,14 @@ static bool InsertTrampoline(void *inpAddr, void *targetAddr)
         return FALSE;
 
     FlushInstructionCache(GetCurrentProcess(), inpAddr, probeSize);
+    FlushInstructionCache(GetCurrentProcess(), origFunc, probeSize);
+
     return TRUE;
 }
 
-FRR_TYPE ReplaceFunctionA(const char *dllName, const char *funcName, FUNCPTR newFunc)
+// Routine to replace the functions
+// TODO: replace opcodesNumber with opcodes and opcodes number to check if we replace right code.
+FRR_TYPE ReplaceFunctionA(const char *dllName, const char *funcName, FUNCPTR newFunc, const char ** opcodes, FUNCPTR* origFunc)
 {
     // Cache the results of the last search for the module
     // Assume that there was no DLL unload between 
@@ -313,8 +425,7 @@ FRR_TYPE ReplaceFunctionA(const char *dllName, const char *funcName, FUNCPTR new
         return FRR_NOFUNC;
     }
 
-    if (!InsertTrampoline((void*)inpFunc, (void*)newFunc))
-    {
+    if (!InsertTrampoline((void*)inpFunc, (void*)newFunc, opcodes, (void**)origFunc)){
         // Failed to insert the trampoline to the target address
         return FRR_FAILED;
     }
@@ -322,7 +433,7 @@ FRR_TYPE ReplaceFunctionA(const char *dllName, const char *funcName, FUNCPTR new
     return FRR_OK;
 }
 
-FRR_TYPE ReplaceFunctionW(const wchar_t *dllName, const char *funcName, FUNCPTR newFunc)
+FRR_TYPE ReplaceFunctionW(const wchar_t *dllName, const char *funcName, FUNCPTR newFunc, const char ** opcodes, FUNCPTR* origFunc)
 {
     // Cache the results of the last search for the module
     // Assume that there was no DLL unload between 
@@ -354,8 +465,7 @@ FRR_TYPE ReplaceFunctionW(const wchar_t *dllName, const char *funcName, FUNCPTR 
         return FRR_NOFUNC;
     }
 
-    if (!InsertTrampoline((void*)inpFunc, (void*)newFunc))
-    {
+    if (!InsertTrampoline((void*)inpFunc, (void*)newFunc, opcodes, (void**)origFunc)){
         // Failed to insert the trampoline to the target address
         return FRR_FAILED;
     }

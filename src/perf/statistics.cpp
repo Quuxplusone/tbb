@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -333,74 +333,6 @@ void StatisticsCollector::Print(int dataOutput, const char *ModeName)
             fprintf(OutputFile, XMLAutoFilter,1,1,1,int(AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS));
             fprintf(OutputFile, XMLEndWorkSheet);
             //----------------------------------------
-            strcpy(SheetName,"Vertical");
-            fprintf(OutputFile, XMLBeginSheet, SheetName);
-            fprintf(OutputFile, XMLNames, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2),2,int(AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS+2),int(Statistics.size()+1));
-            fprintf(OutputFile, XMLBeginTable, int(max(Statistics.size()+1, size_t(7))), int(RoundTitles.size()+AnalysisTitles.size()+Formulas.size()+COUNT_PARAMETERS+2));
-            //fprintf(OutputFile, XMLColumsVerticalTable, Statistics.size()+1);
-            //----------------------------------------
-
-            fprintf(OutputFile, XMLBRow);
-            fprintf(OutputFile, XMLNameAndTime, Name.c_str(), TimerBuff, DateBuff);
-            fprintf(OutputFile, XMLTableParamAndTitle, int(Statistics.size()), int(AnalysisTitles.size()), int(RoundTitles.size()), Title.c_str());
-            fprintf(OutputFile, XMLERow);
-            fprintf(OutputFile, XMLBRow);
-            //-------------------
-            fprintf(OutputFile, XMLCellTopName);
-            for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-                fprintf(OutputFile, XMLCellName, i->second->Name.c_str());
-            fprintf(OutputFile, XMLERow);
-            fprintf(OutputFile, XMLBRow);
-            fprintf(OutputFile, XMLCellTopThread);
-            for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-                fprintf(OutputFile, XMLCellThread, i->second->Threads);
-            fprintf(OutputFile, XMLERow);
-            fprintf(OutputFile, XMLBRow);
-            fprintf(OutputFile, XMLCellTopMode, ModeName);
-            for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-                fprintf(OutputFile, XMLCellMode, i->second->Mode.c_str());
-            fprintf(OutputFile, XMLERow);
-            //-----------------
-            for (AnalysisTitles_t::iterator t = AnalysisTitles.begin(); t != AnalysisTitles.end(); t++)
-            {
-                fprintf(OutputFile, XMLBRow);
-                fprintf(OutputFile, XMLAnalysisTitle, t->c_str()+1);
-                for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-                    fprintf(OutputFile, XMLCellAnalysis, i->second->Analysis.count(*t)?(i->second->Analysis[*t]).c_str():"");
-                fprintf(OutputFile, XMLERow);
-            }
-            //-------------------------------------
-            for (Formulas_t::iterator t = Formulas.begin(); t != Formulas.end(); t++)
-            {
-                fprintf(OutputFile, XMLBRow);
-                fprintf(OutputFile, XMLAnalysisTitle, t->first.c_str()+1);
-                size_t place = 0;
-                for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-                    fprintf(OutputFile, XMLCellAnalysis, ExcelFormula(t->second, Formulas.size()-place, i->second->Results.size(), false).c_str());
-                fprintf(OutputFile, XMLERow);
-            }
-            //--------------------------------------
-            fprintf(OutputFile, XMLBRow);
-            fprintf(OutputFile, XMLCellEmptyWhite, "Result");
-            fprintf(OutputFile, XMLERow);
-            
-            for (size_t k = 0; k < RoundTitles.size(); k++)
-            {
-                fprintf(OutputFile, XMLBRow);
-                fprintf(OutputFile, XMLAnalysisTitle, RoundTitles[k].c_str());
-                for (Statistics_t::iterator i = Statistics.begin(); i != Statistics.end(); i++)
-                    if(i->second->Results.size() > k)
-                        fprintf(OutputFile, XMLCellData, i->second->Results[k]);
-                    else
-                        fprintf(OutputFile, XMLCellEmptyWhite, "");
-                fprintf(OutputFile, XMLERow);
-            }
-            fprintf(OutputFile, XMLEndTable);
-            //----------------------------------------
-            fprintf(OutputFile, XMLWorkSheetProperties, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2), int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2),1,1,6);
-            fprintf(OutputFile, XMLAutoFilter, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2),2, int(Formulas.size()+AnalysisTitles.size()+COUNT_PARAMETERS+2), int(Statistics.size()+1));
-            //----------------------------------------
-            fprintf(OutputFile, XMLEndWorkSheet);
             fprintf(OutputFile, XMLEndWorkbook);
             fclose(OutputFile);
         }

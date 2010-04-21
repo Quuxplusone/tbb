@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2009 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -39,10 +39,10 @@
 #include "tbb/blocked_range.h"
 #include "harness_assert.h"
 
-#if __TBB_EXCEPTIONS && !__TBB_EXCEPTION_HANDLING_TOTALLY_BROKEN
+#if __TBB_TASK_GROUP_CONTEXT
 
 #define FLAT_RANGE  100000
-#define FLAT_GRAIN  1000
+#define FLAT_GRAIN  100
 #define NESTING_RANGE  100
 #define NESTING_GRAIN  10
 #define NESTED_RANGE  (FLAT_RANGE / NESTING_RANGE)
@@ -93,6 +93,8 @@ public:
             x = 0;
     }
 };
+
+#if TBB_USE_EXCEPTIONS
 
 void Test0 () {
     ResetGlobals();
@@ -147,8 +149,6 @@ void TestParallelLoop() {
     TestParallelLoopAux<Body>( p0 );
     const tbb::auto_partitioner p1;
     TestParallelLoopAux<Body>( p1 );
-    tbb::affinity_partitioner p2;
-    TestParallelLoopAux<Body>( p2 );
 }
 
 class SimpleParForBody: NoAssign {
@@ -258,6 +258,8 @@ void Test4 () {
     }
 } // void Test4 ()
 
+#endif /* TBB_USE_EXCEPTIONS */
+
 class ParForBodyToCancel {
 public:
     void operator()( const range_type& ) const {
@@ -279,11 +281,11 @@ public:
 };
 
 //! Test for cancelling an algorithm from outside (from a task running in parallel with the algorithm).
-void Test5 () {
+void TestCancelation1 () {
     ResetGlobals( false );
     RunCancellationTest<ParForLauncherTask<ParForBodyToCancel>, CancellatorTask>( NumSubranges(FLAT_RANGE, FLAT_GRAIN) / 4 );
     ASSERT (g_CurExecuted < g_ExecutedAtCatch + g_NumThreads, "Too many tasks were executed after cancellation");
-} // void Test5 ()
+}
 
 class CancellatorTask2 : public tbb::task {
     tbb::task_group_context &m_GroupToCancel;
@@ -312,12 +314,12 @@ public:
 
 //! Test for cancelling an algorithm from outside (from a task running in parallel with the algorithm).
 /** This version also tests task::is_cancelled() method. **/
-void Test6 () {
+void TestCancelation2 () {
     ResetGlobals();
     RunCancellationTest<ParForLauncherTask<ParForBodyToCancel2>, CancellatorTask2>();
     ASSERT (g_ExecutedAtCatch < g_NumThreads, "Somehow worker tasks started their execution before the cancellator task");
-    ASSERT (g_CurExecuted <= g_ExecutedAtCatch, "Some tasks were executed after cancellation");
-} // void Test6 ()
+    ASSERT (g_CurExecuted <= g_ExecutedAtCatch + g_NumThreads, "Some tasks were executed after cancellation");
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Regression test based on the contribution by the author of the following forum post:
@@ -351,9 +353,9 @@ public:
 
     void operator() ( const tbb::blocked_range<size_t>& r ) {
         for (size_t i = r.begin (); i != r.end (); ++i) {
-            int result = 0;
-            m_SharedWorker->DoWork (result, m_NestingLevel);
-            m_Result += result;
+            int subtotal = 0;
+            m_SharedWorker->DoWork (subtotal, m_NestingLevel);
+            m_Result += subtotal;
         }
     }
     void join (const RecursiveParReduceBodyWithSharedWorker & x) {
@@ -374,7 +376,7 @@ void Worker::DoWork ( int& result, int nest ) {
 }
 
 //! Regression test for hanging that occurred with the first version of cancellation propagation
-void Test7 () {
+void TestCancelation3 () {
     Worker w;
     int result = 0;
     w.DoWork (result, 0);
@@ -382,19 +384,20 @@ void Test7 () {
 }
 
 void RunParForAndReduceTests () {
-    REMARK( "parallel for and reduce tests" );
+    REMARK( "parallel for and reduce tests\n" );
     tbb::task_scheduler_init init (g_NumThreads);
     g_Master = Harness::CurrentTid();
 
+#if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
     Test0();
-#if !__TBB_EXCEPTION_HANDLING_BROKEN
     Test1();
+    Test2();
     Test3();
     Test4();
-#endif
-    Test5();
-    Test6();
-    Test7();
+#endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
+    TestCancelation1();
+    TestCancelation2();
+    TestCancelation3();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -420,6 +423,8 @@ void Feed ( tbb::parallel_do_feeder<size_t> &feeder, size_t val ) {
 }
 
 #include "harness_iterator.h"
+
+#if TBB_USE_EXCEPTIONS
 
 // Simple functor object with exception
 class SimpleParDoBody {
@@ -588,10 +593,36 @@ void Test4_parallel_do () {
         minExecuted = g_Exceptions;
         ASSERT (g_Exceptions > 1 && g_Exceptions <= nestingCalls, "Unexpected actual number of exceptions");
         ASSERT (g_CurExecuted >= minExecuted, "Too many executed tasks reported");
-        ASSERT (g_CurExecuted <= g_ExecutedAtCatch + g_NumThreads, "Too many tasks survived multiple exceptions");
+        ASSERT (g_CurExecuted < g_ExecutedAtCatch + g_NumThreads + nestingCalls, "Too many tasks survived multiple exceptions");
         ASSERT (g_CurExecuted <= nestingCalls * (1 + g_NumThreads), "Too many tasks survived exception");
     }
 } // void Test4_parallel_do ()
+
+// This body throws an exception only if the task was added by feeder
+class ParDoBodyWithThrowingFeederTasks {
+public:
+    //! This form of the function call operator can be used when the body needs to add more work during the processing
+    void operator() ( size_t &value, tbb::parallel_do_feeder<size_t> &feeder ) const {
+        ++g_CurExecuted;
+        Feed(feeder, 1);
+        if (value == 1)
+            ThrowTestException(1);
+    }
+}; // class ParDoBodyWithThrowingFeederTasks
+
+// Test exception in task, which was added by feeder.
+template <class Iterator>
+void Test5_parallel_do () {
+    ResetGlobals();
+    PREPARE_RANGE(Iterator, ITER_RANGE);
+    TRY();
+        tbb::parallel_do<Iterator, ParDoBodyWithThrowingFeederTasks>(begin, end, ParDoBodyWithThrowingFeederTasks());
+    CATCH();
+    if (g_SolitaryException)
+        ASSERT (exceptionCaught, "At least one exception should occur");
+} // void Test5_parallel_do ()
+
+#endif /* TBB_USE_EXCEPTIONS */
 
 class ParDoBodyToCancel {
 public:
@@ -624,7 +655,7 @@ public:
 
 //! Test for cancelling an algorithm from outside (from a task running in parallel with the algorithm).
 template <class Iterator, class body_to_cancel>
-void Test5_parallel_do () {
+void TestCancelation1_parallel_do () {
     ResetGlobals( false );
     intptr_t  threshold = 10;
     tbb::task_group_context  ctx;
@@ -636,16 +667,16 @@ void Test5_parallel_do () {
     r.spawn( *new( r.allocate_child() ) ParDoWorkerTask<body_to_cancel, Iterator>(ctx) );
     TRY();
         r.wait_for_all();
-    CATCH();
-    r.destroy(r);
-    ASSERT (!exceptionCaught, "Cancelling tasks should not cause any exceptions");
+    CATCH_AND_FAIL();
     ASSERT (g_CurExecuted < g_ExecutedAtCatch + g_NumThreads, "Too many tasks were executed after cancellation");
-} // void Test5_parallel_do ()
+    r.destroy(r);
+}
 
 class ParDoBodyToCancel2 {
 public:
     void operator()( size_t& /*value*/ ) const {
         ++g_CurExecuted;
+        Harness::ConcurrencyTracker ct;
         // The test will hang (and be timed out by the test system) if is_cancelled() is broken
         while( !tbb::task::self().is_cancelled() )
             __TBB_Yield();
@@ -663,35 +694,11 @@ public:
 //! Test for cancelling an algorithm from outside (from a task running in parallel with the algorithm).
 /** This version also tests task::is_cancelled() method. **/
 template <class Iterator, class body_to_cancel>
-void Test6_parallel_do () {
+void TestCancelation2_parallel_do () {
     ResetGlobals();
     RunCancellationTest<ParDoWorkerTask<body_to_cancel, Iterator>, CancellatorTask2>();
-    ASSERT (g_CurExecuted <= g_ExecutedAtCatch, "Some tasks were executed after cancellation");
-} // void Test6_parallel_do ()
-
-// This body throws an exception only if the task was added by feeder
-class ParDoBodyWithThrowingFeederTasks {
-public:
-    //! This form of the function call operator can be used when the body needs to add more work during the processing
-    void operator() ( size_t &value, tbb::parallel_do_feeder<size_t> &feeder ) const {
-        ++g_CurExecuted;
-        Feed(feeder, 1);
-        if (value == 1)
-            ThrowTestException(1);
-    }
-}; // class ParDoBodyWithThrowingFeederTasks
-
-// Test exception in task, which was added by feeder.
-template <class Iterator>
-void Test8_parallel_do () {
-    ResetGlobals();
-    PREPARE_RANGE(Iterator, ITER_RANGE);
-    TRY();
-        tbb::parallel_do<Iterator, ParDoBodyWithThrowingFeederTasks>(begin, end, ParDoBodyWithThrowingFeederTasks());
-    CATCH();
-    if (g_SolitaryException)
-        ASSERT (exceptionCaught, "At least one exception should occur");
-} // void Test8_parallel_do ()
+    ASSERT (g_CurExecuted <= g_ExecutedAtCatch + g_NumThreads, "Some tasks were executed after cancellation");
+}
 
 #define RunWithSimpleBody(func, body)       \
     func<Harness::RandomIterator<size_t>, body>();           \
@@ -706,21 +713,19 @@ void Test8_parallel_do () {
     func<Harness::ForwardIterator<size_t>, body##WithFeeder<Harness::ForwardIterator<size_t> > >()
 
 void RunParDoTests() {
-    REMARK( "parallel do tests" );
+    REMARK( "parallel do tests\n" );
     tbb::task_scheduler_init init (g_NumThreads);
     g_Master = Harness::CurrentTid();
-#if !__TBB_EXCEPTION_HANDLING_BROKEN
+#if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
     RunWithSimpleBody(Test1_parallel_do, SimpleParDoBody);
     RunWithTemplatedBody(Test2_parallel_do, NestingParDoBody);
     RunWithTemplatedBody(Test3_parallel_do, NestingParDoBodyWithIsolatedCtx);
     RunWithTemplatedBody(Test4_parallel_do, NestingParDoWithEhBody);
-#endif
-    RunWithSimpleBody(Test5_parallel_do, ParDoBodyToCancel);
-    RunWithSimpleBody(Test6_parallel_do, ParDoBodyToCancel2);
-#if !__TBB_EXCEPTION_HANDLING_BROKEN
-    Test8_parallel_do<Harness::ForwardIterator<size_t> >();
-    Test8_parallel_do<Harness::RandomIterator<size_t> >();
-#endif
+    Test5_parallel_do<Harness::ForwardIterator<size_t> >();
+    Test5_parallel_do<Harness::RandomIterator<size_t> >();
+#endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
+    RunWithSimpleBody(TestCancelation1_parallel_do, ParDoBodyToCancel);
+    RunWithSimpleBody(TestCancelation2_parallel_do, ParDoBodyToCancel2);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -730,7 +735,7 @@ void RunParDoTests() {
 
 const size_t c_DataEndTag = size_t(~0);
 
-size_t g_NumTokens = 0;
+int g_NumTokens = 0;
 
 // Simple input filter class, it assigns 1 to all array members
 // It stops when it receives item equal to -1
@@ -809,47 +814,40 @@ void Test0_pipeline () {
         ASSERT(inputFilter.buffer()[i] == 50, "pipeline didn't process items properly");
 } // void Test0_pipeline ()
 
+#if TBB_USE_EXCEPTIONS
+
 // Simple filter with exception throwing
 class SimpleFilter : public tbb::filter {
+    bool m_canThrow;
 public:
-    SimpleFilter (tbb::filter::mode _mode ) : filter (_mode) {}
+    SimpleFilter (tbb::filter::mode _mode, bool canThrow ) : filter (_mode), m_canThrow(canThrow) {}
 
     void* operator()(void* item) {
-        Harness::ConcurrencyTracker ct;
         ++g_CurExecuted;
-        WaitUntilConcurrencyPeaks();
-        ThrowTestException(1);
+        if ( m_canThrow ) {
+            if ( !is_serial() ) {
+                Harness::ConcurrencyTracker ct;
+                WaitUntilConcurrencyPeaks( min(g_NumTokens, g_NumThreads) );
+            }
+            ThrowTestException(1);
+        }
         return item;
     }
 }; // class SimpleFilter
 
 // This enumeration represents filters order in pipeline
-enum FilterSet {
-    parallel__parallel=0,
-    parallel__serial=1,
-    parallel__serial_out_of_order=2,
-    serial__parallel=4,
-    serial__serial=5,
-    serial__serial_out_of_order=6,
-    serial_out_of_order__parallel=8,
-    serial_out_of_order__serial=9,
-    serial_out_of_order__serial_out_of_order=10
-};
+struct FilterSet {
+    tbb::filter::mode   mode1,
+                        mode2;
+    bool                throw1,
+                        throw2;
 
-// The function returns filter type using filter number in set
-tbb::filter::mode filter_mode (FilterSet set, int number) {
-    size_t tmp = set << (2 * (2 - number));
-    switch (tmp&12){
-        case 0:
-            return tbb::filter::parallel;
-        case 4:
-            return tbb::filter::serial_in_order;
-        case 8:
-            return tbb::filter::serial_out_of_order;
-    }
-    ASSERT(0, "Wrong filter set passed to get_filter_type");
-    return tbb::filter::parallel; // We should never get here, just to prevent compiler warnings
-}
+    FilterSet( tbb::filter::mode m1, tbb::filter::mode m2, bool t1, bool t2 )
+        : mode1(m1), mode2(m2), throw1(t1), throw2(t2)
+    {}
+}; // struct FilterSet
+
+FilterSet serial_parallel( tbb::filter::serial, tbb::filter::parallel, false, true );
 
 template<typename InFilter, typename Filter>
 class CustomPipeline : protected tbb::pipeline {
@@ -857,9 +855,8 @@ class CustomPipeline : protected tbb::pipeline {
     Filter filter1;
     Filter filter2;
 public:
-    CustomPipeline( FilterSet FilterSet )
-        : filter1(filter_mode(FilterSet, 1))
-        , filter2(filter_mode(FilterSet, 2))
+    CustomPipeline( const FilterSet& filters )
+        : filter1(filters.mode1, filters.throw1), filter2(filters.mode2, filters.throw2)
     {
        add_filter(inputFilter);
        add_filter(filter1);
@@ -874,9 +871,9 @@ public:
 typedef CustomPipeline<InputFilter, SimpleFilter> SimplePipeline;
 
 // Tests exceptions without nesting
-void Test1_pipeline ( FilterSet mode ) {
+void Test1_pipeline ( const FilterSet& filters ) {
     ResetGlobals();
-    SimplePipeline testPipeline(mode);
+    SimplePipeline testPipeline(filters);
     TRY();
         testPipeline.run();
         if ( g_CurExecuted == 2 * NUM_ITEMS ) {
@@ -895,11 +892,11 @@ void Test1_pipeline ( FilterSet mode ) {
 // Filter with nesting
 class NestingFilter : public tbb::filter {
 public:
-    NestingFilter( tbb::filter::mode _mode ) : tbb::filter( _mode) {}
+    NestingFilter (tbb::filter::mode _mode, bool ) : filter (_mode) {}
 
     void* operator()(void* item) {
         ++g_CurExecuted;
-        SimplePipeline testPipeline(serial__parallel);
+        SimplePipeline testPipeline(serial_parallel);
         testPipeline.run();
         return item;
     }
@@ -910,9 +907,9 @@ public:
     exceptions thrown from the nested pipeline are not handled by the caller
     (nesting pipeline body) in this test, they will cancel all the sibling nested
     algorithms. **/
-void Test2_pipeline ( FilterSet mode ) {
+void Test2_pipeline ( const FilterSet& filters ) {
     ResetGlobals();
-    CustomPipeline<InputFilter, NestingFilter> testPipeline(mode);
+    CustomPipeline<InputFilter, NestingFilter> testPipeline(filters);
     TRY();
         testPipeline.run();
     CATCH_AND_ASSERT();
@@ -925,12 +922,12 @@ void Test2_pipeline ( FilterSet mode ) {
 
 class NestingFilterWithIsolatedCtx : public tbb::filter {
 public:
-    NestingFilterWithIsolatedCtx(tbb::filter::mode m ) : filter (m) {}
+    NestingFilterWithIsolatedCtx(tbb::filter::mode m, bool ) : filter(m) {}
 
     void* operator()(void* item) {
         ++g_CurExecuted;
         tbb::task_group_context ctx(tbb::task_group_context::isolated);
-        SimplePipeline testPipeline(serial__parallel);
+        SimplePipeline testPipeline(serial_parallel);
         testPipeline.run(ctx);
         return item;
     }
@@ -942,11 +939,11 @@ public:
     already running because of the isolated contexts. However because the first
     exception cancels the root parallel_do only the first g_NumThreads subranges
     will be processed (which launch nested pipelines) **/
-void Test3_pipeline ( FilterSet mode ) {
+void Test3_pipeline ( const FilterSet& filters ) {
     ResetGlobals();
     intptr_t nestedCalls = 100,
              minExecuted = (g_NumThreads - 1) * nestedCalls;
-    CustomPipeline<InputFilter, NestingFilterWithIsolatedCtx> testPipeline(mode);
+    CustomPipeline<InputFilter, NestingFilterWithIsolatedCtx> testPipeline(filters);
     TRY();
         testPipeline.run();
     CATCH_AND_ASSERT();
@@ -962,11 +959,11 @@ void Test3_pipeline ( FilterSet mode ) {
 
 class NestingFilterWithEhBody : public tbb::filter {
 public:
-    NestingFilterWithEhBody(tbb::filter::mode m ) : filter(m) {}
+    NestingFilterWithEhBody(tbb::filter::mode m, bool ) : filter(m) {}
 
     void* operator()(void* item) {
         tbb::task_group_context ctx(tbb::task_group_context::isolated);
-        SimplePipeline testPipeline(serial__parallel);
+        SimplePipeline testPipeline(serial_parallel);
         TRY();
             testPipeline.run(ctx);
         CATCH();
@@ -978,11 +975,10 @@ public:
 /** Since exception(s) thrown from the nested pipeline are handled by the caller
     in this test, they do not affect neither other tasks of the the root pipeline
     nor sibling nested algorithms. **/
-
-void Test4_pipeline ( FilterSet mode ) {
+void Test4_pipeline ( const FilterSet& filters ) {
 #if __GNUC__ && !__INTEL_COMPILER
     if ( strncmp(__VERSION__, "4.1.0", 5) == 0 ) {
-        REMARK_ONCE("Warning: One of exception handling tests is skipped due to a known issue.\n");
+        REMARK_ONCE("Known issue: one of exception handling tests is skipped.\n");
         return;
     }
 #endif
@@ -990,7 +986,7 @@ void Test4_pipeline ( FilterSet mode ) {
     intptr_t nestedCalls = NUM_ITEMS + 1,
              nestingCalls = 2 * (NUM_ITEMS + 1),
              maxExecuted = nestingCalls * nestedCalls;
-    CustomPipeline<InputFilter, NestingFilterWithEhBody> testPipeline(mode);
+    CustomPipeline<InputFilter, NestingFilterWithEhBody> testPipeline(filters);
     TRY();
         testPipeline.run();
     CATCH_AND_ASSERT();
@@ -998,7 +994,7 @@ void Test4_pipeline ( FilterSet mode ) {
     intptr_t  minExecuted = 0;
     if ( g_SolitaryException ) {
         minExecuted = maxExecuted - nestedCalls;
-        ASSERT (g_Exceptions == 1, "No exception registered");
+        ASSERT (g_Exceptions != 0, "No exception registered");
         ASSERT (g_CurExecuted <= minExecuted + g_NumThreads, "Too many tasks survived exception");
     }
     else {
@@ -1006,82 +1002,8 @@ void Test4_pipeline ( FilterSet mode ) {
         ASSERT (g_Exceptions > 1 && g_Exceptions <= nestingCalls, "Unexpected actual number of exceptions");
         ASSERT (g_CurExecuted >= minExecuted, "Too many executed tasks reported");
         ASSERT (g_CurExecuted <= g_ExecutedAtCatch + g_NumThreads, "Too many tasks survived multiple exceptions");
-        ASSERT (g_CurExecuted <= nestingCalls * (1 + g_NumThreads), "Too many tasks survived exception");
     }
 } // void Test4_pipeline ()
-
-class FilterToCancel : public tbb::filter {
-public:
-    FilterToCancel(bool is_parallel)
-        : filter( is_parallel ? tbb::filter::parallel : tbb::filter::serial_in_order )
-    {}
-    void* operator()(void* item) {
-        ++g_CurExecuted;
-        CancellatorTask::WaitUntilReady();
-        return item;
-    }
-}; // class FilterToCancel
-
-template <class Filter_to_cancel> 
-class PipelineLauncherTask : public tbb::task {
-    tbb::task_group_context &my_ctx;
-public:
-    PipelineLauncherTask ( tbb::task_group_context& ctx ) : my_ctx(ctx) {}
-
-    tbb::task* execute () {
-        // Run test when serial filter is the first non-input filter
-        InputFilter inputFilter;
-        Filter_to_cancel filterToCancel(true);
-        tbb::pipeline p;
-        p.add_filter(inputFilter);
-        p.add_filter(filterToCancel);
-        p.run(g_NumTokens, my_ctx);
-        return NULL;
-    }
-};
-
-//! Test for cancelling an algorithm from outside (from a task running in parallel with the algorithm).
-void Test5_pipeline () {
-    ResetGlobals();
-    g_ThrowException = false;
-    intptr_t  threshold = 10;
-    tbb::task_group_context ctx;
-    ctx.reset();
-    tbb::empty_task &r = *new( tbb::task::allocate_root() ) tbb::empty_task;
-    r.set_ref_count(3);
-    r.spawn( *new( r.allocate_child() ) CancellatorTask(ctx, threshold) );
-    __TBB_Yield();
-    r.spawn( *new( r.allocate_child() ) PipelineLauncherTask<FilterToCancel>(ctx) );
-    TRY();
-        r.wait_for_all();
-    CATCH();
-    r.destroy(r);
-    ASSERT (!exceptionCaught, "Cancelling tasks should not cause any exceptions");
-    ASSERT (g_CurExecuted < g_ExecutedAtCatch + g_NumThreads, "Too many tasks were executed after cancellation");
-} // void Test5_pipeline ()
-
-class FilterToCancel2 : public tbb::filter {
-public:
-    FilterToCancel2(bool is_parallel)
-        : filter ( is_parallel ? tbb::filter::parallel : tbb::filter::serial_in_order)
-    {}
-
-    void* operator()(void* item) {
-        ++g_CurExecuted;
-        // The test will hang (and be timed out by the tesst system) if is_cancelled() is broken
-        while( !tbb::task::self().is_cancelled() )
-            __TBB_Yield();
-        return item;
-    }
-};
-
-//! Test for cancelling an algorithm from outside (from a task running in parallel with the algorithm).
-/** This version also tests task::is_cancelled() method. **/
-void Test6_pipeline () {
-    ResetGlobals();
-    RunCancellationTest<PipelineLauncherTask<FilterToCancel2>, CancellatorTask2>();
-    ASSERT (g_CurExecuted <= g_ExecutedAtCatch, "Some tasks were executed after cancellation");
-} // void Test6_pipeline ()
 
 //! Testing filter::finalize method
 #define BUFFER_SIZE     32
@@ -1124,7 +1046,7 @@ public:
 // The filter multiplies each buffer item by 10.
 class ProcessingFilterWithFinalization : public FinalizationBaseFilter {
 public:
-    ProcessingFilterWithFinalization (tbb::filter::mode _mode) : FinalizationBaseFilter (_mode) {}
+    ProcessingFilterWithFinalization (tbb::filter::mode _mode, bool) : FinalizationBaseFilter (_mode) {}
 
     void* operator()( void* item) {
         if (g_TotalCount > NUM_BUFFERS / 2)
@@ -1150,10 +1072,10 @@ public:
 };
 
 //! Tests filter::finalize method
-void Test8_pipeline (FilterSet mode) {
+void Test5_pipeline ( const FilterSet& filters ) {
     ResetGlobals();
     g_AllocatedCount = 0;
-    CustomPipeline<InputFilterWithFinalization, ProcessingFilterWithFinalization> testPipeline(mode);
+    CustomPipeline<InputFilterWithFinalization, ProcessingFilterWithFinalization> testPipeline(filters);
     OutputFilterWithFinalization my_output_filter(tbb::filter::parallel);
 
     testPipeline.add_filter(my_output_filter);
@@ -1161,248 +1083,182 @@ void Test8_pipeline (FilterSet mode) {
         testPipeline.run();
     CATCH();
     ASSERT (g_AllocatedCount == 0, "Memory leak: Some my_object weren't destroyed");
-} // void Test8_pipeline ()
+} // void Test5_pipeline ()
 
-// Tests pipeline function passed with different combination of filters
-template<void testFunc(FilterSet)>
+//! Tests pipeline function passed with different combination of filters
+template<void testFunc(const FilterSet&)>
 void TestWithDifferentFilters() {
-    testFunc(parallel__parallel);
-    testFunc(parallel__serial);
-    testFunc(parallel__serial_out_of_order);
-    testFunc(serial__parallel);
-    testFunc(serial__serial);
-    testFunc(serial__serial_out_of_order);
-    testFunc(serial_out_of_order__parallel);
-    testFunc(serial_out_of_order__serial);
-    testFunc(serial_out_of_order__serial_out_of_order);
+    const int NumFilterTypes = 3;
+    const tbb::filter::mode modes[NumFilterTypes] = {
+            tbb::filter::parallel,
+            tbb::filter::serial,
+            tbb::filter::serial_out_of_order
+        };
+    for ( int i = 0; i < NumFilterTypes; ++i ) {
+        for ( int j = 0; j < NumFilterTypes; ++j ) {
+            for ( int k = 0; k < 2; ++k )
+                testFunc( FilterSet(modes[i], modes[j], k == 0, k != 0) );
+        }
+    }
+}
+
+#endif /* TBB_USE_EXCEPTIONS */
+
+class FilterToCancel : public tbb::filter {
+public:
+    FilterToCancel(bool is_parallel)
+        : filter( is_parallel ? tbb::filter::parallel : tbb::filter::serial_in_order )
+    {}
+    void* operator()(void* item) {
+        ++g_CurExecuted;
+        CancellatorTask::WaitUntilReady();
+        return item;
+    }
+}; // class FilterToCancel
+
+template <class Filter_to_cancel> 
+class PipelineLauncherTask : public tbb::task {
+    tbb::task_group_context &my_ctx;
+public:
+    PipelineLauncherTask ( tbb::task_group_context& ctx ) : my_ctx(ctx) {}
+
+    tbb::task* execute () {
+        // Run test when serial filter is the first non-input filter
+        InputFilter inputFilter;
+        Filter_to_cancel filterToCancel(true);
+        tbb::pipeline p;
+        p.add_filter(inputFilter);
+        p.add_filter(filterToCancel);
+        p.run(g_NumTokens, my_ctx);
+        return NULL;
+    }
+};
+
+//! Test for cancelling an algorithm from outside (from a task running in parallel with the algorithm).
+void TestCancelation1_pipeline () {
+    ResetGlobals();
+    g_ThrowException = false;
+    intptr_t  threshold = 10;
+    tbb::task_group_context ctx;
+    ctx.reset();
+    tbb::empty_task &r = *new( tbb::task::allocate_root() ) tbb::empty_task;
+    r.set_ref_count(3);
+    r.spawn( *new( r.allocate_child() ) CancellatorTask(ctx, threshold) );
+    __TBB_Yield();
+    r.spawn( *new( r.allocate_child() ) PipelineLauncherTask<FilterToCancel>(ctx) );
+    TRY();
+        r.wait_for_all();
+    CATCH_AND_FAIL();
+    r.destroy(r);
+    ASSERT (g_CurExecuted < g_ExecutedAtCatch + g_NumThreads, "Too many tasks were executed after cancellation");
+}
+
+class FilterToCancel2 : public tbb::filter {
+public:
+    FilterToCancel2(bool is_parallel)
+        : filter ( is_parallel ? tbb::filter::parallel : tbb::filter::serial_in_order)
+    {}
+
+    void* operator()(void* item) {
+        ++g_CurExecuted;
+        Harness::ConcurrencyTracker ct;
+        // The test will hang (and be timed out by the tesst system) if is_cancelled() is broken
+        while( !tbb::task::self().is_cancelled() )
+            __TBB_Yield();
+        return item;
+    }
+};
+
+//! Test for cancelling an algorithm from outside (from a task running in parallel with the algorithm).
+/** This version also tests task::is_cancelled() method. **/
+void TestCancelation2_pipeline () {
+    ResetGlobals();
+    RunCancellationTest<PipelineLauncherTask<FilterToCancel2>, CancellatorTask2>();
+    ASSERT (g_CurExecuted <= g_ExecutedAtCatch, "Some tasks were executed after cancellation");
 }
 
 void RunPipelineTests() {
-    REMARK( "pipeline tests" );
+    REMARK( "pipeline tests\n" );
     tbb::task_scheduler_init init (g_NumThreads);
     g_Master = Harness::CurrentTid();
     g_NumTokens = 2 * g_NumThreads;
 
     Test0_pipeline();
-#if !__TBB_EXCEPTION_HANDLING_BROKEN
+#if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
     TestWithDifferentFilters<Test1_pipeline>();
     TestWithDifferentFilters<Test2_pipeline>();
     TestWithDifferentFilters<Test3_pipeline>();
     TestWithDifferentFilters<Test4_pipeline>();
-#endif /* !__TBB_EXCEPTION_HANDLING_BROKEN */
-    Test5_pipeline();
-    Test6_pipeline();
-#if !__TBB_EXCEPTION_HANDLING_BROKEN
-    TestWithDifferentFilters<Test8_pipeline>();
-#endif
+    TestWithDifferentFilters<Test5_pipeline>();
+#endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
+    TestCancelation1_pipeline();
+    TestCancelation2_pipeline();
 }
-#endif /* __TBB_EXCEPTIONS */
 
-////////////////////////////////////////////////////////////////////////////////
-// Tests for tbb::parallel_scan
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
-const int id = 0;
-const int PSCAN_SIZE_OF_BUFFER = 100;
+#if TBB_USE_EXCEPTIONS
 
-class PScanBodyNothrow : public tbb::internal::no_assign {
-    size_t sum;
-    const size_t* const x;
-    size_t* const y;
+class MyCapturedException : public tbb::captured_exception {
 public:
-    PScanBodyNothrow( size_t y_[], const size_t x_[] ) : sum(id), x(x_), y(y_) {}
-    size_t get_sum() const {return sum;}
-    template<typename Tag>
-    void operator()( const tbb::blocked_range<int>& r, Tag ) {
-        size_t temp = sum;
-        for( int i=r.begin(); i<r.end(); ++i ) {
-            temp = temp + x[i];
-            if( Tag::is_final_scan() )
-                y[i] = temp;
-        }
-        sum = temp;
+    static int m_refCount;
+
+    MyCapturedException () : tbb::captured_exception("MyCapturedException", "test") { ++m_refCount; }
+    ~MyCapturedException () throw() { --m_refCount; }
+
+    MyCapturedException* move () throw() {
+        MyCapturedException* movee = (MyCapturedException*)malloc(sizeof(MyCapturedException));
+        return ::new (movee) MyCapturedException;
     }
-    PScanBodyNothrow( PScanBodyNothrow& b, tbb::split ) :  sum(id), x(b.x), y(b.y) {}
-    void reverse_join( PScanBodyNothrow& a ) { sum = a.sum + sum;}
-    void assign( PScanBodyNothrow& b ) {sum = b.sum;}
+    void destroy () throw() {
+        this->~MyCapturedException();
+        free(this);
+    }
+    void operator delete ( void* p ) { free(p); }
 };
 
-// Test parallel_scan without exceptions throwing
-void Test0_parallel_scan () {
-    ResetGlobals();
+int MyCapturedException::m_refCount = 0;
 
-    // TODO move to a function or macro
-    size_t x[100], y[100], y_ref[100], sum = 0;
-    for (size_t i = 0; i < 100; i ++)
-    {
-        x[i] = i;
-        y[i] = 0;
-        sum += x[i];
-        y_ref[i] = sum;
-    }
-
-    PScanBodyNothrow body(y,x);
-    tbb::parallel_scan( tbb::blocked_range<int>(0, 100, 1), body );
-    for (size_t i = 0; i < 100; i ++)
-    {
-        ASSERT(y[i] == y_ref[i], "Sum got from parallel_scan is different from serial one");
-    }
-    ASSERT(body.get_sum() == y_ref[99], "Sum got from parallel_scan is different from serial one");
-
-} // void Test0_parallel_scan ()
-
-// Simple parallel_scan body which throws an exception
-class SimplePscanBody {
-public:
-    SimplePscanBody( ) {}
-    template<typename Tag>
-    void operator()( const tbb::blocked_range<int>& , Tag ) {
-        ++g_CurExecuted;
-        Harness::ConcurrencyTracker ct;
-        WaitUntilConcurrencyPeaks();
-        ThrowTestException(1);
-    }
-    SimplePscanBody( SimplePscanBody&, tbb::split ) {}
-    void reverse_join( SimplePscanBody& ) {}
-    void assign( SimplePscanBody& ) {}
-};
-
-// Tests tbb::parallel_scan exceptions handling without nesting
-void Test1_parallel_scan()
-{
-    ResetGlobals();
-
-    TRY();
-        SimplePscanBody simple_body;
-        tbb::parallel_scan( tbb::blocked_range<int>(0, 100, 1), simple_body );
-    CATCH_AND_ASSERT();
-
-    ASSERT (g_CurExecuted <= g_ExecutedAtCatch + g_NumThreads, "Too many tasks survived exception");
-    ASSERT (g_Exceptions == 1, "No try_blocks in any body expected in this test");
-    if ( !g_SolitaryException )
-        ASSERT (g_CurExecuted <= g_ExecutedAtCatch + g_NumThreads, "Too many tasks survived exception");
-} // void Test1_parallel_scan()
-
-class NestingPScanBody {
-public:
-    NestingPScanBody( ) {}
-    template<typename Tag>
-    void operator()( const tbb::blocked_range<int>&, Tag ) {
-        ++g_CurExecuted;
-        if ( Harness::CurrentTid() == g_Master )
-            __TBB_Yield();
-
-        SimplePscanBody simple_body;
-        tbb::parallel_scan( tbb::blocked_range<int>(0, 100, 1), simple_body );
-    }
-    NestingPScanBody( NestingPScanBody& , tbb::split ) {}
-    void reverse_join( NestingPScanBody& ) {}
-    void assign( NestingPScanBody& ) {}
-};
-
-//! Uses parallel_scan body containing a nested parallel_scan with the default context not wrapped by a try-block.
-/** Nested algorithms are spawned inside the new bound context by default. Since
-    exceptions thrown from the nested parallel_scan are not handled by the caller
-    (nesting parallel_scan body) in this test, they will cancel all the sibling nested
-    algorithms. **/
-void Test2_parallel_scan () {
-    ResetGlobals();
-
-    TRY();
-        NestingPScanBody nesting_body;
-        tbb::parallel_scan( tbb::blocked_range<int>(0, 100, 1), nesting_body );
-    CATCH_AND_ASSERT();
-
-    ASSERT (g_ExceptionThrown, "No exception thrown from the nesting parallel_scan");
-    ASSERT (g_CurExecuted <= g_ExecutedAtCatch + g_NumThreads, "Too many tasks survived exception");
-    ASSERT (g_Exceptions == 1, "No try_blocks in any body expected in this test");
-    if ( !g_SolitaryException )
-        ASSERT (g_CurExecuted <= g_ExecutedAtCatch + g_NumThreads, "Too many tasks survived exception");
-} // void Test2_parallel_scan ()
-
-class PScanBodyToCancel {
-public:
-    PScanBodyToCancel( ) {}
-    template<typename Tag>
-    void operator()( const tbb::blocked_range<int>&, Tag ) {
-        ++g_CurExecuted;
-        CancellatorTask::WaitUntilReady();
-    }
-    PScanBodyToCancel( PScanBodyToCancel& , tbb::split ) {}
-    void reverse_join( PScanBodyToCancel& ) {}
-    void assign( PScanBodyToCancel& ) {}
-};
-
-typedef class EmptyClass {
-} Default_partitioner;
-
-template <typename Partitioner>
-class MyWorkerPScanTask : public tbb::task
-{
-    tbb::task_group_context &my_ctx;
-
-    tbb::task* execute () {
-        PScanBodyToCancel body_to_cancel;
-        tbb::parallel_scan( tbb::blocked_range<int>(0, 100, 1), body_to_cancel, Partitioner(), my_ctx );
-        return NULL;
-    }
-public:
-    MyWorkerPScanTask ( tbb::task_group_context& ctx ) : my_ctx(ctx) {}
-};
-
-template <>
-class MyWorkerPScanTask<Default_partitioner> : public tbb::task
-{
-    tbb::task_group_context &my_ctx;
-
-    tbb::task* execute () {
-        PScanBodyToCancel body_to_cancel;
-        tbb::parallel_scan( tbb::blocked_range<int>(0, 100, 1), body_to_cancel, my_ctx );
-        return NULL;
-    }
-public:
-    MyWorkerPScanTask ( tbb::task_group_context& ctx ) : my_ctx(ctx) {}
-};
-
-
-//! Test for cancelling an algorithm from outside (from a task running in parallel with the algorithm).
-template <typename Partitioner>
-void Test5_parallel_scan () {
-    ResetGlobals( false );
-    RunCancellationTest<MyWorkerPScanTask<Partitioner>, CancellatorTask>( 1 );
-    ASSERT (g_CurExecuted < g_ExecutedAtCatch + g_NumThreads, "Too many tasks were executed after cancellation");
-} // void Test5_parallel_scan ()
-
-
-void RunPScanTests()
-{
-    tbb::task_scheduler_init init (g_NumThreads);
-    g_Master = Harness::CurrentTid();
-
-    Test0_parallel_scan();
-#if !(__GLIBC__==2&&__GLIBC_MINOR__==3)
-    Test1_parallel_scan();
-    Test2_parallel_scan();
-#endif /* __GLIBC__ */
-    if (g_NumThreads > 2) {
-        Test5_parallel_scan<tbb::simple_partitioner>();
-        Test5_parallel_scan<tbb::auto_partitioner>();
-        Test5_parallel_scan<Default_partitioner>(); // default partitioner
-    }
+void DeleteTbbException ( volatile tbb::tbb_exception* pe ) {
+    delete pe;
 }
+
+void TestTbbExceptionAPI () {
+    const char *name = "Test captured exception",
+               *reason = "Unit testing";
+    tbb::captured_exception e(name, reason);
+    ASSERT (strcmp(e.name(), name) == 0, "Setting captured exception name failed");
+    ASSERT (strcmp(e.what(), reason) == 0, "Setting captured exception reason failed");
+    tbb::captured_exception c(e);
+    ASSERT (strcmp(c.name(), e.name()) == 0, "Copying captured exception name failed");
+    ASSERT (strcmp(c.what(), e.what()) == 0, "Copying captured exception reason failed");
+    tbb::captured_exception *m = e.move();
+    ASSERT (strcmp(m->name(), name) == 0, "Moving captured exception name failed");
+    ASSERT (strcmp(m->what(), reason) == 0, "Moving captured exception reason failed");
+    ASSERT (!e.name() && !e.what(), "Moving semantics broken");
+    m->destroy();
+
+    MyCapturedException mce;
+    MyCapturedException *mmce = mce.move();
+    ASSERT( MyCapturedException::m_refCount == 2, NULL );
+    DeleteTbbException(mmce);
+    ASSERT( MyCapturedException::m_refCount == 1, NULL );
+}
+
+#endif /* TBB_USE_EXCEPTIONS */
 
 /** If min and max thread numbers specified on the command line are different,
     the test is run only for 2 sizes of the thread pool (MinThread and MaxThread)
     to be able to test the high and low contention modes while keeping the test reasonably fast **/
-__TBB_TEST_EXPORT
-int main(int argc, char* argv[]) {
-    ParseCommandLine( argc, argv );
-    MinThread = max(2, MinThread);
-    MaxThread = max(MinThread, MaxThread);
+int TestMain () {
+    REMARK ("Using %s\n", TBB_USE_CAPTURED_EXCEPTION ? "tbb:captured_exception" : "exact exception propagation");
+    MinThread = min(tbb::task_scheduler_init::default_num_threads(), max(2, MinThread));
+    MaxThread = max(MinThread, min(tbb::task_scheduler_init::default_num_threads(), MaxThread));
     ASSERT (FLAT_RANGE >= FLAT_GRAIN * MaxThread, "Fix defines");
-#if __TBB_EXCEPTIONS
-    int step = max(MaxThread - MinThread, 1);
+#if __TBB_TASK_GROUP_CONTEXT
+    int step = max((MaxThread - MinThread + 1)/2, 1);
     for ( g_NumThreads = MinThread; g_NumThreads <= MaxThread; g_NumThreads += step ) {
-        REMARK ("Number of threads %d", g_NumThreads);
+        REMARK ("Number of threads %d\n", g_NumThreads);
         // Execute in all the possible modes
         for ( size_t j = 0; j < 4; ++j ) {
             g_ExceptionInMaster = (j & 1) == 1;
@@ -1410,15 +1266,16 @@ int main(int argc, char* argv[]) {
             RunParForAndReduceTests();
             RunParDoTests();
             RunPipelineTests();
-            RunPScanTests();
         }
     }
-#if __TBB_EXCEPTION_HANDLING_BROKEN
-    REPORT("Warning: Exception handling tests are skipped due to a known issue.\n");
+#if TBB_USE_EXCEPTIONS
+    TestTbbExceptionAPI();
 #endif
-    REPORT("done\n");
-#else  /* !__TBB_EXCEPTION_HANDLING_BROKEN */
-    REPORT("skipped\n");
-#endif /* !__TBB_EXCEPTIONS */
-    return 0;
+#if __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
+    REPORT("Known issue: exception handling tests are skipped.\n");
+#endif
+    return Harness::Done;
+#else  /* !__TBB_TASK_GROUP_CONTEXT */
+    return Harness::Skipped;
+#endif /* !__TBB_TASK_GROUP_CONTEXT */
 }
