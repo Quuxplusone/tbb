@@ -1002,9 +1002,7 @@ int TestMain () {
     ASSERT( !FooCount, NULL );
 #if !TBB_DEPRECATED
     TestComparison();
-#if !__TBB_FLOATING_POINT_BROKEN
     TestFindPrimes();
-#endif
     TestSort();
 #if __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
     REPORT("Known issue: exception safety test is skipped.\n");

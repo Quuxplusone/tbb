@@ -38,6 +38,10 @@
 #include "tbb_misc.h" // for DetectNumberOfWorkers and ThreadStackSize
 #include "tls.h"
 
+#if __TBB_SURVIVE_THREAD_SWITCH
+#include "cilk-tbb-interop.h"
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
+
 namespace tbb {
 namespace internal {
 
@@ -58,7 +62,7 @@ class __TBB_InitOnce;
 #else /* !__TBB_ARENA_PER_MASTER */
 //! The class handles access to the single instance of arena, and to TLS to keep scheduler instances.
 #endif /* !__TBB_ARENA_PER_MASTER */
-/** It also supports automatic on-demand intialization of the TBB scheduler.
+/** It also supports automatic on-demand initialization of the TBB scheduler.
     The class contains only static data members and methods.*/
 class governor {
     friend class __TBB_InitOnce;
@@ -173,6 +177,10 @@ public:
     }
 
     static void print_version_info ();
+
+#if __TBB_SURVIVE_THREAD_SWITCH
+    static __cilk_tbb_retcode stack_op_handler( __cilk_tbb_stack_op op, void* );
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
 }; // class governor
 
 } // namespace internal

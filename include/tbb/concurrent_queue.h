@@ -91,14 +91,14 @@ public:
         my_allocator( a )
     {
         for( ; begin != end; ++begin )
-            internal_push(&*begin);
+            this->internal_push(&*begin);
     }
     
     //! Copy constructor
     concurrent_queue( const concurrent_queue& src, const allocator_type& a = allocator_type()) : 
         internal::concurrent_queue_base_v3<T>(), my_allocator( a )
     {
-        assign( src );
+        this->assign( src );
     }
     
     //! Destroy queue
@@ -106,14 +106,14 @@ public:
 
     //! Enqueue an item at tail of queue.
     void push( const T& source ) {
-        internal_push( &source );
+        this->internal_push( &source );
     }
 
     //! Attempt to dequeue an item from head of queue.
     /** Does not wait for item to become available.
         Returns true if successful; false otherwise. */
     bool try_pop( T& result ) {
-        return internal_try_pop( &result );
+        return this->internal_try_pop( &result );
     }
 
     //! Return the number of items in the queue; thread unsafe
@@ -375,7 +375,7 @@ public:
     /** Does not wait for queue to become not full.
         Returns true if item is pushed; false if queue was already full. */
     bool push_if_not_full( const T& source ) {
-        return try_push( source );
+        return this->try_push( source );
     }
 
     //! Attempt to dequeue an item from head of queue.
@@ -384,7 +384,7 @@ public:
         @deprecated Use try_pop()
         */
     bool pop_if_present( T& destination ) {
-        return try_pop( destination );
+        return this->try_pop( destination );
     }
 
     typedef typename concurrent_bounded_queue<T,A>::iterator iterator;

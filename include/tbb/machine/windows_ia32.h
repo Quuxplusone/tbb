@@ -40,7 +40,7 @@ extern "C" void _ReadWriteBarrier();
 #error Unsupported compiler - need to define __TBB_release_consistency_helper to support it
 #endif
 
-inline void __TBB_rel_acq_fence() { __asm { __asm mfence } }
+#define __TBB_full_memory_fence() __asm { __asm mfence }
 
 #define __TBB_WORDSIZE 4
 #define __TBB_BIG_ENDIAN 0
@@ -58,49 +58,6 @@ extern "C" {
     void __TBB_EXPORTED_FUNC __TBB_machine_store8 (volatile void *ptr, __int64 value );
     __int64 __TBB_EXPORTED_FUNC __TBB_machine_load8 (const volatile void *ptr);
 }
-
-template <typename T, size_t S>
-struct __TBB_machine_load_store {
-    static inline T load_with_acquire(const volatile T& location) {
-        T to_return = location;
-        __TBB_release_consistency_helper();
-        return to_return;
-    }
-
-    static inline void store_with_release(volatile T &location, T value) {
-        __TBB_release_consistency_helper();
-        location = value;
-    }
-};
-
-template <typename T>
-struct __TBB_machine_load_store<T,8> {
-    static inline T load_with_acquire(const volatile T& location) {
-        return __TBB_machine_load8((volatile void *)&location);
-    }
-
-    static inline void store_with_release(T &location, T value) {
-        __TBB_machine_store8((volatile void *)&location,(__int64)value);
-    }
-};
-
-template<typename T>
-inline T __TBB_machine_load_with_acquire(const volatile T &location) {
-    return __TBB_machine_load_store<T,sizeof(T)>::load_with_acquire(location);
-}
-
-template<typename T, typename V>
-inline void __TBB_machine_store_with_release(T& location, V value) {
-    __TBB_machine_load_store<T,sizeof(T)>::store_with_release(location,value);
-}
-
-//! Overload that exists solely to avoid /Wp64 warnings.
-inline void __TBB_machine_store_with_release(size_t& location, size_t value) {
-    __TBB_machine_load_store<size_t,sizeof(size_t)>::store_with_release(location,value);
-} 
-
-#define __TBB_load_with_acquire(L) __TBB_machine_load_with_acquire((L))
-#define __TBB_store_with_release(L,V) __TBB_machine_store_with_release((L),(V))
 
 #define __TBB_DEFINE_ATOMICS(S,T,U,A,C) \
 static inline T __TBB_machine_cmpswp##S ( volatile void * ptr, U value, U comparand ) { \

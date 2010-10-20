@@ -32,102 +32,10 @@
 #include "tbb/tbb_stddef.h"
 #include "tbb/atomic.h"
 #include "tbb/spin_mutex.h"
-
-#if _WIN32||_WIN64
-#if _XBOX
-    #define NONET
-    #define NOD3D
-    #include <xtl.h>
-#else
-#include <windows.h>
-#endif
-#elif __APPLE__
-#include <pthread.h>
-#include <mach/semaphore.h>
-#include <mach/task.h>
-#include <mach/mach_init.h>
-#include <mach/error.h>
-#else
-#include <pthread.h>
-#include <semaphore.h>
-#ifdef TBB_USE_DEBUG
-#include <errno.h>
-#endif
-#endif /*_WIN32||_WIN64*/
+#include "semaphore.h"
 
 namespace tbb {
 namespace internal {
-
-
-#if _WIN32||_WIN64
-typedef LONG sem_count_t;
-//! semaphore for concurrent_monitor
-class semaphore : no_copy {
-public:
-    //! ctor
-    semaphore() {sem = CreateSemaphore( NULL, 0, 1, NULL );}
-    //! dtor
-    ~semaphore() {CloseHandle( sem );}
-    //! wait/acquire
-    void P() {WaitForSingleObject( sem, INFINITE );}
-    //! post/release 
-    void V() {ReleaseSemaphore( sem, 1, NULL );}
-private:
-    HANDLE sem;
-};
-#elif __APPLE__
-//! semaphore for concurrent monitor
-class semaphore : no_copy {
-public:
-    //! ctor
-    semaphore() : sem(0) {
-        kern_return_t ret = semaphore_create( mach_task_self(), &sem, SYNC_POLICY_FIFO, 0 );
-        __TBB_ASSERT_EX( ret==err_none, "failed to create a semaphore" );
-    }
-    //! dtor
-    ~semaphore() {
-        kern_return_t ret = semaphore_destroy( mach_task_self(), sem );
-        __TBB_ASSERT_EX( ret==err_none, NULL );
-    }
-    //! wait/acquire
-    void P() { 
-        int ret;
-        do {
-            ret = semaphore_wait( sem );
-        } while( ret==KERN_ABORTED );
-        __TBB_ASSERT( ret==KERN_SUCCESS, "semaphore_wait() failed" );
-    }
-    //! post/release 
-    void V() { semaphore_signal( sem ); }
-private:
-    semaphore_t sem;
-};
-#else /* Linux/Unix */
-typedef uint32_t sem_count_t;
-//! semaphore for concurrent monitor
-class semaphore : no_copy {
-public:
-    //! ctor
-    semaphore() {
-        int ret = sem_init( &sem, /*shared among threads*/ 0, 0 );
-        __TBB_ASSERT_EX( !ret, NULL );
-    }
-    //! dtor
-    ~semaphore() {
-        int ret = sem_destroy( &sem );
-        __TBB_ASSERT_EX( !ret, NULL );
-    }
-    //! wait/acquire
-    void P() {
-        while( sem_wait( &sem )!=0 )
-            __TBB_ASSERT( errno==EINTR, NULL );
-    }
-    //! post/release 
-    void V() { sem_post( &sem ); }
-private:
-    sem_t sem;
-};
-#endif /* _WIN32||_WIN64 */
 
 //! Circular doubly-linked list with sentinel
 /** head.next points to the front and  head.prev points to the back */
@@ -234,19 +142,19 @@ public:
     void cancel_wait( thread_context& thr );
 
     //! Notify one thread about the event
-    void notify_one() {__TBB_rel_acq_fence(); notify_one_relaxed();}
+    void notify_one() {__TBB_full_memory_fence(); notify_one_relaxed();}
  
     //! Notify one thread about the event. Relaxed version.
     void notify_one_relaxed();
 
     //! Notify all waiting threads of the event
-    void notify_all() {__TBB_rel_acq_fence(); notify_all_relaxed();}
+    void notify_all() {__TBB_full_memory_fence(); notify_all_relaxed();}
  
     //! Notify all waiting threads of the event; Relaxed version
     void notify_all_relaxed();
 
     //! Notify waiting threads of the event that satisfies the given predicate
-    template<typename P> void notify( const P& predicate ) {__TBB_rel_acq_fence();notify_relaxed( predicate );}
+    template<typename P> void notify( const P& predicate ) {__TBB_full_memory_fence(); notify_relaxed( predicate );}
  
     //! Notify waiting threads of the event that satisfies the given predicate; Relaxed version
     template<typename P> void notify_relaxed( const P& predicate );

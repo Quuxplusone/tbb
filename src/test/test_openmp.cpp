@@ -197,10 +197,6 @@ const int M = 17*17;
 const int N = 13*13;
 
 int TestMain () {
-#ifdef _PGO_INSTRUMENT
-    REPORT("Known issue: test_openmp.exe has problems if compiled with -prof-genx; skipping\n");
-    return Harness::Skipped;
-#endif
     MinThread = 1;
     for( int p=MinThread; p<=MaxThread; ++p ) {
         T a[M];

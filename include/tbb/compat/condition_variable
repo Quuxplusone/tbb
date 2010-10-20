@@ -30,7 +30,7 @@
 #define __TBB_condition_variable_H
 
 #if _WIN32||_WIN64
-#include <windows.h>
+#include "../machine/windows_api.h"
 
 namespace tbb { 
 namespace interface5 {
@@ -56,6 +56,7 @@ typedef CONDITION_VARIABLE* PCONDITION_VARIABLE;
 #endif
 
 #else /* if not _WIN32||_WIN64 */
+#include <errno.h> // some systems need it for ETIMEDOUT
 #include <pthread.h>
 #endif /* _WIN32||_WIN64 */
 
@@ -377,7 +378,6 @@ inline cv_status condition_variable::wait_for( unique_lock<mutex>& lock, const t
 #include <ctime>
 #else /* generic Unix */
 #include <sys/time.h>
-#include <errno.h>
 #endif
 
 inline void condition_variable::wait( unique_lock<mutex>& lock )

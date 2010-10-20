@@ -44,13 +44,13 @@
 
 #if defined(__INTEL_COMPILER)
 #define __TBB_release_consistency_helper() __asm { __asm nop }
-inline void __TBB_rel_acq_fence() { __asm { __asm mfence } }
+#define __TBB_full_memory_fence() __asm { __asm mfence }
 #elif _MSC_VER >= 1300
 extern "C" void _ReadWriteBarrier();
 #pragma intrinsic(_ReadWriteBarrier)
 #define __TBB_release_consistency_helper() _ReadWriteBarrier()
 #pragma intrinsic(_mm_mfence)
-inline void __TBB_rel_acq_fence() { _mm_mfence(); }
+#define __TBB_full_memory_fence() _mm_mfence()
 #endif
 
 #define __TBB_WORDSIZE 8

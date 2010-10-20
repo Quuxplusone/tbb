@@ -76,13 +76,5 @@ namespace tbb {
             ;
 #endif /* DO_ITT_NOTIFY */
 
-namespace internal {
-
-#if DO_ITT_NOTIFY
-    bool InitializeITT () {
-        return __TBB_load_ittnotify() != 0;
-    }
-#endif /* DO_ITT_NOTIFY */
-} // namespace internal
 } // namespace tbb
 

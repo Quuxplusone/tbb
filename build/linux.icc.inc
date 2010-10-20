@@ -34,6 +34,7 @@ PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -w1
 DYLIB_KEY = -shared
+EXPORT_KEY = -Wl,--version-script,
 LIBDL = -ldl
 export COMPILER_VERSION := ICC: $(shell icc -V </dev/null 2>&1 | grep 'Version')
 #TODO: autodetection of arch from COMPILER_VERSION!!
@@ -44,9 +45,9 @@ CPLUS = icpc
 CONLY = icc
 
 ifeq (release,$(cfg))
-CPLUS_FLAGS = -O2 -strict_ansi -DUSE_PTHREAD
+CPLUS_FLAGS = -O2 -strict-ansi -DUSE_PTHREAD
 else
-CPLUS_FLAGS = -O0 -g -strict_ansi -DUSE_PTHREAD -DTBB_USE_DEBUG
+CPLUS_FLAGS = -O0 -g -strict-ansi -DUSE_PTHREAD -DTBB_USE_DEBUG
 endif
 
 ifneq (,$(codecov))

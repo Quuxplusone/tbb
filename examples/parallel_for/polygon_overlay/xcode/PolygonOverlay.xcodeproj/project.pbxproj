@@ -50,8 +50,8 @@
 		6A6DAA950DA2C0B3008D95BD /* rpolygon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = rpolygon.h; path = ../rpolygon.h; sourceTree = SOURCE_ROOT; };
 		8D0C4E960486CD37000505A6 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8D0C4E970486CD37000505A6 /* PolygonOverlay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PolygonOverlay.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A18D2A330B861B99007D8D2C /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = /Library/Frameworks/TBB.framework/Libraries/libtbb.dylib; sourceTree = "<absolute>"; };
-		A1976AD90DF6A6910032C3EA /* libtbbmalloc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbbmalloc.dylib; path = /Library/Frameworks/TBB.framework/Libraries/libtbbmalloc.dylib; sourceTree = "<absolute>"; };
+		A18D2A330B861B99007D8D2C /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = ../../../../lib/libtbb.dylib; sourceTree = SOURCE_ROOT; };
+		A1976AD90DF6A6910032C3EA /* libtbbmalloc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbbmalloc.dylib; path = ../../../../lib/libtbbmalloc.dylib; sourceTree = SOURCE_ROOT; };
 		A1A8F41D0B8B4DBE001C55B1 /* AGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AGL.framework; path = /System/Library/Frameworks/AGL.framework; sourceTree = "<absolute>"; };
 		A1A8F4300B8B4EA8001C55B1 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
 		A1E3E7BC0B3AD4EC007C3AB5 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = /System/Library/Frameworks/OpenGL.framework; sourceTree = "<absolute>"; };
@@ -220,11 +220,11 @@
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = "$(HOME)/Applications";
+				HEADER_SEARCH_PATHS = ../../../../include;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					../../../../lib,
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = PolygonOverlay;
 				GCC_VERSION = 4.0;
 			};
@@ -236,11 +236,11 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = "";
 				INSTALL_PATH = "$(HOME)/Applications";
+				HEADER_SEARCH_PATHS = ../../../../include;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					../../../../lib,
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = PolygonOverlay;
 				GCC_VERSION = 4.0;
 			};

@@ -34,6 +34,7 @@
 #include "tbb/tick_count.h"
 #include "tbb/tbb_allocator.h"
 #include "tbb/tbb_thread.h"
+#include "tbb/atomic.h"
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
@@ -108,6 +109,9 @@ struct test_helper<minimal<N> > {
    static inline double get(const minimal<N> &sum ) { return static_cast<double>(sum.value()); }
 };
 
+//! Tag class used to make certain constructors hard to invoke accidentally.
+struct SecretTagType {} SecretTag;
+
 //// functors and routines for initialization and combine
 
 // Addition
@@ -128,13 +132,22 @@ struct FunctorAddCombineRef<minimal<N> > {
     }
 };
 
+//! Counts instances of FunctorFinit
+static tbb::atomic<int> FinitCounter;
+
 template <typename T, int Value>
 struct FunctorFinit {
+    FunctorFinit( const FunctorFinit& ) {++FinitCounter;}
+    FunctorFinit( SecretTagType ) {++FinitCounter;}
+    ~FunctorFinit() {--FinitCounter;}
     T operator()() { return Value; }
 };
 
 template <size_t N, int Value>
 struct FunctorFinit<minimal<N>,Value> {
+    FunctorFinit( const FunctorFinit& ) {++FinitCounter;}
+    FunctorFinit( SecretTagType ) {++FinitCounter;}
+    ~FunctorFinit() {--FinitCounter;}
     minimal<N> operator()() {   
         minimal<N> result;
         result.set_value( Value );
@@ -261,7 +274,7 @@ void run_parallel_scalar_tests_nocombine(const char *test_name) {
             static_sums.clear();
 
             ets_type sums(exemplar);
-            FunctorFinit<T,0> my_finit;
+            FunctorFinit<T,0> my_finit(SecretTag);
             ets_type finit_ets(my_finit);
 
             ASSERT( sums.empty(), NULL);
@@ -920,7 +933,7 @@ run_assign_and_copy_constructor_test(const char *test_name) {
     ASSERT(7 == test_helper<T>::get(assign1.local()), NULL);
 
     // test creation with finit function
-    FunctorFinit<T,7> my_finit7;
+    FunctorFinit<T,7> my_finit7(SecretTag);
     tbb::enumerable_thread_specific<T> create2(my_finit7);
     (void) create2.local();
     ASSERT(7 == test_helper<T>::get(create2.local()), NULL);
@@ -933,7 +946,7 @@ run_assign_and_copy_constructor_test(const char *test_name) {
 
     // test copy assignment with function initializer
     create2.clear();
-    FunctorFinit<T,0> my_finit;
+    FunctorFinit<T,0> my_finit(SecretTag);
     tbb::enumerable_thread_specific<T> assign2(my_finit);
     assign2 = create2;
     (void) assign2.local();
@@ -949,9 +962,47 @@ run_assignment_and_copy_constructor_tests() {
     run_assign_and_copy_constructor_test<minimal<line_size-1> >("minimal<line_size-1>");
     run_assign_and_copy_constructor_test<minimal<line_size> >("minimal<line_size>");
     run_assign_and_copy_constructor_test<minimal<line_size+1> >("minimal<line_size+1>");
+    ASSERT(FinitCounter==0, NULL);
+}
+
+// Class with no default constructor
+class HasNoDefaultConstructor {
+    HasNoDefaultConstructor();
+public:
+    HasNoDefaultConstructor( SecretTagType ) {}
+};
+
+// Initialization functor for a HasNoDefaultConstructor
+struct HasNoDefaultConstructorFinit {
+    HasNoDefaultConstructor operator()() {
+        return HasNoDefaultConstructor(SecretTag);
+    }
+};
+
+struct HasNoDefaultConstructorCombine {
+    HasNoDefaultConstructor operator()( HasNoDefaultConstructor, HasNoDefaultConstructor ) {
+        return HasNoDefaultConstructor(SecretTag);
+    }
+};
+
+//! Test situations where only default constructor or copy constructor is required.
+void TestInstantiation() {
+    // Test instantiation is possible when copy constructor is not required.
+    tbb::enumerable_thread_specific<NoCopy> ets1;
+
+    // Test instantiation when default constructor is not required, because exemplar is provided.
+    HasNoDefaultConstructor x(SecretTag);
+    tbb::enumerable_thread_specific<HasNoDefaultConstructor> ets2(x);
+    ets2.combine(HasNoDefaultConstructorCombine());
+
+    // Test instantiation when default constructor is not required, because init function is provided.
+    HasNoDefaultConstructorFinit f;
+    tbb::enumerable_thread_specific<HasNoDefaultConstructor> ets3(f);
+    ets3.combine(HasNoDefaultConstructorCombine());
 }
 
 int TestMain () {
+    TestInstantiation();
     run_segmented_iterator_tests();
     flog_key_creation_and_deletion();
 
@@ -968,4 +1019,3 @@ int TestMain () {
 
     return Harness::Done;
 }
-

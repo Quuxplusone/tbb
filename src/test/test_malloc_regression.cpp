@@ -49,9 +49,11 @@ void RunThread(const Body& body, const Arg& arg) {
     job.wait_to_finish();
 }
 
+/*--------------------------------------------------------------------*/
+// The regression test against bug #1518 where thread boot strap allocations "leaked"
+
 #include "harness_memory.h"
 
-// The regression test for bug #1518 where thread boot strap allocations "leaked"
 bool TestBootstrapLeak() {
     /* In the bug 1518, each thread leaked ~384 bytes.
        Initially, scalable allocator maps 1MB. Thus it is necessary to take out most of this space.
@@ -98,6 +100,9 @@ bool TestBootstrapLeak() {
     return memory_leak<=0;
 }
 
+/*--------------------------------------------------------------------*/
+// The regression test against a bug with incompatible semantics of msize and realloc
+
 bool TestReallocMsize(size_t startSz) {
     bool passed = true;
 
@@ -121,12 +126,16 @@ bool TestReallocMsize(size_t startSz) {
     return passed;
 }
 
+/*--------------------------------------------------------------------*/
+// The main test function
+
 int TestMain () {
     bool passed = true;
     // Check whether memory usage data can be obtained; if not, skip test_bootstrap_leak.
     if( GetMemoryUsage() )
         passed &= TestBootstrapLeak();
 
+    // TestReallocMsize runs for each power of 2 and each Fibonacci number below 64K
     for (size_t a=1, b=1, sum=1; sum<=64*1024; ) {
         passed &= TestReallocMsize(sum);
         a = b;

@@ -36,6 +36,8 @@
 /** Uses circuitous logic forces compiler to put __m128 objects on stack while
     executing various methods, and thus tempt it to use aligned loads and stores
     on the stack. */
+//  Do not create file-scope objects of the class, because MinGW (as of May 2010)
+//  did not always provide proper stack alignment in destructors of such objects.
 class ClassWithSSE {
     static const int n = 16;
     __m128 field[n];
@@ -66,7 +68,7 @@ void ClassWithSSE::init( int start ) {
     __m128 stack[n];
     for( int i=0; i<n; ++i ) {
         // Declaring value as a one-element array instead of a scalar quites 
-        // gratuitous about possible use of "value" before it is used.
+        // gratuitous warnings about possible use of "value" before it was set.
         __m128 value[1];
         for( int j=0; j<4; ++j )
             ((float*)value)[j] = float(n*start+4*i+j);

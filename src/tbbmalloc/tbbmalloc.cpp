@@ -28,14 +28,14 @@
 
 #include "TypeDefinitions.h" // Customize.h and proxy.h get included
 
-#include "tbb/itt_notify.h" // for __TBB_load_ittnotify()
+#include "../tbb/itt_notify.h" // for __TBB_load_ittnotify()
 
 #undef UNICODE
 
 #if USE_PTHREAD
 #include <dlfcn.h>
 #elif USE_WINTHREAD
-#include <windows.h>
+#include "tbb/machine/windows_api.h"
 #endif
 
 #if MALLOC_CHECK_RECURSION
@@ -101,7 +101,7 @@ void ITT_DoOneTimeInitialization() {
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".dylib"
 #elif __linux__
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX  __TBB_STRING(.so.TBB_COMPATIBLE_INTERFACE_VERSION)
-#elif __FreeBSD__ || __sun
+#elif __FreeBSD__ || __sun || _AIX
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".so"
 #else
 #error Unknown OS
@@ -136,9 +136,7 @@ void init_tbbmalloc() {
 /* Preventing TBB allocator library from unloading to prevent
    resource leak, as memory is not released on the library unload.
 */
-#if USE_PTHREAD
-    dlopen(MALLOCLIB_NAME, RTLD_NOW);
-#elif USE_WINTHREAD
+#if USE_WINTHREAD
     // Prevent Windows from displaying message boxes if it fails to load library
     UINT prev_mode = SetErrorMode (SEM_FAILCRITICALERRORS);
     LoadLibrary(MALLOCLIB_NAME);
@@ -148,6 +146,12 @@ void init_tbbmalloc() {
 
 #if !(_WIN32||_WIN64)
 struct RegisterProcessShutdownNotification {
+    RegisterProcessShutdownNotification() {
+#if USE_PTHREAD
+        // prevents unloading, POSIX case
+        dlopen(MALLOCLIB_NAME, RTLD_NOW);
+#endif
+    }
     ~RegisterProcessShutdownNotification() {
         mallocProcessShutdownNotification();
     }
@@ -198,14 +202,6 @@ void __TBB_internal_free(void *object)
 } } // namespaces
 
 #ifdef _WIN32
-
-#if _XBOX
-    #define NONET
-    #define NOD3D
-    #include <xtl.h>
-#else
-#include <windows.h>
-#endif    
 
 extern "C" BOOL WINAPI DllMain( HINSTANCE hInst, DWORD callReason, LPVOID )
 {

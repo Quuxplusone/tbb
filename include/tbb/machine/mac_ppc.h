@@ -33,19 +33,17 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#include <sched.h> // sched_yield
-
 inline int32_t __TBB_machine_cmpswp4 (volatile void *ptr, int32_t value, int32_t comparand )
 {
     int32_t result;
 
-    __asm__ __volatile__("sync\n"
+    __asm__ __volatile__("lwsync\n"
                          "0: lwarx %0,0,%2\n\t"  /* load w/ reservation */
                          "cmpw %0,%4\n\t"        /* compare against comparand */
                          "bne- 1f\n\t"           /* exit if not same */
                          "stwcx. %3,0,%2\n\t"    /* store new_value */
                          "bne- 0b\n"             /* retry if reservation lost */
-                         "1: sync"               /* the exit */
+                         "1: lwsync"               /* the exit */
                           : "=&r"(result), "=m"(* (int32_t*) ptr)
                           : "r"(ptr), "r"(value), "r"(comparand), "m"(* (int32_t*) ptr)
                           : "cr0");
@@ -55,13 +53,13 @@ inline int32_t __TBB_machine_cmpswp4 (volatile void *ptr, int32_t value, int32_t
 inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t comparand )
 {
     int64_t result;
-    __asm__ __volatile__("sync\n"
+    __asm__ __volatile__("lwsync\n"
                          "0: ldarx %0,0,%2\n\t"  /* load w/ reservation */
                          "cmpd %0,%4\n\t"        /* compare against comparand */
                          "bne- 1f\n\t"           /* exit if not same */
                          "stdcx. %3,0,%2\n\t"    /* store new_value */
                          "bne- 0b\n"             /* retry if reservation lost */
-                         "1: sync"               /* the exit */
+                         "1: lwsync"               /* the exit */
                           : "=&b"(result), "=m"(* (int64_t*) ptr)
                           : "r"(ptr), "r"(value), "r"(comparand), "m"(* (int64_t*) ptr)
                           : "cr0");
@@ -80,6 +78,5 @@ inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t
 
 #define __TBB_CompareAndSwap4(P,V,C) __TBB_machine_cmpswp4(P,V,C)
 #define __TBB_CompareAndSwap8(P,V,C) __TBB_machine_cmpswp8(P,V,C)
-#define __TBB_Yield() sched_yield()
-#define __TBB_rel_acq_fence() __asm__ __volatile__("lwsync": : :"memory")
-#define __TBB_release_consistency_helper() __TBB_rel_acq_fence()
+#define __TBB_full_memory_fence() __asm__ __volatile__("sync": : :"memory")
+#define __TBB_release_consistency_helper() __asm__ __volatile__("lwsync": : :"memory")

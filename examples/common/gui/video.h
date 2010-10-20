@@ -38,12 +38,13 @@
 
 typedef unsigned int color_t;
 typedef unsigned char colorcomp_t;
+typedef signed char depth_t;
 
 //! Simple proxy class for managing of different video systems
 class video
 {
     //! colorspace information
-    char depth, red_shift, green_shift, blue_shift;
+    depth_t depth, red_shift, green_shift, blue_shift;
     color_t red_mask, green_mask, blue_mask;
     friend class drawing_area;
 
@@ -99,7 +100,7 @@ public:
 class drawing_area
 {
     const size_t base_index, max_index, index_stride;
-    const char pixel_depth;
+    const depth_t pixel_depth;
     unsigned int * const ptr32;
     size_t index;
 public:
@@ -124,7 +125,7 @@ inline color_t video::get_color(colorcomp_t red, colorcomp_t green, colorcomp_t 
     else if(depth >= 24)
         return (red<<red_shift) | (green<<green_shift) | (blue<<blue_shift);
     else if(depth > 0) {
-        register char bs = blue_shift, rs = red_shift;
+        register depth_t bs = blue_shift, rs = red_shift;
         if(blue_shift < 0) blue >>= -bs, bs = 0;
         else /*red_shift < 0*/ red >>= -rs, rs = 0;
         return (red<<rs)&red_mask | (green<<green_shift)&green_mask | (blue<<bs)&blue_mask;

@@ -37,9 +37,9 @@
 		05593A0D0B8F4F4500DE73AB /* OptimizedParallelSumTree.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = OptimizedParallelSumTree.cpp; path = ../OptimizedParallelSumTree.cpp; sourceTree = SOURCE_ROOT; };
 		05593A0E0B8F4F4500DE73AB /* SerialSumTree.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = SerialSumTree.cpp; path = ../SerialSumTree.cpp; sourceTree = SOURCE_ROOT; };
 		05593A0F0B8F4F4500DE73AB /* SimpleParallelSumTree.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = SimpleParallelSumTree.cpp; path = ../SimpleParallelSumTree.cpp; sourceTree = SOURCE_ROOT; };
-		05593A150B8F4F5D00DE73AB /* libtbbmalloc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbbmalloc.dylib; path = /Library/Frameworks/TBB.framework/Libraries/libtbbmalloc.dylib; sourceTree = "<absolute>"; };
+		05593A150B8F4F5D00DE73AB /* libtbbmalloc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbbmalloc.dylib; path = ../../../../lib/libtbbmalloc.dylib; sourceTree = SOURCE_ROOT; };
 		05593A4A0B8F51E000DE73AB /* tree_sum */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tree_sum; sourceTree = BUILT_PRODUCTS_DIR; };
-		A1F593B30B8F06F900073279 /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = /Library/Frameworks/TBB.framework/Libraries/libtbb.dylib; sourceTree = "<absolute>"; };
+		A1F593B30B8F06F900073279 /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = ../../../../lib/libtbb.dylib; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,14 +155,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_2)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
-				LIBRARY_SEARCH_PATHS_QUOTED_2 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = tree_sum;
 				ZERO_LINK = NO;
 			};
@@ -173,14 +171,12 @@
 			buildSettings = {
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_2)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
-				LIBRARY_SEARCH_PATHS_QUOTED_2 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = tree_sum;
 				ZERO_LINK = NO;
 			};
@@ -228,14 +224,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_2)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
-				LIBRARY_SEARCH_PATHS_QUOTED_2 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = tree_sum;
 				ZERO_LINK = NO;
 			};
@@ -248,14 +242,12 @@
 				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_2)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
-				LIBRARY_SEARCH_PATHS_QUOTED_2 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = tree_sum;
 				ZERO_LINK = NO;
 			};

@@ -55,27 +55,6 @@ public:
     task_prefix& prefix () { return my_task->prefix(); }
 }; // class auto_empty_task
 
-
-//------------------------------------------------------------------------
-// Debugging support
-//------------------------------------------------------------------------
-
-#define __TBB_POISON_DEQUE TBB_USE_ASSERT
-
-#if __TBB_POISON_DEQUE
-    #if __TBB_x86_64 || __TBB_ipf
-        static task* const poisoned_taskptr = (task*)0xDDEEAADDDEADBEEF;
-    #else
-        static task* const poisoned_taskptr = (task*)0xDEADBEEF;
-    #endif
-
-    #define __TBB_POISON_TASK_PTR(ptr) ptr = poisoned_taskptr
-    #define __TBB_ASSERT_VALID_TASK_PTR(ptr) __TBB_ASSERT( ptr != poisoned_taskptr, "task pointer in the deque is poisoned" )
-#else /* !__TBB_POISON_DEQUE */
-    #define __TBB_POISON_TASK_PTR(ptr) ((void)0)
-    #define __TBB_ASSERT_VALID_TASK_PTR(ptr) ((void)0)
-#endif /* !__TBB_POISON_DEQUE */
-
 //------------------------------------------------------------------------
 // fast_reverse_vector
 //------------------------------------------------------------------------
@@ -155,42 +134,6 @@ protected:
     size_t  m_size;
 
 }; // class fast_reverse_vector
-
-
-//------------------------------------------------------------------------
-// Statistics log
-//------------------------------------------------------------------------
-
-#if STATISTICS
-//! Class for collecting statistics
-/** There should be only one instance of this class. 
-    Results are written to a file "statistics.txt" in tab-separated format. */
-class statistics {
-public:
-    statistics() {
-        my_file = fopen("statistics.txt","w");
-        if( !my_file ) {
-            perror("fopen(\"statistics.txt\"\")");
-            exit(1);
-        }
-        fprintf(my_file,"%13s\t%13s\t%13s\t%13s\t%13s\t%13s\n", "execute", "steal", "mail", "proxy_execute", "proxy_steal", "proxy_bypass" );
-    }
-    ~statistics() {
-        fclose(my_file);
-    }
-    void record( long execute_count, long steal_count, long mail_received_count, 
-                 long proxy_execute_count, long proxy_steal_count, long proxy_bypass_count ) {
-        mutex::scoped_lock lock(my_mutex);
-        fprintf (my_file,"%13ld\t%13ld\t%13ld\t%13ld\t%13ld\t%13ld\n", execute_count, steal_count, mail_received_count, 
-                                                           proxy_execute_count, proxy_steal_count, proxy_bypass_count );
-    }
-private:
-    //! File into which statistics are written.
-    FILE* my_file;
-    //! Mutex that serializes accesses to my_file
-    mutex my_mutex;
-}; // class statistics
-#endif /* STATISTICS */
 
 } // namespace internal
 } // namespace tbb

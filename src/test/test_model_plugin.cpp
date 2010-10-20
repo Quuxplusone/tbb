@@ -28,7 +28,7 @@
 
 
 #if _WIN32 || _WIN64
-#include <windows.h>
+#include "tbb/machine/windows_api.h"
 #else
 #include <dlfcn.h>
 #endif

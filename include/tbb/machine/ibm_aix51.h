@@ -41,8 +41,7 @@ extern "C" {
 
 int32_t __TBB_machine_cas_32 (volatile void* ptr, int32_t value, int32_t comparand);
 int64_t __TBB_machine_cas_64 (volatile void* ptr, int64_t value, int64_t comparand);
-#define __TBB_fence_for_acquire() __TBB_machine_flush ()
-#define __TBB_fence_for_release() __TBB_machine_flush ()
+void    __TBB_machine_flush  ();
 
 }
 
@@ -50,3 +49,12 @@ int64_t __TBB_machine_cas_64 (volatile void* ptr, int64_t value, int64_t compara
 #define __TBB_CompareAndSwap8(P,V,C) __TBB_machine_cas_64(P,V,C)
 #define __TBB_CompareAndSwapW(P,V,C) __TBB_machine_cas_64(P,V,C)
 #define __TBB_Yield() sched_yield()
+
+#if __GNUC__
+#define __TBB_full_memory_fence() __asm__ __volatile__("sync": : :"memory")
+#define __TBB_release_consistency_helper() __asm__ __volatile__("lwsync": : :"memory")
+#else
+// IBM C++ Compiler does not support inline assembly
+#define __TBB_full_memory_fence() __TBB_machine_flush ()
+#define __TBB_release_consistency_helper() __TBB_machine_flush ()
+#endif

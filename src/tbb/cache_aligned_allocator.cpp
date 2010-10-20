@@ -34,13 +34,7 @@
 #include <cstdlib>
 
 #if _WIN32||_WIN64
-#if _XBOX
-    #define NONET
-    #define NOD3D
-    #include <xtl.h>
-#else
-#include <windows.h>
-#endif // _XBOX
+#include "tbb/machine/windows_api.h"
 #else
 #include <dlfcn.h>
 #endif /* _WIN32||_WIN64 */
@@ -51,15 +45,17 @@ using namespace std;
 
 #pragma weak scalable_malloc
 #pragma weak scalable_free
+#pragma weak scalable_aligned_malloc
+#pragma weak scalable_aligned_free
 
 extern "C" {
     void* scalable_malloc( size_t );
-    void scalable_free( void* );
+    void  scalable_free( void* );
+    void* scalable_aligned_malloc( size_t, size_t );
+    void  scalable_aligned_free( void* );
 }
 
 #endif /* __TBB_WEAK_SYMBOLS */
-
-#define __TBB_IS_SCALABLE_MALLOC_FIX_READY 0
 
 namespace tbb {
 
@@ -77,13 +73,6 @@ static void* (*MallocHandler)( size_t size ) = &DummyMalloc;
 //! Handler for memory deallocation
 static void (*FreeHandler)( void* pointer ) = &DummyFree;
 
-//! Table describing the how to link the handlers.
-static const dynamic_link_descriptor MallocLinkTable[] = {
-    DLD(scalable_malloc, MallocHandler),
-    DLD(scalable_free, FreeHandler),
-};
-
-#if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
 //! Dummy routine used for first indirect call via padded_allocate_handler.
 static void* dummy_padded_allocate( size_t bytes, size_t alignment );
 
@@ -92,9 +81,6 @@ static void dummy_padded_free( void * ptr );
 
 // ! Allocates memory using standard malloc. It is used when scalable_allocator is not available
 static void* padded_allocate( size_t bytes, size_t alignment );
-
-// ! Allocates memory using scalable_malloc
-static void* padded_allocate_via_scalable_malloc( size_t bytes, size_t alignment );
 
 // ! Allocates memory using standard free. It is used when scalable_allocator is not available
 static void padded_free( void* p );
@@ -105,7 +91,13 @@ static void* (*padded_allocate_handler)( size_t bytes, size_t alignment ) = &dum
 //! Handler for padded memory deallocation
 static void (*padded_free_handler)( void* p ) = &dummy_padded_free;
 
-#endif // #if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
+//! Table describing the how to link the handlers.
+static const dynamic_link_descriptor MallocLinkTable[] = {
+    DLD(scalable_malloc, MallocHandler),
+    DLD(scalable_free, FreeHandler),
+    DLD(scalable_aligned_malloc, padded_allocate_handler),
+    DLD(scalable_aligned_free, padded_free_handler),
+};
 
 
 #if TBB_USE_DEBUG
@@ -121,7 +113,7 @@ static void (*padded_free_handler)( void* p ) = &dummy_padded_free;
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".dylib"
 #elif __linux__
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX  __TBB_STRING(.so.TBB_COMPATIBLE_INTERFACE_VERSION)
-#elif __FreeBSD__ || __sun
+#elif __FreeBSD__ || __sun || _AIX
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".so"
 #else
 #error Unknown OS
@@ -133,7 +125,7 @@ static void (*padded_free_handler)( void* p ) = &dummy_padded_free;
     If that allocator is not found, it links to malloc and free. */
 void initialize_cache_aligned_allocator() {
     __TBB_ASSERT( MallocHandler==&DummyMalloc, NULL );
-    bool success = dynamic_link( MALLOCLIB_NAME, MallocLinkTable, 2 );
+    bool success = dynamic_link( MALLOCLIB_NAME, MallocLinkTable, 4 );
     if( !success ) {
         // If unsuccessful, set the handlers to the default routines.
         // This must be done now, and not before FillDynanmicLinks runs, because if other
@@ -141,14 +133,8 @@ void initialize_cache_aligned_allocator() {
         // which forces them to wait.
         FreeHandler = &free;
         MallocHandler = &malloc;
-#if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
         padded_allocate_handler = &padded_allocate;
         padded_free_handler = &padded_free;
-    }else{
-        padded_allocate_handler = &padded_allocate_via_scalable_malloc;
-        __TBB_ASSERT(FreeHandler != &free && FreeHandler != &DummyFree, NULL);
-        padded_free_handler = FreeHandler;
-#endif // __TBB_IS_SCALABLE_MALLOC_FIX_READY 
     }
 #if !__TBB_RML_STATIC
     PrintExtraVersionInfo( "ALLOCATOR", success?"scalable_malloc":"malloc" );
@@ -172,7 +158,6 @@ static void DummyFree( void * ptr ) {
     (*FreeHandler)( ptr );
 }
 
-#if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
 //! Executed on very first call through padded_allocate_handler
 static void* dummy_padded_allocate( size_t bytes, size_t alignment ) {
     DoOneTimeInitializations();
@@ -186,16 +171,12 @@ static void dummy_padded_free( void * ptr ) {
     __TBB_ASSERT( padded_free_handler!=&dummy_padded_free, NULL );
     (*padded_free_handler)( ptr );
 }    
-#endif // __TBB_IS_SCALABLE_MALLOC_FIX_READY 
 
 static size_t NFS_LineSize = 128;
 
 size_t NFS_GetLineSize() {
     return NFS_LineSize;
 }
-
-//! Requests for blocks this size and higher are handled via malloc/free,
-const size_t BigSize = 4096;
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // unary minus operator applied to unsigned type, result still unsigned
@@ -207,7 +188,6 @@ void* NFS_Allocate( size_t n, size_t element_size, void* /*hint*/ ) {
     __TBB_ASSERT( m<=NFS_MaxLineSize, "illegal value for NFS_LineSize" );
     __TBB_ASSERT( (m & (m-1))==0, "must be power of two" );
     size_t bytes = n*element_size;
-#if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
 
     if (bytes<n || bytes+m<bytes) {
         // Overflow
@@ -215,50 +195,12 @@ void* NFS_Allocate( size_t n, size_t element_size, void* /*hint*/ ) {
     }
     
     void* result = (*padded_allocate_handler)( bytes, m );
-#else
-    unsigned char* base = 0;
-    if( bytes<n || bytes+m<bytes || !(base=(unsigned char*)(bytes>=BigSize?malloc(m+bytes):(*MallocHandler)(m+bytes))) ) {
-        // Overflow
-        throw_exception(eid_bad_alloc);
-    }
-    // Round up to next line
-    unsigned char* result = (unsigned char*)((uintptr_t)(base+m)&-m);
-    // Record where block actually starts.  Use low order bit to record whether we used malloc or MallocHandler.
-    ((uintptr_t*)result)[-1] = uintptr_t(base)|(bytes>=BigSize);
-#endif // __TBB_IS_SCALABLE_MALLOC_FIX_READY    
-    /** The test may fail with TBB_IS_SCALABLE_MALLOC_FIX_READY = 1 
-        because scalable_malloc returns addresses aligned to 64 when large block is allocated */
     __TBB_ASSERT( ((size_t)result&(m-1)) == 0, "The address returned isn't aligned to cache line size" );
     return result;
 }
 
 void NFS_Free( void* p ) {
-#if __TBB_IS_SCALABLE_MALLOC_FIX_READY 
     (*padded_free_handler)( p );
-#else
-    if( p ) {
-        __TBB_ASSERT( (uintptr_t)p>=0x4096, "attempt to free block not obtained from cache_aligned_allocator" );
-        // Recover where block actually starts
-        unsigned char* base = ((unsigned char**)p)[-1];
-        __TBB_ASSERT( (void*)((uintptr_t)(base+NFS_LineSize)&-NFS_LineSize)==p, "not allocated by NFS_Allocate?" );
-        if( uintptr_t(base)&1 ) {
-            // Is a big block - use free
-            free(base-1);
-        } else {
-            // Is a small block - use scalable allocator
-            (*FreeHandler)( base );
-        }
-    }
-#endif // __TBB_IS_SCALABLE_MALLOC_FIX_READY
-}
-
-#if __TBB_IS_SCALABLE_MALLOC_FIX_READY
-static void* padded_allocate_via_scalable_malloc( size_t bytes, size_t alignment  ) {  
-    unsigned char* base;
-    if( !(base=(unsigned char*)(*MallocHandler)((bytes+alignment)&-alignment))) {
-        throw_exception(eid_bad_alloc);
-    }        
-    return base; // scalable_malloc returns aligned pointer
 }
 
 static void* padded_allocate( size_t bytes, size_t alignment ) {    
@@ -282,7 +224,6 @@ static void padded_free( void* p ) {
         free(base);
     }
 }
-#endif // #if __TBB_IS_SCALABLE_MALLOC_FIX_READY
 
 void* __TBB_EXPORTED_FUNC allocate_via_handler_v3( size_t n ) {    
     void* result;

@@ -31,6 +31,7 @@
 
 #include "atomic.h"
 #include "task.h"
+#include "tbb_allocator.h"
 #include <cstddef>
 
 namespace tbb {
@@ -156,6 +157,11 @@ private:
     //! Pointer to next filter in the pipeline.
     filter* next_filter_in_pipeline;
 
+    //! has the filter not yet processed all the tokens it will ever see?  
+    //  (pipeline has not yet reached end_of_input or this filter has not yet
+    //  seen the last token produced by input_filter)
+    bool has_more_work();
+
     //! Buffer for incoming tokens, or NULL if not required.
     /** The buffer is required if the filter is serial or follows a thread-bound one. */
     internal::input_buffer* my_input_buffer;
@@ -216,7 +222,7 @@ private:
     result_type internal_process_item(bool is_blocking);
 };
 
-//! A processing pipeling that applies filters to items.
+//! A processing pipeline that applies filters to items.
 /** @ingroup algorithms */
 class pipeline {
 public:
@@ -292,6 +298,7 @@ namespace internal {
     template<typename T, typename U, typename Body> class concrete_filter;
 }
 
+//! input_filter control to signal end-of-input for parallel_pipeline
 class flow_control {
     bool is_pipeline_stopped;
     flow_control() { is_pipeline_stopped = false; }
@@ -305,13 +312,18 @@ namespace internal {
 
 template<typename T, typename U, typename Body>
 class concrete_filter: public tbb::filter {
-    Body my_body;
+    const Body& my_body;
+
+    typedef typename tbb::tbb_allocator<U> u_allocator;
+    typedef typename tbb::tbb_allocator<T> t_allocator;
 
     /*override*/ void* operator()(void* input) {
         T* temp_input = (T*)input;
         // Call user's operator()() here
-        void* output = (void*) new U(my_body(*temp_input)); 
-        delete temp_input;
+        U* output_u = u_allocator().allocate(1);
+        void* output = (void*) new (output_u) U(my_body(*temp_input)); 
+        t_allocator().destroy(temp_input);
+        t_allocator().deallocate(temp_input,1);
         return output;
     }
 
@@ -321,13 +333,20 @@ public:
 
 template<typename U, typename Body>
 class concrete_filter<void,U,Body>: public filter {
-    Body my_body;
+    const Body& my_body;
+
+    typedef typename tbb::tbb_allocator<U> u_allocator;
 
     /*override*/void* operator()(void*) {
         flow_control control;
-        U temp_output = my_body(control);
-        void* output = control.is_pipeline_stopped ? NULL : (void*) new U(temp_output); 
-        return output;
+        U* output_u = u_allocator().allocate(1);
+        (void) new (output_u) U(my_body(control));
+        if(control.is_pipeline_stopped) {
+            u_allocator().destroy(output_u);
+            u_allocator().deallocate(output_u,1);
+            output_u = NULL;
+        }
+        return (void*)output_u;
     }
 public:
     concrete_filter(tbb::filter::mode filter_mode, const Body& body) : filter(filter_mode), my_body(body) {}
@@ -335,12 +354,15 @@ public:
 
 template<typename T, typename Body>
 class concrete_filter<T,void,Body>: public filter {
-    Body my_body;
+    const Body& my_body;
    
+    typedef typename tbb::tbb_allocator<T> t_allocator;
+
     /*override*/ void* operator()(void* input) {
         T* temp_input = (T*)input;
         my_body(*temp_input);
-        delete temp_input;
+        t_allocator().destroy(temp_input);
+        t_allocator().deallocate(temp_input,1);
         return NULL;
     }
 public:
@@ -349,7 +371,7 @@ public:
 
 template<typename Body>
 class concrete_filter<void,void,Body>: public filter {
-    Body my_body;
+    const Body& my_body;
     
     /** Override privately because it is always called virtually */
     /*override*/ void* operator()(void*) {
@@ -409,7 +431,7 @@ public:
 template<typename T, typename U, typename Body>
 class filter_node_leaf: public filter_node  {
     const tbb::filter::mode mode;
-    const Body& body;
+    const Body body;
     /*override*/void add_to( pipeline& p ) {
         concrete_filter<T,U,Body>* f = new concrete_filter<T,U,Body>(mode,body);
         p.add_filter( *f );
@@ -441,6 +463,7 @@ public:
 } // namespace internal
 //! @endcond
 
+//! Create a filter to participate in parallel_pipeline
 template<typename T, typename U, typename Body>
 filter_t<T,U> make_filter(tbb::filter::mode mode, const Body& body) {
     return new internal::filter_node_leaf<T,U,Body>(mode, body);

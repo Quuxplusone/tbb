@@ -40,7 +40,6 @@
 #include "harness_memory.h"
 #include "harness_concurrency_tracker.h"
 
-
 //! Define TRIVIAL as 1 to test only a single client, no nesting, no extra threads.
 #define TRIVIAL 0
 
@@ -215,7 +214,6 @@ protected:
         // Half of the stack is reserved for RSE, so test only remaining half.
         UseStackSpace( (my_stack_size-OverheadStackSize)/2 );
 #else
-        // XNMetaScheduler does not expose API for changing stack size.
         UseStackSpace( my_stack_size-OverheadStackSize );
 #endif
         j.update(MyJob::idle,MyJob::busy);

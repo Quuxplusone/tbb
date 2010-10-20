@@ -35,7 +35,14 @@
 #undef DO_ITT_NOTIFY
 #endif
 
-#include "MemoryAllocator.cpp" // can be in ../tbbmalloc or another directory
+#define protected public
+#define private public
+#include "../tbbmalloc/frontend.cpp"
+#undef protected
+#undef private
+#include "../tbbmalloc/backend.cpp"
+#include "../tbbmalloc/backref.cpp"
+#include "../tbbmalloc/large_objects.cpp"
 #include "../tbbmalloc/tbbmalloc.cpp"
 
 const int LARGE_MEM_SIZES_NUM = 10;
@@ -133,28 +140,28 @@ public:
 
         for (int i=0; i<ITERS; i++) {
             blocks1[i].sz = rand() % minLargeObjectSize;
-            blocks1[i].ptr = startupAlloc(blocks1[i].sz);
-            ASSERT(blocks1[i].ptr && startupMsize(blocks1[i].ptr)>=blocks1[i].sz 
+            blocks1[i].ptr = StartupBlock::allocate(blocks1[i].sz);
+            ASSERT(blocks1[i].ptr && StartupBlock::msize(blocks1[i].ptr)>=blocks1[i].sz 
                    && 0==(uintptr_t)blocks1[i].ptr % sizeof(void*), NULL);
             memset(blocks1[i].ptr, i, blocks1[i].sz);
         }
         for (int i=0; i<ITERS; i++) {
             blocks2[i].sz = rand() % minLargeObjectSize;
-            blocks2[i].ptr = startupAlloc(blocks2[i].sz);
-            ASSERT(blocks2[i].ptr && startupMsize(blocks2[i].ptr)>=blocks2[i].sz 
+            blocks2[i].ptr = StartupBlock::allocate(blocks2[i].sz);
+            ASSERT(blocks2[i].ptr && StartupBlock::msize(blocks2[i].ptr)>=blocks2[i].sz 
                    && 0==(uintptr_t)blocks2[i].ptr % sizeof(void*), NULL);
             memset(blocks2[i].ptr, i, blocks2[i].sz);
 
             for (size_t j=0; j<blocks1[i].sz; j++)
                 ASSERT(*((char*)blocks1[i].ptr+j) == i, NULL);
             Block *block = (Block *)alignDown(blocks1[i].ptr, blockSize);
-            startupFree((StartupBlock *)block, blocks1[i].ptr);
+            ((StartupBlock *)block)->free(blocks1[i].ptr);
         }
         for (int i=ITERS-1; i>=0; i--) {
             for (size_t j=0; j<blocks2[i].sz; j++)
                 ASSERT(*((char*)blocks2[i].ptr+j) == i, NULL);
             Block *block = (Block *)alignDown(blocks2[i].ptr, blockSize);
-            startupFree((StartupBlock *)block, blocks2[i].ptr);
+            ((StartupBlock *)block)->free(blocks2[i].ptr);
         }
     }
 };
@@ -175,7 +182,7 @@ public:
         TestBlock blocks[ITERS];
 
         for (int i=0; i<ITERS; i++) {
-            blocks[i].idx = newBackRef();
+            blocks[i].idx = BackRefIdx::newBackRef(/*largeObj=*/false);
             setBackRef(blocks[i].idx, &blocks[i].data);
         }
         for (int i=0; i<ITERS; i++)
@@ -245,6 +252,7 @@ void TestObjectRecognition() {
     size_t obtainedSize;
     Block *auxBackRef;
 
+    ASSERT(sizeof(BackRefIdx)==4, "Unexpected size of BackRefIdx");
     ASSERT(getObjectSize(falseObjectSize)!=falseObjectSize, "Error in test: bad choice for false object size");
 
     void* mem = scalable_malloc(2*blockSize);
@@ -260,7 +268,7 @@ void TestObjectRecognition() {
     headerLO->memoryBlock = (LargeMemoryBlock*)bufferLOH;
     headerLO->memoryBlock->unalignedSize = 2*blockSize + headersSize;
     headerLO->memoryBlock->objectSize = blockSize + headersSize;
-    headerLO->backRefIdx = newBackRef();
+    headerLO->backRefIdx = BackRefIdx::newBackRef(/*largeObj=*/true);
     setBackRef(headerLO->backRefIdx, headerLO);
     ASSERT(scalable_msize(falseLO) == blockSize + headersSize,
            "Error in test: LOH falsification failed");
@@ -270,17 +278,22 @@ void TestObjectRecognition() {
     BackRefIdx idxs[NUM_OF_IDX];
     for (int cnt=0; cnt<2; cnt++) {
         for (int master = -10; master<10; master++) {
-            falseBlock->backRefIdx.s.master = (uint16_t)master;
-            headerLO->backRefIdx.s.master = (uint16_t)master;
+            falseBlock->backRefIdx.master = (uint16_t)master;
+            headerLO->backRefIdx.master = (uint16_t)master;
         
             for (int bl = -10; bl<BR_MAX_CNT+10; bl++) {
-                falseBlock->backRefIdx.s.offset = (uint16_t)bl;
-                headerLO->backRefIdx.s.offset = (uint16_t)bl;
-                
-                obtainedSize = safer_scalable_msize(falseSO, NULL);
-                ASSERT(obtainedSize==0, "Incorrect pointer accepted");
-                obtainedSize = safer_scalable_msize(falseLO, NULL);
-                ASSERT(obtainedSize==0, "Incorrect pointer accepted");
+                falseBlock->backRefIdx.offset = (uint16_t)bl;
+                headerLO->backRefIdx.offset = (uint16_t)bl;
+
+                for (int largeObj = 0; largeObj<2; largeObj++) {
+                    falseBlock->backRefIdx.largeObj = largeObj;
+                    headerLO->backRefIdx.largeObj = largeObj;
+
+                    obtainedSize = safer_scalable_msize(falseSO, NULL);
+                    ASSERT(obtainedSize==0, "Incorrect pointer accepted");
+                    obtainedSize = safer_scalable_msize(falseLO, NULL);
+                    ASSERT(obtainedSize==0, "Incorrect pointer accepted");
+                }
             }
         }
         if (cnt == 1) {
@@ -289,7 +302,7 @@ void TestObjectRecognition() {
             break;
         }
         for (int i=0; i<NUM_OF_IDX; i++) {
-            idxs[i] = newBackRef();
+            idxs[i] = BackRefIdx::newBackRef(/*largeObj=*/false);
             setBackRef(idxs[i], NULL);
         }
     }
@@ -307,7 +320,7 @@ void TestObjectRecognition() {
 
 int TestMain () {
     // backreference requires that initialization was done
-    checkInitialization();
+    if(!isMallocInitialized()) doInitialization();
      // to succeed, leak detection must be the 1st memory-intensive test
     TestBackRef();
 

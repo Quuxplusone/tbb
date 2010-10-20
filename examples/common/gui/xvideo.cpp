@@ -26,9 +26,24 @@
     the GNU General Public License.
 */
 
-// Uncomment next line to disable shared memory features if you have not libXext
+// Uncomment next line to disable shared memory features if you do not have libXext
 // (http://www.xfree86.org/current/mit-shm.html)
 //#define X_NOSHMEM
+
+// Note that it may happen that the build environment supports the shared-memory extension
+// (so there's no build-time reason to disable the relevant code by defining X_NOSHMEM),
+// but that using shared memory still fails at run time.
+// This situation will (ultimately) cause the error handler set by XSetErrorHandler()
+// to be invoked with XErrorEvent::minor_code==X_ShmAttach. The code below tries to make
+// such a determination at XShmAttach() time, which seems plausible, but unfortunately
+// it has also been observed in a specific environment that the error may be reported
+// at a later time instead, even after video::init_window() has returned.
+// It is not clear whether this may happen in that way in any environment where it might
+// depend on the kind of display, e.g., local vs. over "ssh -X", so #define'ing X_NOSHMEM
+// may not always be the appropriate solution, therefore an environment variable
+// has been introduced to disable shared memory at run time.
+// A diagnostic has been added to advise the user about possible workarounds.
+// X_ShmAttach macro was changed to 1 due to recent changes to X11/extensions/XShm.h header.
 
 #include "video.h"
 #include <string.h>
@@ -50,6 +65,9 @@
 
 static XShmSegmentInfo shmseginfo;
 static Pixmap pixmap = 0;
+static bool already_called_X_ShmAttach = false;
+static bool already_advised_about_NOSHMEM_workarounds = false;
+static const char* NOSHMEM_env_var_name = "TBB_EXAMPLES_X_NOSHMEM";
 #endif
 static char *display_name = NULL;
 static Display *dpy = NULL;
@@ -79,7 +97,7 @@ video::video()
     g_video = this; title = "Video"; calc_fps = running = false; updating = true;
 }
 
-inline void mask2bits(unsigned int mask, unsigned int &save, char &shift)
+inline void mask2bits(unsigned int mask, unsigned int &save, depth_t &shift)
 {
     save  = mask; if(!mask) { shift = dispdepth/3; return; }
     shift = 0; while(!(mask&1)) ++shift, mask >>= 1;
@@ -87,10 +105,23 @@ inline void mask2bits(unsigned int mask, unsigned int &save, char &shift)
     shift += bits - 8;
 }
 
-int xerr_handler(Display*, XErrorEvent *error)
+int xerr_handler(Display* dpy_, XErrorEvent *error)
 {
     x_error = error->error_code;
     if(g_video) g_video->running = false;
+#ifndef X_NOSHMEM
+    if (error->minor_code==1/*X_ShmAttach*/ && already_called_X_ShmAttach && !already_advised_about_NOSHMEM_workarounds)
+    {
+        char err[256]; XGetErrorText(dpy_, x_error, err, 255);
+        fprintf(stderr, "Warning: Can't attach shared memory to display: %s (%d)\n", err, x_error);
+        fprintf(stderr, "If you are seeing a black output window, try setting %s environment variable to 1"
+                        " to disable shared memory extensions (0 to re-enable, other values undefined),"
+                        " or rebuilding with X_NOSHMEM defined in " __FILE__ "\n", NOSHMEM_env_var_name);
+        already_advised_about_NOSHMEM_workarounds = true;
+    }
+#else
+    (void) dpy_; // warning prevention
+#endif
     return 0;
 }
 
@@ -165,6 +196,9 @@ bool video::init_window(int xsize, int ysize)
     if(XShmQueryExtension(dpy) &&
        XShmQueryVersion(dpy, &major, &minor, &pixmaps))
     { // Shared memory
+        if(NULL!=getenv(NOSHMEM_env_var_name) && 0!=strcmp("0",getenv(NOSHMEM_env_var_name))) {
+            goto generic;
+        }
         shmseginfo.shmid = shmget(IPC_PRIVATE, imgbytes, IPC_CREAT|0777);
         if(shmseginfo.shmid < 0) {
             fprintf(stderr, "Warning: Can't get shared memory: %s\n", strerror(errno));
@@ -183,6 +217,7 @@ bool video::init_window(int xsize, int ysize)
             shmdt(shmseginfo.shmaddr); shmctl(shmseginfo.shmid, IPC_RMID, NULL);
             goto generic;
         }
+        already_called_X_ShmAttach = true;
 
 #ifndef X_NOSHMPIX
         if(pixmaps && XShmPixmapFormat(dpy) == ZPixmap)

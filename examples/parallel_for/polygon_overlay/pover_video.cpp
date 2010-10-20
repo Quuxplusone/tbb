@@ -92,12 +92,12 @@ void pover_video::on_process() {
     gDrawXOffset = map1XLoc;
     gDrawYOffset = map1YLoc;
         for(int i=0; i < int(gPolymap1->size()); i++) {
-            gPolymap1->at(i)->drawPoly();
+            (*gPolymap1)[i].drawPoly();
         }
     gDrawXOffset = map2XLoc;
     gDrawYOffset = map2YLoc;
         for(int i=0; i < int(gPolymap2->size()) ;i++) {
-            gPolymap2->at(i)->drawPoly();
+            (*gPolymap2)[i].drawPoly();
         }
         gDoDraw = true;
 
@@ -105,8 +105,8 @@ void pover_video::on_process() {
     gDrawXOffset = maprXLoc;
     gDrawYOffset = maprYLoc;
     {
-        RPolygon *xp = RPolygon::alloc_RPolygon(0, 0, gMapXSize-1, gMapYSize-1, 0, 0, 0);  // Clear the output space
-        RPolygon::free_RPolygon( xp );
+        RPolygon *xp = new RPolygon(0, 0, gMapXSize-1, gMapYSize-1, 0, 0, 0);  // Clear the output space
+        delete xp;
         t0 = tbb::tick_count::now();
         SerialOverlayMaps(&gResultMap, gPolymap1, gPolymap2);
         t1 = tbb::tick_count::now();
@@ -116,9 +116,6 @@ void pover_video::on_process() {
         CheckPolygonMap(gResultMap);
         // keep the map for comparison purposes.
 #else
-        for(int i=0; i<int(gResultMap->size());i++) {
-            RPolygon::free_RPolygon(gResultMap->at(i));
-        }
         delete gResultMap;
 #endif
         if(gCsvFile.is_open()) {
@@ -155,6 +152,27 @@ void pover_video::on_process() {
         }
         SplitParallelOverlay(&resultMap, gPolymap1, gPolymap2);
         delete resultMap;
-        if(gIsGraphicalVersion) rt_sleep(10000);
+        if(gIsGraphicalVersion) rt_sleep(2000);
     }
+    // split, accumulating into concurrent vector
+    {
+        concurrent_Polygon_map_t *cresultMap;
+        if(gCsvFile.is_open()) {
+            gCsvFile << "Split CV time";
+        }
+        SplitParallelOverlayCV(&cresultMap, gPolymap1, gPolymap2);
+        delete cresultMap;
+        if(gIsGraphicalVersion) rt_sleep(2000);
+    }
+    // split, accumulating into ETS
+    {
+        ETS_Polygon_map_t *cresultMap;
+        if(gCsvFile.is_open()) {
+            gCsvFile << "Split ETS time";
+        }
+        SplitParallelOverlayETS(&cresultMap, gPolymap1, gPolymap2);
+        delete cresultMap;
+        if(gIsGraphicalVersion) rt_sleep(2000);
+    }
+    if(gIsGraphicalVersion) rt_sleep(8000);
 }

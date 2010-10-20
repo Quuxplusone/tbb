@@ -236,7 +236,7 @@ int run_pipeline( int nthreads )
     MyInputFilter input_filter( input_file );
     pipeline.add_filter( input_filter );
 
-    // Create capitalization stage and add it to the pipeline
+    // Create squaring stage and add it to the pipeline
     MyTransformFilter transform_filter; 
     pipeline.add_filter( transform_filter );
 

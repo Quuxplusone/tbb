@@ -439,14 +439,6 @@ private:
     //! and propagates it back to descendants.
     void propagate_cancellation_from_ancestors ();
 
-    //! For debugging purposes only.
-    bool is_alive () { 
-#if TBB_USE_DEBUG
-        return my_version_and_traits != 0xDeadBeef;
-#else
-        return true;
-#endif /* TBB_USE_DEBUG */
-    }
 }; // class task_group_context
 
 #endif /* __TBB_TASK_GROUP_CONTEXT */

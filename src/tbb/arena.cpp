@@ -31,7 +31,9 @@
 #include "scheduler.h"
 #include "itt_notify.h"
 
-#include <stdlib.h> // for rand()
+#if __TBB_STATISTICS_STDOUT
+#include <cstdio>
+#endif
 
 namespace tbb {
 namespace internal {
@@ -58,7 +60,7 @@ void UnpaddedArenaPrefix::process( job& j ) {
         s.innermost_running_task = NULL;
         s.local_wait_for_all(*s.dummy_task,t);
     }
-    __TBB_ASSERT( s.inbox.assert_is_idle(true), NULL );
+    __TBB_ASSERT( s.inbox.is_idle_state(true), NULL );
     __TBB_ASSERT( !s.innermost_running_task, NULL );
 }
 
@@ -92,6 +94,7 @@ void UnpaddedArenaPrefix::acknowledge_close_connection() {
 #if __TBB_ARENA_PER_MASTER
 
 void arena::process( generic_scheduler& s ) {
+    __TBB_ASSERT( is_alive(my_guard), NULL );
     __TBB_ASSERT( governor::is_set(&s), NULL );
     __TBB_ASSERT( !s.innermost_running_task, NULL );
 
@@ -131,11 +134,11 @@ void arena::process( generic_scheduler& s ) {
         old_limit = my_limit;
     }
 
-    unsigned num_threads_left;
     for ( ;; ) {
         // Try to steal a task.
         // Passing reference count is technically unnecessary in this context,
         // but omitting it here would add checks inside the function.
+        __TBB_ASSERT( is_alive(my_guard), NULL );
         task* t = s.receive_or_steal_task( s.dummy_task->prefix().ref_count, /*return_if_no_work=*/true );
         if (t) {
             // A side effect of receive_or_steal_task is that innermost_running_task can be set.
@@ -143,27 +146,42 @@ void arena::process( generic_scheduler& s ) {
             s.innermost_running_task = NULL;
             s.local_wait_for_all(*s.dummy_task,t);
         }
-        num_threads_left = --my_num_threads_active;
-        __TBB_ASSERT ( slot[index].head == slot[index].tail, "Worker cannot leave arena when the task pool is not empty" );
-        __TBB_ASSERT( slot[index].task_pool == EmptyTaskPool, "Worker cannot leave arena when the task pool is not empty" );
+        ++my_num_threads_leaving;
+        __TBB_ASSERT ( slot[index].head == slot[index].tail, "Worker cannot leave arena while its task pool is not empty" );
+        __TBB_ASSERT( slot[index].task_pool == EmptyTaskPool, "Empty task pool is not marked appropriately" );
         // Revalidate quitting condition
         // This check prevents relinquishing more than necessary workers because 
         // of the non-atomicity of the decision making procedure
         if ( num_workers_active() >= my_num_workers_allotted || !my_num_workers_requested )
             break;
-        // Restore ref count
+        --my_num_threads_leaving;
         __TBB_ASSERT( !slot[0].my_scheduler || my_num_threads_active > 0, "Who requested more workers after the last one left the dispatch loop and the master's gone?" );
-        ++my_num_threads_active;
     }
+#if __TBB_STATISTICS
+    ++s.my_counters.arena_roundtrips;
+    *slot[index].my_counters += s.my_counters;
+    s.my_counters.reset();
+#endif /* __TBB_STATISTICS */
     __TBB_store_with_release( slot[index].my_scheduler, (generic_scheduler*)NULL );
     s.inbox.detach();
-    __TBB_ASSERT( s.inbox.assert_is_idle(true), NULL );
+    __TBB_ASSERT( s.inbox.is_idle_state(true), NULL );
     __TBB_ASSERT( !s.innermost_running_task, NULL );
-    if ( !num_threads_left )
+    __TBB_ASSERT( is_alive(my_guard), NULL );
+    // Decrementing my_num_threads_active first prevents extra workers from leaving
+    // this arena prematurely, but can result in some workers returning back just
+    // to repeat the escape attempt. If instead my_num_threads_leaving is decremented
+    // first, the result is the opposite - premature leaving is allowed and gratuitous
+    // return is prevented. Since such a race has any likelihood only when multiple
+    // workers are in the stealing loop, and consequently there is a lack of parallel
+    // work in this arena, we'd rather let them go out and try get employment in 
+    // other arenas (before returning into this one again).
+    --my_num_threads_leaving;
+    if ( !--my_num_threads_active )
         close_arena();
 }
 
 arena::arena ( market& m, unsigned max_num_workers ) {
+    __TBB_ASSERT( !my_guard, "improperly allocated arena?" );
     __TBB_ASSERT( sizeof(slot[0]) % NFS_GetLineSize()==0, "arena::slot size not multiple of cache line size" );
     __TBB_ASSERT( (uintptr_t)this % NFS_GetLineSize()==0, "arena misaligned" );
     my_market = &m;
@@ -179,6 +197,9 @@ arena::arena ( market& m, unsigned max_num_workers ) {
         ITT_SYNC_CREATE(slot + i, SyncType_Scheduler, SyncObj_WorkerTaskPool);
         mailbox(i+1).construct();
         ITT_SYNC_CREATE(&mailbox(i+1), SyncType_Scheduler, SyncObj_Mailbox);
+#if __TBB_STATISTICS
+        slot[i].my_counters = new ( NFS_Allocate(sizeof(statistics_counters), 1, NULL) ) statistics_counters;
+#endif /* __TBB_STATISTICS */
     }
     my_task_stream.initialize(my_num_slots);
     ITT_SYNC_CREATE(&my_task_stream, SyncType_Scheduler, SyncObj_TaskStream);
@@ -204,6 +225,7 @@ arena& arena::allocate_arena( market& m, unsigned max_num_workers ) {
 
 void arena::free_arena () {
     __TBB_ASSERT( !my_num_threads_active, "There are threads in the dying arena" );
+    poison_value( my_guard );
     intptr_t drained = 0;
     for ( unsigned i = 1; i <= my_num_slots; ++i )
         drained += mailbox(i).drain();
@@ -217,10 +239,49 @@ void arena::free_arena () {
     my_master_default_ctx->~task_group_context();
     NFS_Free(my_master_default_ctx);
 #endif /* __TBB_TASK_GROUP_CONTEXT */
+#if __TBB_STATISTICS
+    for( unsigned i = 0; i < my_num_slots; ++i )
+        NFS_Free( slot[i].my_counters );
+#endif /* __TBB_STATISTICS */
     void* storage  = &mailbox(my_num_slots);
     this->~arena();
     NFS_Free( storage );
 }
+
+void arena::close_arena () {
+#if !__TBB_STATISTICS_EARLY_DUMP
+    GATHER_STATISTIC( dump_arena_statistics() );
+#endif
+    my_market->detach_arena( *this );
+    free_arena();
+}
+
+#if __TBB_STATISTICS
+void arena::dump_arena_statistics () {
+    statistics_counters total;
+    for( unsigned i = 0; i < my_num_slots; ++i ) {
+#if __TBB_STATISTICS_EARLY_DUMP
+        generic_scheduler* s = slot[i].my_scheduler;
+        if ( s )
+            *slot[i].my_counters += s->my_counters;
+#else
+        __TBB_ASSERT( !slot[i].my_scheduler, NULL );
+#endif
+        if ( i != 0 ) {
+            total += *slot[i].my_counters;
+            dump_statistics( *slot[i].my_counters, i );
+        }
+    }
+    dump_statistics( *slot[0].my_counters, 0 );
+#if __TBB_STATISTICS_STDOUT
+    printf( "----------------------------------------------\n" );
+    dump_statistics( total, workers_counters_total );
+    total += *slot[0].my_counters;
+    dump_statistics( total, arena_counters_total );
+    printf( "==============================================\n" );
+#endif /* __TBB_STATISTICS_STDOUT */
+}
+#endif /* __TBB_STATISTICS */
 
 #else /* !__TBB_ARENA_PER_MASTER */
 
@@ -280,6 +341,20 @@ void arena::free_arena () {
     delete[] prefix().worker_list;
     prefix().~ArenaPrefix();
     NFS_Free( storage );
+}
+
+void arena::close_arena () {
+    for(;;) {
+        pool_state_t snapshot = prefix().pool_state;
+        if( snapshot==SNAPSHOT_SERVER_GOING_AWAY ) 
+            break;
+        if( prefix().pool_state.compare_and_swap( SNAPSHOT_SERVER_GOING_AWAY, snapshot )==snapshot ) {
+            if( snapshot!=SNAPSHOT_EMPTY )
+                prefix().server->adjust_job_count_estimate( -int(prefix().number_of_workers) );
+            break;
+        }
+    }
+    prefix().server->request_close_connection();
 }
 
 #endif /* !__TBB_ARENA_PER_MASTER */
@@ -344,25 +419,6 @@ bool arena::is_out_of_work() {
                 return false;
         }
     }
-}
-
-void arena::close_arena () {
-#if __TBB_ARENA_PER_MASTER
-    my_market->detach_arena( *this );
-    free_arena();
-#else /* !__TBB_ARENA_PER_MASTER */
-    for(;;) {
-        pool_state_t snapshot = prefix().pool_state;
-        if( snapshot==SNAPSHOT_SERVER_GOING_AWAY ) 
-            break;
-        if( prefix().pool_state.compare_and_swap( SNAPSHOT_SERVER_GOING_AWAY, snapshot )==snapshot ) {
-            if( snapshot!=SNAPSHOT_EMPTY )
-                prefix().server->adjust_job_count_estimate( -int(prefix().number_of_workers) );
-            break;
-        }
-    }
-    prefix().server->request_close_connection();
-#endif /* !__TBB_ARENA_PER_MASTER */
 }
 
 #if __TBB_COUNT_TASK_NODES 

@@ -56,6 +56,10 @@
 #include <cstdarg>
 
 
+#ifdef HARNESS_INCOMPLETE_SOURCES
+#error Source files are not complete. Check the build environment
+#endif
+
 #if _MSC_VER
     #define snprintf _snprintf
 #if _MSC_VER<=1400

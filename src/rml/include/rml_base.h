@@ -32,12 +32,10 @@
 #define __RML_rml_base_H
 
 #include <cstddef>
+
 #if _WIN32||_WIN64
 #include <windows.h>
 #endif /* _WIN32||_WIN64 */
-#if __SUNPRO_CC
-using std::size_t;
-#endif
 
 #ifdef RML_PURE_VIRTUAL_HANDLER
 #define RML_PURE(T) {RML_PURE_VIRTUAL_HANDLER(); return (T)0;}
@@ -187,7 +185,7 @@ public:
 #endif /* _WIN32||_WIN64 */ 
 
     //! Special marker to keep dll from being unloaded prematurely
-    static const size_t c_dont_unload = 1;
+    static const std::size_t c_dont_unload = 1;
 };
 
 //! Typedef for callback functions to print server info

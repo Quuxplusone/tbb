@@ -27,10 +27,10 @@
 */
 
 /**
-    This test ensures that tbb.h brings in all the public TBB interface definitions.
+    This test ensures that tbb.h brings in all the public TBB interface definitions,
+    and if all the necessary symbols are exported from the library.
 
-    The test is compile-time only. Nothing is actually executed except prinitng 
-    the final "done" message.
+    Most of the checks happen at the compilation or link phases.
 **/
 
 #include "tbb/tbb.h"
@@ -68,14 +68,61 @@ struct Body3 {
     void assign( const Body3& ) {}
 };
 
+#if !__TBB_TEST_SECONDARY
+
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#include "harness.h"
+
+// Test if all the necessary symbols are exported for the exceptions thrown by TBB.
+// Missing exports result either in link error or in runtime assertion failure.
+#include "tbb/tbb_exception.h"
+
+template <typename E>
+void TestExceptionClassExports ( const E& exc, tbb::internal::exception_id eid ) {
+    // The assertion here serves to shut up warnings about "eid not used". 
+    ASSERT( eid<tbb::internal::eid_max, NULL );
+#if TBB_USE_EXCEPTIONS
+    for ( int i = 0; i < 2; ++i ) {
+        try {
+            if ( i == 0 )
+                throw exc;
+#if !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
+            else
+                tbb::internal::throw_exception( eid );
+#endif
+        }
+        catch ( E& e ) {
+            ASSERT ( e.what(), "Missing what() string" );
+        }
+        catch ( ... ) {
+            ASSERT ( __TBB_EXCEPTION_TYPE_INFO_BROKEN, "Unrecognized exception. Likely RTTI related exports are missing" );
+        }
+    }
+#else /* !TBB_USE_EXCEPTIONS */
+    (void)exc;
+#endif /* !TBB_USE_EXCEPTIONS */
+}
+
+void TestExceptionClassesExports () {
+    TestExceptionClassExports( std::bad_alloc(), tbb::internal::eid_bad_alloc );
+    TestExceptionClassExports( tbb::bad_last_alloc(), tbb::internal::eid_bad_last_alloc );
+    TestExceptionClassExports( std::invalid_argument("test"), tbb::internal::eid_nonpositive_step );
+    TestExceptionClassExports( std::out_of_range("test"), tbb::internal::eid_out_of_range );
+    TestExceptionClassExports( std::range_error("test"), tbb::internal::eid_segment_range_error );
+    TestExceptionClassExports( std::range_error("test"), tbb::internal::eid_index_range_error );
+    TestExceptionClassExports( tbb::missing_wait(), tbb::internal::eid_missing_wait );
+    TestExceptionClassExports( tbb::invalid_multiple_scheduling(), tbb::internal::eid_invalid_multiple_scheduling );
+    TestExceptionClassExports( tbb::improper_lock(), tbb::internal::eid_improper_lock );
+}
+#endif /* !__TBB_TEST_SECONDARY */
+
+
 #if __TBB_TEST_SECONDARY
-/* This mode is used to produce secondary object file that should be linked with
-   main object file in order to detect "multiple definition" linker error.
+/* This mode is used to produce a secondary object file that is linked with 
+   the main one in order to detect "multiple definition" linker error.
 */
 void secondary()
 #else
-#define HARNESS_NO_PARSE_COMMAND_LINE 1
-#include "harness.h"
 int TestMain ()
 #endif
 {
@@ -132,6 +179,7 @@ int TestMain ()
     TestTypeDefinitionPresence( zero_allocator<int> );
     TestTypeDefinitionPresence( tick_count );
 #if !__TBB_TEST_SECONDARY
+    TestExceptionClassesExports();
     return Harness::Done;
 #endif
 }

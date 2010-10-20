@@ -54,7 +54,7 @@
 /* Begin PBXFileReference section */
 		8DD76F6C0486A84900D96B5E /* sub_string_finder */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sub_string_finder; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1F593A50B8F042A00073279 /* sub_string_finder.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = sub_string_finder.cpp; path = ../sub_string_finder.cpp; sourceTree = SOURCE_ROOT; };
-		A1F593B30B8F06F900073279 /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = /Library/Frameworks/TBB.framework/Libraries/libtbb.dylib; sourceTree = "<absolute>"; };
+		A1F593B30B8F06F900073279 /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = ../../../../lib/libtbb.dylib; sourceTree = SOURCE_ROOT; };
 		A1F5940A0B8F1D8E00073279 /* sub_string_finder_pretty */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sub_string_finder_pretty; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1F594110B8F1E0C00073279 /* sub_string_finder_pretty.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = sub_string_finder_pretty.cpp; path = ../sub_string_finder_pretty.cpp; sourceTree = SOURCE_ROOT; };
 		A1F5941B0B8F1F0900073279 /* sub_string_finder_extended */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sub_string_finder_extended; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -237,12 +237,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = sub_string_finder;
 				ZERO_LINK = NO;
 			};
@@ -253,12 +253,12 @@
 			buildSettings = {
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = sub_string_finder;
 				ZERO_LINK = NO;
 			};
@@ -306,12 +306,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = sub_string_finder;
 				ZERO_LINK = NO;
 			};
@@ -324,12 +324,12 @@
 				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = sub_string_finder;
 				ZERO_LINK = NO;
 			};
@@ -386,12 +386,12 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = sub_string_finder_pretty;
 				ZERO_LINK = NO;
@@ -408,12 +408,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = sub_string_finder_pretty;
 				ZERO_LINK = NO;
@@ -427,12 +427,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = sub_string_finder_pretty;
 				ZERO_LINK = NO;
@@ -446,12 +446,12 @@
 				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = sub_string_finder_pretty;
 				ZERO_LINK = NO;
@@ -467,12 +467,12 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = sub_string_finder_extended;
 				ZERO_LINK = NO;
@@ -489,12 +489,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = sub_string_finder_extended;
 				ZERO_LINK = NO;
@@ -508,12 +508,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = sub_string_finder_extended;
 				ZERO_LINK = NO;
@@ -527,12 +527,12 @@
 				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = sub_string_finder_extended;
 				ZERO_LINK = NO;

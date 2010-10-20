@@ -42,7 +42,7 @@
 		A14611490B94631F000C6B18 /* convex_hull_bench.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = convex_hull_bench.cpp; path = ../convex_hull_bench.cpp; sourceTree = SOURCE_ROOT; };
 		A146114C0B9463CB000C6B18 /* convex_hull.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = convex_hull.h; path = ../convex_hull.h; sourceTree = SOURCE_ROOT; };
 		A1F593A50B8F042A00073279 /* convex_hull_sample.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = convex_hull_sample.cpp; path = ../convex_hull_sample.cpp; sourceTree = SOURCE_ROOT; };
-		A1F593B30B8F06F900073279 /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = /Library/Frameworks/TBB.framework/Libraries/libtbb.dylib; sourceTree = "<absolute>"; };
+		A1F593B30B8F06F900073279 /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = ../../../../lib/libtbb.dylib; sourceTree = SOURCE_ROOT; };
 		A1F594EB0B8F4B5600073279 /* convex_hull_bench */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = convex_hull_bench; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1F594FA0B8F4EE000073279 /* convex_hull_sample */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = convex_hull_sample; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -188,12 +188,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = convex_hull_sample;
 				ZERO_LINK = NO;
 			};
@@ -204,12 +204,12 @@
 			buildSettings = {
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = convex_hull_sample;
 				ZERO_LINK = NO;
 			};
@@ -257,12 +257,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = convex_hull_sample;
 				ZERO_LINK = NO;
 			};
@@ -275,12 +275,12 @@
 				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = convex_hull_sample;
 				ZERO_LINK = NO;
 			};
@@ -337,12 +337,12 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = convex_hull_bench;
 				ZERO_LINK = NO;
@@ -359,12 +359,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = convex_hull_bench;
 				ZERO_LINK = NO;
@@ -378,12 +378,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = convex_hull_bench;
 				ZERO_LINK = NO;
@@ -398,12 +398,12 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					"../../../../lib",
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = convex_hull_bench;
 				ZERO_LINK = NO;

@@ -383,6 +383,9 @@ local:
 *3tbb*;
 *__TBB*;
 
+/* ITT symbols */
+__itt_*;
+
 /* Intel Compiler (libirc) symbols */
 __intel_*;
 _intel_*;

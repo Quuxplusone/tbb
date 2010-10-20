@@ -61,6 +61,19 @@
  *  $Id: parse.cpp,v 1.3 2007-02-22 17:54:15 dpoulsen Exp $
  */
 
+// Try preventing lots of GCC warnings about ignored results of fscanf etc.
+#if !__INTEL_COMPILER
+
+#if __GNUC__<4 || __GNUC__==4 && __GNUC_MINOR__<5
+// For older versions of GCC, disable use of __wur in GLIBC
+#define _FORTIFY_SOURCE 0
+#else
+// Starting from 4.5, GCC has a suppression option
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif
+
+#endif //__INTEL_COMPILER
+
 #include <stdio.h>
 #include <math.h>
 #include <string.h>

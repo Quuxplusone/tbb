@@ -30,9 +30,20 @@
 #error time_framework.h must be included
 #endif
 
+#define INJECT_TBB namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
+#define INJECT_TBB5 namespace tbb { namespace interface5 { using namespace ::tbb::interface5; namespace internal { using namespace ::tbb::interface5::internal; } } }
+
+#ifndef INJECT_BOX_NAMES
+#if defined(__TBB_task_H) || defined(__TBB_concurrent_unordered_internal_H) || defined(__TBB_reader_writer_lock_H)
+#define INJECT_BOX_NAMES INJECT_TBB INJECT_TBB5
+#else
+#define INJECT_BOX_NAMES INJECT_TBB
+#endif
+#endif
+
 #ifdef BOX1
 namespace sandbox1 {
-    namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
+    INJECT_BOX_NAMES
 #   ifdef BOX1HEADER
 #   include BOX1HEADER
 #   endif
@@ -41,7 +52,7 @@ namespace sandbox1 {
 #endif
 #ifdef BOX2
 namespace sandbox2 {
-    namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
+    INJECT_BOX_NAMES
 #   ifdef BOX2HEADER
 #   include BOX2HEADER
 #   endif
@@ -50,7 +61,7 @@ namespace sandbox2 {
 #endif
 #ifdef BOX3
 namespace sandbox3 {
-    namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
+    INJECT_BOX_NAMES
 #   ifdef BOX3HEADER
 #   include BOX3HEADER
 #   endif
@@ -59,7 +70,7 @@ namespace sandbox3 {
 #endif
 #ifdef BOX4
 namespace sandbox4 {
-    namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
+    INJECT_BOX_NAMES
 #   ifdef BOX4HEADER
 #   include BOX4HEADER
 #   endif
@@ -68,7 +79,7 @@ namespace sandbox4 {
 #endif
 #ifdef BOX5
 namespace sandbox5 {
-    namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
+    INJECT_BOX_NAMES
 #   ifdef BOX5HEADER
 #   include BOX5HEADER
 #   endif
@@ -77,7 +88,7 @@ namespace sandbox5 {
 #endif
 #ifdef BOX6
 namespace sandbox6 {
-    namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
+    INJECT_BOX_NAMES
 #   ifdef BOX6HEADER
 #   include BOX6HEADER
 #   endif
@@ -86,7 +97,7 @@ namespace sandbox6 {
 #endif
 #ifdef BOX7
 namespace sandbox7 {
-    namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
+    INJECT_BOX_NAMES
 #   ifdef BOX7HEADER
 #   include BOX7HEADER
 #   endif
@@ -95,7 +106,7 @@ namespace sandbox7 {
 #endif
 #ifdef BOX8
 namespace sandbox8 {
-    namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
+    INJECT_BOX_NAMES
 #   ifdef BOX8HEADER
 #   include BOX8HEADER
 #   endif
@@ -104,7 +115,7 @@ namespace sandbox8 {
 #endif
 #ifdef BOX9
 namespace sandbox9 {
-    namespace tbb { using namespace ::tbb; namespace internal { using namespace ::tbb::internal; } }
+    INJECT_BOX_NAMES
 #   ifdef BOX9HEADER
 #   include BOX9HEADER
 #   endif

@@ -27,13 +27,13 @@
 */
 
 
-#include <stdio.h>
+#include <cstdlib>
 #if _WIN32 || _WIN64
-#include <windows.h>
+#include "tbb/machine/windows_api.h"
 #else
 #include <dlfcn.h>
 #endif
-#include <tbb/tbb_stddef.h>
+#include "tbb/tbb_stddef.h"
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 #include "harness.h"
 #include "harness_memory.h"
@@ -55,7 +55,7 @@
 #define EXT ".dylib"
 #elif __linux__
 #define EXT __TBB_STRING(.so.TBB_COMPATIBLE_INTERFACE_VERSION)
-#elif __FreeBSD__ || __sun
+#elif __FreeBSD__ || __sun || _AIX
 #define EXT ".so"
 #else
 #error Unknown OS
@@ -76,7 +76,7 @@
 
 struct Run {
     void operator()( int /*id*/ ) const {
-        void* (*malloc_ptr)(size_t);
+        void* (*malloc_ptr)(std::size_t);
         void (*free_ptr)(void*);
 
         const char* actual_name;
@@ -119,7 +119,7 @@ struct Run {
 
 int TestMain () {
     int i;
-    ptrdiff_t memory_leak;
+    std::ptrdiff_t memory_leak;
 
     // warm-up run
     NativeParallelFor( 1, Run() );
@@ -127,13 +127,13 @@ int TestMain () {
        but it seems memory consumption stabilized after this.
      */
     GetMemoryUsage();
-    size_t memory_in_use = GetMemoryUsage();
+    std::size_t memory_in_use = GetMemoryUsage();
     ASSERT(memory_in_use == GetMemoryUsage(), 
            "Memory consumption should not increase after 1st GetMemoryUsage() call");
 
     // expect that memory consumption stabilized after several runs
     for (i=0; i<3; i++) {
-        size_t memory_in_use = GetMemoryUsage();
+        std::size_t memory_in_use = GetMemoryUsage();
         for (int j=0; j<10; j++)
             NativeParallelFor( 1, Run() );
         memory_leak = GetMemoryUsage() - memory_in_use;

@@ -43,7 +43,7 @@ INCLUDES += $(INCLUDE_KEY)$(tbb_root)/src $(INCLUDE_KEY)$(tbb_root)/src/rml/incl
 CPLUS_FLAGS += $(WARNING_KEY) $(CXXFLAGS)
 LINK_FLAGS += $(LDFLAGS)
 LIB_LINK_FLAGS += $(LDFLAGS)
-CPLUS_FLAGS_NOSTRICT = $(subst -strict_ansi,-ansi,$(CPLUS_FLAGS))
+CPLUS_FLAGS_NOSTRICT = $(subst -strict-ansi,-ansi,$(CPLUS_FLAGS))
 
 LIB_LINK_CMD ?= $(CPLUS) $(PIC_KEY)
 ifeq ($(origin LIB_OUTPUT_KEY), undefined)
@@ -85,22 +85,22 @@ CONLY ?= $(CPLUS)
 # Customizations
 
 ifeq (1,$(TBB_NOSTRICT))
-# GNU 3.2.3 headers have a ISO syntax that is rejected by Intel compiler in -strict_ansi mode.
+# GNU 3.2.3 headers have a ISO syntax that is rejected by Intel compiler in -strict-ansi mode.
 # The Mac uses gcc, so the list is empty for that platform.
-# The files below need the -strict_ansi flag downgraded to -ansi to compile
+# The files below need the -strict-ansi flag downgraded to -ansi to compile
 
 $(KNOWN_NOSTRICT): %.$(OBJ): %.cpp
 	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS_NOSTRICT) $(CXX_ONLY_FLAGS) $(CXX_WARN_SUPPRESS) $(INCLUDES) $<
 endif
 
 $(KNOWN_WARNINGS): %.$(OBJ): %.cpp
-	$(CPLUS) $(COMPILE_ONLY) $(subst $(WARNING_KEY),,$(CPLUS_FLAGS_NOSTRICT)) $(CXX_ONLY_FLAGS) $(INCLUDES) $<
+	$(CPLUS) $(COMPILE_ONLY) $(subst $(WARNING_KEY),,$(CPLUS_FLAGS)) $(CXX_ONLY_FLAGS) $(INCLUDES) $<
 
 tbb_misc.$(OBJ): tbb_misc.cpp version_string.tmp
-	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS_NOSTRICT) $(CXX_ONLY_FLAGS) $(INCLUDE_KEY). $(INCLUDES) $<
+	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(INCLUDE_KEY). $(INCLUDES) $<
 
 tbb_misc.E: tbb_misc.cpp version_string.tmp
-	$(CPLUS) $(CPLUS_FLAGS_NOSTRICT) $(CXX_ONLY_FLAGS) $(INCLUDE_KEY). $(INCLUDES) $(PREPROC_ONLY) $< >$@
+	$(CPLUS) $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(INCLUDE_KEY). $(INCLUDES) $(PREPROC_ONLY) $< >$@
 
 %.res: %.rc version_string.tmp $(TBB.MANIFEST)
 	rc /Fo$@ $(INCLUDES) $(filter /D%,$(CPLUS_FLAGS)) $<
@@ -120,3 +120,7 @@ version_string.tmp:
 	$(MAKE_VERSIONS)
 endif
 
+
+# Rules for generating a test DLL
+%_dll.$(OBJ): %.cpp
+	$(CPLUS) $(COMPILE_ONLY) $(OUTPUTOBJ_KEY)$@ $(CPLUS_FLAGS) $(PIC_KEY) $(DEFINE_KEY)_USRDLL $(INCLUDES) $<

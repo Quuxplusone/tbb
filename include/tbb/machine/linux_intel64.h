@@ -30,15 +30,17 @@
 #error Do not include this file directly; include tbb_machine.h instead
 #endif
 
-#include "linux_common.h"
+#include <stdint.h>
+#include <unistd.h>
 
 #define __TBB_WORDSIZE 8
 #define __TBB_BIG_ENDIAN 0
 
 #define __TBB_release_consistency_helper() __asm__ __volatile__("": : :"memory")
 
-#ifndef __TBB_rel_acq_fence
-inline void __TBB_rel_acq_fence() { __asm__ __volatile__("mfence": : :"memory"); }
+// __TBB_full_memory_fence can be predefined
+#ifndef __TBB_full_memory_fence
+#define __TBB_full_memory_fence() __asm__ __volatile__("mfence": : :"memory")
 #endif
 
 #define __MACHINE_DECL_ATOMICS(S,T,X) \
@@ -119,8 +121,8 @@ static inline void __TBB_machine_pause( int32_t delay ) {
 #define __TBB_FetchAndStore8(P,V)  __TBB_machine_fetchstore8(P,V)
 #define __TBB_FetchAndStoreW(P,V)  __TBB_machine_fetchstore8(P,V)
 
-#define __TBB_Store8(P,V) (*P = V)
-#define __TBB_Load8(P)    (*P)
+#undef __TBB_Store8
+#undef __TBB_Load8
 
 #define __TBB_AtomicOR(P,V) __TBB_machine_or(P,V)
 #define __TBB_AtomicAND(P,V) __TBB_machine_and(P,V)

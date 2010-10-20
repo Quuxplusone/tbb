@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::auto_partitioner Class Reference</title>
+<title>tbb::aligned_space&lt; T, N &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,38 +21,37 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00267.html">tbb</a>::<a class="el" href="a00146.html">auto_partitioner</a></div>
-<h1>tbb::auto_partitioner Class Reference<br>
+<a class="el" href="a00272.html">tbb</a>::<a class="el" href="a00146.html">aligned_space</a></div>
+<h1>tbb::aligned_space&lt; T, N &gt; Class Template Reference<br>
 <small>
-[<a class="el" href="a00274.html">Algorithms</a>]</small>
-</h1><!-- doxytag: class="tbb::auto_partitioner" -->An auto partitioner.  
+[<a class="el" href="a00282.html">Memory Allocation</a>]</small>
+</h1><!-- doxytag: class="tbb::aligned_space" -->Block of space aligned sufficiently to construct an array T with N elements.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00404.html">partitioner.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00316.html">aligned_space.h</a>&gt;</code>
 <p>
-<a href="a00046.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00001.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a47f7e0208a2bf68f35b51b27d2ddf2a"></a><!-- doxytag: member="tbb::auto_partitioner::internal::start_for" ref="a47f7e0208a2bf68f35b51b27d2ddf2a" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::start_for</b></td></tr>
+<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="0d702fc6b9e9d061ace3501b3c861cdf"></a><!-- doxytag: member="tbb::aligned_space::begin" ref="0d702fc6b9e9d061ace3501b3c861cdf" args="()" -->
+T *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#0d702fc6b9e9d061ace3501b3c861cdf">begin</a> ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e8f710e431b62c2a48914bd99d0fe034"></a><!-- doxytag: member="tbb::auto_partitioner::internal::start_reduce" ref="e8f710e431b62c2a48914bd99d0fe034" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::start_reduce</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Pointer to beginning of array. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="024be075c23c0394c9a2518d993bcd9e"></a><!-- doxytag: member="tbb::aligned_space::end" ref="024be075c23c0394c9a2518d993bcd9e" args="()" -->
+T *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00146.html#024be075c23c0394c9a2518d993bcd9e">end</a> ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="76d97ae6ad98db0acfc8ed8cb7c76705"></a><!-- doxytag: member="tbb::auto_partitioner::internal::start_scan" ref="76d97ae6ad98db0acfc8ed8cb7c76705" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::start_scan</b></td></tr>
-
-<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>partition_type</b></td></tr>
-
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Pointer to one past last element in array. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-An auto partitioner. 
+<h3>template&lt;typename T, size_t N&gt;<br>
+ class tbb::aligned_space&lt; T, N &gt;</h3>
+
+Block of space aligned sufficiently to construct an array T with N elements. 
 <p>
-The range is initial divided into several large chunks. Chunks are further subdivided into VICTIM_CHUNKS pieces if they are stolen and divisible. 
+The elements are not constructed or destroyed by this class. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00404.html">partitioner.h</a></ul>
+<li><a class="el" href="a00316.html">aligned_space.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.

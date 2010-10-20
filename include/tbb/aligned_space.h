@@ -44,7 +44,7 @@ private:
     element_type array[(sizeof(T)*N+sizeof(element_type)-1)/sizeof(element_type)];
 public:
     //! Pointer to beginning of array
-    T* begin() {return reinterpret_cast<T*>(this);}
+    T* begin() {return internal::punned_cast<T*>(this);}
 
     //! Pointer to one past last element in array.
     T* end() {return begin()+N;}

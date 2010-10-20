@@ -42,17 +42,24 @@
 //! Structure that holds an atomic<T> and some guard bytes around it.
 template<typename T>
 struct TestStruct {
+    typedef unsigned char byte_type;
     T prefix;
     tbb::atomic<T> counter;
     T suffix;
-    TestStruct( T i ) : prefix(T(0x1234)), suffix(T(0x5678)) {
-        counter = i;
+    TestStruct( T i ) {
         ASSERT( sizeof(*this)==3*sizeof(T), NULL );
+        for (size_t j = 0; j < sizeof(T); ++j) {
+            reinterpret_cast<byte_type*>(&prefix)[j]             = byte_type(0x11*(j+1));
+            reinterpret_cast<byte_type*>(&suffix)[sizeof(T)-j-1] = byte_type(0x11*(j+1));
+        }
+        counter = i;
     }
     ~TestStruct() {
         // Check for writes outside the counter.
-        ASSERT( prefix==T(0x1234), NULL );
-        ASSERT( suffix==T(0x5678), NULL );
+        for (size_t j = 0; j < sizeof(T); ++j) {
+            ASSERT( reinterpret_cast<byte_type*>(&prefix)[j]             == byte_type(0x11*(j+1)), NULL );
+            ASSERT( reinterpret_cast<byte_type*>(&suffix)[sizeof(T)-j-1] == byte_type(0x11*(j+1)), NULL );
+        }
     }
 };
 
@@ -258,7 +265,7 @@ struct AlignmentChecker {
 /** T is an integral type. */
 template<typename T>
 void TestAtomicInteger( const char* name ) {
-    REMARK("testing atomic<%s>\n",name);
+    REMARK("testing atomic<%s> (size=%d)\n",name,sizeof(tbb::atomic<T>));
 #if ( __linux__ && __TBB_x86_32 && __GNUC__==3 && __GNUC_MINOR__==3 ) || defined(__SUNPRO_CC)
     // gcc 3.3 has known problem for 32-bit Linux, so only warn if there is a problem.
     // SUNPRO_CC does have this problem as well
@@ -345,14 +352,12 @@ void TestAtomicEnum() {
     TestParallel<Color>( "Color" );
 }
 
-#if !__TBB_FLOATING_POINT_BROKEN 
 template<typename T>
 void TestAtomicFloat( const char* name ) {
     REMARK("testing atomic<%s>\n", name );
     TestOperations<T>(0.5,3.25,10.75);
     TestParallel<T>( name );
 }
-#endif /* !__TBB_FLOATING_POINT_BROKEN */
 
 const int numMaskedOperations = 100000;
 const int testSpaceSize = 8;
@@ -468,12 +473,8 @@ class ArrayElement {
 };
 
 int TestMain () {
-#if defined(__INTEL_COMPILER)||!defined(_MSC_VER)||_MSC_VER>=1400
     TestAtomicInteger<unsigned long long>("unsigned long long");
     TestAtomicInteger<long long>("long long");
-#else
-    REPORT("Known issue: atomic<64-bits> does not compile with VC 7.1\n");
-#endif /*defined(__INTEL_COMPILER)||!defined(_MSC_VER)||_MSC_VER>=1400 */
     TestAtomicInteger<unsigned long>("unsigned long");
     TestAtomicInteger<long>("long");
     TestAtomicInteger<unsigned int>("unsigned int");
@@ -498,10 +499,8 @@ int TestMain () {
     TestAtomicPointerToTypeOfUnknownSize<void*>( "void*" );
     TestAtomicBool();
     TestAtomicEnum();
-#if !__TBB_FLOATING_POINT_BROKEN 
     TestAtomicFloat<float>("float");
     TestAtomicFloat<double>("double");
-#endif /* !__TBB_FLOATING_POINT_BROKEN  */
     ASSERT( !ParallelError, NULL );
     TestMaskedCAS<unsigned char>();
     TestMaskedCAS<unsigned short>();
@@ -681,8 +680,6 @@ public:
     bool contains( bool ) const {return true;}
 };
 
-#if !__TBB_FLOATING_POINT_BROKEN
-
 #if _MSC_VER==1500 && !defined(__INTEL_COMPILER)
     // VS2008/VC9 seems to have an issue; limits pull in math.h
     #pragma warning( push )
@@ -728,8 +725,6 @@ class SparseValueSet<float>: public SparseFloatSet<float> {};
 
 template<> 
 class SparseValueSet<double>: public SparseFloatSet<double> {};
-
-#endif /* !__TBB_FLOATING_POINT_BROKEN */
 
 template<typename T>
 class HammerAssignment: NoAssign {

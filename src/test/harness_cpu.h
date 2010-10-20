@@ -30,8 +30,10 @@
 // This header is an optional part of the test harness.
 // It assumes that "harness_assert.h" has already been included.
 
-#if _WIN32 && !_XBOX
+#if _WIN32 
+#if !_XBOX
     #include <windows.h>
+#endif
 #else
     #include <sys/time.h>
     #include <sys/resource.h>

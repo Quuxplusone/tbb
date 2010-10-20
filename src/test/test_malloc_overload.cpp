@@ -29,7 +29,7 @@
 
 #if __linux__
 #define MALLOC_REPLACEMENT_AVAILABLE 1
-#elif _WIN32
+#elif _WIN32 && !__MINGW32__ && !__MINGW64__
 #define MALLOC_REPLACEMENT_AVAILABLE 2
 #include "tbb/tbbmalloc_proxy.h"
 #endif
@@ -99,12 +99,20 @@ static inline bool isAligned(T arg, uintptr_t alignment) {
 
 /* Below is part of MemoryAllocator.cpp. */
 
-union BackRefIdx { // index to backreference array
-    uint32_t t;
-    struct {
-        uint16_t master;  // index in BackRefMaster
-        uint16_t offset;  // offset from beginning of BackRefBlock
-    } s;
+class BackRefIdx { // composite index to backreference array
+private:
+    uint16_t master;      // index in BackRefMaster
+    uint16_t largeObj:1;  // is this object "large"?
+    uint16_t offset  :15; // offset from beginning of BackRefBlock
+public:
+    BackRefIdx() : master((uint16_t)-1) {}
+    bool isInvalid() { return master == (uint16_t)-1; }
+    bool isLargeObject() const { return largeObj; }
+    uint16_t getMaster() const { return master; }
+    uint16_t getOffset() const { return offset; }
+
+    // only newBackRef can modify BackRefIdx
+    static BackRefIdx newBackRef(bool largeObj);
 };
 
 struct LargeMemoryBlock {
@@ -263,5 +271,6 @@ int main(int , char *[]) {
 
 int main(int , char *[]) {
     printf("skip\n");
+    return 0;
 }
 #endif /* !MALLOC_REPLACEMENT_AVAILABLE */

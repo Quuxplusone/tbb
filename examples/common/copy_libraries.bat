@@ -35,9 +35,15 @@ set arch=%1
 if ("%2") == ("debug") set postfix=_debug
 set output_dir=%3
 
+:: Optional 4th parameter to set install root
+if ("%4") NEQ ("") set TBB30_INSTALL_DIR=%4
+:: Actually we can set install root by ourselves
+if ("%TBB30_INSTALL_DIR%") == ("") set TBB30_INSTALL_DIR=%~d0%~p0..\..\
+
 :: Getting vs folders in case vc_mt binaries are not provided
-if ("%VS80COMNTOOLS%") NEQ ("") set vc_dir=vc8
-if ("%VS90COMNTOOLS%") NEQ ("") set vc_dir=vc9
+if ("%VS80COMNTOOLS%")  NEQ ("") set vc_dir=vc8
+if ("%VS90COMNTOOLS%")  NEQ ("") set vc_dir=vc9
+if ("%VS100COMNTOOLS%") NEQ ("") set vc_dir=vc10
 
 :: Are we standalone/oss or inside compiler?
 if exist "%TBB30_INSTALL_DIR%\bin\%arch%\vc8\tbb%postfix%.dll" set interim_path=bin\%arch%

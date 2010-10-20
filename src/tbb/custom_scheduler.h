@@ -123,7 +123,7 @@ public:
 #endif /* !__TBB_ARENA_PER_MASTER */
         scheduler_type* s = (scheduler_type*)NFS_Allocate(sizeof(scheduler_type),1,NULL);
         new( s ) scheduler_type( a, index );
-        __TBB_ASSERT( s->assert_okay(), NULL );
+        s->assert_task_pool_valid();
         ITT_SYNC_CREATE(s, SyncType_Scheduler, SyncObj_TaskPoolSpinning);
         return s;
     }
@@ -166,7 +166,7 @@ task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( reference_count&
 #endif /* !__TBB_ARENA_PER_MASTER */
         if( n>1 ) {
             if( my_affinity_id && (t=get_mailbox_task()) ) {
-                GATHER_STATISTIC( ++mail_received_count );
+                GATHER_STATISTIC( ++my_counters.mails_received );
             }
 #if __TBB_ARENA_PER_MASTER
             // Check if there are tasks in starvation-resistant stream.
@@ -175,8 +175,13 @@ task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( reference_count&
                 // just proceed with the obtained task
             }
             // Check if the resource manager requires our arena to relinquish some threads 
-            else if ( return_if_no_work && (my_arena->my_num_workers_allotted < my_arena->num_workers_active()) )
+            else if ( return_if_no_work && (my_arena->my_num_workers_allotted < my_arena->num_workers_active()) ) {
+                if( SchedulerTraits::itt_possible ) {
+                    if( failure_count!=-1 )
+                        ITT_NOTIFY(sync_cancel, this);
+                }
                 return NULL;
+            }
 #endif /* __TBB_ARENA_PER_MASTER */
             else {
                 // Try to steal a task from a random victim.
@@ -196,14 +201,14 @@ task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( reference_count&
                 if( is_proxy(*t) ) {
                     t = strip_proxy((task_proxy*)t);
                     if( !t ) goto fail;
-                    GATHER_STATISTIC( ++proxy_steal_count );
+                    GATHER_STATISTIC( ++my_counters.proxies_stolen );
                 }
                 t->prefix().extra_state |= es_task_is_stolen;
                 if( is_version_3_task(*t) ) {
                     innermost_running_task = t;
                     t->note_affinity( my_affinity_id );
                 }
-                GATHER_STATISTIC( ++steal_count );
+                GATHER_STATISTIC( ++my_counters.steals_committed );
             }
             __TBB_ASSERT(t,NULL);
 #if __TBB_SCHEDULER_OBSERVER
@@ -223,6 +228,7 @@ task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( reference_count&
             break; // jumps to: return t;
         }
 fail:
+        GATHER_STATISTIC( ++my_counters.steals_failed );
         if( SchedulerTraits::itt_possible && failure_count==-1 ) {
             // The first attempt to steal work failed, so notify Intel(R) Thread Profiler that
             // the thread has started spinning.  Ideally, we would do this notification
@@ -239,8 +245,13 @@ fail:
             if( failure_count>=yield_threshold+100 ) {
                 // When a worker thread has nothing to do, return it to RML.
                 // For purposes of affinity support, the thread is considered idle while in RML.
-                if( return_if_no_work && my_arena->is_out_of_work() )
+                if( return_if_no_work && my_arena->is_out_of_work() ) {
+                    if( SchedulerTraits::itt_possible ) {
+                        if( failure_count!=-1 )
+                            ITT_NOTIFY(sync_cancel, this);
+                    }
                     return NULL;
+                }
                 failure_count = yield_threshold;
             }
         }
@@ -255,7 +266,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
         child->prefix().owner = this;
     }
     __TBB_ASSERT( parent.ref_count() >= (child && child->parent() == &parent ? 2 : 1), "ref_count is too small" );
-    __TBB_ASSERT( assert_okay(), NULL );
+    assert_task_pool_valid();
     // Using parent's refcount in sync_prepare (in the stealing loop below) is 
     // a workaround for TP. We need to name it here to display correctly in Ampl.
     if( SchedulerTraits::itt_possible )
@@ -291,7 +302,7 @@ exception_was_caught:
         do {
             // Inner loop evaluates tasks that are handed directly to us by other tasks.
             while(t) {
-                __TBB_ASSERT( inbox.assert_is_idle(false), NULL );
+                __TBB_ASSERT( inbox.is_idle_state(false), NULL );
 #if TBB_USE_ASSERT
                 __TBB_ASSERT(!is_proxy(*t),"unexpected proxy");
                 __TBB_ASSERT( t->prefix().owner==this, NULL );
@@ -299,7 +310,7 @@ exception_was_caught:
                 if ( !t->prefix().context->my_cancellation_requested ) 
 #endif
                     __TBB_ASSERT( 1L<<t->state() & (1L<<task::allocated|1L<<task::ready|1L<<task::reexecute), NULL );
-                __TBB_ASSERT(assert_okay(),NULL);
+                assert_task_pool_valid();
 #endif /* TBB_USE_ASSERT */
                 task* t_next = NULL;
                 innermost_running_task = t;
@@ -308,7 +319,7 @@ exception_was_caught:
                 if ( !t->prefix().context->my_cancellation_requested )
 #endif
                 {
-                    GATHER_STATISTIC( ++execute_count );
+                    GATHER_STATISTIC( ++my_counters.tasks_executed );
 #if __TBB_TASK_GROUP_CONTEXT
                     if( SchedulerTraits::itt_possible )
                         ITT_STACK(callee_enter, t->prefix().context->itt_caller);
@@ -322,14 +333,14 @@ exception_was_caught:
                         __TBB_ASSERT( t_next->state()==task::allocated,
                                 "if task::execute() returns task, it must be marked as allocated" );
                         t_next->prefix().extra_state &= ~es_task_is_stolen;
-#if STATISTICS
+#if TBB_USE_ASSERT
                         affinity_id next_affinity=t_next->prefix().affinity;
                         if (next_affinity != 0 && next_affinity != my_affinity_id)
-                            GATHER_STATISTIC( ++proxy_bypass_count );
+                            GATHER_STATISTIC( ++my_counters.affinity_ignored );
 #endif
                     }
                 }
-                __TBB_ASSERT(assert_okay(),NULL);
+                assert_task_pool_valid();
                 switch( task::state_type(t->prefix().state) ) {
                     case task::executing: {
                         task* s = t->parent();
@@ -339,7 +350,7 @@ exception_was_caught:
                         if( s )
                             tally_completion_of_predecessor(*s, t_next);
                         free_task<no_hint>( *t );
-                        __TBB_ASSERT(assert_okay(),NULL);
+                        assert_task_pool_valid();
                         break;
                     }
 
@@ -349,7 +360,7 @@ exception_was_caught:
                         t->prefix().extra_state &= ~es_task_is_stolen;
                         // for safe continuation, need atomically decrement ref_count;
                         tally_completion_of_predecessor(*t, t_next);
-                        __TBB_ASSERT(assert_okay(),NULL);
+                        assert_task_pool_valid();
                         break;
 
                     case task::reexecute: // set by recycle_to_reexecute()
@@ -358,7 +369,7 @@ exception_was_caught:
                         t->prefix().state = task::allocated;
                         t->prefix().extra_state &= ~es_task_is_stolen;
                         local_spawn( *t, t->prefix().next );
-                        __TBB_ASSERT(assert_okay(),NULL);
+                        assert_task_pool_valid();
                         break;
                     case task::allocated:
                         t->prefix().extra_state &= ~es_task_is_stolen;
@@ -378,19 +389,20 @@ exception_was_caught:
                 if( t_next ) {
                     // The store here has a subtle secondary effect - it fetches *t_next into cache.
                     t_next->prefix().owner = this;
+                    GATHER_STATISTIC( ++my_counters.spawns_bypassed );
                 }
                 t = t_next;
             } // end of scheduler bypass loop
-            __TBB_ASSERT(assert_okay(),NULL);
+            assert_task_pool_valid();
 
             if ( parent.prefix().ref_count == quit_point )
                 break;
             t = get_task();
             __TBB_ASSERT(!t || !is_proxy(*t),"unexpected proxy");
 #if TBB_USE_ASSERT
-            __TBB_ASSERT(assert_okay(),NULL);
+            assert_task_pool_valid();
             if(t) {
-                AssertOkay(*t);
+                assert_task_valid(*t);
                 __TBB_ASSERT( t->prefix().owner==this, "thread got task that it does not own" );
             }
 #endif /* TBB_USE_ASSERT */
@@ -464,7 +476,7 @@ done:
     __TBB_ASSERT(innermost_running_task != dummy_task || !CancellationInfoPresent(*dummy_task), 
                  "Unexpected exception or cancellation data in the master's dummy task");
 #endif /* __TBB_TASK_GROUP_CONTEXT */
-    __TBB_ASSERT( assert_okay(), NULL );
+    assert_task_pool_valid();
 }
 
 } // namespace internal

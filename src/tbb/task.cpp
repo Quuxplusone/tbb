@@ -76,35 +76,37 @@ task& allocate_root_with_context_proxy::allocate( size_t size ) const {
     __TBB_ASSERT( v, "thread did not activate a task_scheduler_init object?" );
     task_prefix& p = v->innermost_running_task->prefix();
     task& t = v->allocate_task( size, __TBB_CONTEXT_ARG(NULL, &my_context) );
-    // The supported usage model prohibits concurrent initial binding. Thus we 
-    // do not need interlocked operations or fences here.
+    // Supported usage model prohibits concurrent initial binding. Thus we do not 
+    // need interlocked operations or fences to manipulate with my_context.my_kind
     if ( my_context.my_kind == task_group_context::binding_required ) {
         __TBB_ASSERT ( my_context.my_owner, "Context without owner" );
         __TBB_ASSERT ( !my_context.my_parent, "Parent context set before initial binding" );
         // If we are in the outermost task dispatch loop of a master thread, then
         // there is nothing to bind this context to, and we skip the binding part.
         if ( v->innermost_running_task != v->dummy_task ) {
-            // By not using the fence here we get faster code in case of normal execution 
-            // flow in exchange of a bit higher probability that in cases when cancellation 
-            // is in flight we will take deeper traversal branch. Normally cache coherency 
-            // mechanisms are efficient enough to deliver updated value most of the time.
-            uintptr_t local_count_snapshot = ((generic_scheduler*)my_context.my_owner)->local_cancel_count;
-            __TBB_store_with_release(my_context.my_parent, p.context);
-            uintptr_t global_count_snapshot = __TBB_load_with_acquire(global_cancel_count);
-            if ( !my_context.my_cancellation_requested ) {
-                if ( local_count_snapshot == global_count_snapshot ) {
-                    // It is possible that there is active cancellation request in our 
-                    // parents chain. Fortunately the equality of the local and global 
-                    // counters means that if this is the case it's already been propagated
-                    // to our parent.
-                    my_context.my_cancellation_requested = p.context->my_cancellation_requested;
-                } else {
-                    // Another thread was propagating cancellation request at the moment 
-                    // when we set our parent, but since we do not use locks we could've 
-                    // been skipped. So we have to make sure that we get the cancellation 
-                    // request if one of our ancestors has been canceled.
-                    my_context.propagate_cancellation_from_ancestors();
-                }
+            // Though the following assignment makes my_context accessible for 
+            // cancelation propagation, we cannot rely on the cancellation being 
+            // propagated into it without taking a global lock. Instead we always 
+            // check the state of my_context's ancestors, and use cancelation 
+            // epoch counters to minimize the depth of inspection.
+            my_context.my_parent = p.context;
+            uintptr_t local_count_snapshot = v->local_cancel_count;
+            // Prevent load of global_cancel_count from being hoisted above store
+            // to my_context.my_parent and load of local_cancel_count.
+            __TBB_full_memory_fence();
+            // The full fence guarantees that if no cancelation propagation was
+            // detected by the following condition, either my_context's parent 
+            // has correct cancelation state or my_context will receive cancelation
+            // signal if new cancelation starts after 
+            if ( local_count_snapshot != global_cancel_count ) {
+                // Another thread is propagating cancellation right now. Make sure 
+                // that my_context's parent gets the cancellation request (if one 
+                // of its ancestors is canceled) before we read it later on.
+                p.context->propagate_cancellation_from_ancestors();
+            }
+            if ( p.context->my_cancellation_requested ) {
+                // Propagate cancellation state from the parent context
+                my_context.my_cancellation_requested = 1;
             }
         }
         my_context.my_kind = task_group_context::binding_completed;
@@ -127,7 +129,7 @@ void allocate_root_with_context_proxy::free( task& task ) const {
 //------------------------------------------------------------------------
 task& allocate_continuation_proxy::allocate( size_t size ) const {
     task& t = *((task*)this);
-    __TBB_ASSERT( AssertOkay(t), NULL );
+    assert_task_valid(t);
     generic_scheduler* s = governor::local_scheduler();
     task* parent = t.parent();
     t.prefix().parent = NULL;
@@ -145,7 +147,7 @@ void allocate_continuation_proxy::free( task& mytask ) const {
 //------------------------------------------------------------------------
 task& allocate_child_proxy::allocate( size_t size ) const {
     task& t = *((task*)this);
-    __TBB_ASSERT( AssertOkay(t), NULL );
+    assert_task_valid(t);
     generic_scheduler* s = governor::local_scheduler();
     return s->allocate_task( size, __TBB_CONTEXT_ARG(&t, t.prefix().context) );
 }
@@ -230,7 +232,7 @@ internal::reference_count task::internal_decrement_ref_count() {
 
 task& task::self() {
     generic_scheduler *v = governor::local_scheduler();
-    __TBB_ASSERT( v->assert_okay(), NULL );
+    v->assert_task_pool_valid();
     __TBB_ASSERT( v->innermost_running_task, NULL );
     return *v->innermost_running_task;
 }
@@ -240,7 +242,10 @@ bool task::is_owned_by_current_thread() const {
 }
 
 void interface5::internal::task_base::destroy( task& victim ) {
-    __TBB_ASSERT( victim.prefix().ref_count== (ConcurrentWaitsEnabled(victim) ? 1 : 0), "Task being destroyed must not have children" );
+    // 1 may be a guard reference for wait_for_all, which was not reset because 
+    // of concurrent_wait mode or because prepared root task was not actually used
+    // for spawning tasks (as in structured_task_group).
+    __TBB_ASSERT( (intptr_t)victim.prefix().ref_count <= 1, "Task being destroyed must not have children" );
     __TBB_ASSERT( victim.state()==task::allocated, "illegal state for victim task" );
     task* parent = victim.parent();
     victim.~task();

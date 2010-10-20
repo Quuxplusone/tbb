@@ -26,19 +26,12 @@
     the GNU General Public License.
 */
 
-
 #include "rml_tbb.h"
 #include "../server/thread_monitor.h"
 #include "tbb/atomic.h"
 #include "tbb/cache_aligned_allocator.h"
 #include "tbb/spin_mutex.h"
 #include "tbb/tbb_thread.h"
-
-#if _XBOX
-    #define NONET
-    #define NOD3D
-    #include <xtl.h>
-#endif
 
 using rml::internal::thread_monitor;
 
@@ -51,7 +44,10 @@ class private_server;
 class private_worker: no_copy {
     //! State in finite-state machine that controls the worker.
     /** State diagram:
-        open --> normal --> quit
+        init --------------------\ 
+          |                      | 
+          V                      V
+        starting --> normal --> quit
           |
           V
         plugged
@@ -59,9 +55,11 @@ class private_worker: no_copy {
     enum state_t {
         //! *this is initialized
         st_init,
+        //! *this has associated thread that is starting up.
+        st_starting,
         //! Associated thread is doing normal life sequence.
         st_normal,
-        //! Associated thread is end normal life sequence.
+        //! Associated thread has ended normal life sequence and promises to never touch *this again.
         st_quit,
         //! Associated thread should skip normal life sequence, because private_server is shutting down.
         st_plugged
@@ -82,13 +80,16 @@ class private_worker: no_copy {
         "my_slack<=0 && my_state==st_normal && I am on server's list of asleep threads" */
     thread_monitor my_thread_monitor;
 
-    //! Link for list of sleeping workers
+    //! Link for list of workers that are sleeping or have no associated thread.
     private_worker* my_next;
 
     friend class private_server;
 
     //! Actions executed by the associated thread 
     void run();
+
+    //! Wake up associated thread (or launch a thread if there is none)
+    void wake_or_launch();
 
     //! Called by a thread (usually not the associated thread) to commence termination.
     void start_shutdown();
@@ -125,7 +126,12 @@ public:
 
 class private_server: public tbb_server, no_copy {
     tbb_client& my_client;
+    //! Maximum number of threads to be creatd.
+    /** Threads are created lazily, so maximum might not actually be reached. */
     const tbb_client::size_type my_n_thread;
+
+    //! Stack size for each thread. */
+    const size_t my_stack_size;
 
     //! Number of jobs that could use their associated thread minus number of active threads.
     /** If negative, indicates oversubscription.
@@ -149,9 +155,13 @@ class private_server: public tbb_server, no_copy {
     atomic<int> my_net_slack_requests;
 #endif /* TBB_USE_ASSERT */
 
-    //! Used for double-check idiom
-    bool has_sleepers() const {
-        return my_asleep_list_root!=NULL;
+    //! Wake up to two sleeping workers, if there are any sleeping.
+    /** The call is used to propagate a chain reaction where each thread wakes up two threads,
+        which in turn each wake up two threads, etc. */
+    void propagate_chain_reaction() {
+        // First test of a double-check idiom.  Second test is inside wake_some(0).
+        if( my_asleep_list_root ) 
+            wake_some(0);
     }
 
     //! Try to add t to list of sleeping workers
@@ -206,11 +216,15 @@ public:
     #pragma warning(push)
     #pragma warning(disable:4189)
 #endif
+#if __MINGW32__ && __GNUC__==4 &&__GNUC_MINOR__>=2 && !__MINGW64__
+// ensure that stack is properly aligned for TBB threads
+__attribute__((force_align_arg_pointer))
+#endif
 __RML_DECL_THREAD_ROUTINE private_worker::thread_routine( void* arg ) {
     private_worker* self = static_cast<private_worker*>(arg);
     AVOID_64K_ALIASING( self->my_index );
 #if _XBOX
-    int HWThreadIndex = GetHardwareThreadIndex(i);
+    int HWThreadIndex = __TBB_XBOX360_GetHardwareThreadIndex(i);
     XSetThreadProcessor(GetCurrentThread(), HWThreadIndex);
 #endif
     self->run();
@@ -222,23 +236,27 @@ __RML_DECL_THREAD_ROUTINE private_worker::thread_routine( void* arg ) {
 
 void private_worker::start_shutdown() {
     state_t s; 
-    // Transition from st_init or st_normal to st_plugged or st_quit
+    // Transition from st_starting or st_normal to st_plugged or st_quit
     do {
         s = my_state;
-        __TBB_ASSERT( s==st_init||s==st_normal, NULL );
-    } while( my_state.compare_and_swap( s==st_init? st_plugged : st_quit, s )!=s );
+        __TBB_ASSERT( s==st_init||s==st_starting||s==st_normal, NULL );
+    } while( my_state.compare_and_swap( s==st_starting? st_plugged : st_quit, s )!=s );
     if( s==st_normal ) {
         // May have invalidated invariant for sleeping, so wake up the thread.
         // Note that the notify() here occurs without maintaining invariants for my_slack.
         // It does not matter, because my_state==st_quit overrides checking of my_slack.
         my_thread_monitor.notify();
-    } 
+    } else if( s==st_init ) {
+        // Perform action that otherwise would be performed by associated thread when it quits.
+        my_server.remove_server_ref();
+    }
 }
 
 void private_worker::run() {
-    if( my_state.compare_and_swap( st_normal, st_init )==st_init ) {
+    my_server.propagate_chain_reaction();
+    state_t s = my_state.compare_and_swap( st_normal, st_starting );
+    if( s==st_starting ) {
         ::rml::job& j = *my_client.create_one_job();
-        --my_server.my_slack;
         while( my_state==st_normal ) {
             if( my_server.my_slack>=0 ) {
                 my_client.process(j);
@@ -249,9 +267,7 @@ void private_worker::run() {
                 // Check/set the invariant for sleeping
                 if( my_state==st_normal && my_server.try_insert_in_asleep_list(*this) ) {
                     my_thread_monitor.commit_wait(c);
-                    // Propagate chain reaction
-                    if( my_server.has_sleepers() )
-                        my_server.wake_some(0);
+                    my_server.propagate_chain_reaction();
                 } else {
                     // Invariant broken
                     my_thread_monitor.cancel_wait();
@@ -259,9 +275,19 @@ void private_worker::run() {
             }
         }
         my_client.cleanup(j);
-        ++my_server.my_slack;
+    } else {
+        // Server is already shutting down.
+        __TBB_ASSERT( s==st_plugged, NULL );
     }
+    ++my_server.my_slack;
     my_server.remove_server_ref();
+}
+
+inline void private_worker::wake_or_launch() {
+    if( my_state==st_init && my_state.compare_and_swap( st_starting, st_init )==st_init )
+        thread_monitor::launch( thread_routine, this, my_server.my_stack_size );
+    else
+        my_thread_monitor.notify();
 }
 
 //------------------------------------------------------------------------
@@ -270,6 +296,7 @@ void private_worker::run() {
 private_server::private_server( tbb_client& client ) : 
     my_client(client), 
     my_n_thread(client.max_job_count()),
+    my_stack_size(client.min_stack_size()),
     my_thread_array(NULL) 
 {
     my_ref_count = my_n_thread+1;
@@ -278,13 +305,12 @@ private_server::private_server( tbb_client& client ) :
     my_net_slack_requests = 0;
 #endif /* TBB_USE_ASSERT */
     my_asleep_list_root = NULL;
-    size_t stack_size = client.min_stack_size();
     my_thread_array = tbb::cache_aligned_allocator<padded_private_worker>().allocate( my_n_thread );
     memset( my_thread_array, 0, sizeof(private_worker)*my_n_thread );
-    // FIXME - use recursive chain reaction to launch the threads.
     for( size_t i=0; i<my_n_thread; ++i ) {
         private_worker* t = new( &my_thread_array[i] ) padded_private_worker( *this, client, i ); 
-        thread_monitor::launch( private_worker::thread_routine, t, stack_size );
+        t->my_next = my_asleep_list_root;
+        my_asleep_list_root = t;
     } 
 }
 
@@ -338,7 +364,7 @@ void private_server::wake_some( int additional_slack ) {
     }
 done:
     while( w>wakee ) 
-        (*--w)->my_thread_monitor.notify();
+        (*--w)->wake_or_launch();
 }
 
 void private_server::adjust_job_count_estimate( int delta ) {

@@ -33,6 +33,7 @@
 #include "tbb/atomic.h"
 
 #if __TBB_ARENA_PER_MASTER
+#include "scheduler_common.h"
 #include "market.h"
 #include "intrusive_list.h"
 #include "task_stream.h"
@@ -213,11 +214,19 @@ struct arena_slot {
     unsigned hint_for_push, hint_for_pop;
 
 #endif /* __TBB_ARENA_PER_MASTER */
+
+#if __TBB_STATISTICS
+    //! Set of counters to accumulate internal statistics related to this arena
+    statistics_counters *my_counters;
+#endif /* __TBB_STATISTICS */
     //! Padding to avoid false sharing caused by the thieves accessing the next slot
     char pad2[NFS_MaxLineSize - sizeof(size_t)
 #if __TBB_ARENA_PER_MASTER
               - 2*sizeof(unsigned)
 #endif /* __TBB_ARENA_PER_MASTER */
+#if __TBB_STATISTICS
+              - sizeof(statistics_counters*)
+#endif /* __TBB_STATISTICS */
              ];
 }; // class arena_slot
 
@@ -254,6 +263,9 @@ struct arena_base : intrusive_list_node {
         arena shutdown and detaches from it. Plays the role of the arena's ref count. **/
     atomic<unsigned> my_num_threads_active;
 
+    //! Number of threads that has exited the dispatch loop but has not left the arena yet
+    atomic<unsigned> my_num_threads_leaving;
+
     //! Current task pool state and estimate of available tasks amount.
     /** The estimate is either 0 (SNAPSHOT_EMPTY) or infinity (SNAPSHOT_FULL). 
         Special state is "busy" (any other unsigned value). 
@@ -270,6 +282,10 @@ struct arena_base : intrusive_list_node {
     task_stream my_task_stream;
 
     bool my_mandatory_concurrency;
+
+#if TBB_USE_ASSERT
+    uintptr_t my_guard;
+#endif /* TBB_USE_ASSERT */
 }; // struct arena_base
 
 #endif /* __TBB_ARENA_PER_MASTER */
@@ -355,7 +371,7 @@ class arena
 
     //! The number of workers active in the arena.
     unsigned num_workers_active( ) {
-        return my_num_threads_active - (slot[0].my_scheduler? 1: 0);
+        return my_num_threads_active - my_num_threads_leaving - (slot[0].my_scheduler? 1: 0);
     }
 
     //! If necessary, raise a flag that there is new job in arena.
@@ -379,8 +395,14 @@ class arena
     void close_arena ();
 
 #if __TBB_ARENA_PER_MASTER
+    //! Registers the worker with the arena and enters TBB scheduler dispatch loop
     void process( generic_scheduler& s );
-#endif
+
+#if __TBB_STATISTICS
+    //! Outputs internal statistics accumulated by the arena
+    void dump_arena_statistics ();
+#endif /* __TBB_STATISTICS */
+#endif /* __TBB_ARENA_PER_MASTER */
 
 #if __TBB_COUNT_TASK_NODES
     //! Returns the number of task objects "living" in worker threads
@@ -404,7 +426,7 @@ template<bool Spawned> void arena::advertise_new_work() {
         }
         // Local memory fence is required to avoid missed wakeups; see the comment below.
         // Starvation resistant tasks require mandatory concurrency, so missed wakeups are unacceptable.
-        __TBB_rel_acq_fence(); 
+        __TBB_full_memory_fence(); 
     }
     // Double-check idiom that, in case of spawning, is deliberately sloppy about memory fences.
     // Technically, to avoid missed wakeups, there should be a full memory fence between the point we 

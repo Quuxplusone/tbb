@@ -46,7 +46,6 @@ public:
     ThreadState() : request(-1), ack(-1), clock(0) {}
 };
 
-
 void ThreadState::loop() {
     for(;;) {
         ++clock;

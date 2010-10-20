@@ -341,8 +341,7 @@ bool GenerateMap(Polygon_map_t **newMap, int xSize, int ySize, int gNPolygons, c
     // *newMap = new vector<RPolygon>;
     *newMap = new Polygon_map_t;
     (*newMap)->reserve(gNPolygons + 1);  // how much bigger does this need to be on average?
-    newPoly = RPolygon::alloc_RPolygon(0,0,xSize-1, ySize-1);
-    (*newMap)->push_back(newPoly);
+    (*newMap)->push_back(RPolygon(0,0,xSize-1, ySize-1));
     for(int i=0; i < gNPolygons; i++) {
         int nX;
         int nY;
@@ -353,8 +352,7 @@ bool GenerateMap(Polygon_map_t **newMap, int xSize, int ySize, int gNPolygons, c
         int nR = (maxR * NextRan(1000)) / 999;
         int nG = (maxG * NextRan(1000)) / 999;
         int nB = (maxB * NextRan(1000)) / 999;
-        newPoly = RPolygon::alloc_RPolygon(nX,nY,nX,nY,nR,nG,nB);
-        (*newMap)->push_back(newPoly);
+        (*newMap)->push_back(RPolygon(nX,nY,nX,nY,nR,nG,nB));
         tempMap[nX * ySize + nY] = i+1;     // index of this polygon + 1
     }
     // now have to grow polygons to fill the space.
@@ -374,7 +372,7 @@ bool GenerateMap(Polygon_map_t **newMap, int xSize, int ySize, int gNPolygons, c
         int checkSide = validSide[indx];
         int xlow, xhigh, ylow, yhigh;
         int xlnew, xhnew, ylnew, yhnew;
-        (**newMap)[polyIndx]->get(&xlow,&ylow,&xhigh,&yhigh);
+        (**newMap)[polyIndx].get(&xlow,&ylow,&xhigh,&yhigh);
         xlnew = xlow;
         xhnew = xhigh;
         ylnew = ylow; 
@@ -409,7 +407,7 @@ bool GenerateMap(Polygon_map_t **newMap, int xSize, int ySize, int gNPolygons, c
             }
         }
         if(okay_to_extend) {
-            (**newMap)[polyIndx]->set(xlnew,ylnew,xhnew,yhnew);
+            (**newMap)[polyIndx].set(xlnew,ylnew,xhnew,yhnew);
             for(int ii = xlow; ii <= xhigh; ii++) {
                 for(int jj=ylow; jj <= yhigh && okay_to_extend; jj++) {
                     tempMap[ii*ySize + jj] = polyIndx;
@@ -450,8 +448,7 @@ bool GenerateMap(Polygon_map_t **newMap, int xSize, int ySize, int gNPolygons, c
                 int nR = (maxR * NextRan(1000)) / 999;
                 int nG = (maxG * NextRan(1000)) / 999;
                 int nB = (maxB * NextRan(1000)) / 999;
-                newPoly = RPolygon::alloc_RPolygon(i,j,ilen,jlen,nR,nG,nB);
-                (*newMap)->push_back(newPoly);
+                (*newMap)->push_back(RPolygon(i,j,ilen,jlen,nR,nG,nB));
                 gNPolygons++;
                 for(int ii=i; ii<=ilen;ii++) {
                     for(int jj=j;jj<=jlen;jj++) {
@@ -502,7 +499,7 @@ void CheckPolygonMap(Polygon_map_t *checkMap) {
     // mapXhigh and mapYhigh are inclusive, that is, if the map is 5x5, those values would be 4.
     int mapXhigh, mapYhigh, mapLowX, mapLowY;
     int gMapXSize, gMapYSize;
-    checkMap->at(0)->get(&mapLowX, &mapLowY, &mapXhigh, &mapYhigh);
+    (*checkMap)[0].get(&mapLowX, &mapLowY, &mapXhigh, &mapYhigh);
     if((mapLowX !=0) || (mapLowY != 0)) {
         cout << "checkMap error: map origin not (0,0) (X=" << mapLowX << ", Y=" << mapLowY << ")" << std::endl;
         anError = true;
@@ -525,7 +522,7 @@ void CheckPolygonMap(Polygon_map_t *checkMap) {
 
     int xlow, xhigh, ylow, yhigh;
     for(int p=1; p < int(checkMap->size()) && !anError; p++) {
-        checkMap->at(p)->get(&xlow, &ylow, &xhigh, &yhigh);
+        (*checkMap)[p].get(&xlow, &ylow, &xhigh, &yhigh);
         xRangeCheck("xlow", xlow);
         yRangeCheck("ylow", ylow);
         xRangeCheck("xhigh", xhigh);
@@ -559,11 +556,11 @@ void CheckPolygonMap(Polygon_map_t *checkMap) {
     free(cArray);
 }
 
-bool CompOnePolygon(RPolygon *p1, RPolygon *p2) {
+bool CompOnePolygon(RPolygon &p1, RPolygon &p2) {
     int xl1, xh1, yl1, yh1;
     int xl2, xh2, yl2, yh2;
-    p1->get(&xl1, &yl1, &xh1, &yh1);
-    p2->get(&xl2, &yl2, &xh2, &yh2);
+    p1.get(&xl1, &yl1, &xh1, &yh1);
+    p2.get(&xl2, &yl2, &xh2, &yh2);
     if(yl1>yl2) return true;
     if(yl1<yl2) return false;
     return (xl1 > xl2);
@@ -593,16 +590,16 @@ bool ComparePolygonMaps(Polygon_map_t *map1, Polygon_map_t *map2) {
         t2->push_back(map2->at(i));
     }
     // sort the two created maps by (xlow, ylow)
-    sort(t1->begin(), t1->end(), CompOnePolygon);
-    sort(t2->begin(), t2->end(), CompOnePolygon);
+    sort(t1->begin(), t1->end());
+    sort(t2->begin(), t2->end());
     // compare each element of both maps.
     if(t1->size() != t2->size()) {
         cout << "Error: maps not the same size ( " << int(t1->size()) << " vs " << int(t2->size()) << ")." << std::endl;
     }
     int maxSize = (int)((t1->size() < t2->size()) ? t1->size() : t2->size());
     for(int i=0; i < maxSize; i++) {
-        if(!PolygonsEqual(t1->at(i), t2->at(i))) {
-            cout << "Error: polygons unequal (" << *(t1->at(i)) << " vs " << (*t2->at(i)) << std::endl;
+        if(!PolygonsEqual(&((*t1)[i]), &((*t2)[i]))) {
+            cout << "Error: polygons unequal (" << (*t1)[i] << " vs " << (*t2)[i] << std::endl;
             is_ok = false;
         }
     }

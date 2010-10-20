@@ -41,7 +41,7 @@ namespace tbb {
 //! A lock that occupies a single byte.
 /** A spin_mutex is a spin mutex that fits in a single byte.  
     It should be used only for locking short critical sections 
-    (typically &lt;20 instructions) when fairness is not an issue.  
+    (typically less than 20 instructions) when fairness is not an issue.  
     If zero-initialized, the mutex is considered unheld.
     @ingroup synchronization */
 class spin_mutex {

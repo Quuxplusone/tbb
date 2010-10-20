@@ -68,14 +68,15 @@ int main() {
   string str[N] = { string("a"), string("b") };
   for (size_t i = 2; i < N; ++i) str[i] = str[i-1]+str[i-2];
   string &to_scan = str[N-1]; 
+  size_t num_elem = to_scan.size();
 
-  size_t *max = new size_t[to_scan.size()];
-  size_t *pos = new size_t[to_scan.size()];
+  size_t *max = new size_t[num_elem];
+  size_t *pos = new size_t[num_elem];
 
-  parallel_for(blocked_range<size_t>(0, to_scan.size() ),
+  parallel_for(blocked_range<size_t>(0, num_elem ),
                SubStringFinder( to_scan, max, pos ) );
 
-  for (size_t i = 0; i < to_scan.size(); ++i)
+  for (size_t i = 0; i < num_elem; ++i)
     cout << " " << max[i] << "(" << pos[i] << ")" << endl;
   delete[] pos;
   delete[] max;

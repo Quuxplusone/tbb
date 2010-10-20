@@ -171,7 +171,7 @@
 		8D0C4E960486CD37000505A6 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A117DC7A0B8DC08100F62CED /* AGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AGL.framework; path = /System/Library/Frameworks/AGL.framework; sourceTree = "<absolute>"; };
 		A117DC7F0B8DC09300F62CED /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = /System/Library/Frameworks/OpenGL.framework; sourceTree = "<absolute>"; };
-		A117DC830B8DC0DE00F62CED /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = /Library/Frameworks/TBB.framework/Libraries/libtbb.dylib; sourceTree = "<absolute>"; };
+		A117DC830B8DC0DE00F62CED /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = ../../../../lib/libtbb.dylib; sourceTree = SOURCE_ROOT; };
 		A1A8FB5D0B8CBB8D001C55B1 /* trace.tbb.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = trace.tbb.cpp; path = ../src/trace.tbb.cpp; sourceTree = SOURCE_ROOT; };
 		A1F58CD90B8DE90E00073279 /* tachyon-tbb.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "tachyon-tbb.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1F58D3D0B8DEB8E00073279 /* trace.threads.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = trace.threads.cpp; path = ../src/trace.threads.cpp; sourceTree = SOURCE_ROOT; };
@@ -715,16 +715,17 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
+				GCC_PREPROCESSOR_DEFINITIONS = "DEFAULT_MODELFILE=\"$(SOURCE_ROOT)/../dat/balls.dat\"";
+				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					../../../../lib,
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = "tachyon-tbb1d";
-				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -739,16 +740,17 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
+				GCC_PREPROCESSOR_DEFINITIONS = "DEFAULT_MODELFILE=\"$(SOURCE_ROOT)/../dat/balls.dat\"";
+				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					../../../../lib,
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PREBINDING = NO;
 				PRODUCT_NAME = "tachyon-tbb1d";
-				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -765,11 +767,12 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
+				GCC_PREPROCESSOR_DEFINITIONS = "DEFAULT_MODELFILE=\"$(SOURCE_ROOT)/../dat/balls.dat\"";
+				GCC_VERSION = 4.0;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				PREBINDING = NO;
 				PRODUCT_NAME = "tachyon-serial";
-				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -784,11 +787,12 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Carbon.framework/Headers/Carbon.h";
+				GCC_PREPROCESSOR_DEFINITIONS = "DEFAULT_MODELFILE=\"$(SOURCE_ROOT)/../dat/balls.dat\"";
+				GCC_VERSION = 4.0;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				PREBINDING = NO;
 				PRODUCT_NAME = "tachyon-serial";
-				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -806,15 +810,15 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = tachyon.pch;
+				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					../../../../lib,
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = "tachyon-tbb";
-				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -829,15 +833,15 @@
 				GCC_MODEL_TUNING = "";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = tachyon.pch;
+				GCC_VERSION = 4.0;
+				HEADER_SEARCH_PATHS = ../../../../include;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+					../../../../lib,
 				);
-				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/TBB.framework/Libraries\"";
 				PRODUCT_NAME = "tachyon-tbb";
-				GCC_VERSION = 4.0;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -850,12 +854,12 @@
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_ENABLE_SSE3_EXTENSIONS = YES;
 				GCC_MODEL_TUNING = "";
-				GCC_PREPROCESSOR_DEFINITIONS = "DEFAULT_MODELFILE=\"/Library/Frameworks/TBB.framework/Versions/Current/examples/parallel_for/tachyon/dat/balls.dat\"";
+				GCC_PREPROCESSOR_DEFINITIONS = "DEFAULT_MODELFILE=\"$(SOURCE_ROOT)/../dat/balls.dat\"";
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
-				GCC_VERSION = 4.0;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Debug;
@@ -867,12 +871,12 @@
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_ENABLE_SSE3_EXTENSIONS = YES;
 				GCC_MODEL_TUNING = "";
-				GCC_PREPROCESSOR_DEFINITIONS = "DEFAULT_MODELFILE=\"/Library/Frameworks/TBB.framework/Versions/Current/examples/parallel_for/tachyon/dat/balls.dat\"";
+				GCC_PREPROCESSOR_DEFINITIONS = "DEFAULT_MODELFILE=\"$(SOURCE_ROOT)/../dat/balls.dat\"";
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
-				GCC_VERSION = 4.0;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Release;

@@ -44,7 +44,7 @@ void concurrent_monitor::prepare_wait( thread_context& thr, void* ctx ) {
         thr.epoch = epoch;
         waitset_ec.add( (waitset_t::node_t*)&thr );
     }
-    __TBB_rel_acq_fence();
+    __TBB_full_memory_fence();
 }
 
 void concurrent_monitor::cancel_wait( thread_context& thr ) {

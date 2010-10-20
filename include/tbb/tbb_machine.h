@@ -37,7 +37,11 @@
 #pragma managed(push, off)
 #endif
 
-#if __MINGW32__
+#if __MINGW64__
+#include "machine/linux_intel64.h"
+extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
+#define __TBB_Yield()  SwitchToThread()
+#elif __MINGW32__
 #include "machine/linux_ia32.h"
 extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 #define __TBB_Yield()  SwitchToThread()
@@ -47,8 +51,6 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 #include "machine/windows_intel64.h"
 #elif _XBOX 
 #include "machine/xbox360_ppc.h"
-#else
-#error Unsupported platform
 #endif
 
 #ifdef _MANAGED
@@ -63,7 +65,10 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 #include "machine/linux_intel64.h"
 #elif __ia64__
 #include "machine/linux_ia64.h"
+#elif __powerpc__
+#include "machine/mac_ppc.h"
 #endif
+#include "machine/linux_common.h"
 
 #elif __APPLE__
 
@@ -74,6 +79,7 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 #elif __POWERPC__
 #include "machine/mac_ppc.h"
 #endif
+#include "machine/macos_common.h"
 
 #elif _AIX
 
@@ -90,33 +96,30 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 #elif __sparc
 #include "machine/sunos_sparc.h"
 #endif
+#include <sched.h>
+#define __TBB_Yield() sched_yield()
 
 #endif
 
+//! Prerequisites for each architecture port
+/** There are no generic implementation for these macros so they have to be implemented
+    in each machine architecture specific header.
+
+    __TBB_full_memory_fence must prevent all memory operations from being reordered 
+    across the fence. And all such fences must be totally ordered (or sequentially 
+    consistent). These fence must affect both compiler and hardware.
+    
+    __TBB_release_consistency_helper is used to enforce guarantees of acquire or 
+    release semantics in generic implementations of __TBB_load_with_acquire and 
+    __TBB_store_with_release below. Depending on the particular combination of
+    architecture+compiler it can be a hardware fence, a compiler fence, both or
+    nothing. **/
 #if    !defined(__TBB_CompareAndSwap4) \
     || !defined(__TBB_CompareAndSwap8) \
     || !defined(__TBB_Yield)           \
+    || !defined(__TBB_full_memory_fence)    \
     || !defined(__TBB_release_consistency_helper)
-#error Minimal requirements for tbb_machine.h not satisfied 
-#endif
-
-#ifndef __TBB_load_with_acquire
-    //! Load with acquire semantics; i.e., no following memory operation can move above the load.
-    template<typename T>
-    inline T __TBB_load_with_acquire(const volatile T& location) {
-        T temp = location;
-        __TBB_release_consistency_helper();
-        return temp;
-    }
-#endif
-
-#ifndef __TBB_store_with_release
-    //! Store with release semantics; i.e., no prior memory operation can move below the store.
-    template<typename T, typename V>
-    inline void __TBB_store_with_release(volatile T& location, V value) {
-        __TBB_release_consistency_helper();
-        location = T(value); 
-    }
+#error Minimal requirements for tbb_machine.h not satisfied; platform is not supported.
 #endif
 
 #ifndef __TBB_Pause
@@ -130,7 +133,7 @@ namespace internal {
 
 //! Class that implements exponential backoff.
 /** See implementation of spin_wait_while_eq for an example. */
-class atomic_backoff {
+class atomic_backoff : no_copy {
     //! Time delay, in units of "pause" instructions. 
     /** Should be equal to approximately the number of "pause" instructions
         that take the same time as an context switch. */
@@ -540,27 +543,73 @@ const T reverse<T>::byte_table[256] = {
 #define __TBB_FetchAndDecrementWrelease(P) __TBB_FetchAndAddW(P,(-1))
 #endif
 
+template <typename T, size_t S>
+struct __TBB_machine_load_store {
+    static inline T load_with_acquire(const volatile T& location) {
+        T to_return = location;
+        __TBB_release_consistency_helper();
+        return to_return;
+    }
+
+    static inline void store_with_release(volatile T &location, T value) {
+        __TBB_release_consistency_helper();
+        location = value;
+    }
+};
+
 #if __TBB_WORDSIZE==4
-// On 32-bit platforms, "atomic.h" requires definition of __TBB_Store8 and __TBB_Load8
+#if _MSC_VER
+using tbb::internal::int64_t;
+#endif
+// On 32-bit platforms, there should be definition of __TBB_Store8 and __TBB_Load8
 #ifndef __TBB_Store8
 inline void __TBB_Store8 (volatile void *ptr, int64_t value) {
-    tbb::internal::atomic_backoff b;
     for(;;) {
         int64_t result = *(int64_t *)ptr;
         if( __TBB_CompareAndSwap8(ptr,value,result)==result ) break;
-        b.pause();
     }
 }
 #endif
 
 #ifndef __TBB_Load8
 inline int64_t __TBB_Load8 (const volatile void *ptr) {
-    int64_t result = *(int64_t *)ptr;
-    result = __TBB_CompareAndSwap8((volatile void *)ptr,result,result);
-    return result;
+    const int64_t anyvalue = 3264; // Could be anything, just the same for comparand and new value
+    return __TBB_CompareAndSwap8(const_cast<volatile void *>(ptr),anyvalue,anyvalue);
 }
 #endif
+
+template <typename T>
+struct __TBB_machine_load_store<T,8> {
+    static inline T load_with_acquire(const volatile T& location) {
+        T to_return = (T)__TBB_Load8((const volatile void*)&location);
+        __TBB_release_consistency_helper();
+        return to_return;
+    }
+
+    static inline void store_with_release(volatile T& location, T value) {
+        __TBB_release_consistency_helper();
+        __TBB_Store8((volatile void *)&location,(int64_t)value);
+    }
+};
 #endif /* __TBB_WORDSIZE==4 */
+
+#ifndef __TBB_load_with_acquire
+template<typename T>
+inline T __TBB_load_with_acquire(const volatile T &location) {
+    return __TBB_machine_load_store<T,sizeof(T)>::load_with_acquire(location);
+}
+#endif
+
+#ifndef __TBB_store_with_release
+template<typename T, typename V>
+inline void __TBB_store_with_release(volatile T& location, V value) {
+    __TBB_machine_load_store<T,sizeof(T)>::store_with_release(location,T(value));
+}
+//! Overload that exists solely to avoid /Wp64 warnings.
+inline void __TBB_store_with_release(volatile size_t& location, size_t value) {
+    __TBB_machine_load_store<size_t,sizeof(size_t)>::store_with_release(location,value);
+}
+#endif
 
 #ifndef __TBB_Log2
 inline intptr_t __TBB_Log2( uintptr_t x ) {

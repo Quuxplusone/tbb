@@ -174,13 +174,11 @@ public:
             my_putter->my_is_idle = value;
         }
     }
-#if TBB_USE_ASSERT
     //! Indicate whether thread that reads this mailbox is idle.
-    bool assert_is_idle( bool value ) const {
-        __TBB_ASSERT( !my_putter || my_putter->my_is_idle==value, NULL );
-        return true;
+    bool is_idle_state ( bool value ) const {
+        return !my_putter || my_putter->my_is_idle == value;
     }
-#endif /* TBB_USE_ASSERT */
+
 #if DO_ITT_NOTIFY
     //! Get pointer to corresponding outbox used for ITT_NOTIFY calls.
     void* outbox() const {return my_putter;}

@@ -61,7 +61,7 @@ void OverlayOnePolygonWithMap(Polygon_map_t *resultMap, RPolygon *myPoly, Polygo
     int myb=0;
     int p1Area = myPoly->area();
     for(unsigned int j=1; (j < map2->size()) && (p1Area > 0); j++) {
-        RPolygon *p2 = (*map2)[j];
+        RPolygon *p2 = &((*map2)[j]);
         RPolygon *pnew;
         int newxMin, newxMax, newyMin, newyMax;
         myPoly->getColor(&r1, &g1, &b1);
@@ -70,20 +70,13 @@ void OverlayOnePolygonWithMap(Polygon_map_t *resultMap, RPolygon *myPoly, Polygo
             myr = r1 + r2;
             myg = g1 + g2;
             myb = b1 + b2;
-            pnew = RPolygon::alloc_RPolygon(newxMin, newyMin, newxMax, newyMax, myr, myg, myb);
-            p1Area -= pnew->area(); // when all the area of the polygon is accounted for, we can quit.
+            p1Area -= (newxMax-newxMin+1)*(newyMax - newyMin + 1);
             if(rMutex) {
                 tbb::spin_mutex::scoped_lock lock(*rMutex);
-#if _DEBUG
-                pnew->print(int(resultMap->size()));
-#endif
-                resultMap->push_back(pnew);
+                resultMap->push_back(RPolygon(newxMin, newyMin, newxMax, newyMax, myr, myg, myb));
             }
             else {
-#ifdef _DEBUG
-                pnew->print(int(resultMap->size()));
-#endif
-                resultMap->push_back(pnew);
+                resultMap->push_back(RPolygon(newxMin, newyMin, newxMax, newyMax, myr, myg, myb));
             }
         }
     }
@@ -99,15 +92,14 @@ void SerialOverlayMaps(Polygon_map_t **resultMap, Polygon_map_t *map1, Polygon_m
     cout << "SerialOverlayMaps called" << std::endl;
     *resultMap = new Polygon_map_t;
 
-    RPolygon *p0 = (*map1)[0];
+    RPolygon *p0 = &((*map1)[0]);
     int mapxSize, mapySize, ignore1, ignore2;
     p0->get(&ignore1, &ignore2, &mapxSize, &mapySize);
     (*resultMap)->reserve(mapxSize*mapySize); // can't be any bigger than this
     // push the map size as the first polygon,
-    p0 = RPolygon::alloc_RPolygon(0,0,mapxSize, mapySize);
-    (*resultMap)->push_back(p0);
+    (*resultMap)->push_back(RPolygon(0,0,mapxSize, mapySize));
     for(unsigned int i=1; i < map1->size(); i++) {
-        RPolygon *p1 = (*map1)[i];
+        RPolygon *p1 = &((*map1)[i]);
         OverlayOnePolygonWithMap(*resultMap, p1, map2, NULL);
     }
 }
@@ -127,7 +119,7 @@ public:
     void operator()( const tbb::blocked_range<int> & r) const {
         PRINT_DEBUG("From " << r.begin() << " to " << r.end());
         for(int i=r.begin(); i != r.end(); i++) {
-            RPolygon *myPoly = (*m_map1)[i];
+            RPolygon *myPoly = &((*m_map1)[i]);
             OverlayOnePolygonWithMap(m_resultMap, myPoly, m_map2, m_rMutex);
         }
     }
@@ -151,7 +143,7 @@ void NaiveParallelOverlay(Polygon_map_t *&result_map, Polygon_map_t &polymap1, P
     }
     result_map = new Polygon_map_t;
 
-    RPolygon *p0 = polymap1[0];
+    RPolygon *p0 = &(polymap1[0]);
     int mapxSize, mapySize, ignore1, ignore2;
     p0->get(&ignore1, &ignore2, &mapxSize, &mapySize);
     result_map->reserve(mapxSize*mapySize); // can't be any bigger than this
@@ -162,12 +154,11 @@ void NaiveParallelOverlay(Polygon_map_t *&result_map, Polygon_map_t &polymap1, P
     for(int nthreads = gThreadsLow; nthreads <= gThreadsHigh; nthreads++) {
         tbb::task_scheduler_init init(nthreads);
         if(gIsGraphicalVersion) {
-            RPolygon *xp = RPolygon::alloc_RPolygon(0, 0, gMapXSize-1, gMapYSize-1, 0, 0, 0);  // Clear the output space
-            RPolygon::free_RPolygon( xp );
+            RPolygon *xp = new RPolygon(0, 0, gMapXSize-1, gMapYSize-1, 0, 0, 0);  // Clear the output space
+            delete xp;
         }
         // put size polygon in result map
-        p0 = RPolygon::alloc_RPolygon(0,0,mapxSize, mapySize);
-        result_map->push_back(p0);
+        result_map->push_back(RPolygon(0,0,mapxSize, mapySize));
 
         tbb::tick_count t0 = tbb::tick_count::now();
         tbb::parallel_for (tbb::blocked_range<int>(1,(int)(polymap1.size()),grain_size), ApplyOverlay(result_map, &polymap1, &polymap2, resultMutex));
@@ -186,9 +177,6 @@ void NaiveParallelOverlay(Polygon_map_t *&result_map, Polygon_map_t &polymap1, P
         CheckPolygonMap(result_map);
         ComparePolygonMaps(result_map, gResultMap);
 #endif
-        for(int i=0; i<int(result_map->size());i++) {
-            RPolygon::free_RPolygon(result_map->at(i));
-        }
         result_map->clear();
     }
     delete resultMutex;
@@ -198,11 +186,116 @@ void NaiveParallelOverlay(Polygon_map_t *&result_map, Polygon_map_t &polymap1, P
 // -----------------------------------
 }
 
+template<typename T>
+void split_at( Flagged_map_t& in_map, Flagged_map_t &left_out, Flagged_map_t &right_out, const T median) {
+    left_out.reserve(in_map.size());
+    right_out.reserve(in_map.size());
+    for(Flagged_map_t::iterator i = in_map.begin(); i != in_map.end(); ++i ) {
+        RPolygon *p = i->p();
+        if(p->xmax() < median) {
+            // in left map
+            left_out.push_back(*i);
+        }
+        else if(p->xmin() >= median) {
+            right_out.push_back(*i);
+            // in right map
+        }
+        else {
+            // in both maps.
+            left_out.push_back(*i);
+            right_out.push_back(RPolygon_flagged(p, true));
+        }
+    }
+}
+
+// range that splits the maps as well as the range.  the flagged_map_t are
+// vectors of pointers, and each range owns its maps (has to free them on destruction.)
+template <typename T>
+class blocked_range_with_maps {
+    
+    typedef blocked_range<T> my_range_type;
+
+private:
+
+    my_range_type my_range;
+    Flagged_map_t my_map1;
+    Flagged_map_t my_map2;
+
+public:
+
+    blocked_range_with_maps(
+            T begin, T end, typename my_range_type::size_type my_grainsize,
+            Polygon_map_t *p1, Polygon_map_t *p2
+            )
+        : my_range(begin, end, my_grainsize)
+    {
+        my_map1.reserve(p1->size());
+        my_map2.reserve(p2->size());
+        for(int i=1; i < p1->size(); ++i) {
+            my_map1.push_back(RPolygon_flagged(&((*p1)[i]), false));
+        }
+        for(int i=1; i < p2->size(); ++i) {
+            my_map2.push_back(RPolygon_flagged(&(p2->at(i)), false));
+        }
+    }
+
+    // copy-constructor required for deep copy of flagged maps.  One copy is done at the start of the
+    // parallel for.
+    blocked_range_with_maps(const blocked_range_with_maps& other): my_range(other.my_range), my_map1(other.my_map1), my_map2(other.my_map2) { }
+    bool empty() const { return my_range.empty(); }
+    bool is_divisible() const { return my_range.is_divisible(); }
+
+#if _DEBUG
+    void check_my_map() {
+        assert(my_range.begin() <= my_range.end());
+        for(Flagged_map_t::iterator ci = my_map1.begin(); ci != my_map1.end(); ++ci) {
+            RPolygon *rp = ci->p();
+            assert(rp->xmax() >= my_range.begin());
+            assert(rp->xmin() < my_range.end());
+        }
+        for(Flagged_map_t::iterator ci = my_map2.begin(); ci != my_map2.end(); ++ci) {
+            RPolygon *rp = ci->p();
+            assert(rp->xmax() >= my_range.begin());
+            assert(rp->xmin() < my_range.end());
+        }
+    }
+
+    void dump_map( Flagged_map_t& mapx) {
+        cout << " ** MAP **\n";
+        for( Flagged_map_t::iterator ci = mapx.begin(); ci != mapx.end(); ++ci) {
+            cout << *(ci->p());
+            if(ci->isDuplicate()) {
+                cout << " -- is_duplicate";
+            }
+            cout << "\n";
+        }
+        cout << "\n";
+    }
+#endif
+
+    blocked_range_with_maps(blocked_range_with_maps& lhs_r, split ) : my_range(my_range_type(lhs_r.my_range, split())) {
+        // lhs_r.my_range makes my_range from [median, high) and rhs_r.my_range from [low, median)
+        Flagged_map_t original_map1 = lhs_r.my_map1;
+        Flagged_map_t original_map2 = lhs_r.my_map2;
+        lhs_r.my_map1.clear();
+        lhs_r.my_map2.clear();
+        split_at(original_map1, lhs_r.my_map1, my_map1, my_range.begin());
+        split_at(original_map2, lhs_r.my_map2, my_map2, my_range.begin());
+#if _DEBUG
+        this->check_my_map();
+        lhs_r.check_my_map();
+#endif
+    }
+
+    const my_range_type& range() const { return my_range; }
+    Flagged_map_t& map1() { return my_map1; }
+    Flagged_map_t& map2() { return my_map2; }
+};
+
 /*!
 * @class ApplySplitOverlay
 * @brief parallel by columnar strip
 */
-
 class ApplySplitOverlay {
     Polygon_map_t *m_map1, *m_map2, *m_resultMap;
     tbb::spin_mutex *m_rMutex;
@@ -211,89 +304,24 @@ public:
     * @brief functor for columnar parallel version
     * @param[in] r range of map to be operated on
     */
-    void operator()(const tbb::blocked_range<int> & r) const {
+    void operator()(/*const*/ blocked_range_with_maps<int> & r) const {
 #ifdef _DEBUG
         // if we are debugging, serialize the method.  That way we can
         // see what is happening in each strip without the interleaving
         // confusing things.
         tbb::spin_mutex::scoped_lock lock(*m_rMutex);
-        cout << unitbuf << "From " << r.begin() << " to " << r.end()-1 << std::endl;
+        cout << unitbuf << "From " << r.range().begin() << " to " << r.range().end()-1 << std::endl;
 #endif
-        // instead of handing out subsets of polygons from map1 to intersect
-        // with the polygons in map2, we are handed a strip of the map from
-        // [(r.begin(),0)-(r.end()-1,yMapSize)].
-        //
-        // make a polygon with those values, and intersect with all the polygons
-        // in map1 and map2, creating flagged polygon lists fmap1 and fmap2.
-        // There are four possiblities:
-        //
-        //   1) a polygon is contained entirely within the strip.  We just
-        //      add the polygon to our flagged map.
-        //   2) the polygon will be partly contained in our strip, and partly
-        //      in the strip to our right (higher x values).  Add the polygon
-        //      to our flagged map.
-        //   3) the polygon is partly contained in our map, and partly in the
-        //      strip to our left.  Add the polygon to our map, but flag it as
-        //      a duplicate.
-        //   4) the polygons do not intersect. Don't add to flagged map.
-        //
-
         // get yMapSize
         int r1, g1, b1, r2, g2, b2;
         int myr=-1;
         int myg=-1;
         int myb=-1;
         int i1, i2, i3, yMapSize;
-        m_map1->at(0)->get(&i1, &i2, &i3, &yMapSize);
-        RPolygon *slicePolygon = RPolygon::alloc_RPolygon(r.begin(), 0, r.end() - 1, yMapSize);
+        (*m_map1)[0].get(&i1, &i2, &i3, &yMapSize);
 
-        Flagged_map_t *fmap1, *fmap2;
-        fmap1 = new std::vector<RPolygon_flagged>;
-        fmap1->reserve(m_map1->size());
-        fmap2 = new Flagged_map_t;
-        fmap2->reserve(m_map2->size());
-
-        PRINT_DEBUG(std::endl << "Map1 -------------------");
-        for(unsigned int i=1; i<m_map1->size(); i++) {
-            int xl, yl, xh, yh;
-            RPolygon *px = m_map1->at(i);
-            if(PolygonsOverlap(slicePolygon, px, xl, yl, xh, yh)) {
-                bool is_duplicate = false;
-                int pxl, pyl, pxh, pyh;
-                int indx = (int)(fmap1->size());
-                fmap1->resize(indx+1);
-                fmap1->at(indx).setp(px);
-                px->get(&pxl, &pyl, &pxh, &pyh);
-                if(pxl < xl) {
-                    is_duplicate = true;
-                }
-                //fmap1->at(indx).setp(px);
-                fmap1->at(indx).setDuplicate(is_duplicate);
-                PRINT_DEBUG(" Polygon " << *px << " is in map, is_duplicate=" << is_duplicate);
-
-            }
-        }
-
-        PRINT_DEBUG(std::endl << "Map2 -------------------");
-
-        for(unsigned int i=1; i<m_map2->size(); i++) {
-            int xl, yl, xh, yh;
-            RPolygon *px = m_map2->at(i);
-
-            if(PolygonsOverlap(slicePolygon, px, xl, yl, xh, yh)) {
-                bool is_duplicate = false;
-                int pxl, pyl, pxh, pyh;
-                int indx = (int)(fmap2->size());
-                fmap2->resize(indx+1);
-                fmap2->at(indx).setp(px);
-                px->get(&pxl, &pyl, &pxh, &pyh);
-                if(pxl < xl) {
-                    is_duplicate = true;
-                }
-                fmap2->at(indx).setDuplicate(is_duplicate);
-                PRINT_DEBUG(" Polygon " << *px << " is in map, is_duplicate=" << is_duplicate);
-            }
-        }
+        Flagged_map_t &fmap1 = r.map1();
+        Flagged_map_t &fmap2 = r.map2();
 
         // When intersecting polygons from fmap1 and fmap2, if BOTH are flagged
         // as duplicate, don't add the result to the output map.  We can still
@@ -301,35 +329,30 @@ public:
         // is left over from intersecting, and quitting when the polygon is
         // used up.
 
-        for(unsigned int ii=0; ii < fmap1->size(); ii++) {
-            RPolygon *p1 = fmap1->at(ii).p();
-            bool is_dup = fmap1->at(ii).isDuplicate();
+        for(unsigned int ii=0; ii < fmap1.size(); ii++) {
+            RPolygon *p1 = fmap1[ii].p();
+            bool is_dup = fmap1[ii].isDuplicate();
             int parea = p1->area();
             p1->getColor(&r1, &g1, &b1);
-            for(unsigned int jj=0;(jj < fmap2->size()) && (parea > 0); jj++) {
+            for(unsigned int jj=0;(jj < fmap2.size()) && (parea > 0); jj++) {
                 int xl, yl, xh, yh;
-                RPolygon *p2 = fmap2->at(jj).p();
+                RPolygon *p2 = fmap2[jj].p();
                 if(PolygonsOverlap(p1, p2, xl, yl, xh, yh)) {
-                    if(!(is_dup && fmap2->at(jj).isDuplicate())) {
+                    if(!(is_dup && fmap2[jj].isDuplicate())) {
                         p2->getColor(&r2, &g2, &b2);
                         myr = r1 + r2;
                         myg = g1 + g2;
                         myb = b1 + b2;
-                        RPolygon *pnew = RPolygon::alloc_RPolygon(xl, yl, xh, yh, myr, myg, myb);
 #ifdef _DEBUG
 #else
                         tbb::spin_mutex::scoped_lock lock(*m_rMutex);
 #endif
-                        (*m_resultMap).push_back(pnew);
+                        (*m_resultMap).push_back(RPolygon(xl, yl, xh, yh, myr, myg, myb));
                     }
                     parea -= (xh-xl+1)*(yh-yl+1);
                 }
             }
         }
-
-        delete fmap1;
-        delete fmap2;
-        RPolygon::free_RPolygon( slicePolygon );
     }
 
     ApplySplitOverlay(Polygon_map_t *resultMap, Polygon_map_t *map1, Polygon_map_t *map2, tbb::spin_mutex *rmutex) :
@@ -356,7 +379,7 @@ void SplitParallelOverlay(Polygon_map_t **result_map, Polygon_map_t *polymap1, P
     }
     *result_map = new Polygon_map_t;
 
-    RPolygon *p0 = (*polymap1)[0];
+    RPolygon *p0 = &((*polymap1)[0]);
     int mapxSize, mapySize, ignore1, ignore2;
     p0->get(&ignore1, &ignore2, &mapxSize, &mapySize);
     (*result_map)->reserve(mapxSize*mapySize); // can't be any bigger than this
@@ -368,18 +391,16 @@ void SplitParallelOverlay(Polygon_map_t **result_map, Polygon_map_t *polymap1, P
 #else
     grain_size = gGrainSize;
 #endif
-
     for(nthreads = gThreadsLow; nthreads <= gThreadsHigh; nthreads++) {
         tbb::task_scheduler_init init(nthreads);
         if(gIsGraphicalVersion) {
-            RPolygon *xp = RPolygon::alloc_RPolygon(0, 0, gMapXSize-1, gMapYSize-1, 0, 0, 0);  // Clear the output space
-            RPolygon::free_RPolygon( xp );
+            RPolygon *xp = new RPolygon(0, 0, gMapXSize-1, gMapYSize-1, 0, 0, 0);  // Clear the output space
+            delete xp;
         }
         // push the map size as the first polygon,
-        p0 = RPolygon::alloc_RPolygon(0,0,mapxSize, mapySize);
-        (*result_map)->push_back(p0);
+        (*result_map)->push_back(RPolygon(0,0,mapxSize, mapySize));
         t0 = tbb::tick_count::now();
-        tbb::parallel_for (tbb::blocked_range<int>(0,(int)(mapxSize+1),grain_size), ApplySplitOverlay((*result_map), polymap1, polymap2, resultMutex));
+        tbb::parallel_for (blocked_range_with_maps<int>(0,(int)(mapxSize+1),grain_size, polymap1, polymap2), ApplySplitOverlay((*result_map), polymap1, polymap2, resultMutex));
         t1 = tbb::tick_count::now();
         domainSplitParallelTime = (t1-t0).seconds()*1000;
         cout << "Splitting parallel with spin lock and ";
@@ -394,13 +415,260 @@ void SplitParallelOverlay(Polygon_map_t **result_map, Polygon_map_t *polymap1, P
         CheckPolygonMap(*result_map);
         ComparePolygonMaps(*result_map, gResultMap);
 #endif
-        for(int i=0; i<int((*result_map)->size());i++) {
-            RPolygon::free_RPolygon((*result_map)->at(i));
-        }
         (*result_map)->clear();
 
     }
     delete resultMutex;
+    if(gCsvFile.is_open()) {
+        gCsvFile << std::endl;
+    }
+}
+
+class ApplySplitOverlayCV {
+    Polygon_map_t *m_map1, *m_map2;
+    concurrent_Polygon_map_t *m_resultMap;
+public:
+    /*!
+    * @brief functor for columnar parallel version
+    * @param[in] r range of map to be operated on
+    */
+    void operator()(blocked_range_with_maps<int> & r) const {
+        // get yMapSize
+        int r1, g1, b1, r2, g2, b2;
+        int myr=-1;
+        int myg=-1;
+        int myb=-1;
+        int i1, i2, i3, yMapSize;
+        (*m_map1)[0].get(&i1, &i2, &i3, &yMapSize);
+
+        Flagged_map_t &fmap1 = r.map1();
+        Flagged_map_t &fmap2 = r.map2();
+
+        // When intersecting polygons from fmap1 and fmap2, if BOTH are flagged
+        // as duplicate, don't add the result to the output map.  We can still
+        // intersect them, because we are keeping track of how much of the polygon
+        // is left over from intersecting, and quitting when the polygon is
+        // used up.
+
+        for(unsigned int ii=0; ii < fmap1.size(); ii++) {
+            RPolygon *p1 = fmap1[ii].p();
+            bool is_dup = fmap1[ii].isDuplicate();
+            int parea = p1->area();
+            p1->getColor(&r1, &g1, &b1);
+            for(unsigned int jj=0;(jj < fmap2.size()) && (parea > 0); jj++) {
+                int xl, yl, xh, yh;
+                RPolygon *p2 = fmap2[jj].p();
+                if(PolygonsOverlap(p1, p2, xl, yl, xh, yh)) {
+                    if(!(is_dup && fmap2[jj].isDuplicate())) {
+                        p2->getColor(&r2, &g2, &b2);
+                        myr = r1 + r2;
+                        myg = g1 + g2;
+                        myb = b1 + b2;
+                        (*m_resultMap).push_back(RPolygon(xl, yl, xh, yh, myr, myg, myb));
+                    }
+                    parea -= (xh-xl+1)*(yh-yl+1);
+                }
+            }
+        }
+    }
+
+    ApplySplitOverlayCV(concurrent_Polygon_map_t *resultMap, Polygon_map_t *map1, Polygon_map_t *map2 ) :
+    m_resultMap(resultMap), m_map1(map1), m_map2(map2) {}
+};
+
+
+/*!
+* @brief intersects two maps strip-wise, accumulating into a concurrent_vector
+*
+* @param[out] resultMap output map (must be allocated)
+* @param[in] polymap1 map to be intersected
+* @param[in] polymap2 map to be intersected
+*/
+void SplitParallelOverlayCV(concurrent_Polygon_map_t **result_map, Polygon_map_t *polymap1, Polygon_map_t *polymap2) {
+    int nthreads;
+    bool automatic_threadcount = false;
+    double domainSplitParallelTime;
+    tbb::tick_count t0, t1;
+    if(gThreadsLow == THREADS_UNSET || gThreadsLow == tbb::task_scheduler_init::automatic ) {
+        gThreadsLow = gThreadsHigh = tbb::task_scheduler_init::automatic;
+        automatic_threadcount = true;
+    }
+    *result_map = new concurrent_Polygon_map_t;
+
+    RPolygon *p0 = &((*polymap1)[0]);
+    int mapxSize, mapySize, ignore1, ignore2;
+    p0->get(&ignore1, &ignore2, &mapxSize, &mapySize);
+    // (*result_map)->reserve(mapxSize*mapySize); // can't be any bigger than this
+
+    int grain_size;
+#ifdef _DEBUG
+    grain_size = gMapXSize / 4;
+#else
+    grain_size = gGrainSize;
+#endif
+    for(nthreads = gThreadsLow; nthreads <= gThreadsHigh; nthreads++) {
+        tbb::task_scheduler_init init(nthreads);
+        if(gIsGraphicalVersion) {
+            RPolygon *xp = new RPolygon(0, 0, gMapXSize-1, gMapYSize-1, 0, 0, 0);  // Clear the output space
+            delete xp;
+        }
+        // push the map size as the first polygon,
+        (*result_map)->push_back(RPolygon(0,0,mapxSize, mapySize));
+        t0 = tbb::tick_count::now();
+        tbb::parallel_for (blocked_range_with_maps<int>(0,(int)(mapxSize+1),grain_size, polymap1, polymap2), ApplySplitOverlayCV((*result_map), polymap1, polymap2));
+        t1 = tbb::tick_count::now();
+        domainSplitParallelTime = (t1-t0).seconds()*1000;
+        cout << "Splitting parallel with concurrent_vector and ";
+        if(automatic_threadcount) cout << "automatic";
+        else cout << nthreads;
+        cout << ((nthreads == 1) ? " thread" : " threads");
+        cout << " took " << domainSplitParallelTime <<  " msec : speedup over serial " << (gSerialTime / domainSplitParallelTime) << std::endl;
+        if(gCsvFile.is_open()) {
+            gCsvFile << "," << domainSplitParallelTime;
+        }
+#if _DEBUG
+        {
+            
+            Polygon_map_t s_result_map;
+            for(concurrent_Polygon_map_t::const_iterator ci = (*result_map)->begin(); ci != (*result_map)->end(); ++ci) {
+                s_result_map.push_back(*ci);
+            }
+            CheckPolygonMap(&s_result_map);
+            ComparePolygonMaps(&s_result_map, gResultMap);
+        }
+#endif
+        (*result_map)->clear();
+
+    }
+
+    if(gCsvFile.is_open()) {
+        gCsvFile << std::endl;
+    }
+
+}
+
+// ------------------------------------------------------
+
+class ApplySplitOverlayETS {
+    Polygon_map_t *m_map1, *m_map2;
+    ETS_Polygon_map_t *m_resultMap;
+public:
+    /*!
+    * @brief functor for columnar parallel version
+    * @param[in] r range of map to be operated on
+    */
+    void operator()(blocked_range_with_maps<int> & r) const {
+        // get yMapSize
+        int r1, g1, b1, r2, g2, b2;
+        int myr=-1;
+        int myg=-1;
+        int myb=-1;
+        int i1, i2, i3, yMapSize;
+        (*m_map1)[0].get(&i1, &i2, &i3, &yMapSize);
+
+        Flagged_map_t &fmap1 = r.map1();
+        Flagged_map_t &fmap2 = r.map2();
+
+        // When intersecting polygons from fmap1 and fmap2, if BOTH are flagged
+        // as duplicate, don't add the result to the output map.  We can still
+        // intersect them, because we are keeping track of how much of the polygon
+        // is left over from intersecting, and quitting when the polygon is
+        // used up.
+
+        for(unsigned int ii=0; ii < fmap1.size(); ii++) {
+            RPolygon *p1 = fmap1[ii].p();
+            bool is_dup = fmap1[ii].isDuplicate();
+            int parea = p1->area();
+            p1->getColor(&r1, &g1, &b1);
+            for(unsigned int jj=0;(jj < fmap2.size()) && (parea > 0); jj++) {
+                int xl, yl, xh, yh;
+                RPolygon *p2 = fmap2[jj].p();
+                if(PolygonsOverlap(p1, p2, xl, yl, xh, yh)) {
+                    if(!(is_dup && fmap2[jj].isDuplicate())) {
+                        p2->getColor(&r2, &g2, &b2);
+                        myr = r1 + r2;
+                        myg = g1 + g2;
+                        myb = b1 + b2;
+                        (*m_resultMap).local().push_back(RPolygon(xl, yl, xh, yh, myr, myg, myb));
+                    }
+                    parea -= (xh-xl+1)*(yh-yl+1);
+                }
+            }
+        }
+    }
+
+    ApplySplitOverlayETS(ETS_Polygon_map_t *resultMap, Polygon_map_t *map1, Polygon_map_t *map2 ) :
+    m_resultMap(resultMap), m_map1(map1), m_map2(map2) {}
+};
+
+
+/*!
+* @brief intersects two maps strip-wise, accumulating into an ets variable
+*
+* @param[out] resultMap output map (must be allocated)
+* @param[in] polymap1 map to be intersected
+* @param[in] polymap2 map to be intersected
+*/
+void SplitParallelOverlayETS(ETS_Polygon_map_t **result_map, Polygon_map_t *polymap1, Polygon_map_t *polymap2) {
+    int nthreads;
+    bool automatic_threadcount = false;
+    double domainSplitParallelTime;
+    tbb::tick_count t0, t1;
+    if(gThreadsLow == THREADS_UNSET || gThreadsLow == tbb::task_scheduler_init::automatic ) {
+        gThreadsLow = gThreadsHigh = tbb::task_scheduler_init::automatic;
+        automatic_threadcount = true;
+    }
+    *result_map = new ETS_Polygon_map_t;
+
+    RPolygon *p0 = &((*polymap1)[0]);
+    int mapxSize, mapySize, ignore1, ignore2;
+    p0->get(&ignore1, &ignore2, &mapxSize, &mapySize);
+    // (*result_map)->reserve(mapxSize*mapySize); // can't be any bigger than this
+
+    int grain_size;
+#ifdef _DEBUG
+    grain_size = gMapXSize / 4;
+#else
+    grain_size = gGrainSize;
+#endif
+    for(nthreads = gThreadsLow; nthreads <= gThreadsHigh; nthreads++) {
+        tbb::task_scheduler_init init(nthreads);
+        if(gIsGraphicalVersion) {
+            RPolygon *xp = new RPolygon(0, 0, gMapXSize-1, gMapYSize-1, 0, 0, 0);  // Clear the output space
+            delete xp;
+        }
+        // push the map size as the first polygon,
+        // This polygon needs to be first, so we can push it at the start of a combine.
+        // (*result_map)->local.push_back(RPolygon(0,0,mapxSize, mapySize));
+        t0 = tbb::tick_count::now();
+        tbb::parallel_for (blocked_range_with_maps<int>(0,(int)(mapxSize+1),grain_size, polymap1, polymap2), ApplySplitOverlayETS((*result_map), polymap1, polymap2));
+        t1 = tbb::tick_count::now();
+        domainSplitParallelTime = (t1-t0).seconds()*1000;
+        cout << "Splitting parallel with ETS and ";
+        if(automatic_threadcount) cout << "automatic";
+        else cout << nthreads;
+        cout << ((nthreads == 1) ? " thread" : " threads");
+        cout << " took " << domainSplitParallelTime <<  " msec : speedup over serial " << (gSerialTime / domainSplitParallelTime) << std::endl;
+        if(gCsvFile.is_open()) {
+            gCsvFile << "," << domainSplitParallelTime;
+        }
+#if _DEBUG
+        {
+            
+            Polygon_map_t s_result_map;
+            flattened2d<ETS_Polygon_map_t> psv = flatten2d(**result_map);
+            s_result_map.push_back(RPolygon(0,0,mapxSize, mapySize));
+            for(flattened2d<ETS_Polygon_map_t>::const_iterator ci = psv.begin(); ci != psv.end(); ++ci) {
+                s_result_map.push_back(*ci);
+            }
+            CheckPolygonMap(&s_result_map);
+            ComparePolygonMaps(&s_result_map, gResultMap);
+        }
+#endif
+        (*result_map)->clear();
+
+    }
+
     if(gCsvFile.is_open()) {
         gCsvFile << std::endl;
     }

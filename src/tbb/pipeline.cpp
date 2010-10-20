@@ -30,6 +30,7 @@
 #include "tbb/spin_mutex.h"
 #include "tbb/cache_aligned_allocator.h"
 #include "itt_notify.h"
+#include "semaphore.h"
 
 
 namespace tbb {
@@ -57,12 +58,18 @@ struct task_info {
 /** Each item is a task_info, inserted into a position in the buffer corresponding to a Token. */
 class input_buffer {
     friend class tbb::internal::pipeline_root_task;
+    friend class tbb::filter;
     friend class tbb::thread_bound_filter;
+    friend class tbb::internal::stage_task;
+    friend class tbb::pipeline;
 
     typedef  Token  size_type;
 
     //! Array of deferred tasks that cannot yet start executing. 
     task_info* array;
+
+    //! for thread-bound filter, semaphore for waiting, NULL otherwise.
+    semaphore* my_sem;
 
     //! Size of array
     /** Always 0 or a power of 2 */
@@ -83,7 +90,7 @@ class input_buffer {
     /** Must be a power of 2 */
     static const size_type initial_buffer_size = 4;
 
-    //! Used only for out of order buffer.
+    //! Used for out of order buffer, and for assigning my_token if is_ordered and my_token not already assigned
     Token high_token;
 
     //! True for ordered filter, false otherwise. 
@@ -91,14 +98,20 @@ class input_buffer {
 
     //! True for thread-bound filter, false otherwise. 
     bool is_bound;
+
+    void create_sema(size_t initial_tokens) { __TBB_ASSERT(!my_sem,NULL); my_sem = new internal::semaphore(initial_tokens); }
+    void free_sema() { __TBB_ASSERT(my_sem,NULL); delete my_sem; }
+    void sema_P() { __TBB_ASSERT(my_sem,NULL); my_sem->P(); }
+    void sema_V() { __TBB_ASSERT(my_sem,NULL); my_sem->V(); }
 public:
     //! Construct empty buffer.
     input_buffer( bool is_ordered_, bool is_bound_ ) : 
-            array(NULL), array_size(0),
+            array(NULL), my_sem(NULL), array_size(0),
             low_token(0), high_token(0), 
             is_ordered(is_ordered_), is_bound(is_bound_) {
         grow(initial_buffer_size);
         __TBB_ASSERT( array, NULL );
+        if(is_bound) create_sema(0);
     }
 
     //! Destroy the buffer.
@@ -106,34 +119,46 @@ public:
         __TBB_ASSERT( array, NULL );
         cache_aligned_allocator<task_info>().deallocate(array,array_size);
         poison_pointer( array );
+        if(my_sem) {
+            free_sema();
+            my_sem = NULL;
+        }
     }
 
     //! Put a token into the buffer.
     /** If task information was placed into buffer, returns true;
         otherwise returns false, informing the caller to create and spawn a task.
+        If input buffer owned by thread-bound filter and the item at
+        low_token was not valid, issue a V()
+        If the input_buffer is owned by a successor to a thread-bound filter,
+        the force_put parameter should be true to ensure the token is inserted
+        in the buffer.
     */
-    // Using template to avoid explicit dependency on stage_task
-    template<typename StageTask>
-    bool put_token( StageTask& putter ) {
+    bool put_token( task_info& info_, bool force_put = false ) {
         {
+            info_.is_valid = true;
             spin_mutex::scoped_lock lock( array_mutex );
             Token token;
+            bool was_empty = !array[low_token&(array_size-1)].is_valid;
             if( is_ordered ) {
-                if( !putter.my_token_ready ) {
-                    putter.my_token = high_token++;
-                    putter.my_token_ready = true;
+                if( !info_.my_token_ready ) {
+                    info_.my_token = high_token++;
+                    info_.my_token_ready = true;
                 }
-                token = putter.my_token;
+                token = info_.my_token;
             } else
                 token = high_token++;
             __TBB_ASSERT( (tokendiff_t)(token-low_token)>=0, NULL );
-            if( token!=low_token || is_bound ) {
+            if( token!=low_token || is_bound || force_put ) {
                 // Trying to put token that is beyond low_token.
                 // Need to wait until low_token catches up before dispatching.
                 if( token-low_token>=array_size ) 
                     grow( token-low_token+1 );
                 ITT_NOTIFY( sync_releasing, this );
-                putter.put_task_info(array[token&(array_size-1)]);
+                array[token&(array_size-1)] = info_;
+                if(was_empty && is_bound) {
+                    sema_V();
+                }
                 return true;
             }
         }
@@ -143,6 +168,10 @@ public:
     //! Note that processing of a token is finished.
     /** Fires up processing of the next token, if processing was deferred. */
     // Using template to avoid explicit dependency on stage_task
+    // this is only called for serial filters, and is the reason for the
+    // advance parameter in return_item (we're incrementing low_token here.)
+    // Non-TBF serial stages don't advance the token at the start because the presence
+    // of the current token in the buffer keeps another stage from being spawned.
     template<typename StageTask>
     void note_done( Token token, StageTask& spawner ) {
         task_info wakee;
@@ -175,6 +204,9 @@ public:
     }
 #endif
 
+    //! return an item, invalidate the queued item, but only advance if advance
+    //  advance == true for parallel filters.  If the filter is serial, leave the
+    // item in the buffer to keep another stage from being spawned.
     bool return_item(task_info& info, bool advance) {
         spin_mutex::scoped_lock lock( array_mutex );
         task_info& item = array[low_token&(array_size-1)];
@@ -188,24 +220,8 @@ public:
         return false;
     }
 
-    void put_item( task_info& info ) {
-        info.is_valid = true;
-        spin_mutex::scoped_lock lock( array_mutex );
-        Token token;
-        if( is_ordered ) {
-            if( !info.my_token_ready ) {
-                info.my_token = high_token++;
-                info.my_token_ready = true;
-            }
-            token = info.my_token;
-        } else
-            token = high_token++;
-        __TBB_ASSERT( (tokendiff_t)(token-low_token)>=0, NULL );
-        if( token-low_token>=array_size ) 
-            grow( token-low_token+1 );
-        ITT_NOTIFY( sync_releasing, this );
-        array[token&(array_size-1)] = info;
-    }
+    //! true if the current low_token is valid.
+    bool has_item() { spin_mutex::scoped_lock lock(array_mutex); return array[low_token&(array_size -1)].is_valid; }
 };
 
 void input_buffer::grow( size_type minimum_size ) {
@@ -233,6 +249,7 @@ private:
     filter* my_filter;  
     //! True if this task has not yet read the input.
     bool my_at_start;
+
 public:
     //! Construct stage_task for first stage in a pipeline.
     /** Such a stage has not read any input yet. */
@@ -275,13 +292,6 @@ public:
                                 stage_task( my_pipeline, my_filter, info );
         spawn(*clone);
     }
-    //! Puts current task information
-    void put_task_info(task_info &where_to_put ) {
-        where_to_put.my_object = my_object;
-        where_to_put.my_token = my_token;
-        where_to_put.my_token_ready = my_token_ready;
-        where_to_put.is_valid = true;
-    }
 };
 
 task* stage_task::execute() {
@@ -298,7 +308,7 @@ task* stage_task::execute() {
                     if( my_pipeline.has_thread_bound_filters )
                         my_pipeline.token_counter++; // ideally, with relaxed semantics
                 }
-                if( !my_filter->next_filter_in_pipeline ) {
+                if( !my_filter->next_filter_in_pipeline ) { // we're only filter in pipeline
                     reset();
                     goto process_another_stage;
                 } else {
@@ -325,7 +335,7 @@ task* stage_task::execute() {
                 my_pipeline.end_of_input = true; 
                 if( (my_filter->my_filter_mode & my_filter->version_mask) >= __TBB_PIPELINE_VERSION(5) ) {
                     if( my_pipeline.has_thread_bound_filters )
-                        my_pipeline.token_counter--;
+                        my_pipeline.token_counter--;  // fix token_counter
                 }
                 return NULL;
             }
@@ -351,7 +361,7 @@ task* stage_task::execute() {
                         my_filter = my_filter->next_filter_in_pipeline;
                     } while( my_filter && my_filter->is_bound() );
                     // Check if there is an item ready to process
-                    if( my_filter && my_filter->my_input_buffer->return_item(*this, !my_filter->is_serial()) ) 
+                    if( my_filter && my_filter->my_input_buffer->return_item(*this, !my_filter->is_serial()))
                         goto process_another_stage;
                 } 
                 my_filter = NULL; // To prevent deleting my_object twice if exception occurs
@@ -360,8 +370,17 @@ task* stage_task::execute() {
         }
     } else {
         // Reached end of the pipe.
-        if( ++my_pipeline.input_tokens>1 || my_pipeline.end_of_input || my_pipeline.filter_list->is_bound() )
+        size_t ntokens_avail = ++my_pipeline.input_tokens;
+        if(my_pipeline.filter_list->is_bound() ) {
+            if(ntokens_avail == 1) {
+                my_pipeline.filter_list->my_input_buffer->sema_V();
+            }
+            return NULL;
+        }
+        if( ntokens_avail>1  // Only recycle if there is one available token
+                || my_pipeline.end_of_input ) {
             return NULL; // No need to recycle for new input
+        }
         ITT_NOTIFY( sync_acquired, &my_pipeline.input_tokens );
         // Recycle as an input stage task.
         reset();
@@ -394,8 +413,7 @@ class pipeline_root_task: public task {
             while( current_filter ) {
                 __TBB_ASSERT( !current_filter->is_bound(), "filter is thread-bound?" );
                 __TBB_ASSERT( current_filter->prev_filter_in_pipeline->is_bound(), "previous filter is not thread-bound?" );
-                if( !my_pipeline.end_of_input
-                    || (tokendiff_t)(my_pipeline.token_counter - current_filter->my_input_buffer->low_token) > 0 )
+                if( !my_pipeline.end_of_input || current_filter->has_more_work())
                 {
                     task_info info;
                     info.reset();
@@ -419,7 +437,7 @@ class pipeline_root_task: public task {
                     first_suitable_filter = first_suitable_filter->next_segment;
                     current_filter = first_suitable_filter; 
                 }
-            } /* end of while */
+            } /* while( current_filter ) */
             return NULL;
         } else { 
             if( !my_pipeline.end_of_input ) {
@@ -568,6 +586,9 @@ void pipeline::add_filter( filter& filter_ ) {
 }
 
 void pipeline::remove_filter( filter& filter_ ) {
+    __TBB_ASSERT( filter_.prev_filter_in_pipeline!=filter::not_in_pipeline(), "filter not part of pipeline" );
+    __TBB_ASSERT( filter_.next_filter_in_pipeline!=filter::not_in_pipeline(), "filter not part of pipeline" );
+    __TBB_ASSERT( !end_counter, "invocation of remove_filter on running pipeline" );
     if (&filter_ == filter_list) 
         filter_list = filter_.next_filter_in_pipeline;
     else {
@@ -600,15 +621,29 @@ void pipeline::run( size_t max_number_of_live_tokens
     if( filter_list ) {
         internal::pipeline_cleaner my_pipeline_cleaner(*this);
         end_of_input = false;
+        input_tokens = internal::Token(max_number_of_live_tokens);
+        if(has_thread_bound_filters) {
+            // release input filter if thread-bound
+            if(filter_list->is_bound()) {
+                filter_list->my_input_buffer->sema_V();
+            }
+        }
 #if __TBB_TASK_GROUP_CONTEXT            
         end_counter = new( task::allocate_root(context) ) internal::pipeline_root_task( *this );
 #else
         end_counter = new( task::allocate_root() ) internal::pipeline_root_task( *this );
 #endif
-        input_tokens = internal::Token(max_number_of_live_tokens);
         // Start execution of tasks
         task::spawn_root_and_wait( *end_counter );
-    } 
+
+        if(has_thread_bound_filters) {
+            for(filter* f = filter_list->next_filter_in_pipeline; f; f=f->next_filter_in_pipeline) {
+                if(f->is_bound()) {
+                    f->my_input_buffer->sema_V(); // wake to end
+                }
+            }
+        }
+    }
 }
 
 #if __TBB_TASK_GROUP_CONTEXT
@@ -625,12 +660,17 @@ void pipeline::run( size_t max_number_of_live_tokens ) {
 }
 #endif // __TBB_TASK_GROUP_CONTEXT
 
+bool filter::has_more_work() {
+    __TBB_ASSERT(my_pipeline, NULL);
+    __TBB_ASSERT(my_input_buffer, "has_more_work() called for filter with no input buffer");
+    return (internal::tokendiff_t)(my_pipeline->token_counter - my_input_buffer->low_token) != 0;
+}
+
 filter::~filter() {
     if ( (my_filter_mode & version_mask) >= __TBB_PIPELINE_VERSION(3) ) {
-        if ( next_filter_in_pipeline != filter::not_in_pipeline() ) { 
-            __TBB_ASSERT( prev_filter_in_pipeline != filter::not_in_pipeline(), "probably filter list is broken" );
+        if ( next_filter_in_pipeline != filter::not_in_pipeline() )
             my_pipeline->remove_filter(*this);
-        } else 
+        else 
             __TBB_ASSERT( prev_filter_in_pipeline == filter::not_in_pipeline(), "probably filter list is broken" );
     } else {
         __TBB_ASSERT( next_filter_in_pipeline==filter::not_in_pipeline(), "cannot destroy filter that is part of pipeline" );
@@ -648,18 +688,21 @@ thread_bound_filter::result_type thread_bound_filter::try_process_item() {
 thread_bound_filter::result_type thread_bound_filter::internal_process_item(bool is_blocking) {
     internal::task_info info;
     info.reset();
-    
+
+    if(my_pipeline && my_pipeline->end_of_input && !has_more_work())
+        return end_of_stream;
+
     if( !prev_filter_in_pipeline ) {
         if( my_pipeline->end_of_input )
             return end_of_stream;
-        while( my_pipeline->input_tokens == 0 ) {
-            if( is_blocking )
-                __TBB_Yield();
-            else
+        while(my_pipeline->input_tokens == 0) {
+            if( !is_blocking ) 
                 return item_not_available;
+            my_input_buffer->sema_P();
         }
         info.my_object = (*this)(info.my_object);
         if( info.my_object ) {
+            __TBB_ASSERT(my_pipeline->input_tokens > 0, "Token failed in thread-bound filter");
             my_pipeline->input_tokens--;
             if( is_ordered() ) {
                 info.my_token = my_pipeline->token_counter;
@@ -671,20 +714,31 @@ thread_bound_filter::result_type thread_bound_filter::internal_process_item(bool
             return end_of_stream; 
         }
     } else { /* this is not an input filter */
-        while( !my_input_buffer->return_item(info, /*advance=*/true) ) {
-            if( my_pipeline->end_of_input && my_input_buffer->low_token == my_pipeline->token_counter )
-                return end_of_stream;
-            if( is_blocking )
-                __TBB_Yield();
-            else
+        while(!my_input_buffer->has_item()) {
+            if(!is_blocking) {
                 return item_not_available;
+            }
+            my_input_buffer->sema_P();
+            if( my_pipeline->end_of_input && !has_more_work()) {
+                return end_of_stream;
+            }
+        }
+        if(!my_input_buffer->return_item(info, /*advance*/true)) {
+            __TBB_ASSERT(0,"return_item failed");
         }
         info.my_object = (*this)(info.my_object);
     }
     if( next_filter_in_pipeline ) {
-        next_filter_in_pipeline->my_input_buffer->put_item(info);
+        if (!next_filter_in_pipeline->my_input_buffer->put_token(info,/*force_put=*/true) ) {
+            __TBB_ASSERT(0, "Couldn't put token after thread-bound buffer");
+        }
     } else {
-        my_pipeline->input_tokens++;
+        size_t ntokens_avail = ++(my_pipeline->input_tokens);
+        if(my_pipeline->filter_list->is_bound()) {
+            if(ntokens_avail == 1) {
+                my_pipeline->filter_list->my_input_buffer->sema_V();
+            }
+        }
     }
 
     return success;

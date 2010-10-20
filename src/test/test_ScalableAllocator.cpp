@@ -36,17 +36,17 @@
 #include "test_allocator.h"
 
 #if _MSC_VER
-#include <windows.h>
+#include "tbb/machine/windows_api.h"
 #endif /* _MSC_VER */
 
 int TestMain () {
 #if _MSC_VER && !__TBBMALLOC_NO_IMPLICIT_LINKAGE
     #ifdef _DEBUG
         ASSERT(!GetModuleHandle("tbbmalloc.dll") && GetModuleHandle("tbbmalloc_debug.dll"),
-            "debug application links with non-debug tbbmalloc library");
+            "test linked with wrong (non-debug) tbbmalloc library");
     #else
         ASSERT(!GetModuleHandle("tbbmalloc_debug.dll") && GetModuleHandle("tbbmalloc.dll"),
-            "non-debug application links with debug tbbmalloc library");
+            "test linked with wrong (debug) tbbmalloc library");
     #endif
 #endif /* _MSC_VER && !__TBBMALLOC_NO_IMPLICIT_LINKAGE */
     int result = TestMain<tbb::scalable_allocator<void> >();

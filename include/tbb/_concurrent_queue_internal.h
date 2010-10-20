@@ -650,7 +650,7 @@ protected:
     concurrent_queue_iterator_base_v3() : my_rep(NULL), my_item(NULL) {
 #if __GNUC__==4&&__GNUC_MINOR__==3
         // to get around a possible gcc 4.3 bug
-        __asm__ __volatile__("": : :"memory");
+        __TBB_release_consistency_helper();
 #endif
     }
 
@@ -753,7 +753,7 @@ public:
 
     //! Iterator assignment
     concurrent_queue_iterator& operator=( const concurrent_queue_iterator& other ) {
-        assign(other);
+        this->assign(other);
         return *this;
     }
 

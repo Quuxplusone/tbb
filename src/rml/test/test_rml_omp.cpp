@@ -27,12 +27,16 @@
 */
 
 #include "rml_omp.h"
-#define HARNESS_DEFAULT_MIN_THREADS 0
-#include "test_server.h"
-#include "tbb/tbb_misc.h"
 
 typedef __kmp::rml::omp_server MyServer;
 typedef __kmp::rml::omp_factory MyFactory;
+
+// Forward declaration for the function used in test_server.h
+void DoClientSpecificVerification( MyServer& , int );
+
+#define HARNESS_DEFAULT_MIN_THREADS 0
+#include "test_server.h"
+#include "tbb/tbb_misc.h"
 
 static bool StrictTeam;
 

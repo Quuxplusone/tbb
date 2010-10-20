@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::scalable_allocator&lt; T &gt; Class Template Reference</title>
+<title>tbb::interface5::reader_writer_lock Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,86 +21,195 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00267.html">tbb</a>::<a class="el" href="a00191.html">scalable_allocator</a></div>
-<h1>tbb::scalable_allocator&lt; T &gt; Class Template Reference<br>
+<a class="el" href="a00272.html">tbb</a>::<b>interface5</b>::<a class="el" href="a00191.html">reader_writer_lock</a></div>
+<h1>tbb::interface5::reader_writer_lock Class Reference<br>
 <small>
-[<a class="el" href="a00276.html">Memory Allocation</a>]</small>
-</h1><!-- doxytag: class="tbb::scalable_allocator" -->Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5.  
+[<a class="el" href="a00283.html">Synchronization</a>]</small>
+</h1><!-- doxytag: class="tbb::interface5::reader_writer_lock" -->Writer-preference reader-writer lock with local-only spinning on readers.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00424.html">scalable_allocator.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00433.html">reader_writer_lock.h</a>&gt;</code>
 <p>
-<a href="a00063.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00058.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5a1cf13c339ee177a103a7e19bf2710a"></a><!-- doxytag: member="tbb::scalable_allocator::value_type" ref="5a1cf13c339ee177a103a7e19bf2710a" args="" -->
-typedef internal::allocator_type&lt;<br>
- T &gt;::value_type&nbsp;</td><td class="memItemRight" valign="bottom"><b>value_type</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6f921f0d7c1812ceb5674418c8b6ccaf005142e2b9af377a8d33c6604d858862"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::waiting_nonblocking" ref="6f921f0d7c1812ceb5674418c8b6ccaf005142e2b9af377a8d33c6604d858862" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>waiting_nonblocking</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a5121ec62bc79faba6a4b674d59e7260"></a><!-- doxytag: member="tbb::scalable_allocator::pointer" ref="a5121ec62bc79faba6a4b674d59e7260" args="" -->
-typedef value_type *&nbsp;</td><td class="memItemRight" valign="bottom"><b>pointer</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6f921f0d7c1812ceb5674418c8b6ccaf18bcc9aae8f056c34fb61bb7fc39b432"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::waiting" ref="6f921f0d7c1812ceb5674418c8b6ccaf18bcc9aae8f056c34fb61bb7fc39b432" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>waiting</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="846a6fcec3bc7fa3839a12266a729a02"></a><!-- doxytag: member="tbb::scalable_allocator::const_pointer" ref="846a6fcec3bc7fa3839a12266a729a02" args="" -->
-typedef const value_type *&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_pointer</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6f921f0d7c1812ceb5674418c8b6ccaf423c082d5cdc9bb12d0eeadcae56adb5"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::active" ref="6f921f0d7c1812ceb5674418c8b6ccaf423c082d5cdc9bb12d0eeadcae56adb5" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>active</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="254d7749de9277bb7711470c04d963ea"></a><!-- doxytag: member="tbb::scalable_allocator::reference" ref="254d7749de9277bb7711470c04d963ea" args="" -->
-typedef value_type &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>reference</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6f921f0d7c1812ceb5674418c8b6ccafa9a5b17bdfb0a6d59b3cd58fecbd9610"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::invalid" ref="6f921f0d7c1812ceb5674418c8b6ccafa9a5b17bdfb0a6d59b3cd58fecbd9610" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>invalid</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="acad193a7f6e16253f772ba3e9b2c98f"></a><!-- doxytag: member="tbb::scalable_allocator::const_reference" ref="acad193a7f6e16253f772ba3e9b2c98f" args="" -->
-typedef const value_type &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_reference</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00191.html#6f921f0d7c1812ceb5674418c8b6ccaf">status_t</a> { <b>waiting_nonblocking</b>, 
+<b>waiting</b>, 
+<b>active</b>, 
+<b>invalid</b>
+ }</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4a5cb7482f222a14b513bbdd4ad8507d"></a><!-- doxytag: member="tbb::scalable_allocator::size_type" ref="4a5cb7482f222a14b513bbdd4ad8507d" args="" -->
-typedef size_t&nbsp;</td><td class="memItemRight" valign="bottom"><b>size_type</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="cb96c23f650cf91a73e2810b54c481bb"></a><!-- doxytag: member="tbb::scalable_allocator::difference_type" ref="cb96c23f650cf91a73e2810b54c481bb" args="" -->
-typedef ptrdiff_t&nbsp;</td><td class="memItemRight" valign="bottom"><b>difference_type</b></td></tr>
-
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Status type for nodes associated with lock instances.  <a href="a00191.html#6f921f0d7c1812ceb5674418c8b6ccaf">More...</a><br></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="eee1873729ed05c7f92544c3ff0c08bc"></a><!-- doxytag: member="tbb::scalable_allocator::scalable_allocator" ref="eee1873729ed05c7f92544c3ff0c08bc" args="(const scalable_allocator &amp;)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>scalable_allocator</b> (const <a class="el" href="a00191.html">scalable_allocator</a> &amp;)  throw ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c1431c4293e777efd9aab9a95c2a46e1"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::reader_writer_lock" ref="c1431c4293e777efd9aab9a95c2a46e1" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00191.html#c1431c4293e777efd9aab9a95c2a46e1">reader_writer_lock</a> ()</td></tr>
 
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="d56dc9f231c59f912297ac3c3b3b93b6"></a><!-- doxytag: member="tbb::scalable_allocator::scalable_allocator" ref="d56dc9f231c59f912297ac3c3b3b93b6" args="(const scalable_allocator&lt; U &gt; &amp;)" -->
-template&lt;typename U&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><b>scalable_allocator</b> (const <a class="el" href="a00191.html">scalable_allocator</a>&lt; U &gt; &amp;)  throw ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructs a new <a class="el" href="a00191.html">reader_writer_lock</a>. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5135f64f7b7339017f33d956445edbee"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::~reader_writer_lock" ref="5135f64f7b7339017f33d956445edbee" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00191.html#5135f64f7b7339017f33d956445edbee">~reader_writer_lock</a> ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="78fa13a188b542ea724d45a9dbf5a071"></a><!-- doxytag: member="tbb::scalable_allocator::address" ref="78fa13a188b542ea724d45a9dbf5a071" args="(reference x) const " -->
-pointer&nbsp;</td><td class="memItemRight" valign="bottom"><b>address</b> (reference x) const </td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destructs a <a class="el" href="a00191.html">reader_writer_lock</a> object. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00191.html#2653d1a2d560059a51219a8ceab3ade9">lock</a> ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="14be4ad8eb478c87e240e605221ab455"></a><!-- doxytag: member="tbb::scalable_allocator::address" ref="14be4ad8eb478c87e240e605221ab455" args="(const_reference x) const " -->
-const_pointer&nbsp;</td><td class="memItemRight" valign="bottom"><b>address</b> (const_reference x) const </td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquires the <a class="el" href="a00191.html">reader_writer_lock</a> for write.  <a href="#2653d1a2d560059a51219a8ceab3ade9"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">bool __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00191.html#721eb173e154ab38292273e9266a9b07">try_lock</a> ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="726b1586d05d44665a36e1c7b2699bfd"></a><!-- doxytag: member="tbb::scalable_allocator::allocate" ref="726b1586d05d44665a36e1c7b2699bfd" args="(size_type n, const void *=0)" -->
-pointer&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00191.html#726b1586d05d44665a36e1c7b2699bfd">allocate</a> (size_type n, const void *=0)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Tries to acquire the <a class="el" href="a00191.html">reader_writer_lock</a> for write.  <a href="#721eb173e154ab38292273e9266a9b07"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00191.html#d9d16a24d9f6c3dada73c6b9ff214f5b">lock_read</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Allocate space for n objects. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f806a238c18cbcfb531e1e0a0d2ec59d"></a><!-- doxytag: member="tbb::scalable_allocator::deallocate" ref="f806a238c18cbcfb531e1e0a0d2ec59d" args="(pointer p, size_type)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00191.html#f806a238c18cbcfb531e1e0a0d2ec59d">deallocate</a> (pointer p, size_type)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquires the <a class="el" href="a00191.html">reader_writer_lock</a> for read.  <a href="#d9d16a24d9f6c3dada73c6b9ff214f5b"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">bool __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00191.html#595fb23952e3b89426b1f7938dea9b11">try_lock_read</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Free previously allocated block of memory. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="880e766f1d913988c21973dbdd874fd5"></a><!-- doxytag: member="tbb::scalable_allocator::max_size" ref="880e766f1d913988c21973dbdd874fd5" args="() const " -->
-size_type&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00191.html#880e766f1d913988c21973dbdd874fd5">max_size</a> () const   throw ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Tries to acquire the <a class="el" href="a00191.html">reader_writer_lock</a> for read.  <a href="#595fb23952e3b89426b1f7938dea9b11"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5113b32689305599b2c36b5831547704"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::unlock" ref="5113b32689305599b2c36b5831547704" args="()" -->
+void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00191.html#5113b32689305599b2c36b5831547704">unlock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Largest value for which method allocate might succeed. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ae824c87fcc35467057fd3304c5e97ba"></a><!-- doxytag: member="tbb::scalable_allocator::construct" ref="ae824c87fcc35467057fd3304c5e97ba" args="(pointer p, const value_type &amp;value)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>construct</b> (pointer p, const value_type &amp;value)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Releases the <a class="el" href="a00191.html">reader_writer_lock</a>. <br></td></tr>
+<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a36f15b770a1bb0b56e33d7fa75ebd1a"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::scoped_lock" ref="a36f15b770a1bb0b56e33d7fa75ebd1a" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>scoped_lock</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="743f878b04a492bf7ae0e82a64dc20c8"></a><!-- doxytag: member="tbb::scalable_allocator::destroy" ref="743f878b04a492bf7ae0e82a64dc20c8" args="(pointer p)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>destroy</b> (pointer p)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="680274059774b9188889d34986314f81"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::scoped_lock_read" ref="680274059774b9188889d34986314f81" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>scoped_lock_read</b></td></tr>
 
 <tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>rebind</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00192.html">scoped_lock</a></td></tr>
 
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The scoped lock pattern for write locks.  <a href="a00192.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00193.html">scoped_lock_read</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The scoped lock pattern for read locks.  <a href="a00193.html#_details">More...</a><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename T&gt;<br>
- class tbb::scalable_allocator&lt; T &gt;</h3>
+Writer-preference reader-writer lock with local-only spinning on readers. 
+<p>
+Loosely adapted from Mellor-Crummey and Scott pseudocode at <a href="http://www.cs.rochester.edu/research/synchronization/pseudocode/rw.html#s_wp">http://www.cs.rochester.edu/research/synchronization/pseudocode/rw.html#s_wp</a> 
+<p>
+<hr><h2>Member Enumeration Documentation</h2>
+<a class="anchor" name="6f921f0d7c1812ceb5674418c8b6ccaf"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::status_t" ref="6f921f0d7c1812ceb5674418c8b6ccaf" args="" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="a00191.html#6f921f0d7c1812ceb5674418c8b6ccaf">tbb::interface5::reader_writer_lock::status_t</a>          </td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
 
-Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5. 
 <p>
-The members are ordered the same way they are in section 20.4.1 of the ISO C++ standard. 
+Status type for nodes associated with lock instances. 
 <p>
+waiting_nonblocking: the wait state for nonblocking lock instances; for writes, these transition straight to active states; for reads, these are unused.<p>
+waiting: the start and spin state for all lock instances; these will transition to active state when appropriate. Non-blocking write locks transition from this state to waiting_nonblocking immediately.<p>
+active: the active state means that the lock instance holds the lock; it will transition to invalid state during node deletion<p>
+invalid: the end state for all nodes; this is set in the destructor so if we encounter this state, we are looking at memory that has already been freed<p>
+The state diagrams below describe the status transitions. Single arrows indicate that the thread that owns the node is responsible for the transition; double arrows indicate that any thread could make the transition.<p>
+State diagram for <a class="el" href="a00192.html">scoped_lock</a> status:<p>
+waiting ----------&gt; waiting_nonblocking | _____________/ | V V V active -----------------&gt; invalid<p>
+State diagram for <a class="el" href="a00193.html">scoped_lock_read</a> status:<p>
+waiting | V active -----------------&gt;invalid 
+</div>
+</div><p>
+<hr><h2>Member Function Documentation</h2>
+<a class="anchor" name="2653d1a2d560059a51219a8ceab3ade9"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::lock" ref="2653d1a2d560059a51219a8ceab3ade9" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void __TBB_EXPORTED_METHOD tbb::interface5::reader_writer_lock::lock           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Acquires the <a class="el" href="a00191.html">reader_writer_lock</a> for write. 
+<p>
+If the lock is currently held in write mode by another context, the writer will block by spinning on a local variable. Exceptions thrown: <a class="el" href="a00173.html">improper_lock</a> The context tries to acquire a <a class="el" href="a00191.html">reader_writer_lock</a> that it already has write ownership of. 
+</div>
+</div><p>
+<a class="anchor" name="d9d16a24d9f6c3dada73c6b9ff214f5b"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::lock_read" ref="d9d16a24d9f6c3dada73c6b9ff214f5b" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void __TBB_EXPORTED_METHOD tbb::interface5::reader_writer_lock::lock_read           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Acquires the <a class="el" href="a00191.html">reader_writer_lock</a> for read. 
+<p>
+If the lock is currently held by a writer, this reader will block and wait until the writers are done. Exceptions thrown: <a class="el" href="a00173.html">improper_lock</a> The context tries to acquire a <a class="el" href="a00191.html">reader_writer_lock</a> that it already has write ownership of. 
+</div>
+</div><p>
+<a class="anchor" name="721eb173e154ab38292273e9266a9b07"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::try_lock" ref="721eb173e154ab38292273e9266a9b07" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool __TBB_EXPORTED_METHOD tbb::interface5::reader_writer_lock::try_lock           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Tries to acquire the <a class="el" href="a00191.html">reader_writer_lock</a> for write. 
+<p>
+This function does not block. Return Value: True or false, depending on whether the lock is acquired or not. If the lock is already held by this acquiring context, <a class="el" href="a00191.html#721eb173e154ab38292273e9266a9b07">try_lock()</a> returns false. 
+</div>
+</div><p>
+<a class="anchor" name="595fb23952e3b89426b1f7938dea9b11"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::try_lock_read" ref="595fb23952e3b89426b1f7938dea9b11" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool __TBB_EXPORTED_METHOD tbb::interface5::reader_writer_lock::try_lock_read           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Tries to acquire the <a class="el" href="a00191.html">reader_writer_lock</a> for read. 
+<p>
+This function does not block. Return Value: True or false, depending on whether the lock is acquired or not. 
+</div>
+</div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00424.html">scalable_allocator.h</a></ul>
+<li><a class="el" href="a00433.html">reader_writer_lock.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.

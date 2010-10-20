@@ -505,7 +505,7 @@ DWORD WINAPI thread_vsync(LPVOID lpParameter)
 
 ///////////////////////////////////////////// public methods of video class ///////////////////////
 
-inline void mask2bits(unsigned int mask, color_t &save, char &shift)
+inline void mask2bits(unsigned int mask, color_t &save, depth_t &shift)
 {
     save  = mask; if(!mask) { shift = 8; return; }
     shift = 0; while(!(mask&1)) ++shift, mask >>= 1;
@@ -535,8 +535,8 @@ bool video::init_window(int sizex, int sizey)
     mask2bits(PixelFormat.dwGBitMask, green_mask, green_shift);
     mask2bits(PixelFormat.dwBBitMask, blue_mask, blue_shift);
     if(PixelFormat.dwFlags == DDPF_RGB)
-         depth = char(PixelFormat.dwRGBBitCount);
-    else depth = -char(PixelFormat.dwFourCC);
+         depth = depth_t(PixelFormat.dwRGBBitCount);
+    else depth = -depth_t(PixelFormat.dwFourCC);
     for(int i = 0, e = sizex * sizey * PixelFormat.dwRGBBitCount / 32, c = get_color(0, 0, 0); i < e; i++)
         g_pImg[i] = c; // clear surface
     ShowWindow(g_hAppWnd, SW_SHOW);

@@ -27,11 +27,15 @@
 */
 
 #include "rml_tbb.h"
-#define HARNESS_DEFAULT_MIN_THREADS 0
-#include "test_server.h"
 
 typedef tbb::internal::rml::tbb_server MyServer;
 typedef tbb::internal::rml::tbb_factory MyFactory;
+
+// Forward declaration of the function used in test_server.h
+void DoClientSpecificVerification( MyServer&, int );
+
+#define HARNESS_DEFAULT_MIN_THREADS 0
+#include "test_server.h"
 
 tbb::atomic<int> n_available_hw_threads;
 

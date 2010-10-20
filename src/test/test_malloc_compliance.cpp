@@ -33,10 +33,10 @@ bool __tbb_test_errno = false;
    because other headers might include <windows.h>
 */
 
-#if _WIN32 || _WIN64
+#if _WIN32 || _WIN64 && !__MINGW64__
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500
-#include <windows.h>
+#include "tbb/machine/windows_api.h"
 #include <stdio.h>
 #include "harness_report.h"
 
@@ -181,7 +181,7 @@ int32_t __TBB_machine_fetchadd4__TBB_full_fence (volatile void *ptr, int32_t val
 
 void __TBB_machine_pause(int32_t /*delay*/) {}
 
-#elif (_WIN32||_WIN64) && defined(_M_AMD64)
+#elif (_WIN32||_WIN64) && defined(_M_AMD64) && !__MINGW64__
 
 void __TBB_machine_pause(__int32 /*delay*/ ) {}
 
@@ -255,12 +255,12 @@ static void setSystemAllocs()
     Trealloc=realloc;
     Tcalloc=calloc;
     Tfree=free;
-#if _WIN32 || _WIN64
+#if (_WIN32 || _WIN64) && !__MINGW64__ && !__MINGW32__
     Raligned_malloc=_aligned_malloc;
     Raligned_realloc=_aligned_realloc;
     Taligned_free=_aligned_free;
     Rposix_memalign=0;
-#elif  __APPLE__ || __sun //  Max OS X and Solaris don't have posix_memalign
+#elif  __APPLE__ || __sun || __MINGW64__ || __MINGW32__ //  Max OS X MinGW and Solaris don't have posix_memalign
     Raligned_malloc=0;
     Raligned_realloc=0;
     Taligned_free=0;
@@ -756,7 +756,9 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
                     if (errno != 0 && !known_issue) {
                         CountErrors++;
                         if (ShouldReportError()) REPORT("valid pointer returned, error: errno not kept\n");
-                    }      
+                    }
+                    // newly allocated area have to be zeroed
+                    memset((char*)tmp + PointerList[i].Size, 0, PointerList[i].Size);
                     PointerList[i].Pointer = tmp;
                     PointerList[i].Size *= 2;
                 }
@@ -1005,7 +1007,7 @@ void CMemTest::RunAllTests(int total_threads)
 #else
     UniquePointer();
     AddrArifm();
-#if !__TBB_LRB_NATIVE
+#if !__TBB_MIC_NATIVE
     NULLReturn(1*MByte,100*MByte,total_threads);
 #endif
 #endif

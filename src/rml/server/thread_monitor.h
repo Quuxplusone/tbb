@@ -45,7 +45,6 @@
 #include <stdio.h>
 #include "tbb/itt_notify.h"
 
-
 // All platform-specific threading support is in this header.
 
 #if (_WIN32||_WIN64)&&!__TBB_ipf
@@ -114,8 +113,6 @@ public:
     static void launch( thread_routine_type thread_routine, void* arg, size_t stack_size );
     static void yield();
 
-
-
 private:
     cookie my_cookie;
 #if USE_WINTHREAD
@@ -128,8 +125,6 @@ private:
     static void check( int error_code, const char* routine );
 #endif /* USE_PTHREAD */
 };
-
-
 
 #if USE_WINTHREAD
 #ifndef STACK_SIZE_PARAM_IS_A_RESERVATION

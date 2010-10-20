@@ -31,18 +31,10 @@
 // This header is an optional part of the test harness.
 // It assumes that "harness_assert.h" has already been included.
 
-#if __linux__
+#if __linux__ || __APPLE__ || __sun
 #include <unistd.h>
-#elif __APPLE__ || __sun
-#include <unistd.h>
-#elif _WIN32
-#if _XBOX
-    #define NONET
-    #define NOD3D
-    #include <xtl.h>
-#else
-#include <windows.h>
-#endif
+#elif _WIN32 
+#include "tbb/machine/windows_api.h"
 #endif /* OS specific */
 #include <new>
 
@@ -58,7 +50,7 @@
     #pragma warning (pop)
 #endif
 
-#include <tbb/atomic.h>
+#include "tbb/atomic.h"
 
 #if __SUNPRO_CC
 using std::printf;
@@ -192,7 +184,7 @@ public:
 
     local_counting_allocator(const local_counting_allocator &a) throw()
         : base_alloc_t(a)
-		, items_allocated(a.items_allocated)
+        , items_allocated(a.items_allocated)
         , items_freed(a.items_freed)
         , allocations(a.allocations)
         , frees(a.frees)

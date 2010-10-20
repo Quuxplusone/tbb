@@ -286,25 +286,25 @@ void TestCancellation()
 
 #include "harness_m128.h"
 
-#if HAVE_m128
-ClassWithSSE Global1[N], Global2[N];
-
+#if HAVE_m128 && !__TBB_SSE_STACK_ALIGNMENT_BROKEN
 struct SSE_Functor {
+    ClassWithSSE* Src, * Dst;
+    SSE_Functor( ClassWithSSE* src, ClassWithSSE* dst ) : Src(src), Dst(dst) {}
+
     void operator()( tbb::blocked_range<int>& r ) const {
         for( int i=r.begin(); i!=r.end(); ++i )
-            Global2[i] = Global1[i];
+            Dst[i] = Src[i];
     }     
 };
 
 //! Test that parallel_for works with stack-allocated __m128
 void TestSSE() {
-    for( int i=0; i<N; ++i ) {
-        Global1[i] = ClassWithSSE(i);
-        Global2[i] = ClassWithSSE();
-    }
-    tbb::parallel_for( tbb::blocked_range<int>(0,N), SSE_Functor() );
+    ClassWithSSE Array1[N], Array2[N];
     for( int i=0; i<N; ++i )
-        ASSERT( Global2[i]==ClassWithSSE(i), NULL ) ;
+        Array1[i] = ClassWithSSE(i);
+    tbb::parallel_for( tbb::blocked_range<int>(0,N), SSE_Functor(Array1, Array2) );
+    for( int i=0; i<N; ++i )
+        ASSERT( Array2[i]==ClassWithSSE(i), NULL ) ;
 }
 #endif /* HAVE_m128 */
 
@@ -340,7 +340,7 @@ int TestMain () {
             TestExceptionsSupport();
 #endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
             if (p>1) TestCancellation();
-#if HAVE_m128
+#if HAVE_m128 && !__TBB_SSE_STACK_ALIGNMENT_BROKEN
             TestSSE();
 #endif /* HAVE_m128 */
 
@@ -350,6 +350,9 @@ int TestMain () {
     }
 #if __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
     REPORT("Known issue: exception handling tests are skipped.\n");
+#endif
+#if HAVE_m128 && __TBB_SSE_STACK_ALIGNMENT_BROKEN
+    REPORT("Known issue: stack alignment for SSE not tested.\n");
 #endif
     return Harness::Done;
 }

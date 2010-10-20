@@ -45,52 +45,16 @@ VPATH = $(tbb_root)/src/tbb/$(ASSEMBLY_SOURCE) $(tbb_root)/src/tbb $(tbb_root)/s
 
 CPLUS_FLAGS += $(if $(crosstest),$(DEFINE_KEY)__TBB_NO_IMPLICIT_LINKAGE=1)
 
-ifeq (1,$(TBB_NOSTRICT))
-# GNU 3.2.3 headers have a ISO syntax that is rejected by Intel compiler in -strict_ansi mode.
-# The Mac uses gcc 4.0, so the list is empty for that platform.
-# The files below need the -strict_ansi flag downgraded to -ansi to compile
-
-KNOWN_NOSTRICT += \
-	test_concurrent_hash_map.o \
-	test_concurrent_unordered.o \
-	test_concurrent_vector.o \
-	test_concurrent_queue.o \
-	test_enumerable_thread_specific.o \
-	test_handle_perror.o \
-	test_cache_aligned_allocator_STL.o \
-	test_task_scheduler_init.o \
-	test_model_plugin.o \
-	test_parallel_do.o \
-	test_lambda.o \
-	test_eh_algorithms.o \
-	test_eh_tasks.o \
-	test_task_leaks.o \
-	test_task_assertions.o \
-	test_atomic.o \
-	test_parallel_sort.o \
-	test_parallel_for_each.o \
-	test_task_group.o \
-	test_tbb_header.o \
-	test_combinable.o \
-	test_critical_section.o \
-	test_reader_writer_lock.o \
-	test_tbb_condition_variable.o \
-	test_tbb_version.o
-
-endif
-
 include $(tbb_root)/build/common_rules.inc
 
 # Rule for generating executable test
 %.$(TEST_EXT): %.$(OBJ) $(TBB.LIB)
-	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $< $(LINK_TBB.LIB) $(LIBS) $(LINK_FLAGS)
+	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $< $(LINK_TBB.LIB) $(LIBS) $(AUX_LIBS) $(LINK_FLAGS)
 
 # Rules for generating a test DLL
-%_dll.$(OBJ): %.cpp
-	$(CPLUS) $(COMPILE_ONLY) $(OUTPUTOBJ_KEY)$@ $(CPLUS_FLAGS_NOSTRICT) $(PIC_KEY) $(DEFINE_KEY)_USRDLL $(INCLUDES) $<
 %_dll.$(DLL): %_dll.$(OBJ) $(TBB.LIB)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $(PIC_KEY) $< $(LINK_TBB.LIB) $(LIBS) $(LINK_FLAGS) $(DYLIB_KEY)
-.PRECIOUS: %_dll.$(OBJ)
+.PRECIOUS: %_dll.$(OBJ) %_dll.$(DLL)
 
 # Rules for the tests, which use TBB in a dynamically loadable library
 test_model_plugin.$(TEST_EXT): test_model_plugin.$(OBJ) test_model_plugin_dll.$(DLL)
@@ -105,7 +69,8 @@ endif
 # These executables don't depend on the TBB library, but include core .cpp files directly
 TASK_CPP_DIRECTLY_INCLUDED = test_eh_tasks.$(TEST_EXT) \
  test_task_leaks.$(TEST_EXT) \
- test_task_assertions.$(TEST_EXT)
+ test_task_assertions.$(TEST_EXT) \
+ test_fast_random.$(TEST_EXT)
 
 # Necessary to locate version_string.tmp referenced from directly included tbb_misc.cpp
 INCLUDES += $(INCLUDE_KEY).
@@ -116,20 +81,19 @@ $(TASK_CPP_DIRECTLY_INCLUDED): %.$(TEST_EXT) : %.$(OBJ) $(TASK_CPP_DEPENDENCIES)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $^ $(LIBDL) $(LIBS) $(LINK_FLAGS)
 
 test_tbb_header2.$(OBJ): test_tbb_header.cpp
-	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS_NOSTRICT) $(CXX_ONLY_FLAGS) $(CXX_WARN_SUPPRESS) $(INCLUDES) $(DEFINE_KEY)__TBB_TEST_SECONDARY=1 $< $(OUTPUTOBJ_KEY)$@
+	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(CXX_WARN_SUPPRESS) $(INCLUDES) $(DEFINE_KEY)__TBB_TEST_SECONDARY=1 $< $(OUTPUTOBJ_KEY)$@
 
 # Detecting "multiple definition" linker error using the test that covers the whole library
 test_tbb_header.$(TEST_EXT): test_tbb_header.$(OBJ) test_tbb_header2.$(OBJ) $(TBB.LIB)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) test_tbb_header.$(OBJ) test_tbb_header2.$(OBJ) $(LINK_TBB.LIB) $(LIBS) $(LINK_FLAGS)
 
-# These are in alphabetical order
+# The main list of TBB tests
 TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_aligned_space.$(TEST_EXT)               \
 	test_atomic.$(TEST_EXT)                      \
 	test_blocked_range.$(TEST_EXT)               \
 	test_blocked_range2d.$(TEST_EXT)             \
 	test_blocked_range3d.$(TEST_EXT)             \
-	test_compiler.$(TEST_EXT)                    \
 	test_concurrent_queue.$(TEST_EXT)            \
 	test_concurrent_vector.$(TEST_EXT)           \
 	test_concurrent_unordered.$(TEST_EXT)        \
@@ -171,9 +135,11 @@ TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_task_auto_init.$(TEST_EXT)              \
 	test_concurrent_monitor.$(TEST_EXT)          \
 	test_critical_section.$(TEST_EXT)            \
+	test_semaphore.$(TEST_EXT)            \
 	test_reader_writer_lock.$(TEST_EXT)          \
 	test_tbb_condition_variable.$(TEST_EXT)      \
 	test_intrusive_list.$(TEST_EXT)              \
+	test_cilk_interop.$(TEST_EXT)              \
 	test_tbb_version.$(TEST_EXT)                 # insert new files right above
 
 ifdef OPENMP_FLAG
@@ -196,7 +162,7 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(TASK_CPP_DIRECTLY_INCLUDED) $(TEST_TBB_PL
 	$(run_cmd) ./test_tbb_version.$(TEST_EXT) $(args)
         # Checking TBB version first to make sure the following testing has anything in it
 	$(run_cmd) ./test_assembly.$(TEST_EXT) $(args)
-	$(run_cmd) ./test_compiler.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_atomic.$(TEST_EXT) $(args)
         # Yes, 4:8 is intended on the next line. 
 	$(run_cmd) ./test_yield.$(TEST_EXT) $(args) 4:8
 	$(run_cmd) ./test_handle_perror.$(TEST_EXT) $(args)
@@ -206,7 +172,6 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(TASK_CPP_DIRECTLY_INCLUDED) $(TEST_TBB_PL
 	$(run_cmd) ./test_task_assertions.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_task.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_task_leaks.$(TEST_EXT) $(args)
-	$(run_cmd) ./test_atomic.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_cache_aligned_allocator.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_cache_aligned_allocator_STL.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_blocked_range.$(TEST_EXT) $(args) 1:4
@@ -248,13 +213,16 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(TASK_CPP_DIRECTLY_INCLUDED) $(TEST_TBB_PL
 	$(run_cmd) ./test_tbb_header.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_concurrent_monitor.$(TEST_EXT) $(args) 6:8
 	$(run_cmd) ./test_critical_section.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_semaphore.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_reader_writer_lock.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_tbb_condition_variable.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_intrusive_list.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_cilk_interop.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_fast_random.$(TEST_EXT) $(args) 1:16
 
-CPLUS_FLAGS_DEPRECATED = $(DEFINE_KEY)TBB_DEPRECATED=1 $(subst $(WARNING_KEY),,$(CPLUS_FLAGS_NOSTRICT)) $(WARNING_SUPPRESS)
+CPLUS_FLAGS_DEPRECATED = $(DEFINE_KEY)TBB_DEPRECATED=1 $(subst $(WARNING_KEY),,$(CPLUS_FLAGS)) $(WARNING_SUPPRESS)
 
-TEST_TBB_OLD.OBJ = test_concurrent_vector_v2.$(OBJ) test_concurrent_queue_v2.$(OBJ) test_mutex_v2.$(OBJ) test_task_v2.$(OBJ)
+TEST_TBB_OLD.OBJ = test_concurrent_vector_v2.$(OBJ) test_concurrent_queue_v2.$(OBJ) test_mutex_v2.$(OBJ)
 
 TEST_TBB_DEPRECATED.OBJ = test_concurrent_queue_deprecated.$(OBJ) \
 	test_concurrent_vector_deprecated.$(OBJ) \
@@ -307,6 +275,10 @@ endif
 time_%: time_%.$(TEST_EXT) $(TEST_PREREQUISITE)
 	$(run_cmd) ./$< $(args)
 
+
+perf_%: AUX_LIBS = perf_dll.$(LIBEXT)
+perf_%: perf_dll.$(DLL) perf_%.$(TEST_EXT)
+	$(run_cmd) ./$@.$(TEST_EXT) $(args)
 
 clean_%: 
 	$(RM) $*.$(OBJ) $*.exe $*.$(DLL) $*.$(LIBEXT) $*.res $*.map $*.ilk $*.pdb $*.exp $*.*manifest $*.tmp $*.d

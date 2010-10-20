@@ -76,8 +76,11 @@ protected:
     //! some value for tester
     arg_t value;
 
+    //! tester name
+    const char *tester_name;
+
     // avoid false sharing
-    char pad[128 - sizeof(arg_t) - sizeof(int)*2 - sizeof(void*) ];
+    char pad[128 - sizeof(arg_t) - sizeof(int)*2 - sizeof(void*)*2 ];
 
 public:
     //! init tester base. @arg ntests is number of embeded tests in this tester.
@@ -157,8 +160,18 @@ class ValuePerSecond : public Tester {
     /*override*/ value_t test(int testn, int threadn) {
         Timer timer;
         Tester::test(testn, threadn);
-        // return time value per seconds/scale
+        // return value per seconds/scale
         return double(Tester::value)/(timer.get_time()*scale);
+    }
+};
+
+template<typename Tester, int scale = 1>
+class NumberPerSecond : public Tester {
+    /*override*/ value_t test(int testn, int threadn) {
+        Timer timer;
+        Tester::test(testn, threadn);
+        // return a scale per seconds
+        return double(scale)/timer.get_time();
     }
 };
 
@@ -178,7 +191,9 @@ public:
     template<typename Test>
     TestRunner(const char *name, Test *test)
         : tester_name(name), tester(*static_cast<TesterBase*>(test))
-    {}
+    {
+        test->tester_name = name;
+    }
     
     ~TestRunner() { delete &tester; }
 

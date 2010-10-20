@@ -72,7 +72,7 @@ ifeq (ppc64,$(arch))
     LIB_LINK_FLAGS += -arch ppc64
 endif
 
-ifeq (ppc,$(arch))
+ifeq (ppc32,$(arch))
     CPLUS_FLAGS += -arch ppc
     LINK_FLAGS += -arch ppc
     LIB_LINK_FLAGS += -arch ppc

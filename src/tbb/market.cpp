@@ -34,6 +34,7 @@
 #include "tbb_main.h"
 #include "governor.h"
 #include "scheduler.h"
+#include "itt_notify.h"
 
 namespace tbb {
 namespace internal {
@@ -181,12 +182,14 @@ void market::adjust_demand ( arena& a, int delta ) {
     update_allotment( my_max_num_workers );
     // Must be called outside of any locks
     my_server->adjust_job_count_estimate( delta );
+    GATHER_STATISTIC( governor::local_scheduler_if_initialized() ? ++governor::local_scheduler_if_initialized()->my_counters.gate_switches : 0 );
 }
 
 void market::process( job& j ) {
     generic_scheduler& s = static_cast<generic_scheduler&>(j);
     while ( arena *a = arena_in_need() )
         a->process(s);
+    GATHER_STATISTIC( ++s.my_counters.market_roundtrips );
 }
 
 void market::cleanup( job& j ) {
@@ -210,6 +213,7 @@ void market::acknowledge_close_connection() {
 ::rml::job* market::create_one_job() {
     unsigned index = ++my_num_workers;
     __TBB_ASSERT( index > 0, NULL );
+    ITT_THREAD_SET_NAME(_T("TBB Worker Thread"));
     // index serves as a hint decreasing conflicts between workers when they migrate between arenas
     generic_scheduler* s = generic_scheduler::create_worker( *this, index );
 #if __TBB_TASK_GROUP_CONTEXT
@@ -230,25 +234,21 @@ void market::propagate_cancellation ( task_group_context& ctx ) {
     // See the note 1 at the bottom of this file.
     global_market_mutex_type::scoped_lock lock(theMarketMutex);
     // Advance global cancellation epoch
-    uintptr_t global_epoch = __TBB_FetchAndAddWrelease(&global_cancel_count, 1);
+    __TBB_FetchAndAddWrelease(&global_cancel_count, 1);
     // Propagate to all workers and masters and sync up their local epochs with the global one
     unsigned num_workers = my_num_workers;
     for ( unsigned i = 0; i < num_workers; ++i ) {
         generic_scheduler *s = my_workers[i];
         // If the worker is only about to be registered, skip it.
-        if ( s ) {
+        if ( s )
             s->propagate_cancellation();
-            s->local_cancel_count = global_epoch;
-        }
     }
     arena_list_type::iterator it = my_arenas.begin();
     for ( ; it != my_arenas.end(); ++it ) {
         generic_scheduler *s = it->slot[0].my_scheduler;
         // If the master is under construction, skip it.
-        if ( s ) { 
+        if ( s )
             s->propagate_cancellation();
-            s->local_cancel_count = global_epoch;
-        }
     }
 }
 #endif /* __TBB_TASK_GROUP_CONTEXT */

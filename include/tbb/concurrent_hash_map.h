@@ -133,7 +133,7 @@ namespace interface4 {
         typedef bucket *segment_ptr_t;
         //! Segment pointers table type
         typedef segment_ptr_t segments_table_t[pointers_per_table];
-        //! Hash mask = sum of allocated segments sizes - 1
+        //! Hash mask = sum of allocated segment sizes - 1
         atomic<hashcode_t> my_mask;
         //! Segment pointers table. Also prevents false sharing between my_mask and my_size
         segments_table_t my_table;
@@ -141,7 +141,14 @@ namespace interface4 {
         atomic<size_type> my_size; // It must be in separate cache line from my_mask due to performance effects
         //! Zero segment
         bucket my_embedded_segment[embedded_buckets];
-
+#if __TBB_STATISTICS
+        atomic<unsigned> my_info_resizes; // concurrent ones
+        mutable atomic<unsigned> my_info_restarts; // race collisions
+        atomic<unsigned> my_info_rehashes;  // invocations of rehash_bucket
+        #if !TBB_USE_PERFORMANCE_WARNINGS
+        #error Please enable TBB_USE_PERFORMANCE_WARNINGS as well
+        #endif
+#endif
         //! Constructor
         hash_map_base() {
             std::memset( this, 0, pointers_per_table*sizeof(segment_ptr_t) // 32*4=128   or 64*8=512
@@ -151,6 +158,11 @@ namespace interface4 {
                 my_table[i] = my_embedded_segment + segment_base(i);
             my_mask = embedded_buckets - 1;
             __TBB_ASSERT( embedded_block <= first_block, "The first block number must include embedded blocks");
+#if __TBB_STATISTICS
+            my_info_resizes = 0; // concurrent ones
+            my_info_restarts = 0; // race collisions
+            my_info_rehashes = 0;  // invocations of rehash_bucket
+#endif
         }
 
         //! @return segment index of given index in the array
@@ -286,7 +298,12 @@ namespace interface4 {
 #else
                 if( __TBB_load_with_acquire(get_bucket( h & m_old )->node_list) != rehash_req )
 #endif
+                {
+#if __TBB_STATISTICS
+                    my_info_restarts++; // race collisions
+#endif
                     return true;
+                }
             }
             return false;
         }
@@ -410,10 +427,10 @@ namespace interface4 {
         hash_map_iterator& operator++();
         
         //! Post increment
-        Value* operator++(int) {
-            Value* result = &operator*();
+        hash_map_iterator operator++(int) {
+            hash_map_iterator old(*this);
             operator++();
-            return result;
+            return old;
         }
     };
 
@@ -667,6 +684,9 @@ protected:
         __TBB_ASSERT( h > 1, "The lowermost buckets can't be rehashed" );
         __TBB_store_with_release(b_new->node_list, internal::empty_rehashed); // mark rehashed
         hashcode_t mask = ( 1u<<__TBB_Log2( h ) ) - 1; // get parent mask from the topmost bit
+#if __TBB_STATISTICS
+        my_info_rehashes++; // invocations of rehash_bucket
+#endif
 
         bucket_accessor b_old( this, h & mask );
 
@@ -988,15 +1008,15 @@ protected:
 template<typename Key, typename T, typename HashCompare, typename A>
 bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key &key, const T *t, const_accessor *result, bool write ) {
     __TBB_ASSERT( !result || !result->my_node, NULL );
-    segment_index_t grow_segment;
     bool return_value;
-    node *n, *tmp_n = 0;
     hashcode_t const h = my_hash_compare.hash( key );
 #if TBB_USE_THREADING_TOOLS
     hashcode_t m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
 #else
     hashcode_t m = my_mask;
 #endif
+    segment_index_t grow_segment = 0;
+    node *n, *tmp_n = 0;
     restart:
     {//lock scope
         __TBB_ASSERT((m&(m+1))==0, NULL);
@@ -1027,8 +1047,6 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key
                 grow_segment = insert_new_node( b(), n = tmp_n, m );
                 tmp_n = 0;
                 return_value = true;
-            } else {
-    exists:     grow_segment = 0;
             }
         } else { // find or count
             if( !n ) {
@@ -1037,8 +1055,8 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key
                 return false;
             }
             return_value = true;
-            grow_segment = 0;
         }
+    exists:
         if( !result ) goto check_growth;
         // TODO: the following seems as generic/regular operation
         // acquire the item
@@ -1065,8 +1083,12 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key
     result->my_hash = h;
 check_growth:
     // [opt] grow the container
-    if( grow_segment )
+    if( grow_segment ) {
+#if __TBB_STATISTICS
+        my_info_resizes++; // concurrent ones
+#endif
         enable_segment( grow_segment );
+    }
     if( tmp_n ) // if op_insert only
         delete_node( tmp_n );
     return return_value;
@@ -1271,6 +1293,15 @@ void concurrent_hash_map<Key,T,HashCompare,A>::clear() {
 #endif
     }
 #if TBB_USE_PERFORMANCE_WARNINGS
+#if __TBB_STATISTICS
+    printf( "items=%d buckets: capacity=%d rehashed=%d empty=%d overpopulated=%d"
+        " concurrent: resizes=%u rehashes=%u restarts=%u\n",
+        current_size, int(m+1), buckets, empty_buckets, overpopulated_buckets,
+        unsigned(my_info_resizes), unsigned(my_info_rehashes), unsigned(my_info_restarts) );
+    my_info_resizes = 0; // concurrent ones
+    my_info_restarts = 0; // race collisions
+    my_info_rehashes = 0;  // invocations of rehash_bucket
+#endif
     if( buckets > current_size) empty_buckets -= buckets - current_size;
     else overpopulated_buckets -= current_size - buckets; // TODO: load_factor?
     if( !reported && buckets >= 512 && ( 2*empty_buckets > current_size || 2*overpopulated_buckets > current_size ) ) {

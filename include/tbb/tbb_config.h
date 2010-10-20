@@ -83,12 +83,12 @@
 #endif
 
 #ifndef TBB_IMPLEMENT_CPP0X
-/** By default, use C++0x classes if available **/
-#if __GNUC__==4 && __GNUC_MINOR__>=4 && __GXX_EXPERIMENTAL_CXX0X__
-#define TBB_IMPLEMENT_CPP0X 0
-#else
-#define TBB_IMPLEMENT_CPP0X 1
-#endif
+    /** By default, use C++0x classes if available **/
+    #if __GNUC__==4 && __GNUC_MINOR__>=4 && __GXX_EXPERIMENTAL_CXX0X__
+        #define TBB_IMPLEMENT_CPP0X 0
+    #else
+        #define TBB_IMPLEMENT_CPP0X 1
+    #endif
 #endif /* TBB_IMPLEMENT_CPP0X */
 
 /** Feature sets **/
@@ -98,16 +98,21 @@
 #endif
 
 #ifndef __TBB_TASK_GROUP_CONTEXT
-#define __TBB_TASK_GROUP_CONTEXT 1
+    #define __TBB_TASK_GROUP_CONTEXT 1
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 
 #ifndef __TBB_SCHEDULER_OBSERVER
-#define __TBB_SCHEDULER_OBSERVER 1
+    #define __TBB_SCHEDULER_OBSERVER 1
 #endif /* __TBB_SCHEDULER_OBSERVER */
 
 #ifndef __TBB_ARENA_PER_MASTER
-#define __TBB_ARENA_PER_MASTER 1
+    #define __TBB_ARENA_PER_MASTER 1
 #endif /* __TBB_ARENA_PER_MASTER */
+
+#if !defined(__TBB_SURVIVE_THREAD_SWITCH) && (_WIN32 || _WIN64 || __linux__)
+    #define __TBB_SURVIVE_THREAD_SWITCH 1
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
+
 
 /* TODO: The following condition should be extended as soon as new compilers/runtimes 
          with std::exception_ptr support appear. */
@@ -178,6 +183,12 @@
     #define __TBB_GCC_3_3_PROTECTED_BROKEN 1
 #endif
 
+#if __MINGW32__ && (__GNUC__<4 || __GNUC__==4 && __GNUC_MINOR__<2)
+    /** MinGW has a bug with stack alignment for routines invoked from MS RTLs.
+        Since GCC 4.2, the bug can be worked around via a special attribute. **/
+    #define __TBB_SSE_STACK_ALIGNMENT_BROKEN 1
+#endif
+
 #if __FreeBSD__
     /** A bug in FreeBSD 8.0 results in kernel panic when there is contention 
         on a mutex created with this attribute. **/
@@ -193,6 +204,5 @@
         incorrect code when __asm__ arguments have a cast to volatile. **/
     #define __TBB_ICC_ASM_VOLATILE_BROKEN 1
 #endif
-
 
 #endif /* __TBB_tbb_config_H */

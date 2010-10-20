@@ -721,7 +721,6 @@ public:
     }
 };
 
-
 //! Forward declaration
 void wakeup_some_tbb_threads();
 

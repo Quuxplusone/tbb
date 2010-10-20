@@ -74,6 +74,7 @@ endif
 
 OBJ = o
 DLL = so
+LIBEXT=so
 
 TBB.DEF = 
 TBB.DLL = libtbb$(DEBUG_SUFFIX).$(DLL)

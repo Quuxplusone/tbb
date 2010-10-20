@@ -69,22 +69,23 @@ int main(int argc, char *argv[]) {
  std::string str[N] = { std::string("a"), std::string("b") };
  for (size_t i = 2; i < N; ++i) str[i] = str[i-1]+str[i-2];
  std::string &to_scan = str[N-1]; 
+ size_t num_elem = to_scan.size();
  std::cout << "String to scan: " << to_scan << std::endl;
 
- size_t *max = new size_t[to_scan.size()];
- size_t *pos = new size_t[to_scan.size()];
+ size_t *max = new size_t[num_elem];
+ size_t *pos = new size_t[num_elem];
 
- parallel_for(blocked_range<size_t>(0, to_scan.size(), 100),
+ parallel_for(blocked_range<size_t>(0, num_elem, 100),
        SubStringFinder( to_scan, max, pos ) );
 
- for (size_t i = 0; i < to_scan.size(); ++i) {
-   for (size_t j = 0; j < to_scan.size(); ++j) {
+ for (size_t i = 0; i < num_elem; ++i) {
+   for (size_t j = 0; j < num_elem; ++j) {
      if (j >= i && j < i + max[i]) std::cout << "_";
      else std::cout << " ";
    } 
    std::cout << std::endl << to_scan << std::endl;
 
-   for (size_t j = 0; j < to_scan.size(); ++j) {
+   for (size_t j = 0; j < num_elem; ++j) {
      if (j >= pos[i] && j < pos[i] + max[i]) std::cout << "*";
      else std::cout << " ";
    }

@@ -100,6 +100,8 @@ protected:
     Formulas_t   Formulas;
     typedef set<string> AnalysisTitles_t;
     AnalysisTitles_t AnalysisTitles;
+    typedef vector<pair<string, string> > RunInfo_t;
+    RunInfo_t RunInfo;
 
 public:
     struct TestCase {
@@ -129,7 +131,8 @@ public:
         Stdout   = 1<<8,    //< Output to the console
         TextFile = 1<<9,    //< Output to plain text file "name.txt" (delimiter is TAB by default)
         ExcelXML = 1<<10,   //< Output to Excel-readable XML-file "name.xml"
-        HTMLFile = 1<<11    //< Output to HTML file "name.html"
+        HTMLFile = 1<<11,   //< Output to HTML file "name.html"
+        PivotMode= 1<<15    //< Puts all the rounds into one columt to better fit for pivot table in Excel
     };
 
     //! Constructor. Specify tests set name which used as name of output files
@@ -166,6 +169,9 @@ public:
     //TODO://! #1 .. #n templates represent data cells from the first to the last
     //TODO: merge with Analisis
     void SetStatisticFormula(const char *name, const char *formula);
+    //! Add information about run or compile parameters
+    void SetRunInfo(const char *title, const char *fmt, ...);
+    void SetRunInfo(const char *title, int num) { SetRunInfo(title, "%d", num); }
 
     //! Data output
     void Print(int dataOutput, const char *ModeName = "Mode");

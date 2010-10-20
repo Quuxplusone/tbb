@@ -25,22 +25,26 @@
 # the GNU General Public License.
 
 ifndef tbb_os
- ifeq ($(OS), Windows_NT)
-  export tbb_os=windows
- else
-  OS:=$(shell uname)
+
+  # Windows sets environment variable OS; for other systems, ask uname
   ifeq ($(OS),)
-   $(error "$(OS) is not supported")
-  else
-   export tbb_os=$(OS)
-   ifeq ($(OS), Linux)
+    OS:=$(shell uname)
+    ifeq ($(OS),)
+      $(error "Cannot detect operating system")
+    endif
+    export tbb_os=$(OS)
+  endif
+
+  ifeq ($(OS), Windows_NT)
+    export tbb_os=windows
+  endif
+  ifeq ($(OS), Linux)
     export tbb_os=linux
-   endif
-   ifeq ($(OS), Darwin)
+  endif
+  ifeq ($(OS), Darwin)
     export tbb_os=macos
-   endif
-  endif # OS successfully detected
- endif # !Windows
+  endif
+
 endif # !tbb_os
 
 ifeq ($(wildcard $(tbb_root)/build/$(tbb_os).inc),)

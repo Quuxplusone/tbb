@@ -38,13 +38,10 @@
 #endif
 
 #include <stdexcept>
+#include <string> // required to construct std exception classes
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     #pragma warning (pop)
-#endif
-
-#if __SUNPRO_CC
-#include <string> // required to construct std exception classes
 #endif
 
 namespace tbb {
@@ -94,7 +91,7 @@ enum exception_id {
     eid_operation_not_permitted,
     eid_condvar_wait_failed,
     eid_invalid_load_factor,
-    eid_invalid_buckets_number,
+    eid_reserved, // free slot for backward compatibility, can be reused.
     eid_invalid_swap,
     eid_reservation_length_error,
     eid_invalid_key,

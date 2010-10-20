@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::internal::tbb_exception_ptr Class Reference</title>
+<title>tbb::task_list Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,63 +21,57 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00267.html">tbb</a>::<b>internal</b>::<a class="el" href="a00207.html">tbb_exception_ptr</a></div>
-<h1>tbb::internal::tbb_exception_ptr Class Reference</h1><!-- doxytag: class="tbb::internal::tbb_exception_ptr" -->Exception container that preserves the exact copy of the original exception.  
+<a class="el" href="a00272.html">tbb</a>::<a class="el" href="a00207.html">task_list</a></div>
+<h1>tbb::task_list Class Reference<br>
+<small>
+[<a class="el" href="a00285.html">Task Scheduling</a>]</small>
+</h1><!-- doxytag: class="tbb::task_list" -->A list of children.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00453.html">tbb_exception.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00438.html">task.h</a>&gt;</code>
 <p>
-<a href="a00101.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00077.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#921875bbacd2c8a5f324c7da7a415262">destroy</a> ()  throw ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="416341c2047eaef50417b41eaf7e9de6"></a><!-- doxytag: member="tbb::task_list::task_list" ref="416341c2047eaef50417b41eaf7e9de6" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#416341c2047eaef50417b41eaf7e9de6">task_list</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destroys this objects.  <a href="#921875bbacd2c8a5f324c7da7a415262"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="292832fd5c523e3d8081a22247840a1d"></a><!-- doxytag: member="tbb::internal::tbb_exception_ptr::throw_self" ref="292832fd5c523e3d8081a22247840a1d" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#292832fd5c523e3d8081a22247840a1d">throw_self</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct empty list. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6d438f1499a02db1e59c24ab6043e5ba"></a><!-- doxytag: member="tbb::task_list::~task_list" ref="6d438f1499a02db1e59c24ab6043e5ba" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#6d438f1499a02db1e59c24ab6043e5ba">~task_list</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Throws the contained exception . <br></td></tr>
-<tr><td colspan="2"><br><h2>Static Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="65083750bebe799d3fe8143c794523bb"></a><!-- doxytag: member="tbb::internal::tbb_exception_ptr::allocate" ref="65083750bebe799d3fe8143c794523bb" args="()" -->
-static <a class="el" href="a00207.html">tbb_exception_ptr</a> *&nbsp;</td><td class="memItemRight" valign="bottom"><b>allocate</b> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destroys the list, but does not destroy the task objects. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f3ac31e092814b90929f81bb30441959"></a><!-- doxytag: member="tbb::task_list::empty" ref="f3ac31e092814b90929f81bb30441959" args="() const " -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#f3ac31e092814b90929f81bb30441959">empty</a> () const </td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d1111b00ba54b7fe35e6d3a0f21de287"></a><!-- doxytag: member="tbb::internal::tbb_exception_ptr::allocate" ref="d1111b00ba54b7fe35e6d3a0f21de287" args="(const tbb_exception &amp;tag)" -->
-static <a class="el" href="a00207.html">tbb_exception_ptr</a> *&nbsp;</td><td class="memItemRight" valign="bottom"><b>allocate</b> (const <a class="el" href="a00206.html">tbb_exception</a> &amp;tag)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if list if empty; false otherwise. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4cd34756bc4763dafb8c84838a0124ff"></a><!-- doxytag: member="tbb::task_list::push_back" ref="4cd34756bc4763dafb8c84838a0124ff" args="(task &amp;task)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#4cd34756bc4763dafb8c84838a0124ff">push_back</a> (<a class="el" href="a00204.html">task</a> &amp;<a class="el" href="a00204.html">task</a>)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c35e5db8e9cdff5d1387db5b0bad2e4a"></a><!-- doxytag: member="tbb::internal::tbb_exception_ptr::allocate" ref="c35e5db8e9cdff5d1387db5b0bad2e4a" args="(captured_exception &amp;src)" -->
-static <a class="el" href="a00207.html">tbb_exception_ptr</a> *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#c35e5db8e9cdff5d1387db5b0bad2e4a">allocate</a> (<a class="el" href="a00153.html">captured_exception</a> &amp;src)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Push task onto back of list. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5fe85df5ed524418389d34051750347d"></a><!-- doxytag: member="tbb::task_list::pop_front" ref="5fe85df5ed524418389d34051750347d" args="()" -->
+<a class="el" href="a00204.html">task</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#5fe85df5ed524418389d34051750347d">pop_front</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">This overload uses move semantics (i.e. it empties src). <br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Pop the front task from the list. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fce446ee13e025969945328f3ff59b95"></a><!-- doxytag: member="tbb::task_list::clear" ref="fce446ee13e025969945328f3ff59b95" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#fce446ee13e025969945328f3ff59b95">clear</a> ()</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Clear the list. <br></td></tr>
+<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e656073628561c8fd68f6134d527e2de"></a><!-- doxytag: member="tbb::task_list::task" ref="e656073628561c8fd68f6134d527e2de" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>task</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="81d0122aee4ddae419a743ee50d7038e"></a><!-- doxytag: member="tbb::task_list::interface5::internal::task_base" ref="81d0122aee4ddae419a743ee50d7038e" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>interface5::internal::task_base</b></td></tr>
+
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Exception container that preserves the exact copy of the original exception. 
+A list of children. 
 <p>
-This class can be used only when the appropriate runtime support (mandated by C++0x) is present 
+Used for method task::spawn_children 
 <p>
-<hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="921875bbacd2c8a5f324c7da7a415262"></a><!-- doxytag: member="tbb::internal::tbb_exception_ptr::destroy" ref="921875bbacd2c8a5f324c7da7a415262" args="()" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void tbb::internal::tbb_exception_ptr::destroy           </td>
-          <td>(</td>
-          <td class="paramname">          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%">  throw ()</td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Destroys this objects. 
-<p>
-Note that objects of this type can be created only by the allocate() method. 
-</div>
-</div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00453.html">tbb_exception.h</a></ul>
+<li><a class="el" href="a00438.html">task.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.

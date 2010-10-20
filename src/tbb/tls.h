@@ -32,13 +32,7 @@
 #if USE_PTHREAD
 #include <pthread.h>
 #else /* assume USE_WINTHREAD */
-#if defined(_XBOX)
-    #define NONET
-    #define NOD3D
-    #include <xtl.h>
-#else
-#include <windows.h>
-#endif
+#include "tbb/machine/windows_api.h"
 #endif
 
 namespace tbb {

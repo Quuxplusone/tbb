@@ -98,6 +98,14 @@ inline intptr_t AtomicCompareExchange( volatile intptr_t& location, intptr_t new
     return __TBB_CompareAndSwapW( &location, new_value, comparand );
 }
 
+inline intptr_t FencedLoad( const volatile intptr_t &location ) {
+    return __TBB_load_with_acquire(location);
+}
+
+inline void FencedStore( volatile intptr_t &location, intptr_t value ) {
+    __TBB_store_with_release(location, value);
+}
+
 #define USE_DEFAULT_MEMORY_MAPPING 1
 
 // To support malloc replacement with LD_PRELOAD

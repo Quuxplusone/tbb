@@ -144,20 +144,21 @@ void __TBB_InitOnce::remove_ref() {
 //! Defined in cache_aligned_allocator.cpp
 void initialize_cache_aligned_allocator();
 
+#if __TBB_SURVIVE_THREAD_SWITCH
+//! Defined in governor.cpp
+void initialize_survive_thread_switch();
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
+
 //! Defined in scheduler.cpp
 void Scheduler_OneTimeInitialization ( bool itt_present );
 
 #if DO_ITT_NOTIFY
-//! Performs initialization of tools support.
-/** Defined in itt_notify.cpp. Must be called in a protected do-once manner.
-    \return true if notification hooks were installed, false otherwise. **/
-bool InitializeITT();
 
 /** Thread-unsafe lazy one-time initialization of tools interop.
     Used by both dummy handlers and general TBB one-time initialization routine. **/
 void ITT_DoUnsafeOneTimeInitialization () {
     if ( !ITT_InitializationDone ) {
-        ITT_Present = InitializeITT();
+        ITT_Present = (__TBB_load_ittnotify()!=0);
         ITT_InitializationDone = true;
 #if __TBB_ARENA_PER_MASTER
         ITT_SYNC_CREATE(&market::theMarketMutex, SyncType_GlobalLock, SyncObj_SchedulerInitialization);
@@ -191,6 +192,9 @@ void DoOneTimeInitializations() {
         have_itt = ITT_Present;
 #endif /* DO_ITT_NOTIFY */
         initialize_cache_aligned_allocator();
+#if __TBB_SURVIVE_THREAD_SWITCH
+        initialize_survive_thread_switch();
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
         governor::print_version_info();
         PrintExtraVersionInfo( "SCHEDULER", have_itt ? "default" : "Intel" );
         Scheduler_OneTimeInitialization( have_itt );

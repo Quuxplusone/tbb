@@ -299,7 +299,7 @@
 " Outputs="&quot;$(IntDir)\tbbmalloc.def&quot;"/>
 				</FileConfiguration>
 			</File>
-			<File RelativePath="..\..\src\tbbmalloc\tbbmalloc.cpp"/><File RelativePath="..\..\src\tbb\dynamic_link.cpp"/><File RelativePath="..\..\src\tbb\tbb_misc.cpp"/><File RelativePath="..\..\src\tbbmalloc\MemoryAllocator.cpp"/><File RelativePath="..\..\src\tbb\itt_notify.cpp"/></Filter>
+			<File RelativePath="..\..\src\tbbmalloc\tbbmalloc.cpp"/><File RelativePath="..\..\src\tbb\dynamic_link.cpp"/><File RelativePath="..\..\src\tbbmalloc\frontend.cpp"/><File RelativePath="..\..\src\tbbmalloc\backend.cpp"/><File RelativePath="..\..\src\tbbmalloc\large_objects.cpp"/><File RelativePath="..\..\src\tbbmalloc\backref.cpp"/><File RelativePath="..\..\src\tbb\tbb_misc.cpp"/><File RelativePath="..\..\src\tbb\itt_notify.cpp"/></Filter>
 		<Filter Name="Header Files" Filter="h;hpp;hxx;hm;inl;inc;xsd" UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
 			<File RelativePath="..\..\include\tbb\_concurrent_queue_internal.h">
 			</File>

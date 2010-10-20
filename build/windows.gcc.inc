@@ -40,7 +40,11 @@ MALLOC.MANIFEST =
 RML.MANIFEST =
 
 # TODO: do better when/if mingw64 support is added
-TBB.DEF = $(tbb_root)/src/tbb/lin32-tbb-export.def
+ifeq (ia32,$(arch))
+    TBB.DEF = $(tbb_root)/src/tbb/lin32-tbb-export.def
+else 
+    TBB.DEF = $(tbb_root)/src/tbb/win64-gcc-tbb-export.def
+endif 
 MALLOC.DEF = $(MALLOC_ROOT)/win-gcc-tbbmalloc-export.def
 RML.DEF = $(RML_SERVER_ROOT)/lin-rml-export.def
 

@@ -213,12 +213,8 @@ void TestPushPop( size_t prefill, ptrdiff_t capacity, int nthread ) {
         tbb::tick_count t0 = tbb::tick_count::now();
         NativeParallelFor( nthread, body );
         tbb::tick_count t1 = tbb::tick_count::now();
-#if !__TBB_FLOATING_POINT_BROKEN
         double timing = (t1-t0).seconds();
         REMARK("prefill=%d capacity=%d threads=%d time = %g = %g nsec/operation\n", int(prefill), int(capacity), nthread, timing, timing/(2*M*nthread)*1.E9);
-#else
-        REMARK("prefill=%d capacity=%d threads=%d time=%g\n", int(prefill), int(capacity), (t1-t0).seconds(), nthread);
-#endif /* !__TBB_FLOATING_POINT_BROKEN */
         int sum = 0;
         for( int k=0; k<nthread; ++k )
             sum += Sum[k];

@@ -98,7 +98,7 @@ struct ThreadedInit {
 };
 
 #if _MSC_VER
-#include <windows.h>
+#include "tbb/machine/windows_api.h"
 #include <tchar.h>
 #endif /* _MSC_VER */
 
@@ -134,10 +134,10 @@ int TestMain () {
 #if _MSC_VER && !__TBB_NO_IMPLICIT_LINKAGE
     #ifdef _DEBUG
         ASSERT(!GetModuleHandle(_T("tbb.dll")) && GetModuleHandle(_T("tbb_debug.dll")),
-            "debug application links with non-debug tbb library");
+            "test linked with wrong (non-debug) tbb library");
     #else
         ASSERT(!GetModuleHandle(_T("tbb_debug.dll")) && GetModuleHandle(_T("tbb.dll")),
-            "non-debug application links with debug tbb library");
+            "test linked with wrong (debug) tbb library");
     #endif
 #endif /* _MSC_VER && !__TBB_NO_IMPLICIT_LINKAGE */
     std::srand(2);

@@ -33,22 +33,14 @@
 #include "tbb/tbb_machine.h"
 
 #if _WIN32||_WIN64
-#if _XBOX
-    #define NONET
-    #define NOD3D
-    #include <xtl.h>
-#else
-#include <windows.h>
-#endif
-#elif defined(__linux__)
+#include "tbb/machine/windows_api.h"
+#elif __linux__
 #include <sys/sysinfo.h>
+#define __TBB_DetectNumberOfWorkers() get_nprocs()
 #elif defined(__sun)
 #include <sys/sysinfo.h>
 #include <unistd.h>
-#elif defined(__APPLE__)
-#include <sys/types.h>
-#include <sys/sysctl.h>
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(_AIX)
 #include <unistd.h>
 #endif
 
@@ -65,56 +57,16 @@ const size_t MByte = 1<<20;
     const size_t ThreadStackSize = 4*MByte;
 #endif
 
-#if defined(__TBB_DetectNumberOfWorkers)
+#if defined(__TBB_DetectNumberOfWorkers) // covers Linux, Mac OS*, and other platforms
 
 static inline int DetectNumberOfWorkers() {
-    return __TBB_DetectNumberOfWorkers(); 
+    int n = __TBB_DetectNumberOfWorkers(); 
+    return n>0? n: 1; // Fail safety strap
 }
 
 #else /* !__TBB_DetectNumberOfWorkers */
 
 #if _WIN32||_WIN64
-
-#if _XBOX
-
-// This port uses only 2 hardware threads for TBB on XBOX 360. 
-// Others are left to sound etc.
-// Change the following mask to allow TBB use more HW threads.
-static const int XBOX360_HARDWARE_THREAD_MASK = 0x0C;
-
-static inline int DetectNumberOfWorkers() 
-{
- char a[XBOX360_HARDWARE_THREAD_MASK];  //compile time assert - at least one bit should be set always
- a[0]=0;
- 
- return ((XBOX360_HARDWARE_THREAD_MASK >> 0) & 1) +
-        ((XBOX360_HARDWARE_THREAD_MASK >> 1) & 1) +
-        ((XBOX360_HARDWARE_THREAD_MASK >> 2) & 1) +
-        ((XBOX360_HARDWARE_THREAD_MASK >> 3) & 1) +
-        ((XBOX360_HARDWARE_THREAD_MASK >> 4) & 1) +
-        ((XBOX360_HARDWARE_THREAD_MASK >> 5) & 1) + 1;  //+1 - tbb is creating DetectNumberOfWorkers()-1 threads in arena 
-}
-
-static inline int GetHardwareThreadIndex(int workerThreadIndex)
-{
- workerThreadIndex %= DetectNumberOfWorkers()-1;
- int m = XBOX360_HARDWARE_THREAD_MASK;
- int index = 0;
- int skipcount = workerThreadIndex;
- while (true)
-  {
-   if ((m & 1)!=0) 
-    {
-     if (skipcount==0) break;
-     skipcount--;
-    }
-   m >>= 1;
-   index++;
-  }
- return index; 
-}
-
-#else /* !_XBOX */
 
 static inline int DetectNumberOfWorkers() {
     SYSTEM_INFO si;
@@ -122,39 +74,15 @@ static inline int DetectNumberOfWorkers() {
     return static_cast<int>(si.dwNumberOfProcessors);
 }
 
-#endif /* !_XBOX */
+#elif defined(_SC_NPROCESSORS_ONLN)
 
-#elif defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__sun) 
 static inline int DetectNumberOfWorkers() {
-    long number_of_workers;
-
-#if (defined(__FreeBSD__) || defined(__sun)) && defined(_SC_NPROCESSORS_ONLN) 
-    number_of_workers = sysconf(_SC_NPROCESSORS_ONLN);
-
-// In theory, sysconf should work everywhere.
-// But in practice, system-specific methods are more reliable
-#elif defined(__linux__)
-    number_of_workers = get_nprocs();
-#elif defined(__APPLE__)
-    int name[2] = {CTL_HW, HW_AVAILCPU};
-    int ncpu;
-    size_t size = sizeof(ncpu);
-    sysctl( name, 2, &ncpu, &size, NULL, 0 );
-    number_of_workers = ncpu;
-#else
-#error DetectNumberOfWorkers: Method to detect the number of online CPUs is unknown
-#endif
-
-// Fail-safety strap
-    if ( number_of_workers < 1 ) {
-        number_of_workers = 1;
-    }
-    
-    return number_of_workers;
+    int number_of_workers = sysconf(_SC_NPROCESSORS_ONLN);
+    return number_of_workers>0? number_of_workers: 1;
 }
 
 #else
-#error DetectNumberOfWorkers: OS detection method is unknown
+#error DetectNumberOfWorkers: Method to detect the number of available CPUs is unknown
 #endif /* os kind */
 
 #endif /* !__TBB_DetectNumberOfWorkers */

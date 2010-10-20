@@ -39,8 +39,6 @@ MALLOC_SOURCE_ROOT ?= $(MALLOC_ROOT)
 VPATH = $(tbb_root)/src/tbb/$(ASSEMBLY_SOURCE) $(tbb_root)/src/tbb $(tbb_root)/src/test
 VPATH += $(MALLOC_ROOT) $(MALLOC_SOURCE_ROOT)
 
-KNOWN_NOSTRICT = test_ScalableAllocator_STL.$(OBJ) test_malloc_compliance.$(OBJ) test_malloc_overload.$(OBJ)
-
 CPLUS_FLAGS += $(if $(crosstest),$(DEFINE_KEY)__TBBMALLOC_NO_IMPLICIT_LINKAGE=1)
 
 include $(tbb_root)/build/common_rules.inc
@@ -55,8 +53,8 @@ MALLOC_CUSTOM.OBJ += tbb_misc_malloc.$(OBJ)
 MALLOC_ASM.OBJ = $(TBB_ASM.OBJ)
 
 # MALLOC_CPLUS.OBJ is built in two steps due to Intel Compiler Tracker # C69574
-MALLOC.OBJ := $(MALLOC_CPLUS.OBJ) $(MALLOC_ASM.OBJ) $(MALLOC_CUSTOM.OBJ) MemoryAllocator.$(OBJ) itt_notify.$(OBJ)
-MALLOC_CPLUS.OBJ += MemoryAllocator.$(OBJ)
+MALLOC_CPLUS.OBJ += frontend.$(OBJ) backend.$(OBJ) large_objects.$(OBJ) backref.$(OBJ)
+MALLOC.OBJ := $(MALLOC_CPLUS.OBJ) $(MALLOC_ASM.OBJ) $(MALLOC_CUSTOM.OBJ) itt_notify.$(OBJ)
 PROXY.OBJ := proxy.$(OBJ) tbb_function_replacement.$(OBJ)
 M_CPLUS_FLAGS := $(subst $(WARNING_KEY),,$(M_CPLUS_FLAGS)) $(DEFINE_KEY)__TBB_BUILD=1
 M_INCLUDES = $(INCLUDES) $(INCLUDE_KEY)$(MALLOC_ROOT) $(INCLUDE_KEY)$(MALLOC_SOURCE_ROOT)
@@ -73,7 +71,7 @@ $(MALLOC_CPLUS.OBJ): %.$(OBJ): %.cpp
 	$(CPLUS) $(COMPILE_ONLY) $(M_CPLUS_FLAGS) $(PIC_KEY) $(M_INCLUDES) $<
 
 tbb_misc_malloc.$(OBJ): tbb_misc.cpp version_string.tmp
-	$(CPLUS) $(COMPILE_ONLY) $(subst -strict_ansi,-ansi,$(M_CPLUS_FLAGS)) $(PIC_KEY) $(OUTPUTOBJ_KEY)$@ $(INCLUDE_KEY). $(INCLUDES) $<
+	$(CPLUS) $(COMPILE_ONLY) $(M_CPLUS_FLAGS) $(PIC_KEY) $(OUTPUTOBJ_KEY)$@ $(INCLUDE_KEY). $(INCLUDES) $<
 
 MALLOC_LINK_FLAGS = $(LIB_LINK_FLAGS)
 PROXY_LINK_FLAGS = $(LIB_LINK_FLAGS) 
@@ -135,8 +133,12 @@ malloc_proxy_dll: $(MALLOCPROXY.DLL)
 add_debug=$(basename $(1))_debug$(suffix $(1))
 cross_suffix=$(if $(crosstest),$(if $(DEBUG_SUFFIX),$(subst _debug,,$(1)),$(call add_debug,$(1))),$(1))
 
-MALLOC_MAIN_TESTS = test_ScalableAllocator.$(TEST_EXT) test_ScalableAllocator_STL.$(TEST_EXT) test_malloc_compliance.$(TEST_EXT) test_malloc_regression.$(TEST_EXT)
-MALLOC_OVERLOAD_TESTS =  test_malloc_overload.$(TEST_EXT) test_malloc_overload_proxy.$(TEST_EXT)
+MALLOC_MAIN_TESTS = test_ScalableAllocator.$(TEST_EXT) \
+                    test_ScalableAllocator_STL.$(TEST_EXT) \
+                    test_malloc_compliance.$(TEST_EXT) \
+                    test_malloc_regression.$(TEST_EXT) \
+                    test_malloc_init_shutdown.$(TEST_EXT)
+MALLOC_OVERLOAD_TESTS =  test_malloc_overload.$(TEST_EXT) test_malloc_overload_proxy.$(TEST_EXT) test_malloc_atexit.$(TEST_EXT)
 
 MALLOC_LIB = $(call cross_suffix,$(MALLOC.LIB))
 MALLOC_PROXY_LIB = $(call cross_suffix,$(MALLOCPROXY.LIB))
@@ -166,9 +168,17 @@ $(MALLOC_C_TESTS): %.$(TEST_EXT): %.$(OBJ) $(MALLOC_LIB)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $^ $(LIBS) $(LINK_FLAGS)
 endif
 
+# Rules for generating a test DLL
+%_dll.$(DLL): %_dll.$(OBJ)
+	$(LIB_LINK_CMD) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $(PIC_KEY) $< $(LIBS) $(DYLIB_KEY) $(LIB_LINK_FLAGS)
+
+test_malloc_atexit.$(TEST_EXT): test_malloc_atexit.$(OBJ) test_malloc_atexit_dll.$(DLL)
+	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $< $(MALLOC_PROXY_LIB) $(MALLOC_LIB) test_malloc_atexit_dll.$(LIBEXT) $(LIBS) $(LINK_FLAGS)
+
 MALLOC_TESTS = $(MALLOC_MAIN_TESTS) $(MALLOC_OVERLOAD_TESTS) $(MALLOC_C_TESTS) test_malloc_whitebox.$(TEST_EXT) test_malloc_lib_unload.$(TEST_EXT)
 # run_cmd is usually empty
 malloc_test: $(call cross_suffix,$(MALLOC.DLL)) $(TEST_PREREQUISITE) $(MALLOC_TESTS)
+	$(run_cmd) ./test_malloc_atexit.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_malloc_lib_unload.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_malloc_whitebox.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) $(TEST_LAUNCHER) -l $(call cross_suffix,$(MALLOCPROXY.DLL)) test_malloc_overload.$(TEST_EXT) $(args)
@@ -177,6 +187,7 @@ malloc_test: $(call cross_suffix,$(MALLOC.DLL)) $(TEST_PREREQUISITE) $(MALLOC_TE
 	$(run_cmd) ./test_ScalableAllocator.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_ScalableAllocator_STL.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_malloc_regression.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_malloc_init_shutdown.$(TEST_EXT) $(args)
 ifeq (,$(NO_C_TESTS))
 	$(run_cmd) ./test_malloc_pure_c.$(TEST_EXT) $(args)
 endif

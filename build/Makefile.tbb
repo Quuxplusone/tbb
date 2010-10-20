@@ -46,26 +46,10 @@ VPATH = $(tbb_root)/src/tbb/$(ASSEMBLY_SOURCE) $(tbb_root)/src/tbb $(tbb_root)/s
 
 CPLUS_FLAGS += $(PIC_KEY) $(DEFINE_KEY)__TBB_BUILD=1
 
-ifeq (1,$(TBB_NOSTRICT))
-# GNU 3.2.3 headers have a ISO syntax that is rejected by Intel compiler in -strict_ansi mode.
-# The Mac uses gcc, so the list is empty for that platform.
-# The files below need the -strict_ansi flag downgraded to -ansi to compile
-
-KNOWN_NOSTRICT = concurrent_hash_map.o \
-	concurrent_queue.o \
-	concurrent_vector_v2.o \
-	concurrent_vector.o \
-	task.o \
-	task_group_context.o \
-	governor.o \
-	market.o \
-	arena.o \
-	scheduler.o \
-	observer_proxy.o \
-	tbb_main.o \
-	task_v2.o
-
-endif
+# A template to switch off strict-ansi for certain compilation units
+# ifeq (1,$(TBB_NOSTRICT))
+# KNOWN_NOSTRICT = <object-file-name>
+# endif
 
 # Object files (that were compiled from C++ code) that gmake up TBB
 TBB_CPLUS.OBJ = concurrent_hash_map.$(OBJ) \
@@ -96,6 +80,7 @@ TBB_CPLUS.OBJ = concurrent_hash_map.$(OBJ) \
 		arena.$(OBJ) \
 		scheduler.$(OBJ) \
 		observer_proxy.$(OBJ) \
+		tbb_statistics.$(OBJ) \
 		tbb_main.$(OBJ)
 
 # OLD/Legacy object files for backward binary compatibility

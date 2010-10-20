@@ -24,6 +24,8 @@
 # invalidate any other reasons why the executable file might be covered by
 # the GNU General Public License.
 
+export SHELL = cmd
+
 ifdef tbb_build_dir
   test_dir:=$(tbb_build_dir)
 else

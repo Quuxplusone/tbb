@@ -76,8 +76,8 @@ native_examples: tbb tbbmalloc
 
 debug_%:: cfg?=debug
 debug_%:: run_cmd=$(debugger)
-test_% stress_% time_%:: cfg?=release
-debug_% test_% stress_% time_%::
+test_% stress_% time_% perf_%:: cfg?=release
+debug_% test_% stress_% time_% perf_%::
 	$(MAKE) -C "$(work_dir)_$(cfg)"  -r -f $(tbb_root)/build/Makefile.test cfg=$(cfg) run_cmd="$(run_cmd)" tbb_root=$(tbb_root) $@
 
 clean_%::

@@ -211,9 +211,8 @@ void parallel_for(Index first, Index last, Index step, const Function& f, tbb::t
     if (step <= 0 )
         internal::throw_exception(internal::eid_nonpositive_step); // throws std::invalid_argument
     else if (last > first) {
-        // Above "else" is necessary to prevent "potential divide by zero" warning
-        Index end = (last - first) / step;
-        if (first + end * step < last) end++;
+        // Above "else" avoids "potential divide by zero" warning on some platforms
+        Index end = (last - first - Index(1)) / step + Index(1);
         tbb::blocked_range<Index> range(static_cast<Index>(0), end);
         internal::parallel_for_body<Function, Index> body(f, first, step);
         tbb::parallel_for(range, body, tbb::auto_partitioner(), context);

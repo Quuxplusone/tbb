@@ -32,7 +32,7 @@
 #include "tbb_stddef.h"
 
 #if _WIN32||_WIN64
-#include <windows.h>
+#include "machine/windows_api.h"
 #elif __linux__
 #include <ctime>
 #else /* generic Unix */

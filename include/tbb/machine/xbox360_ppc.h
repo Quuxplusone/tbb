@@ -36,12 +36,12 @@
 #include "ppcintrinsics.h"
 
 #if _MSC_VER >= 1300
-extern "C" void _ReadWriteBarrier();
-#pragma intrinsic(_ReadWriteBarrier)
-#define __TBB_release_consistency_helper() _ReadWriteBarrier()
+extern "C" void _MemoryBarrier();
+#pragma intrinsic(_MemoryBarrier)
+#define __TBB_release_consistency_helper() _MemoryBarrier()
 #endif
 
-inline void __TBB_rel_acq_fence() { __lwsync(); }
+#define __TBB_full_memory_fence() __sync()
 
 #define __TBB_WORDSIZE 4
 #define __TBB_BIG_ENDIAN 1
@@ -80,6 +80,42 @@ inline void __TBB_machine_pause (__int32 delay )
 #define __TBB_CompareAndSwapW(P,V,C) __TBB_machine_cmpswp4(P,V,C)
 #define __TBB_Yield()  Sleep(0)
 #define __TBB_Pause(V) __TBB_machine_pause(V)
-#define __TBB_fence_for_acquire() __lwsync()
-#define __TBB_fence_for_release() __lwsync()
 
+// This port uses only 2 hardware threads for TBB on XBOX 360. 
+// Others are left to sound etc.
+// Change the following mask to allow TBB use more HW threads.
+static const int __TBB_XBOX360_HARDWARE_THREAD_MASK = 0x0C;
+
+static inline int __TBB_XBOX360_DetectNumberOfWorkers() 
+{
+     char a[__TBB_XBOX360_HARDWARE_THREAD_MASK];  //compile time assert - at least one bit should be set always
+     a[0]=0;
+
+     return ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 0) & 1) +
+            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 1) & 1) +
+            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 2) & 1) +
+            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 3) & 1) +
+            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 4) & 1) +
+            ((__TBB_XBOX360_HARDWARE_THREAD_MASK >> 5) & 1) + 1;  // +1 accomodates for the master thread
+}
+
+static inline int __TBB_XBOX360_GetHardwareThreadIndex(int workerThreadIndex)
+{
+    workerThreadIndex %= __TBB_XBOX360_DetectNumberOfWorkers()-1;
+    int m = __TBB_XBOX360_HARDWARE_THREAD_MASK;
+    int index = 0;
+    int skipcount = workerThreadIndex;
+    while (true)
+    {
+        if ((m & 1)!=0) 
+        {
+            if (skipcount==0) break;
+            skipcount--;
+        }
+        m >>= 1;
+       index++;
+    }
+    return index; 
+}
+
+#define __TBB_DetectNumberOfWorkers() __TBB_XBOX360_DetectNumberOfWorkers()

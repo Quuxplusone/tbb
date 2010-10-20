@@ -65,6 +65,19 @@
    truecolor sort of file..  Probably won't implement any decent checking
    at this point, probably choke on things like the # comments.. */
 
+// Try preventing lots of GCC warnings about ignored results of fscanf etc.
+#if !__INTEL_COMPILER
+
+#if __GNUC__<4 || __GNUC__==4 && __GNUC_MINOR__<5
+// For older versions of GCC, disable use of __wur in GLIBC
+#define _FORTIFY_SOURCE 0
+#else
+// Starting from 4.5, GCC has a suppression option
+#pragma GCC diagnostic ignored "-Wunused-result"
+#endif
+
+#endif //__INTEL_COMPILER
+
 #include <stdio.h>
 #include "machine.h"
 #include "types.h"

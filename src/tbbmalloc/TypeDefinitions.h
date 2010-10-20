@@ -31,7 +31,7 @@
 
 // Define preprocessor symbols used to determine architecture
 #if _WIN32||_WIN64
-#   if defined(_M_AMD64)
+#   if defined(_M_AMD64)||defined(__MINGW64__) // the latter for MinGW support
 #       define __ARCH_x86_64 1
 #   elif defined(_M_IA64)
 #       define __ARCH_ipf 1

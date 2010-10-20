@@ -38,15 +38,9 @@
 #include "tbb/spin_mutex.h"
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 
-#ifndef STATISTICS
-#define STATISTICS 0
-#endif /* STATISTICS */
-
-#if STATISTICS
-#define GATHER_STATISTIC(x) (x)
-#else
-#define GATHER_STATISTIC(x) ((void)0)
-#endif /* STATISTICS */
+#if __TBB_SURVIVE_THREAD_SWITCH
+#include "cilk-tbb-interop.h"
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
 
 namespace tbb {
 namespace internal {
@@ -205,22 +199,6 @@ class generic_scheduler: public scheduler, public ::rml::job {
     intptr_t task_node_count;
 #endif /* __TBB_COUNT_TASK_NODES */
 
-#if STATISTICS
-    long current_active;
-    long current_length;
-    //! Number of big tasks that have been malloc'd.
-    /** To find total number of tasks malloc'd, compute (current_big_malloc+small_task_count) */
-    long current_big_malloc;
-    long execute_count;
-    //! Number of tasks stolen
-    long steal_count;
-    //! Number of tasks received from mailbox
-    long mail_received_count;
-    long proxy_execute_count;
-    long proxy_steal_count;
-    long proxy_bypass_count;
-#endif /* STATISTICS */
-
     //! Sets up the data necessary for the stealing limiting heuristics
     void init_stack_info ();
 
@@ -334,11 +312,13 @@ class generic_scheduler: public scheduler, public ::rml::job {
 protected:
     generic_scheduler( arena*, size_t index );
 
-#if TBB_USE_ASSERT
+#if TBB_USE_ASSERT > 1
     //! Check that internal data structures are in consistent state.
     /** Raises __TBB_ASSERT failure if inconsistency is found. */
-    bool assert_okay() const;
-#endif /* TBB_USE_ASSERT */
+    void assert_task_pool_valid() const;
+#else
+    void assert_task_pool_valid() const {}
+#endif /* TBB_USE_ASSERT <= 1 */
 
 public:
     /*override*/ 
@@ -502,12 +482,35 @@ private:
     /** See also local_ctx_list_update. **/
     uintptr_t nonlocal_ctx_list_update;
 #endif /* __TBB_TASK_GROUP_CONTEXT */
+
+#if __TBB_SURVIVE_THREAD_SWITCH
+    __cilk_tbb_unwatch_thunk my_cilk_unwatch_thunk;
+#if TBB_USE_ASSERT
+    //! State values used to check interface contract with Cilk runtime.
+    /** Names of cs_running...cs_freed derived from state machine diagram in cilk-tbb-interop.h */
+    enum cilk_state_t {
+        cs_none=0xF000, // Start at nonzero value so that we can detect use of zeroed memory.
+        cs_running,
+        cs_limbo,
+        cs_freed
+    };
+    cilk_state_t my_cilk_state;
+#endif /* TBB_USE_ASSERT */
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
+
+#if __TBB_STATISTICS
+    //! Set of counters to track internal statistics on per thread basis
+    /** Placed at the end of the class definition to minimize the disturbance of
+        the core logic memory operations. **/
+    mutable statistics_counters my_counters;
+#endif /* __TBB_STATISTICS */
+
 }; // class generic_scheduler
 
 
 template<free_task_hint h>
 void generic_scheduler::free_task( task& t ) {
-    GATHER_STATISTIC(current_active-=1);
+    GATHER_STATISTIC(--my_counters.active_tasks);
     task_prefix& p = t.prefix();
     // Verify that optimization hints are correct.
     __TBB_ASSERT( h!=small_local_task || p.origin==this, NULL );
@@ -520,12 +523,13 @@ void generic_scheduler::free_task( task& t ) {
     __TBB_ASSERT( 1L<<t.state() & (1L<<task::executing|1L<<task::allocated), NULL );
     p.state = task::freed;
     if( h==small_local_task || p.origin==this ) {
-        GATHER_STATISTIC(current_length+=1);
+        GATHER_STATISTIC(++my_counters.free_list_length);
         p.next = free_list;
         free_list = &t;
     } else if( !(h&local_task) && p.origin ) {
         free_nonlocal_small_task(t);
     } else {
+        GATHER_STATISTIC(--my_counters.big_tasks);
         deallocate_task(t);
     }
 }

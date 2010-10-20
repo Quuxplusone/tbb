@@ -35,6 +35,8 @@
 #include "pover_video.h"
 
 #include "tbb/scalable_allocator.h"
+#include "tbb/concurrent_vector.h"
+#include "tbb/enumerable_thread_specific.h"
 
 using namespace std;
 
@@ -63,38 +65,6 @@ public:
         }
     }
 
-    static RPolygon *alloc_RPolygon(int xMin, int yMin, int xMax, int yMax, int r=-1, int g=-1, int b=-1) {
-        switch(gMBehavior) {
-            case UseScalableAllocator: {
-                RPolygon *my_p = rAlloc.allocate(1);
-                my_p->set_nodraw(xMin,yMin,xMax,yMax);
-                my_p->setColor(r,g,b);
-                if( r >= 0 && gDoDraw) {
-                    my_p->drawPoly();
-                }
-                return my_p;
-            }
-            case UseMalloc: {
-                RPolygon *my_p = new RPolygon(xMin,yMin,xMax,yMax,r,g,b);
-                return my_p;
-            }
-        }
-        return NULL;
-    }
-
-    static void free_RPolygon(RPolygon *p) { 
-        switch(gMBehavior) {
-            case UseScalableAllocator: {
-                rAlloc.deallocate(p, 1);
-                break;
-            }
-            case UseMalloc: {
-                delete p;
-                break;
-            }
-        }
-    }
-
     void set_nodraw(int xMin, int yMin, int xMax, int yMax) {m_XMin=xMin; m_YMin=yMin; m_XMax=xMax; m_YMax=yMax;}
 
     RPolygon &intersect(RPolygon &otherPoly);
@@ -105,6 +75,10 @@ public:
          }
     }
     void get(int *xMin, int *yMin, int *xMax, int *yMax) const {*xMin=m_XMin;*yMin=m_YMin;*xMax=m_XMax;*yMax=m_YMax;}
+    int xmax() const { return m_XMax; }
+    int xmin() const { return m_XMin; }
+    int ymax() const { return m_YMax; }
+    int ymin() const { return m_YMin; }
     void setColor(colorcomp_t newr, colorcomp_t newg, colorcomp_t newb) {m_r = newr; m_g=newg; m_b=newb;}
     void getColor(int *myr, int *myg, int *myb) {*myr=m_r; *myg=m_g; *myb=m_b;}
     color_t myColor() {return gVideo->get_color(m_r, m_g, m_b);}
@@ -126,6 +100,7 @@ public:
             }
         }
     }
+
     int  area() {return ((m_XMax-m_XMin+1)*(m_YMax-m_YMin+1));}
     void print(int i) { cout << "RPolygon " << i << " (" << m_XMin << ", " << m_YMin << ")-(" << m_XMax << ", " << m_YMax << ") " << endl; fflush(stdout);}
 private:
@@ -138,6 +113,16 @@ private:
     colorcomp_t m_b;
 };
 
+#if _MAIN_C_
+bool operator<(const RPolygon& a, const RPolygon& b) {
+    if(a.ymin() > b.ymin()) return false;
+    if(a.ymin() < b.ymin()) return true;
+    return a.xmin() < b.xmin();
+}
+#else
+extern bool operator<(const RPolygon& a, const RPolygon& b);
+#endif
+
 extern ostream& operator<<(ostream& s, const RPolygon &p);
 
 class RPolygon_flagged {
@@ -145,14 +130,17 @@ class RPolygon_flagged {
     bool is_duplicate;
 public:
     RPolygon_flagged() {myPoly = NULL; is_duplicate = false;}
+    RPolygon_flagged(RPolygon* _p, bool _is_duplicate) : myPoly(_p), is_duplicate(_is_duplicate) { }
     bool isDuplicate() {return is_duplicate;}
     void setDuplicate(bool newValue) {is_duplicate = newValue;}
     RPolygon *p() {return myPoly;}
     void setp(RPolygon *newp) {myPoly = newp;}
 };
 
-typedef class vector<RPolygon *> Polygon_map_t;
-typedef class vector<RPolygon_flagged> Flagged_map_t; // we'll make shallow copies
+typedef class vector<RPolygon, RPolygon_allocator> Polygon_map_t;
+typedef class concurrent_vector<RPolygon, RPolygon_allocator> concurrent_Polygon_map_t;
+typedef class enumerable_thread_specific<Polygon_map_t> ETS_Polygon_map_t;
+typedef class vector<RPolygon_flagged, scalable_allocator<RPolygon_flagged> > Flagged_map_t; // we'll make shallow copies
 
 inline bool PolygonsOverlap(RPolygon *p1, RPolygon *p2, int &xl, int &yl, int &xh, int &yh) {
     int xl1, yl1, xh1, yh1, xl2, yl2, xh2, yh2;

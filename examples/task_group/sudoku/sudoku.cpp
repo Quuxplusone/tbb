@@ -46,7 +46,7 @@ using namespace std;
 atomic<unsigned> nSols;
 unsigned NThreads, NSolutions;
 bool Verbose=false;
-unsigned short init_values[BOARD_SIZE];
+unsigned short init_values[BOARD_SIZE] = {1,0,0,9,0,0,0,8,0,0,8,0,2,0,0,0,0,0,0,0,5,0,0,0,7,0,0,0,5,2,1,0,0,4,0,0,0,0,0,0,0,5,0,0,7,4,0,0,7,0,0,0,3,0,0,3,0,0,0,2,0,0,5,0,0,0,0,0,0,1,0,0,5,0,0,0,1,0,0,0,0};
 task_group *g;
 
 typedef struct {
@@ -58,6 +58,10 @@ void read_board(char *filename) {
     FILE *fp;
     int input;
     fp = fopen(filename, "r");
+    if (!fp) { 
+        fprintf(stderr, "sudoku: Could not open input file '%s'.\n", filename);
+        exit(1);
+    }
     for (unsigned i=0; i<BOARD_SIZE; ++i) {
         if (fscanf(fp, "%d", &input))
             init_values[i] = input;
@@ -243,19 +247,27 @@ void partial_solve(board_element *b, unsigned first_potential_set) {
 }
 
 void ParseCommandLine(int argc, char *argv[]) {
-    if (argc < 4) {
+    NThreads = 4;
+    Verbose = true;
+    NSolutions = 2;
+    if (argc != 4 && argc != 5 && argc != 2 && argc != 1) {
         fprintf(stderr, 
-                "Usage: sudoku <inputfilename> <nthreads> <nSolutions> [-p]\n"
-                "  nSolutions=1 stops after finding first solution\n"
-                "    and any other value finds all solutions; \n"
-                "  -p prints the first solution.\n");
+                "Usage: sudoku [<nthreads>]\n"
+                "       sudoku <inputfilename> <nthreads> <nSolutions> [-p]\n"
+                "  where: nSolutions=1 stops after finding first solution\n"
+                "           and any other value finds all solutions; \n"
+                "         -p prints the first solution.\n");
         exit(1);
     }
-    else {
+    if (argc == 2) {
+        sscanf(argv[1], "%d", &NThreads);
+    }
+    else if (argc > 3) {
         sscanf(argv[2], "%d", &NThreads);
         sscanf(argv[3], "%d", &NSolutions);
+        if (argc!=5) Verbose = false;
+        read_board(argv[1]);
     }
-    if (argc==5) Verbose = true;
 }
 
 int main(int argc, char *argv[]) {
@@ -264,7 +276,6 @@ int main(int argc, char *argv[]) {
     NThreads = 1;
     nSols = 0;
     ParseCommandLine(argc, argv);
-    read_board(argv[1]);
     init_board(start_board, init_values);
     task_scheduler_init init(NThreads);
     g = new task_group;

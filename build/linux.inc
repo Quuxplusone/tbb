@@ -38,6 +38,9 @@ ifndef arch
         ifeq ($(uname_m),sparc64)
                 export arch:=sparc
         endif
+        ifndef arch
+                export arch:=$(uname_m)
+        endif
 endif
 
 ifndef runtime
@@ -78,10 +81,21 @@ DLL = so
 LIBEXT = so
 SONAME_SUFFIX =$(shell grep TBB_COMPATIBLE_INTERFACE_VERSION $(tbb_root)/include/tbb/tbb_stddef.h | egrep -o [0-9.]+)
 
-def_prefix = $(if $(findstring 32,$(arch)),lin32,$(if $(findstring intel64,$(arch)),lin64,lin64ipf))
+ifeq ($(arch),ia64)
+        def_prefix = lin64ipf
+endif
+ifeq ($(arch),sparc)
+        def_prefix = lin64
+endif
+ifeq (,$(def_prefix))
+    ifeq (64,$(findstring 64,$(arch)))
+            def_prefix = lin64
+    else
+            def_prefix = lin32
+    endif
+endif
 TBB.DEF = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.def
 
-EXPORT_KEY = -Wl,--version-script,
 TBB.DLL = $(TBB_NO_VERSION.DLL).$(SONAME_SUFFIX)
 TBB.LIB = $(TBB.DLL)
 TBB_NO_VERSION.DLL=libtbb$(DEBUG_SUFFIX).$(DLL)

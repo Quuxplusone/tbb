@@ -30,7 +30,8 @@
 #error Do not include this file directly; include tbb_machine.h instead
 #endif
 
-#include "linux_common.h"
+#include <stdint.h>
+#include <unistd.h>
 #include <ia64intrin.h>
 
 #define __TBB_WORDSIZE 8
@@ -143,10 +144,10 @@ extern "C" {
    it sometimes moves loads over the acquire fence.  The
    fences defined here stop such incorrect code motion. */
 #define __TBB_release_consistency_helper() __asm__ __volatile__("": : :"memory")
-#define __TBB_rel_acq_fence() __asm__ __volatile__("mf": : :"memory")
+#define __TBB_full_memory_fence() __asm__ __volatile__("mf": : :"memory")
 #else
 #define __TBB_release_consistency_helper()
-#define __TBB_rel_acq_fence() __mf()
+#define __TBB_full_memory_fence() __mf()
 #endif /* __INTEL_COMPILER */
 
 // Special atomic functions

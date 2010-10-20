@@ -311,7 +311,7 @@ bool init_iter(std::string *iter, std::string *sorted_list, size_t n, const std:
                 test_type = "sin";
                 for (size_t i = 0; i < n; i++) {
                     char buffer[20];
-#if __STDC_SECURE_LIB__>=200411
+#if __STDC_SECURE_LIB__>=200411 && !__MINGW64__
                     sprintf_s(buffer, sizeof(buffer), "%f", float(sin(float(i))));
 #else
                     sprintf(buffer, "%f", float(sin(float(i))));
@@ -419,7 +419,6 @@ void Flog() {
     Minimal *minimal_array_2 = new Minimal[N];
     MinimalCompare minimal_less;
 
-#if !__TBB_FLOATING_POINT_BROKEN
     float *float_array = new float[N];
     float *float_array_2 = new float[N];
     std::less<float> float_less;
@@ -428,7 +427,6 @@ void Flog() {
     tbb::concurrent_vector<float> float_cv2;
     float_cv1.grow_to_at_least(N);
     float_cv2.grow_to_at_least(N);
-#endif /* !__TBB_FLOATING_POINT_BROKEN */
 
     std::string *string_array = new std::string[N];
     std::string *string_array_2 = new std::string[N];
@@ -449,7 +447,6 @@ void Flog() {
     parallel_sortTest(9999, minimal_array, minimal_array_2, &minimal_less);
     parallel_sortTest(50000, minimal_array, minimal_array_2, &minimal_less);
 
-#if !__TBB_FLOATING_POINT_BROKEN
     current_type = "float (no less)";
     parallel_sortTest(0, float_array, float_array_2, static_cast<std::less<float> *>(NULL)); 
     parallel_sortTest(1, float_array, float_array_2, static_cast<std::less<float> *>(NULL)); 
@@ -477,7 +474,6 @@ void Flog() {
     parallel_sortTest(10, float_cv1.begin(), float_cv2.begin(), &float_less);
     parallel_sortTest(9999, float_cv1.begin(), float_cv2.begin(), &float_less);
     parallel_sortTest(50000, float_cv1.begin(), float_cv2.begin(), &float_less);
-#endif /* !__TBB_FLOATING_POINT_BROKEN */
 
     current_type = "string (no less)";
     parallel_sortTest(0, string_array, string_array_2, static_cast<std::less<std::string> *>(NULL));
@@ -503,10 +499,8 @@ void Flog() {
     delete [] minimal_array;
     delete [] minimal_array_2;
 
-#if !__TBB_FLOATING_POINT_BROKEN
     delete [] float_array;
     delete [] float_array_2;
-#endif /* !__TBB_FLOATING_POINT_BROKEN */
 
     delete [] string_array;
     delete [] string_array_2;

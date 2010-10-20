@@ -45,7 +45,7 @@ static bool bad_hashing = false;
 namespace tbb { 
     namespace internal {
         static void hooked_warning( const char* /*format*/, ... ) {
-            ASSERT(bad_hashing, "unexpected bad hashing");
+            ASSERT(bad_hashing, "unexpected runtime_warning: bad hashing");
         }
     } // namespace internal
 } // namespace tbb
@@ -75,7 +75,7 @@ namespace tbb {
         size_t hash( UserDefinedKeyType ) const {return 0;}
         bool equal( UserDefinedKeyType /*x*/, UserDefinedKeyType /*y*/ ) {return true;}
     };
-};
+}
 
 tbb::concurrent_hash_map<UserDefinedKeyType,int> TestInstantiationWithUserDefinedKeyType;
 
@@ -402,9 +402,9 @@ void TraverseTable( MyTable& table, size_t n, size_t expected_size ) {
         ASSERT(std::distance(cer.first, cer.second) == 1, NULL);
 
         // Check const_iterator
-        ASSERT( ci->first.value_of()==k, NULL );
-        ASSERT( (*ci).first.value_of()==k, NULL );
-        ++ci;
+        MyTable::const_iterator cic = ci++;
+        ASSERT( cic->first.value_of()==k, NULL );
+        ASSERT( (*cic).first.value_of()==k, NULL );
     }
     ASSERT( ci==const_table.end(), NULL );
     delete[] array;
@@ -792,10 +792,10 @@ void TestRehash() {
     MyTable w;
     w.insert( std::make_pair(MyKey::make(-5), MyData()) );
     w.rehash(); // without this, assertion will fail
-    MyTable::const_iterator it = w.begin();
+    MyTable::iterator it = w.begin();
     int i = 0; // check for non-rehashed buckets
-    for( ; it != w.end(); ++it, i++ )
-        w.count( it->first );
+    for( ; it != w.end(); i++ )
+        w.count( (it++)->first );
     ASSERT( i == 1, NULL );
     for( i=0; i<1000; i=(i<29 ? i+1 : i*2) ) {
         for( int j=max(256+i, i*2); j<10000; j*=3 ) {

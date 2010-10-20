@@ -61,7 +61,7 @@ int UnmapMemory(void *area, size_t bytes)
     return munmap(area, bytes);
 }
 
-#elif _WIN32 || _WIN64
+#elif (_WIN32 || _WIN64) && !_XBOX
 #include <windows.h>
 
 #define MEMORY_MAPPING_USES_MALLOC 0

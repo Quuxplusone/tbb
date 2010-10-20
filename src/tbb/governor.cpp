@@ -36,12 +36,38 @@
 
 #include "tbb/task_scheduler_init.h"
 
+#if __TBB_SURVIVE_THREAD_SWITCH
+#include "dynamic_link.h"
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
+
 namespace tbb {
 namespace internal {
 
 //------------------------------------------------------------------------
 // governor
 //------------------------------------------------------------------------
+
+#if __TBB_SURVIVE_THREAD_SWITCH
+
+#if _WIN32
+#define CILKLIB_NAME "cilkrts20.dll"
+#else
+#define CILKLIB_NAME "libcilkrts.so"
+#endif
+
+//! Handler for memory allocation
+static __cilk_tbb_retcode (*watch_stack_handler)(struct __cilk_tbb_unwatch_thunk* u,
+                                                 struct __cilk_tbb_stack_op_thunk o);
+
+//! Table describing the how to link the handlers.
+static const dynamic_link_descriptor CilkLinkTable[] = {
+    DLD(__cilkrts_watch_stack, watch_stack_handler)
+};
+
+void initialize_survive_thread_switch() {
+    dynamic_link( CILKLIB_NAME, CilkLinkTable, 1 );
+}
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
 
 namespace rml {
     tbb_server* make_private_server( tbb_client& client );
@@ -136,6 +162,21 @@ void governor::sign_on(generic_scheduler* s) {
     __TBB_InitOnce::add_ref();
 #endif /* !__TBB_ARENA_PER_MASTER */
     theTLS.set(s);
+#if __TBB_SURVIVE_THREAD_SWITCH
+    __cilk_tbb_stack_op_thunk o;
+    o.routine = &stack_op_handler;
+    o.data = s;
+    if( watch_stack_handler ) {
+        if( (*watch_stack_handler)(&s->my_cilk_unwatch_thunk, o) ) {
+            // Failed to register with Cilk, make sure we are clean
+            s->my_cilk_unwatch_thunk.routine = NULL;
+        }
+#if TBB_USE_ASSERT
+        else
+            s->my_cilk_state = generic_scheduler::cs_running;
+#endif /* TBB_USE_ASSERT */
+    }
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
 }
 
 void governor::sign_off(generic_scheduler* s) {
@@ -143,6 +184,11 @@ void governor::sign_off(generic_scheduler* s) {
         __TBB_ASSERT( theTLS.get()==s || (!s->is_worker() && !theTLS.get()), "attempt to unregister a wrong scheduler instance" );
         theTLS.set(NULL);
         s->is_registered = false;
+#if __TBB_SURVIVE_THREAD_SWITCH
+        __cilk_tbb_unwatch_thunk &ut = s->my_cilk_unwatch_thunk;
+        if ( ut.routine )
+           (*ut.routine)(ut.data);
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
 #if !__TBB_ARENA_PER_MASTER
         __TBB_InitOnce::remove_ref();
 #endif /* !__TBB_ARENA_PER_MASTER */
@@ -201,7 +247,60 @@ void governor::print_version_info () {
         PrintExtraVersionInfo( "RML", "shared" );
         theRMLServerFactory.call_with_server_info( PrintRMLVersionInfo, (void*)"" );
     }
+#if __TBB_SURVIVE_THREAD_SWITCH
+    if( watch_stack_handler )
+        PrintExtraVersionInfo( "CILK", CILKLIB_NAME );
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
 }
+
+#if __TBB_SURVIVE_THREAD_SWITCH
+__cilk_tbb_retcode governor::stack_op_handler( __cilk_tbb_stack_op op, void* data ) {
+    __TBB_ASSERT(data,NULL);
+    generic_scheduler* s = static_cast<generic_scheduler*>(data);
+#if TBB_USE_ASSERT
+    void* current = theTLS.get();
+#if _WIN32||_WIN64
+    unsigned thread_id = GetCurrentThreadId();
+#else
+    unsigned thread_id = unsigned(pthread_self());
+#endif
+
+#endif /* TBB_USE_ASSERT */
+    switch( op ) {
+        default:
+            __TBB_ASSERT( 0, "invalid op" );
+        case CILK_TBB_STACK_ADOPT: {
+            __TBB_ASSERT( !current && s->my_cilk_state==generic_scheduler::cs_limbo || 
+                          current==s && s->my_cilk_state==generic_scheduler::cs_running, "invalid adoption" );
+#if TBB_USE_ASSERT
+            if( current==s ) 
+                runtime_warning( "redundant adoption of %p by thread %x\n", s, thread_id );
+            s->my_cilk_state = generic_scheduler::cs_running;
+#endif /* TBB_USE_ASSERT */
+            theTLS.set(s);
+            break;
+        }
+        case CILK_TBB_STACK_ORPHAN: {
+            __TBB_ASSERT( current==s && s->my_cilk_state==generic_scheduler::cs_running, "invalid orphaning" ); 
+#if TBB_USE_ASSERT
+            s->my_cilk_state = generic_scheduler::cs_limbo;
+#endif /* TBB_USE_ASSERT */
+            theTLS.set(NULL);
+            break;
+        }
+        case CILK_TBB_STACK_RELEASE: {
+            __TBB_ASSERT( !current && s->my_cilk_state==generic_scheduler::cs_limbo || 
+                          current==s && s->my_cilk_state==generic_scheduler::cs_running, "invalid release" );
+#if TBB_USE_ASSERT
+            s->my_cilk_state = generic_scheduler::cs_freed;
+#endif /* TBB_USE_ASSERT */
+            s->my_cilk_unwatch_thunk.routine = NULL;
+            auto_terminate( s );
+        } 
+    }
+    return 0;
+}
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
 
 } // namespace internal
 

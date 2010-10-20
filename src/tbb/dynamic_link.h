@@ -42,13 +42,7 @@
 
 #include <stddef.h>
 #if _WIN32||_WIN64
-#if _XBOX
-    #define NONET
-    #define NOD3D
-    #include <xtl.h>
-#else
-#include <windows.h>
-#endif
+#include "tbb/machine/windows_api.h"
 #endif /* _WIN32||_WIN64 */
 
 OPEN_INTERNAL_NAMESPACE

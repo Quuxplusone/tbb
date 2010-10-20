@@ -275,35 +275,6 @@ public:
     }
 };
 
-#if __TBB_WORDSIZE == 4
-// Plaforms with 32-bit hardware require special effort for 64-bit loads and stores.
-#if defined(__INTEL_COMPILER)||!defined(_MSC_VER)||_MSC_VER>=1400
-
-template<>
-inline atomic_impl<__TBB_LONG_LONG>::operator atomic_impl<__TBB_LONG_LONG>::value_type() const volatile {
-    return __TBB_Load8(&rep.value);
-}
-
-template<>
-inline atomic_impl<unsigned __TBB_LONG_LONG>::operator atomic_impl<unsigned __TBB_LONG_LONG>::value_type() const volatile {
-    return __TBB_Load8(&rep.value);
-}
-
-template<>
-inline atomic_impl<__TBB_LONG_LONG>::value_type atomic_impl<__TBB_LONG_LONG>::store_with_release( value_type rhs ) {
-    __TBB_Store8(&rep.value,rhs);
-    return rhs;
-}
-
-template<>
-inline atomic_impl<unsigned __TBB_LONG_LONG>::value_type atomic_impl<unsigned __TBB_LONG_LONG>::store_with_release( value_type rhs ) {
-    __TBB_Store8(&rep.value,rhs);
-    return rhs;
-}
-
-#endif /* defined(__INTEL_COMPILER)||!defined(_MSC_VER)||_MSC_VER>=1400 */
-#endif /* __TBB_WORDSIZE==4 */
-
 } /* Internal */
 //! @endcond
 
@@ -325,13 +296,8 @@ struct atomic: internal::atomic_impl<T> {
         atomic<T>& operator=( const atomic<T>& rhs ) {store_with_release(rhs); return *this;}  \
     };
 
-#if defined(__INTEL_COMPILER)||!defined(_MSC_VER)||_MSC_VER>=1400
 __TBB_DECL_ATOMIC(__TBB_LONG_LONG)
 __TBB_DECL_ATOMIC(unsigned __TBB_LONG_LONG)
-#else
-// Some old versions of MVSC cannot correctly compile templates with "long long".
-#endif /* defined(__INTEL_COMPILER)||!defined(_MSC_VER)||_MSC_VER>=1400 */
-
 __TBB_DECL_ATOMIC(long)
 __TBB_DECL_ATOMIC(unsigned long)
 

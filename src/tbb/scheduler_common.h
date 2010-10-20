@@ -31,9 +31,9 @@
 
 #include "tbb/tbb_stddef.h"
 
-#if __SUNPRO_CC
 #include <string.h>  // for memset, memcpy, memmove
-#endif
+
+#include "tbb_statistics.h"
 
 /* Temporarily change "private" to "public" while including "tbb/task.h".
    This hack allows us to avoid publishing internal types and methods
@@ -108,19 +108,46 @@ enum free_task_hint {
 };
 
 //------------------------------------------------------------------------
-// Helpers
+// Debugging support
 //------------------------------------------------------------------------
 
 #if TBB_USE_ASSERT
+
+static const uintptr_t venom = 
+#if __TBB_WORDSIZE == 8
+        0xDDEEAADDDEADBEEF;
+#else
+        0xDEADBEEF;
+#endif
+
+
+/** In contrast to poison_pointer() and assert_task_valid() poison_value() is a macro 
+    because the variable used as its argument may be undefined in release builds. **/
+#define poison_value(g) (g = venom)
+
+/** Expected to be used in assertions only, thus no empty form is defined. **/
+inline bool is_alive( uintptr_t v ) { return v != venom; }
+
 /** Logically, this method should be a member of class task.
     But we do not want to publish it, so it is here instead. */
-inline bool AssertOkay( const task& task ) {
+inline void assert_task_valid( const task& task ) {
     __TBB_ASSERT( &task!=NULL, NULL );
+    __TBB_ASSERT( !is_poisoned(&task), NULL );
     __TBB_ASSERT( (uintptr_t)&task % task_alignment == 0, "misaligned task" );
     __TBB_ASSERT( (unsigned)task.state()<=(unsigned)task::recycle, "corrupt task (invalid state)" );
-    return true;
 }
-#endif /* TBB_USE_ASSERT */
+
+#else /* !TBB_USE_ASSERT */
+
+#define poison_value(g) ((void)0)
+
+inline void assert_task_valid( const task& ) {}
+
+#endif /* !TBB_USE_ASSERT */
+
+//------------------------------------------------------------------------
+// Helpers
+//------------------------------------------------------------------------
 
 inline bool ConcurrentWaitsEnabled ( task& t ) {
     return (t.prefix().context->my_version_and_traits & task_group_context::concurrent_wait) != 0;

@@ -105,7 +105,7 @@ struct SpecialTests <Mycumap>
 {
     static void Test()
     {
-        Mycumap cont;
+        Mycumap cont(0);
         const Mycumap &ccont(cont);
 
         // mapped_type& operator[](const key_type& k);
@@ -410,13 +410,24 @@ void CheckRange( AtomicByte array[], int n ) {
 }
 
 template<typename T>
+class CheckTable: NoAssign {
+    T &table;
+public:
+    CheckTable(T &t) : NoAssign(), table(t) {}
+    void operator()(int i) const {
+        int c = (int)table.count( i );
+        ASSERT( c, "must exist" );
+    }
+};
+
+template<typename T>
 void test_concurrent(const char *tablename) {
-    T table;
 #if TBB_USE_ASSERT
     int items = 2000;
 #else
     int items = 100000;
 #endif
+    T table(items/1000);
     tbb::tick_count t0 = tbb::tick_count::now();
     NativeParallelFor( 16/*min 6*/, FillTable<T>(table, items) );
     tbb::tick_count t1 = tbb::tick_count::now();
@@ -437,9 +448,10 @@ void test_concurrent(const char *tablename) {
     ASSERT(items == CheckRecursiveRange<typename T::const_iterator>(cr).first, NULL);
     tbb::parallel_for( cr, ParallelTraverseBody<typename T::const_range_type>( array, items ));
     CheckRange( array, items );
-
     delete[] array;
 
+    tbb::parallel_for( 0, items, CheckTable<T>( table ) );
+  
     table.clear();
     CheckAllocatorA(table, items+1, items); // one dummy is always allocated
 }

@@ -33,10 +33,6 @@
 #include "tbb/cache_aligned_allocator.h"
 #include "itt_notify.h"
 
-#if __SUNPRO_CC
-#include <string.h>
-#endif
-
 namespace tbb {
 
 #if __TBB_TASK_GROUP_CONTEXT
@@ -155,7 +151,7 @@ task_group_context::~task_group_context () {
             // Local update of the context list 
             uintptr_t local_count_snapshot = s->local_cancel_count;
             s->local_ctx_list_update = 1;
-            __TBB_rel_acq_fence();
+            __TBB_full_memory_fence();
             if ( s->nonlocal_ctx_list_update ) {
                 spin_mutex::scoped_lock lock(s->context_list_mutex);
                 my_node.my_prev->my_next = my_node.my_next;
@@ -168,7 +164,7 @@ task_group_context::~task_group_context () {
                 __TBB_store_with_release( s->local_ctx_list_update, 0 );
                 if ( local_count_snapshot != global_cancel_count ) {
                     // Another thread was propagating cancellation request when we removed
-                    // ourselves from the list. We must ensure that it does not access us 
+                    // ourselves from the list. We must ensure that it is not accessing us 
                     // when this destructor finishes. We'll be able to acquire the lock 
                     // below only after the other thread finishes with us.
                     spin_mutex::scoped_lock lock(s->context_list_mutex);
@@ -216,12 +212,10 @@ void task_group_context::init () {
         // Backward links are used by this thread only, thus no fences are necessary
         my_node.my_prev = &s->context_list_head;
         s->context_list_head.my_next->my_prev = &my_node;
-        // The only operation on the thread local list of contexts that may be performed 
-        // concurrently is its traversal by another thread while propagating cancellation
-        // request. Therefore the release fence below is necessary to ensure that the new 
-        // value of my_node.my_next is visible to the traversing thread 
-        // after it reads new value of v->context_list_head.my_next.
         my_node.my_next = s->context_list_head.my_next;
+        // Thread local list of contexts allows concurrent traversal by another 
+        // thread while propagating cancellation request. Release fence ensures 
+        // visibility of my_node's members in the traversing thread.
         __TBB_store_with_release(s->context_list_head.my_next, &my_node);
     }
 }
@@ -257,16 +251,16 @@ void task_group_context::reset () {
 }
 
 void task_group_context::propagate_cancellation_from_ancestors () {
-    task_group_context *parent = my_parent;
-    while ( parent && !parent->my_cancellation_requested )
-        parent = parent->my_parent;
-    if ( parent ) {
-        // One of our ancestor groups was canceled. Cancel all its descendants.
+    task_group_context *ancestor = my_parent;
+    while ( ancestor && !ancestor->my_cancellation_requested )
+        ancestor = ancestor->my_parent;
+    if ( ancestor ) {
+        // One of my ancestor groups was canceled. Cancel all its descendants in my heritage line.
         task_group_context *ctx = this;
         do {
-            __TBB_store_with_release(ctx->my_cancellation_requested, 1);
+            ctx->my_cancellation_requested = 1;
             ctx = ctx->my_parent;
-        } while ( ctx != parent );
+        } while ( ctx != ancestor );
     }
 }
 

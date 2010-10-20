@@ -90,14 +90,10 @@ int TestMain ();
     #define REPORT_FATAL_ERROR REPORT
 
 #if _WIN32||_WIN64
+    #include "tbb/machine/windows_api.h"
 #if _XBOX
-    #define NONET
-    #define NOD3D
-    #include <xtl.h>
     #undef HARNESS_NO_PARSE_COMMAND_LINE
     #define HARNESS_NO_PARSE_COMMAND_LINE 1
-#else
-    #include <windows.h>
 #endif
     #include <process.h>
 #else
@@ -331,15 +327,7 @@ private:
 #endif
     {
         NativeParallelForTask& self = *static_cast<NativeParallelForTask*>(object);
-#if TBB_USE_EXCEPTIONS
-        try {
-            (self.body)(self.index);
-        } catch(...) {
-            ASSERT( false, "uncaught exception" );
-        }
-#else /* !TBB_USE_EXCEPTIONS */
         (self.body)(self.index);
-#endif /* !TBB_USE_EXCEPTIONS */
         return 0;
     }
 };
