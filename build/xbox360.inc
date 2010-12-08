@@ -61,6 +61,7 @@ def_prefix = $(arch)
 # Used as the value for macro definition opiton in compiler specific inc files.
 _WIN32_WINNT=0x0400
 
+TBB.LST =
 TBB.DEF = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.def
 TBB.DLL = tbb$(DEBUG_SUFFIX).$(DLL)
 TBB.LIB = tbb$(DEBUG_SUFFIX).$(LIBEXT)

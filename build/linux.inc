@@ -94,7 +94,8 @@ ifeq (,$(def_prefix))
             def_prefix = lin32
     endif
 endif
-TBB.DEF = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.def
+TBB.LST = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.lst
+TBB.DEF = $(TBB.LST:.lst=.def)
 
 TBB.DLL = $(TBB_NO_VERSION.DLL).$(SONAME_SUFFIX)
 TBB.LIB = $(TBB.DLL)

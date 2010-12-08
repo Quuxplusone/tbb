@@ -31,7 +31,8 @@
 #include "tbb/atomic.h"
 #include "tbb/cache_aligned_allocator.h"
 #include "tbb/spin_mutex.h"
-#include "tbb/tbb_thread.h"
+#include "governor.h"
+#include "tbb_misc.h"
 
 using rml::internal::thread_monitor;
 
@@ -126,7 +127,7 @@ public:
 
 class private_server: public tbb_server, no_copy {
     tbb_client& my_client;
-    //! Maximum number of threads to be creatd.
+    //! Maximum number of threads to be created.
     /** Threads are created lazily, so maximum might not actually be reached. */
     const tbb_client::size_type my_n_thread;
 
@@ -198,7 +199,7 @@ public:
 
     /*override*/ void independent_thread_number_changed( int ) {__TBB_ASSERT(false,NULL);}
 
-    /*override*/ unsigned default_concurrency() const {return tbb::tbb_thread::hardware_concurrency()-1;}
+    /*override*/ unsigned default_concurrency() const { return governor::default_num_threads() - 1; }
 
     /*override*/ void adjust_job_count_estimate( int delta );
 
@@ -284,8 +285,17 @@ void private_worker::run() {
 }
 
 inline void private_worker::wake_or_launch() {
-    if( my_state==st_init && my_state.compare_and_swap( st_starting, st_init )==st_init )
+    if( my_state==st_init && my_state.compare_and_swap( st_starting, st_init )==st_init ) {
+#if USE_WINTHREAD
+        HANDLE hThread = INVALID_HANDLE_VALUE;
+        thread_monitor::launch( thread_routine, this, my_server.my_stack_size, &hThread );
+        if ( NumberOfProcessorGroups() > 1 )
+            MoveThreadIntoProcessorGroup( hThread, FindProcessorGroupIndex(my_index) );
+        CloseHandle( hThread );
+#elif USE_PTHREAD
         thread_monitor::launch( thread_routine, this, my_server.my_stack_size );
+#endif /* USE_PTHREAD */
+    }
     else
         my_thread_monitor.notify();
 }

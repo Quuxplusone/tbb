@@ -41,7 +41,7 @@ export COMPILER_VERSION := ICC: $(shell icc -V </dev/null 2>&1 | grep 'Version')
 
 TBB_NOSTRICT = 1
 
-CPLUS = icpc 
+CPLUS = icpc
 CONLY = icc
 
 ifeq (release,$(cfg))
@@ -58,7 +58,7 @@ endif
 
 OPENMP_FLAG = -openmp
 LIB_LINK_FLAGS = -shared -i-static -Wl,-soname=$(BUILDING_LIBRARY)
-LIBS = -lpthread -lrt 
+LIBS = -lpthread -lrt
 C_FLAGS = $(CPLUS_FLAGS)
 
 ASM=
@@ -73,7 +73,7 @@ endif
 ifeq (ia64,$(arch))
 # Position-independent code (PIC) is a must on IA-64, even for regular (not shared) executables
     CPLUS_FLAGS += $(PIC_KEY)
-endif 
+endif
 
 ifneq (00,$(lambdas)$(cpp0x))
 	CPLUS_FLAGS += -std=c++0x -D_TBB_CPP0X
@@ -86,7 +86,7 @@ ASSEMBLY_SOURCE=$(arch)-gas
 ifeq (ia64,$(arch))
     ASM=ias
     TBB_ASM.OBJ = atomic_support.o lock_byte.o log2.o pause.o ia64_misc.o
-endif 
+endif
 #------------------------------------------------------------------------------
 # End of setting assembler data.
 #------------------------------------------------------------------------------

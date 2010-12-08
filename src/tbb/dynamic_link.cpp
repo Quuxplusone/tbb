@@ -28,11 +28,17 @@
 
 #include "dynamic_link.h"
 
+/*
+    This file is used in both TBB and OpenMP RTL. Do not use __TBB_ASSERT macro and runtime_warning
+    function because they are not awailable in OpenMP RTL. Use LIBRARY_ASSERT and
+    DYNAMIC_LINK_WARNING instead. OpenMP RTL will define these macros.
+*/
 #ifndef LIBRARY_ASSERT
-#include "tbb/tbb_stddef.h"
-#define LIBRARY_ASSERT(x,y) __TBB_ASSERT(x,y)
+    #include "tbb/tbb_stddef.h"
+    #define LIBRARY_ASSERT(x,y) __TBB_ASSERT(x,y)
 #endif /* LIBRARY_ASSERT */
 
+#include <cstdarg>          // va_list etc.
 #if _WIN32||_WIN64
     #include <malloc.h>     /* alloca */
 #else
@@ -46,9 +52,101 @@
 
 OPEN_INTERNAL_NAMESPACE
 
+#ifndef DYNAMIC_LINK_WARNING
+    // Report runtime errors and continue.
+    #define DYNAMIC_LINK_WARNING dynamic_link_warning
+    static void dynamic_link_warning( dynamic_link_error_t code, ... ) {
+        (void) code;
+    } // library_warning
+#endif /* DYNAMIC_LINK_WARNING */
+
+#if _WIN32 || _WIN64
+
+/*
+    There is a security issue on Windows: LoadLibrary() may load and execute malicious code.
+    See http://www.microsoft.com/technet/security/advisory/2269637.mspx for details.
+    To avoid the issue, we have to pass full path (not just library name) to LoadLibrary. This
+    function constructs full path to the specified library (it is assumed the library located
+    side-by-side with the tbb.dll.
+    TODO: Is it a problem on XBox?
+*/
+/*
+    The function constructs absolute path for given relative path. Important: Base directory is not
+    current one, it is the directory tbb.dll loaded from.
+
+    Example:
+
+        Let us assume "tbb.dll" is located in "c:\program files\common\intel\" directory, e. g.
+        absolute path of tbb library is "c:\program files\common\intel\tbb.dll". Absolute path for
+        "tbbmalloc.dll" would be "c:\program files\common\intel\tbbmalloc.dll". Absolute path for
+        "malloc\tbbmalloc.dll" would be "c:\program files\common\intel\malloc\tbbmalloc.dll".
+
+    Arguments:
+        in  name -- Name of a file (may be with relative path; it must not be an absolute one).
+        out path -- Buffer to save result (absolute path) to.
+        in  len  -- Size of buffer.
+        ret      -- 0         -- Error occured.
+                    > len     -- Buffer too short, required size returned.
+                    otherwise -- Ok, number of characters (not counting terminating null) written to
+                                 buffer.
+*/
+static size_t abs_path( char const * name, char * path, size_t len ) {
+
+    // Get handle of our DLL first.
+    HMODULE handle;
+    BOOL brc =
+        GetModuleHandleEx(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            (LPCSTR)( & abs_path ),
+            & handle
+        );
+    if ( ! brc ) {    // Error occured.
+        int err = GetLastError();
+        DYNAMIC_LINK_WARNING( dl_sys_fail, "GetModuleHandleEx", err );
+        return 0;
+    } // if
+
+    // Now get path to our DLL.
+    DWORD drc = GetModuleFileName( handle, path, static_cast< DWORD >( len ) );
+    if ( drc == 0 ) {    // Error occured.
+        int err = GetLastError();
+        DYNAMIC_LINK_WARNING( dl_sys_fail, "GetModuleFileName", err );
+        return drc;
+    } // if
+    if ( drc >= len ) {  // Buffer too short.
+        DYNAMIC_LINK_WARNING( dl_buff_too_small );
+        return drc;
+    } // if
+
+    // Find the position of the last backslash.
+    char * backslash = path + drc;            // backslash points behind the path.
+    LIBRARY_ASSERT( * backslash == 0, NULL );
+    while ( backslash > path && * backslash != '\\' ) {
+        -- backslash;
+    } // while
+    if ( backslash <= path ) {    // Backslash not found.
+        return 0;                 // Unbelievable.
+    } // if
+
+    // Now append name to construct the full path.
+    LIBRARY_ASSERT( * backslash == '\\', NULL );
+    size_t rc = ( backslash + 1 - path ) + strlen( name );
+    if ( rc >= len ) {
+        DYNAMIC_LINK_WARNING( dl_buff_too_small );
+        return rc + 1;
+    } // if
+    strcpy( backslash + 1, name );
+    LIBRARY_ASSERT( rc == strlen( path ), NULL );
+
+    return rc;
+
+} // abs_path
+
+#endif
+
 #if __TBB_WEAK_SYMBOLS
 
-bool dynamic_link( void*, const dynamic_link_descriptor descriptors[], size_t n, size_t required )
+bool dynamic_link( dynamic_link_handle, const dynamic_link_descriptor descriptors[], size_t n, size_t required )
 {
     if ( required == ~(size_t)0 )
         required = n;
@@ -67,19 +165,34 @@ bool dynamic_link( void*, const dynamic_link_descriptor descriptors[], size_t n,
 
 #else /* !__TBB_WEAK_SYMBOLS */
 
-bool dynamic_link( void* module, const dynamic_link_descriptor descriptors[], size_t n, size_t required )
+bool dynamic_link( dynamic_link_handle module, const dynamic_link_descriptor descriptors[], size_t n, size_t required )
 {
+    LIBRARY_ASSERT( module != NULL, "Module handle is NULL" );
+    if ( module == NULL ) {
+        return false;
+    } // if
     pointer_to_handler *h = (pointer_to_handler*)alloca(n * sizeof(pointer_to_handler));
     if ( required == ~(size_t)0 )
         required = n;
     LIBRARY_ASSERT( required<=n, "Number of required entry points exceeds their total number" );
     size_t k = 0;
     for ( ; k < n; ++k ) {
+        dynamic_link_descriptor const & desc = descriptors[k];
 #if _WIN32||_WIN64
-        h[k] = pointer_to_handler(GetProcAddress( (HMODULE)module, descriptors[k].name ));
+        FARPROC addr = GetProcAddress( module, desc.name );
+        if ( addr == NULL ) {
+            int err = GetLastError();
+            DYNAMIC_LINK_WARNING( dl_sym_not_found, desc.name, err );
+        } // if
+        h[k] = pointer_to_handler( addr );
 #else
+        void * addr = dlsym( module, desc.name );
+        if ( addr == NULL ) {
+            char const * err = dlerror();
+            DYNAMIC_LINK_WARNING( dl_sym_not_found, desc.name, err );
+        } // if
         // Lvalue casting is used; this way icc -strict-ansi does not warn about nonstandard pointer conversion
-        (void *&)h[k] = dlsym( module, descriptors[k].name );
+        (void *&)h[k] = addr;
 #endif /* _WIN32||_WIN64 */
         if ( !h[k] && k < required )
             return false;
@@ -106,12 +219,27 @@ bool dynamic_link( const char* library, const dynamic_link_descriptor descriptor
 #if _XBOX
     dynamic_link_handle module = LoadLibrary (library);
 #else
-    UINT prev_mode = SetErrorMode (SEM_FAILCRITICALERRORS);
-    dynamic_link_handle module = LoadLibrary (library);
-    SetErrorMode (prev_mode);
+    dynamic_link_handle module = NULL;
+    // Construct absolute path to the library to avoid security issue.
+    size_t const len = MAX_PATH + 1;
+    char path[ len ];
+    size_t rc = abs_path( library, path, len );
+    if ( 0 < rc && rc < len ) {
+        UINT prev_mode = SetErrorMode (SEM_FAILCRITICALERRORS);
+        module = LoadLibrary (path);
+        SetErrorMode (prev_mode);
+        if ( module == NULL ) {
+            int err = GetLastError();
+            DYNAMIC_LINK_WARNING( dl_lib_not_found, path, err );
+        } // if
+    } // if
 #endif /* _XBOX */
 #else
-    dynamic_link_handle module = dlopen( library, RTLD_LAZY ); 
+    dynamic_link_handle module = dlopen( library, RTLD_LAZY );
+    if ( module == NULL ) {
+        char const * err = dlerror();
+        DYNAMIC_LINK_WARNING( dl_lib_not_found, library, err );
+    } // if
 #endif /* _WIN32||_WIN64 */
     if( module ) {
         if( !dynamic_link( module, descriptors, n, required ) ) {
@@ -120,7 +248,7 @@ bool dynamic_link( const char* library, const dynamic_link_descriptor descriptor
             module = NULL;
         }
     }
-    if( handle ) 
+    if( handle )
         *handle = module;
     return module!=NULL;
 }
@@ -131,7 +259,7 @@ void dynamic_unlink( dynamic_link_handle handle ) {
         FreeLibrary( handle );
 #else
         dlclose( handle );
-#endif /* _WIN32||_WIN64 */    
+#endif /* _WIN32||_WIN64 */
     }
 }
 

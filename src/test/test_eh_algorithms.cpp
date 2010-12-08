@@ -26,6 +26,10 @@
     the GNU General Public License.
 */
 
+#include "harness.h"
+
+#if __TBB_TASK_GROUP_CONTEXT
+
 #include <limits.h> // for INT_MAX
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tbb_exception.h"
@@ -38,8 +42,6 @@
 #include "tbb/parallel_scan.h"
 #include "tbb/blocked_range.h"
 #include "harness_assert.h"
-
-#if __TBB_TASK_GROUP_CONTEXT
 
 #define FLAT_RANGE  100000
 #define FLAT_GRAIN  100
@@ -1195,7 +1197,6 @@ void RunPipelineTests() {
     TestCancelation2_pipeline();
 }
 
-#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 #if TBB_USE_EXCEPTIONS
 
@@ -1255,7 +1256,6 @@ int TestMain () {
     MinThread = min(tbb::task_scheduler_init::default_num_threads(), max(2, MinThread));
     MaxThread = max(MinThread, min(tbb::task_scheduler_init::default_num_threads(), MaxThread));
     ASSERT (FLAT_RANGE >= FLAT_GRAIN * MaxThread, "Fix defines");
-#if __TBB_TASK_GROUP_CONTEXT
     int step = max((MaxThread - MinThread + 1)/2, 1);
     for ( g_NumThreads = MinThread; g_NumThreads <= MaxThread; g_NumThreads += step ) {
         REMARK ("Number of threads %d\n", g_NumThreads);
@@ -1275,7 +1275,12 @@ int TestMain () {
     REPORT("Known issue: exception handling tests are skipped.\n");
 #endif
     return Harness::Done;
-#else  /* !__TBB_TASK_GROUP_CONTEXT */
-    return Harness::Skipped;
-#endif /* !__TBB_TASK_GROUP_CONTEXT */
 }
+
+#else /* !__TBB_TASK_GROUP_CONTEXT */
+
+int TestMain () {
+    return Harness::Skipped;
+}
+
+#endif /* !__TBB_TASK_GROUP_CONTEXT */

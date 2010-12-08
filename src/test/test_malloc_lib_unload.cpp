@@ -26,6 +26,100 @@
     the GNU General Public License.
 */
 
+#if _USRDLL
+
+#include <stdlib.h> // for NULL
+#include "harness_assert.h"
+#define HARNESS_CUSTOM_MAIN 1
+#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#include "harness.h"
+
+const char *globalCallMsg = "A TBB allocator function call is resolved into wrong implementation.";
+
+#if _WIN32||_WIN64
+// must be defined in DLL to linker not drop the dependence to the DLL.
+extern "C" {
+    extern __declspec(dllexport) void *scalable_malloc(size_t);
+    extern __declspec(dllexport) void scalable_free (void *);
+    extern __declspec(dllexport) void safer_scalable_free (void *, void (*)(void*));
+    extern __declspec(dllexport) void *scalable_realloc(void *, size_t);
+    extern __declspec(dllexport) void *safer_scalable_realloc(void *, size_t, void *);
+    extern __declspec(dllexport) void *scalable_calloc(size_t, size_t);
+    extern __declspec(dllexport) int scalable_posix_memalign(void **, size_t, size_t);
+    extern __declspec(dllexport) void *scalable_aligned_malloc(size_t, size_t);
+    extern __declspec(dllexport) void *scalable_aligned_realloc(void *, size_t, size_t);
+    extern __declspec(dllexport) void *safer_scalable_aligned_realloc(void *, size_t, size_t, void *);
+    extern __declspec(dllexport) void scalable_aligned_free(void *);
+    extern __declspec(dllexport) size_t scalable_msize(void *);
+    extern __declspec(dllexport) size_t safer_scalable_msize (void *, size_t (*)(void*));
+}
+#endif
+
+// Those functions must not be called instead of presented in dynamic library. 
+extern "C" void *scalable_malloc(size_t)
+{
+    ASSERT(0, globalCallMsg);
+    return NULL;
+}
+extern "C" void scalable_free (void *)
+{
+    ASSERT(0, globalCallMsg);
+}
+extern "C" void safer_scalable_free (void *, void (*)(void*)) 
+{
+    ASSERT(0, globalCallMsg);
+}
+extern "C" void *scalable_realloc(void *, size_t)
+{
+    ASSERT(0, globalCallMsg);
+    return NULL;
+}
+extern "C" void *safer_scalable_realloc(void *, size_t, void *) 
+{
+    ASSERT(0, globalCallMsg);
+    return NULL;
+}
+extern "C" void *scalable_calloc(size_t, size_t)
+{
+    ASSERT(0, globalCallMsg);
+    return NULL;
+}
+extern "C" int scalable_posix_memalign(void **, size_t, size_t)
+{
+    ASSERT(0, globalCallMsg);
+    return 0;
+}
+extern "C" void *scalable_aligned_malloc(size_t, size_t)
+{
+    ASSERT(0, globalCallMsg);
+    return NULL;
+}
+extern "C" void *scalable_aligned_realloc(void *, size_t, size_t)
+{
+    ASSERT(0, globalCallMsg);
+    return NULL;
+}
+extern "C" void *safer_scalable_aligned_realloc(void *, size_t, size_t, void *)
+{
+    ASSERT(0, globalCallMsg);
+    return NULL;
+}
+extern "C" void scalable_aligned_free(void *)
+{
+    ASSERT(0, globalCallMsg);
+}
+extern "C" size_t scalable_msize(void *)
+{
+    ASSERT(0, globalCallMsg);
+    return 0;
+}
+extern "C" size_t safer_scalable_msize (void *, size_t (*)(void*)) 
+{
+    ASSERT(0, globalCallMsg);
+    return 0;
+}
+
+#else  // _USRDLL
 
 #include <cstdlib>
 #if _WIN32 || _WIN64
@@ -74,10 +168,20 @@
 #define LOAD_LIBRARY(name) dlopen((name), RTLD_NOW|RTLD_GLOBAL)
 #endif
 
+extern "C" {
+#if _WIN32||_WIN64
+extern __declspec(dllimport)
+#endif
+void *scalable_malloc(size_t);
+}
+
 struct Run {
     void operator()( int /*id*/ ) const {
         void* (*malloc_ptr)(std::size_t);
         void (*free_ptr)(void*);
+        
+        void* (*aligned_malloc_ptr)(size_t size, size_t alignment);
+        void  (*aligned_free_ptr)(void*);
 
         const char* actual_name;
         LIBRARY_HANDLE lib = LOAD_LIBRARY(actual_name = MALLOCLIB_NAME1);
@@ -90,13 +194,23 @@ struct Run {
         // casts at both sides are to soothe MinGW compiler
         (void *&)malloc_ptr = (void*)GetProcAddress(lib, "scalable_malloc");
         (void *&)free_ptr = (void*)GetProcAddress(lib, "scalable_free");
+        (void *&)aligned_malloc_ptr = (void*)GetProcAddress(lib, "scalable_aligned_malloc");
+        (void *&)aligned_free_ptr = (void*)GetProcAddress(lib, "scalable_aligned_free");
 #else
         (void *&)malloc_ptr = dlsym(lib, "scalable_malloc");
         (void *&)free_ptr = dlsym(lib, "scalable_free");
+        (void *&)aligned_malloc_ptr = dlsym(lib, "scalable_aligned_malloc");
+        (void *&)aligned_free_ptr = dlsym(lib, "scalable_aligned_free");
 #endif
         if (!malloc_ptr || !free_ptr)  {
             REPORT("Can't find scalable_(malloc|free) in %s \n", actual_name);
             exit(1);
+        }
+
+        for (size_t sz = 1024; sz <= 10*1024 ; sz*=10) {
+            void *p1 = aligned_malloc_ptr(sz, 16);
+            memset(p1, 0, sz);
+            aligned_free_ptr(p1);
         }
 
         void *p = malloc_ptr(100);
@@ -148,3 +262,5 @@ int TestMain () {
 
     return Harness::Done;
 }
+
+#endif // _USRDLL

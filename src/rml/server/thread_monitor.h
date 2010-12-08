@@ -100,17 +100,20 @@ public:
     void cancel_wait();
 
 #if USE_WINTHREAD
-#define __RML_DECL_THREAD_ROUTINE unsigned WINAPI
+    #define __RML_DECL_THREAD_ROUTINE unsigned WINAPI
     typedef unsigned (WINAPI *thread_routine_type)(void*);
-#endif /* USE_WINTHREAD */
 
-#if USE_PTHREAD
-#define __RML_DECL_THREAD_ROUTINE void*
+    //! Launch a thread
+    static void launch( thread_routine_type thread_routine, void* arg, size_t stack_size, HANDLE* pThreadHandle = NULL );
+
+#elif USE_PTHREAD
+    #define __RML_DECL_THREAD_ROUTINE void*
     typedef void*(*thread_routine_type)(void*);
-#endif /* USE_PTHREAD */
 
     //! Launch a thread
     static void launch( thread_routine_type thread_routine, void* arg, size_t stack_size );
+#endif /* USE_PTHREAD */
+
     static void yield();
 
 private:
@@ -118,8 +121,7 @@ private:
 #if USE_WINTHREAD
     CRITICAL_SECTION critical_section;
     HANDLE event;
-#endif /* USE_WINTHREAD */
-#if USE_PTHREAD
+#elif USE_PTHREAD
     pthread_mutex_t my_mutex;
     pthread_cond_t my_cond;
     static void check( int error_code, const char* routine );
@@ -127,18 +129,22 @@ private:
 };
 
 #if USE_WINTHREAD
+
 #ifndef STACK_SIZE_PARAM_IS_A_RESERVATION
 #define STACK_SIZE_PARAM_IS_A_RESERVATION 0x00010000
 #endif
-inline void thread_monitor::launch( thread_routine_type thread_routine, void* arg, size_t stack_size ) {
+
+inline void thread_monitor::launch( thread_routine_type thread_routine, void* arg, size_t stack_size, HANDLE* pThreadHandle ) {
     unsigned thread_id;
     uintptr_t status = _beginthreadex( NULL, unsigned(stack_size), thread_routine, arg, STACK_SIZE_PARAM_IS_A_RESERVATION, &thread_id );
     if( status==0 ) {
         fprintf(stderr,"thread_monitor::launch: _beginthreadex failed\n");
         exit(1); 
-    } else {
-        CloseHandle((HANDLE)status);
     }
+    if ( pThreadHandle )
+        *pThreadHandle = (HANDLE)status;
+    else
+        CloseHandle( (HANDLE)status );
 }
 
 inline void thread_monitor::yield() {

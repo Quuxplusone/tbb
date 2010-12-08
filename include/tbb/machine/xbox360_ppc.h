@@ -118,4 +118,4 @@ static inline int __TBB_XBOX360_GetHardwareThreadIndex(int workerThreadIndex)
     return index; 
 }
 
-#define __TBB_DetectNumberOfWorkers() __TBB_XBOX360_DetectNumberOfWorkers()
+#define __TBB_HardwareConcurrency() __TBB_XBOX360_DetectNumberOfWorkers()

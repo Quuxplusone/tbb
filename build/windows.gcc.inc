@@ -41,10 +41,10 @@ RML.MANIFEST =
 
 # TODO: do better when/if mingw64 support is added
 ifeq (ia32,$(arch))
-    TBB.DEF = $(tbb_root)/src/tbb/lin32-tbb-export.def
-else 
-    TBB.DEF = $(tbb_root)/src/tbb/win64-gcc-tbb-export.def
-endif 
+    TBB.LST = $(tbb_root)/src/tbb/lin32-tbb-export.lst
+else
+    TBB.LST = $(tbb_root)/src/tbb/win64-gcc-tbb-export.lst
+endif
 MALLOC.DEF = $(MALLOC_ROOT)/win-gcc-tbbmalloc-export.def
 RML.DEF = $(RML_SERVER_ROOT)/lin-rml-export.def
 
@@ -56,7 +56,7 @@ LINK_TBB.LIB = $(TBB.LIB)
 # Compiler-specific variables
 #------------------------------------------------------------------------------
 
-CPLUS = g++ 
+CPLUS = g++
 COMPILE_ONLY = -c -MMD
 PREPROC_ONLY = -E -x c
 INCLUDE_KEY = -I
@@ -68,7 +68,7 @@ WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -Wall  -Wno-uninitialized
 WARNING_SUPPRESS = -Wno-parentheses
 DYLIB_KEY = -shared
-LIBDL = 
+LIBDL =
 EXPORT_KEY = -Wl,--version-script,
 LIBS = -lpsapi
 
@@ -88,6 +88,7 @@ ifeq ($(cfg), debug)
         CPLUS_FLAGS = -g -O0 -DTBB_USE_DEBUG
 endif
 CPLUS_FLAGS += -DUSE_WINTHREAD
+CPLUS_FLAGS += -D_WIN32_WINNT=$(_WIN32_WINNT)
 
 # MinGW specific
 CPLUS_FLAGS += -D__MSVCRT_VERSION__=0x0700 -msse -mthreads
@@ -98,12 +99,12 @@ C_FLAGS = $(CPLUS_FLAGS)
 ifeq (intel64,$(arch))
     CPLUS_FLAGS += -m64
     LIB_LINK_FLAGS += -m64
-endif 
+endif
 
 ifeq (ia32,$(arch))
     CPLUS_FLAGS += -m32
     LIB_LINK_FLAGS += -m32
-endif 
+endif
 
 # For examples
 export UNIXMODE = 1

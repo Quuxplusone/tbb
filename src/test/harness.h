@@ -41,21 +41,22 @@
 namespace Harness {
     enum TestResult {
         Done,
-        Skipped
+        Skipped,
+        Unknown
     };
 }
 
 //! Entry point to a TBB unit test application
 /** It MUST be defined by the test application.
-    
+
     If HARNESS_NO_PARSE_COMMAND_LINE macro was not explicitly set before including harness.h,
-    then global variables Verbose, MinThread, and MaxThread will be available and 
+    then global variables Verbose, MinThread, and MaxThread will be available and
     initialized when it is called.
 
-    Returns Harness::Done when the tests passed successfully. When the test fail, it must 
-    not return, calling exit(errcode) or abort() instead. When the test is not supported 
+    Returns Harness::Done when the tests passed successfully. When the test fail, it must
+    not return, calling exit(errcode) or abort() instead. When the test is not supported
     for the given platform/compiler/etc, it should return Harness::Skipped.
-    
+
     To provide non-standard variant of main() for the test, define HARNESS_CUSTOM_MAIN
     before including harness.h **/
 int TestMain ();
@@ -86,8 +87,8 @@ int TestMain ();
 
 #include <new>
 
-    #define HARNESS_EXPORT
-    #define REPORT_FATAL_ERROR REPORT
+#define HARNESS_EXPORT
+#define REPORT_FATAL_ERROR REPORT
 
 #if _WIN32||_WIN64
     #include "tbb/machine/windows_api.h"
@@ -110,7 +111,7 @@ int TestMain ();
 #include "harness_assert.h"
 
 typedef void (*test_error_extra_t)(void);
-static test_error_extra_t ErrorExtraCall; 
+static test_error_extra_t ErrorExtraCall;
 //! Set additional handler to process failed assertions
 void SetHarnessErrorProcessing( test_error_extra_t extra_call ) {
     ErrorExtraCall = extra_call;
@@ -165,12 +166,12 @@ static int MaxThread = HARNESS_DEFAULT_MAX_THREADS;
 //! Parse command line of the form "name [-v] [MinThreads[:MaxThreads]]"
 /** Sets Verbose, MinThread, and MaxThread accordingly.
     The nthread argument can be a single number or a range of the form m:n.
-    A single number m is interpreted as if written m:m. 
-    The numbers must be non-negative.  
+    A single number m is interpreted as if written m:m.
+    The numbers must be non-negative.
     Clients often treat the value 0 as "run sequentially." */
 static void ParseCommandLine( int argc, char* argv[] ) {
     if( !argc ) REPORT("Command line with 0 arguments\n");
-    int i = 1;  
+    int i = 1;
     if( i<argc ) {
         if( strncmp( argv[i], "-v", 2 )==0 ) {
             Verbose = true;
@@ -182,12 +183,12 @@ static void ParseCommandLine( int argc, char* argv[] ) {
         MinThread = strtol( argv[i], &endptr, 0 );
         if( *endptr==':' )
             MaxThread = strtol( endptr+1, &endptr, 0 );
-        else if( *endptr=='\0' ) 
+        else if( *endptr=='\0' )
             MaxThread = MinThread;
         if( *endptr!='\0' ) {
             REPORT_FATAL_ERROR("garbled nthread range\n");
             exit(1);
-        }    
+        }
         if( MinThread<0 ) {
             REPORT_FATAL_ERROR("nthread must be nonnegative\n");
             exit(1);
@@ -215,6 +216,10 @@ static void ParseCommandLine( int argc, char* argv[] ) {
 
 #if !HARNESS_CUSTOM_MAIN
 
+#if __TBB_MIC
+#pragma offload_attribute (pop)
+#endif
+
 HARNESS_EXPORT
 #if HARNESS_NO_PARSE_COMMAND_LINE
 int main() {
@@ -222,11 +227,23 @@ int main() {
 int main(int argc, char* argv[]) {
     ParseCommandLine( argc, argv );
 #endif
+#if __TBB_MIC
+    int res = Harness::Unknown;
+    #pragma offload target(mic) out(res)
+    {
+        res = TestMain ();
+    }
+#else
     int res = TestMain ();
+#endif
     ASSERT( res==Harness::Done || res==Harness::Skipped, "Wrong return code by TestMain");
     REPORT( res==Harness::Done ? "done\n" : "skip\n" );
     return 0;
 }
+
+#if __TBB_MIC
+#pragma offload_attribute (target(mic))
+#endif
 
 #endif /* !HARNESS_CUSTOM_MAIN */
 
@@ -243,7 +260,7 @@ public:
 
 //! Base class for prohibiting compiler-generated copy constructor or operator=
 class NoCopy: NoAssign {
-    //! Copy construction not allowed  
+    //! Copy construction not allowed
     NoCopy( const NoCopy& );
 public:
     NoCopy() {}
@@ -269,9 +286,9 @@ public:
     #pragma warning (push)
     #pragma warning (disable: 2193)
 #endif /* __ICC==1100 */
-        // Some machines may have very large hard stack limit. When the test is 
-        // launched by make, the default stack size is set to the hard limit, and 
-        // calls to pthread_create fail with out-of-memory error. 
+        // Some machines may have very large hard stack limit. When the test is
+        // launched by make, the default stack size is set to the hard limit, and
+        // calls to pthread_create fail with out-of-memory error.
         // Therefore we set the stack size explicitly (as for TBB worker threads).
         const size_t MByte = 1<<20;
 #if __i386__||__i386
@@ -304,7 +321,7 @@ public:
 #else
         int status = pthread_join( thread_id, NULL );
         ASSERT( !status, "pthread_join failed" );
-#endif 
+#endif
     }
 
 private:
@@ -343,7 +360,7 @@ void NativeParallelFor( Index n, const Body& body ) {
         task* array = static_cast<task*>(operator new( n*sizeof(task) ));
 
         // Construct the tasks
-        for( Index i=0; i!=n; ++i ) 
+        for( Index i=0; i!=n; ++i )
             new( &array[i] ) task(i,body);
 
         // Start the tasks
@@ -399,7 +416,7 @@ inline unsigned LinuxKernelVersion()
 {
     unsigned digit1, digit2, digit3;
     struct utsname utsnameBuf;
-    
+
     if (-1 == uname(&utsnameBuf)) {
         REPORT_FATAL_ERROR("Can't call uname: errno %d\n", errno);
         exit(1);

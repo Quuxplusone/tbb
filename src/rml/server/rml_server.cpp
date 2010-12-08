@@ -36,7 +36,7 @@
 #include "tbb/aligned_space.h"
 #include "tbb/atomic.h"
 #include "tbb/spin_mutex.h"
-#include "tbb/tbb_misc.h"           // Get DetectNumberOfWorkers() from here.
+#include "tbb/tbb_misc.h"           // Get AvailableHwConcurrency() from here.
 #if _MSC_VER==1500 && !defined(__INTEL_COMPILER)
 // VS2008/VC9 seems to have an issue; 
 #pragma warning( push )
@@ -70,14 +70,6 @@ using namespace Concurrency;
 
 namespace rml {
 namespace internal {
-
-//! Number of hardware contexts
-static inline unsigned hardware_concurrency() {
-    static unsigned DefaultNumberOfThreads = 0;
-    unsigned n = DefaultNumberOfThreads;
-    if( !n ) DefaultNumberOfThreads = n = tbb::internal::DetectNumberOfWorkers();
-    return n;
-}
 
 using tbb::internal::rml::tbb_client;
 using tbb::internal::rml::tbb_server;
@@ -489,7 +481,6 @@ class connection_scavenger_thread {
      */
     // FIXME: pad these?
     thread_monitor monitor;
-    int default_concurrency;
     HANDLE thr_handle;
 #if TBB_USE_ASSERT
     tbb::atomic<int> n_scavenger_threads;
@@ -516,8 +507,7 @@ public:
 
     static __RML_DECL_THREAD_ROUTINE thread_routine( void* arg );
 
-    void launch( int dc ) { 
-        default_concurrency = dc; 
+    void launch() { 
         thread_monitor::launch( connection_scavenger_thread::thread_routine, this, NULL ); 
     }
 
@@ -594,8 +584,9 @@ class padded: public T {
 #endif
 
 // FIXME - should we pad out memory to avoid false sharing of our global variables?
+static unsigned the_default_concurrency;
 static tbb::atomic<int> the_balance;
-static tbb::atomic<int> the_balance_inited;
+static tbb::atomic<tbb::internal::do_once_state> rml_module_state;
 
 #if !RML_USE_WCRM
 //! Per thread information 
@@ -1042,7 +1033,7 @@ class generic_connection: public Server, no_copy {
     /*override*/ version_type version() const {return SERVER_VERSION;}
     /*override*/ void yield() {thread_monitor::yield();}
     /*override*/ void independent_thread_number_changed( int delta ) { my_thread_map.adjust_balance( -delta ); }
-    /*override*/ unsigned default_concurrency() const {return hardware_concurrency()-1;}
+    /*override*/ unsigned default_concurrency() const { return the_default_concurrency; }
     friend void wakeup_some_tbb_threads();
     friend class connection_scavenger_thread;
 
@@ -1924,7 +1915,16 @@ __RML_DECL_THREAD_ROUTINE server_thread::thread_routine( void* arg ) {
 #endif
 
 void server_thread::launch( size_t stack_size ) {
+#if USE_WINTHREAD
+    HANDLE hThread = INVALID_HANDLE_VALUE;
+    thread_monitor::launch( thread_routine, this, stack_size, &hThread );
+    if ( tbb::internal::NumberOfProcessorGroups() > 1 )
+        tbb::internal::MoveThreadIntoProcessorGroup( hThread,
+                        tbb::internal::FindProcessorGroupIndex((int)my_index) );
+    CloseHandle( hThread );
+#else
     thread_monitor::launch( thread_routine, this, stack_size );
+#endif /* USE_PTHREAD */
 }
 
 void server_thread::sleep_perhaps( thread_state_t asleep ) {
@@ -3027,7 +3027,7 @@ void assist_cleanup_connections()
         connection_scavenger.process_requests( head );
     }
     __TBB_ASSERT( connections_to_reclaim.tail==garbage_connection_queue::plugged||connections_to_reclaim.tail==garbage_connection_queue::plugged_acked, "someone else added a request after termination has initiated" );
-    __TBB_ASSERT( the_balance==connection_scavenger.default_concurrency, NULL );
+    __TBB_ASSERT( (unsigned)the_balance==the_default_concurrency, NULL );
 }
 
 void connection_scavenger_thread::sleep_perhaps() {
@@ -3208,6 +3208,13 @@ static factory::status_type connect( factory& f, Server*& server, Client& client
     return factory::st_success; 
 }
 
+void init_rml_module () {
+    the_balance = the_default_concurrency = tbb::internal::AvailableHwConcurrency() - 1;
+#if RML_USE_WCRM
+    connection_scavenger.launch();
+#endif
+}
+
 extern "C" factory::status_type __RML_open_factory( factory& f, version_type& server_version, version_type client_version ) {
     // Hack to keep this library from being closed by causing the first client's dlopen to not have a corresponding dlclose. 
     // This code will be removed once we figure out how to do shutdown of the RML perfectly.
@@ -3223,17 +3230,7 @@ extern "C" factory::status_type __RML_open_factory( factory& f, version_type& se
     // End of hack
 
     // Initialize the_balance only once
-    if( the_balance_inited!=2 ) {
-        if( the_balance_inited.compare_and_swap( 1, 0 )==0 ) {
-            the_balance = hardware_concurrency()-1;
-            the_balance_inited = 2;
-#if RML_USE_WCRM
-            connection_scavenger.launch( the_balance );
-#endif
-        } else {
-            tbb::internal::spin_wait_until_eq( the_balance_inited, 2 );
-        }
-    }
+    tbb::internal::atomic_do_once ( init_rml_module, rml_module_state );
 
     server_version = SERVER_VERSION;
     f.scratch_ptr = 0;

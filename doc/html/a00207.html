@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::task_list Class Reference</title>
+<title>tbb::spin_rw_mutex_v3 Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,57 +21,107 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00272.html">tbb</a>::<a class="el" href="a00207.html">task_list</a></div>
-<h1>tbb::task_list Class Reference<br>
+<a class="el" href="a00278.html">tbb</a>::<a class="el" href="a00207.html">spin_rw_mutex_v3</a></div>
+<h1>tbb::spin_rw_mutex_v3 Class Reference<br>
 <small>
-[<a class="el" href="a00285.html">Task Scheduling</a>]</small>
-</h1><!-- doxytag: class="tbb::task_list" -->A list of children.  
+[<a class="el" href="a00289.html">Synchronization</a>]</small>
+</h1><!-- doxytag: class="tbb::spin_rw_mutex_v3" -->Fast, unfair, spinning reader-writer lock with backoff and writer-preference.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00438.html">task.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00446.html">spin_rw_mutex.h</a>&gt;</code>
 <p>
-<a href="a00077.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00073.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="416341c2047eaef50417b41eaf7e9de6"></a><!-- doxytag: member="tbb::task_list::task_list" ref="416341c2047eaef50417b41eaf7e9de6" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#416341c2047eaef50417b41eaf7e9de6">task_list</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="61332b2756de89f3f5f69310cbb6e70c"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::spin_rw_mutex_v3" ref="61332b2756de89f3f5f69310cbb6e70c" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#61332b2756de89f3f5f69310cbb6e70c">spin_rw_mutex_v3</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct empty list. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6d438f1499a02db1e59c24ab6043e5ba"></a><!-- doxytag: member="tbb::task_list::~task_list" ref="6d438f1499a02db1e59c24ab6043e5ba" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#6d438f1499a02db1e59c24ab6043e5ba">~task_list</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct unacquired mutex. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9a815fb2759e55072ed413f1b6970cf3"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::~spin_rw_mutex_v3" ref="9a815fb2759e55072ed413f1b6970cf3" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#9a815fb2759e55072ed413f1b6970cf3">~spin_rw_mutex_v3</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destroys the list, but does not destroy the task objects. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f3ac31e092814b90929f81bb30441959"></a><!-- doxytag: member="tbb::task_list::empty" ref="f3ac31e092814b90929f81bb30441959" args="() const " -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#f3ac31e092814b90929f81bb30441959">empty</a> () const </td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destructor asserts if the mutex is acquired, i.e. state is zero. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4007d6e1523dbc3c2bb7f889ab789a8a"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::lock" ref="4007d6e1523dbc3c2bb7f889ab789a8a" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#4007d6e1523dbc3c2bb7f889ab789a8a">lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if list if empty; false otherwise. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4cd34756bc4763dafb8c84838a0124ff"></a><!-- doxytag: member="tbb::task_list::push_back" ref="4cd34756bc4763dafb8c84838a0124ff" args="(task &amp;task)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#4cd34756bc4763dafb8c84838a0124ff">push_back</a> (<a class="el" href="a00204.html">task</a> &amp;<a class="el" href="a00204.html">task</a>)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire writer lock. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#088bb256be794cc47d3b83791632fdfc">try_lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Push task onto back of list. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5fe85df5ed524418389d34051750347d"></a><!-- doxytag: member="tbb::task_list::pop_front" ref="5fe85df5ed524418389d34051750347d" args="()" -->
-<a class="el" href="a00204.html">task</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#5fe85df5ed524418389d34051750347d">pop_front</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Try acquiring writer lock (non-blocking).  <a href="#088bb256be794cc47d3b83791632fdfc"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f9f52ead2098eb5fb12da59d5ae53b55"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::unlock" ref="f9f52ead2098eb5fb12da59d5ae53b55" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#f9f52ead2098eb5fb12da59d5ae53b55">unlock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Pop the front task from the list. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fce446ee13e025969945328f3ff59b95"></a><!-- doxytag: member="tbb::task_list::clear" ref="fce446ee13e025969945328f3ff59b95" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#fce446ee13e025969945328f3ff59b95">clear</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="13f799708ac4ca437a16be202e263e18"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::lock_read" ref="13f799708ac4ca437a16be202e263e18" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#13f799708ac4ca437a16be202e263e18">lock_read</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Clear the list. <br></td></tr>
-<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e656073628561c8fd68f6134d527e2de"></a><!-- doxytag: member="tbb::task_list::task" ref="e656073628561c8fd68f6134d527e2de" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>task</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire reader lock. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html#b8667415869013f840d976aa406d385a">try_lock_read</a> ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="81d0122aee4ddae419a743ee50d7038e"></a><!-- doxytag: member="tbb::task_list::interface5::internal::task_base" ref="81d0122aee4ddae419a743ee50d7038e" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>interface5::internal::task_base</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Try acquiring reader lock (non-blocking).  <a href="#b8667415869013f840d976aa406d385a"></a><br></td></tr>
+<tr><td colspan="2"><br><h2>Static Public Attributes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4c1e60f22c01604ca93c41b8334cc15e"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::is_rw_mutex" ref="4c1e60f22c01604ca93c41b8334cc15e" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_rw_mutex</b> = true</td></tr>
 
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="681a816fe76d6ca7752303f9dcc3c4b2"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::is_recursive_mutex" ref="681a816fe76d6ca7752303f9dcc3c4b2" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_recursive_mutex</b> = false</td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4dd66d90df6247da6050e88b2aa3b820"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::is_fair_mutex" ref="4dd66d90df6247da6050e88b2aa3b820" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_fair_mutex</b> = false</td></tr>
+
+<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html">scoped_lock</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The scoped locking pattern.  <a href="a00208.html#_details">More...</a><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-A list of children. 
+Fast, unfair, spinning reader-writer lock with backoff and writer-preference. 
 <p>
-Used for method task::spawn_children 
+<hr><h2>Member Function Documentation</h2>
+<a class="anchor" name="088bb256be794cc47d3b83791632fdfc"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::try_lock" ref="088bb256be794cc47d3b83791632fdfc" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool tbb::spin_rw_mutex_v3::try_lock           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"><code> [inline]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
 <p>
+Try acquiring writer lock (non-blocking). 
+<p>
+Return true if lock acquired; false otherwise. 
+</div>
+</div><p>
+<a class="anchor" name="b8667415869013f840d976aa406d385a"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::try_lock_read" ref="b8667415869013f840d976aa406d385a" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool tbb::spin_rw_mutex_v3::try_lock_read           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"><code> [inline]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Try acquiring reader lock (non-blocking). 
+<p>
+Return true if reader lock acquired; false otherwise. 
+</div>
+</div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00438.html">task.h</a></ul>
+<li><a class="el" href="a00446.html">spin_rw_mutex.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.

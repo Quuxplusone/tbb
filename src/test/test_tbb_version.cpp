@@ -213,7 +213,7 @@ int main(int argc, char *argv[] ) {
 void initialize_strings_vector(std::vector <string_pair>* vector)
 {
     vector->push_back(string_pair("TBB: VERSION\t\t3.0", required));          // check TBB_VERSION
-    vector->push_back(string_pair("TBB: INTERFACE VERSION\t5003", required)); // check TBB_INTERFACE_VERSION
+    vector->push_back(string_pair("TBB: INTERFACE VERSION\t5004", required)); // check TBB_INTERFACE_VERSION
     vector->push_back(string_pair("TBB: BUILD_DATE", required));
     vector->push_back(string_pair("TBB: BUILD_HOST", required));
     vector->push_back(string_pair("TBB: BUILD_OS", required));
@@ -247,7 +247,6 @@ void initialize_strings_vector(std::vector <string_pair>* vector)
     vector->push_back(string_pair("TBB: RML", not_required));
     vector->push_back(string_pair("TBB: Intel(R) RML library built:", not_required));
     vector->push_back(string_pair("TBB: Intel(R) RML library version:", not_required));
-    vector->push_back(string_pair("TBB: SCHEDULER", required));
-
+    vector->push_back(string_pair("TBB: Tools support", required));
     return;
 }

@@ -42,10 +42,10 @@ LIBDL = -ldl
 
 TBB_NOSTRICT = 1
 
-CPLUS = g++ 
+CPLUS = g++
 CONLY = gcc
 LIB_LINK_FLAGS = -shared -Wl,-soname=$(BUILDING_LIBRARY)
-LIBS = -lpthread -lrt 
+LIBS = -lpthread -lrt
 C_FLAGS = $(CPLUS_FLAGS)
 
 ifeq ($(cfg), release)
@@ -67,23 +67,23 @@ TBB_ASM.OBJ=
 ifeq (ia64,$(arch))
 # Position-independent code (PIC) is a must on IA-64, even for regular (not shared) executables
     CPLUS_FLAGS += $(PIC_KEY)
-endif 
+endif
 
 ifeq (intel64,$(arch))
     CPLUS_FLAGS += -m64
     LIB_LINK_FLAGS += -m64
-endif 
+endif
 
 ifeq (ia32,$(arch))
     CPLUS_FLAGS += -m32 -march=pentium4
     LIB_LINK_FLAGS += -m32
-endif 
+endif
 
 # for some gcc versions on Solaris, -m64 may imply V9, but perhaps not everywhere (TODO: verify)
 ifeq (sparc,$(arch))
     CPLUS_FLAGS    += -mcpu=v9 -m64
     LIB_LINK_FLAGS += -mcpu=v9 -m64
-endif 
+endif
 
 #------------------------------------------------------------------------------
 # Setting assembler data.
@@ -93,7 +93,7 @@ ifeq (ia64,$(arch))
     ASM=as
     ASM_FLAGS += -xexplicit
     TBB_ASM.OBJ = atomic_support.o lock_byte.o log2.o pause.o ia64_misc.o
-endif 
+endif
 #------------------------------------------------------------------------------
 # End of setting assembler data.
 #------------------------------------------------------------------------------

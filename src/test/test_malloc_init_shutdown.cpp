@@ -29,29 +29,10 @@
 #include "tbb/scalable_allocator.h"
 #include "tbb/atomic.h"
 #include "tbb/aligned_space.h"
-#include "../tbb/tbb_assert_impl.h"
-
-#if _WIN64 && defined(_M_AMD64) && !__MINGW64__
-void __TBB_machine_pause(__int32 /*delay*/ ) {}
-#elif  __linux__ && __ia64__
-#include <pthread.h>
-
-pthread_mutex_t counter_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-int32_t __TBB_machine_fetchadd4__TBB_full_fence (volatile void *ptr, int32_t value)
-{
-    pthread_mutex_lock(&counter_mutex);
-    int32_t result = *(int32_t*)ptr;
-    *(int32_t*)ptr = result + value;
-    pthread_mutex_unlock(&counter_mutex);
-    return result;
-}
-
-void __TBB_machine_pause(int32_t /*delay*/) {}
-#endif
 
 #include "harness.h"
 #include "harness_barrier.h"
+#include "harness_tbb_independence.h"
 
 tbb::atomic<int> FinishedTasks;
 const int MaxTasks = 16;

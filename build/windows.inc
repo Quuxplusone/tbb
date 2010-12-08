@@ -59,18 +59,19 @@ LIBEXT = lib
 
 def_prefix = $(if $(findstring ia32,$(arch)),win32,win64)
 
-# Target Windows version. Do not increase beyond 0x0500 without prior discussion!
+# Target Windows version. Do not increase beyond 0x0501 without prior discussion!
 # Used as the value for macro definition opiton in windows.cl.inc etc.
-_WIN32_WINNT=0x0400
+_WIN32_WINNT=0x0501
 
-TBB.DEF = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.def
+TBB.LST = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.lst
+TBB.DEF = $(TBB.LST:.lst=.def)
 TBB.DLL = tbb$(DEBUG_SUFFIX).$(DLL)
 TBB.LIB = tbb$(DEBUG_SUFFIX).$(LIBEXT)
 TBB.RES = tbb_resource.res
 # On Windows, we use #pragma comment to set the proper TBB lib to link with
 # But for cross-configuration testing, need to link explicitly
 LINK_TBB.LIB = $(if $(crosstest),$(TBB.LIB))
-TBB.MANIFEST = 
+TBB.MANIFEST =
 ifneq ($(filter vc8 vc9,$(runtime)),)
     TBB.MANIFEST = tbbmanifest.exe.manifest
 endif

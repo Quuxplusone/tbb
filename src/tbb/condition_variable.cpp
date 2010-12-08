@@ -28,6 +28,7 @@
 
 #include "tbb/compat/condition_variable"
 #include "tbb/atomic.h"
+#include "tbb_misc.h"
 #include "dynamic_link.h"
 #include "itt_notify.h"
 
@@ -39,7 +40,7 @@ namespace internal {
 #if _WIN32||_WIN64
 using tbb::interface5::internal::condition_variable_using_event;
 
-static atomic<int> condvar_module_inited;
+static atomic<do_once_state> condvar_api_state;
 
 void WINAPI init_condvar_using_event( condition_variable_using_event* cv_event )
 {
@@ -146,7 +147,7 @@ static const dynamic_link_descriptor CondVarLinkTable[] = {
 void init_condvar_module()
 {
     __TBB_ASSERT( (uintptr_t)__TBB_init_condvar==(uintptr_t)&init_condvar_using_event, NULL );
-    if( dynamic_link( "Kernel32.dll", CondVarLinkTable, 4 ) )
+    if( dynamic_link( GetModuleHandle( "Kernel32.dll" ), CondVarLinkTable, 4 ) )
         __TBB_destroy_condvar = (void (WINAPI *)(PCONDITION_VARIABLE))&destroy_condvar_noop;
 }
 #endif /* _WIN32||_WIN64 */
@@ -158,7 +159,7 @@ void init_condvar_module()
 namespace interface5 {
 namespace internal {
 
-using tbb::internal::condvar_module_inited;
+using tbb::internal::condvar_api_state;
 using tbb::internal::__TBB_init_condvar;
 using tbb::internal::__TBB_condvar_wait;
 using tbb::internal::__TBB_condvar_notify_one;
@@ -168,16 +169,7 @@ using tbb::internal::init_condvar_module;
 
 void internal_initialize_condition_variable( condvar_impl_t& cv )
 {
-    if( condvar_module_inited!=2 ) {
-        if( condvar_module_inited==0 ) {
-            if( condvar_module_inited.compare_and_swap( 1, 0 )==0 ) {
-                init_condvar_module();
-                condvar_module_inited = 2;
-            }
-        } 
-
-        spin_wait_until_eq( condvar_module_inited, 2 );
-    }
+    atomic_do_once( init_condvar_module, condvar_api_state );
     __TBB_init_condvar( &cv.cv_native );
 }
 

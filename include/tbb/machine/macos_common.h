@@ -34,7 +34,7 @@
 #define __TBB_Yield()  sched_yield()
 
 
-// __TBB_DetectNumberOfWorkers
+// __TBB_HardwareConcurrency
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -47,7 +47,7 @@ static inline int __TBB_macos_available_cpu() {
     return ncpu;
 }
 
-#define __TBB_DetectNumberOfWorkers() __TBB_macos_available_cpu()
+#define __TBB_HardwareConcurrency() __TBB_macos_available_cpu()
 
 
 #ifndef __TBB_WORDSIZE

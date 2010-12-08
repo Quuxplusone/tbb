@@ -186,18 +186,21 @@ void DoOneTimeInitializations() {
         __TBB_InitOnce::add_ref();
         if( GetBoolEnvironmentVariable("TBB_VERSION") )
             PrintVersion();
-        bool have_itt = false;
+        bool itt_present = false;
 #if DO_ITT_NOTIFY
         ITT_DoUnsafeOneTimeInitialization();
-        have_itt = ITT_Present;
+        itt_present = ITT_Present;
 #endif /* DO_ITT_NOTIFY */
         initialize_cache_aligned_allocator();
 #if __TBB_SURVIVE_THREAD_SWITCH
         initialize_survive_thread_switch();
 #endif /* __TBB_SURVIVE_THREAD_SWITCH */
+        Scheduler_OneTimeInitialization( itt_present );
+        // Force processor groups support detection
+        governor::default_num_threads();
+        // Dump version data
         governor::print_version_info();
-        PrintExtraVersionInfo( "SCHEDULER", have_itt ? "default" : "Intel" );
-        Scheduler_OneTimeInitialization( have_itt );
+        PrintExtraVersionInfo( "Tools support", itt_present ? "enabled" : "disabled" );
         __TBB_InitOnce::InitializationDone = true;
     }
     __TBB_InitOnce::unlock();
@@ -238,6 +241,19 @@ void* itt_load_pointer_with_acquire_v3( const void* src ) {
     return result;
 }
     
+#if DO_ITT_NOTIFY
+void call_itt_notify_v5(int t, void *ptr) {
+    switch (t) {
+    case 0: ITT_NOTIFY(sync_prepare, ptr); break;
+    case 1: ITT_NOTIFY(sync_cancel, ptr); break;
+    case 2: ITT_NOTIFY(sync_acquired, ptr); break;
+    case 3: ITT_NOTIFY(sync_releasing, ptr); break;
+    }
+}
+#else
+void call_itt_notify_v5(int /*t*/, void */*ptr*/) {}
+#endif
+
 void* itt_load_pointer_v3( const void* src ) {
     void* result = *static_cast<void*const*>(src);
     return result;

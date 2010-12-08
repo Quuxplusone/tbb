@@ -60,8 +60,8 @@ ifeq (linux,$(tbb_os))
 RML_ASM.OBJ = $(if $(findstring ia64,$(arch)),$(TBB_ASM.OBJ))
 endif
 
-RML_TBB_DEP= cache_aligned_allocator_rml.$(OBJ) dynamic_link_rml.$(OBJ) concurrent_vector_rml.$(OBJ) tbb_misc_rml.$(OBJ)
-TBB_DEP_NON_RML_TEST= cache_aligned_allocator_rml.$(OBJ) dynamic_link_rml.$(OBJ) $(RML_ASM.OBJ) tbb_misc_rml.$(OBJ)
+RML_TBB_DEP= cache_aligned_allocator_rml.$(OBJ) dynamic_link_rml.$(OBJ) concurrent_vector_rml.$(OBJ) tbb_misc_rml.$(OBJ) tbb_misc_ex_rml.$(OBJ)
+TBB_DEP_NON_RML_TEST= cache_aligned_allocator_rml.$(OBJ) dynamic_link_rml.$(OBJ) $(RML_ASM.OBJ) tbb_misc_rml.$(OBJ) tbb_misc_ex_rml.$(OBJ)
 TBB_DEP_RML_TEST= $(RML_ASM.OBJ)
 ifeq ($(cfg),debug)
 RML_TBB_DEP+= spin_mutex_rml.$(OBJ) 

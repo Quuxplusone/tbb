@@ -68,7 +68,6 @@ CONLY ?= $(CPLUS)
 %.$(OBJ): %.s
 	cpp <$< | grep -v '^#' >$*.tmp
 	$(ASM) $(ASM_FLAGS) -o $@ $*.tmp
-	rm $*.tmp
 
 # Rule for generating .E file if needed for visual inspection
 %.E: %.cpp
@@ -97,7 +96,7 @@ $(KNOWN_WARNINGS): %.$(OBJ): %.cpp
 	$(CPLUS) $(COMPILE_ONLY) $(subst $(WARNING_KEY),,$(CPLUS_FLAGS)) $(CXX_ONLY_FLAGS) $(INCLUDES) $<
 
 tbb_misc.$(OBJ): tbb_misc.cpp version_string.tmp
-	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(INCLUDE_KEY). $(INCLUDES) $<
+	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(CXX_WARN_SUPPRESS) $(INCLUDE_KEY). $(INCLUDES) $<
 
 tbb_misc.E: tbb_misc.cpp version_string.tmp
 	$(CPLUS) $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(INCLUDE_KEY). $(INCLUDES) $(PREPROC_ONLY) $< >$@

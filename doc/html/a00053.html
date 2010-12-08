@@ -20,16 +20,17 @@
     <li><a href="hierarchy.html"><span>Class&nbsp;Hierarchy</span></a></li>
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
-<h1>tbb::interface5::filter_t&lt; T, U &gt; Member List</h1>This is the complete list of members for <a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a>, including all inherited members.<p><table>
-  <tr bgcolor="#f0f0f0"><td><b>clear</b>() (defined in <a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a>)</td><td><a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a></td><td><code> [inline]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>filter_t</b>() (defined in <a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a>)</td><td><a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a></td><td><code> [inline]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>filter_t</b>(const filter_t&lt; T, U &gt; &amp;rhs) (defined in <a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a>)</td><td><a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a></td><td><code> [inline]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>filter_t</b>(tbb::filter::mode mode, const Body &amp;body) (defined in <a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a>)</td><td><a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a></td><td><code> [inline]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>internal::pipeline_proxy</b> (defined in <a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a>)</td><td><a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a></td><td><code> [friend]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00170.html#85c2892eff1fddcd06e28911e75838bd">make_filter</a>(tbb::filter::mode, const Body &amp;)</td><td><a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a></td><td><code> [friend]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>operator &amp;</b> (defined in <a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a>)</td><td><a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a></td><td><code> [friend]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>operator=</b>(const filter_t&lt; T, U &gt; &amp;rhs) (defined in <a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a>)</td><td><a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a></td><td><code> [inline]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>~filter_t</b>() (defined in <a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a>)</td><td><a class="el" href="a00170.html">tbb::interface5::filter_t&lt; T, U &gt;</a></td><td><code> [inline]</code></td></tr>
+<h1>tbb::filter Member List</h1>This is the complete list of members for <a class="el" href="a00175.html">tbb::filter</a>, including all inherited members.<p><table>
+  <tr class="memlist"><td><a class="el" href="a00175.html#56275eb889c77c4807967133e21401bd">finalize</a>(void *)</td><td><a class="el" href="a00175.html">tbb::filter</a></td><td><code> [inline, virtual]</code></td></tr>
+  <tr bgcolor="#f0f0f0"><td><b>internal::pipeline_root_task</b> (defined in <a class="el" href="a00175.html">tbb::filter</a>)</td><td><a class="el" href="a00175.html">tbb::filter</a></td><td><code> [friend]</code></td></tr>
+  <tr bgcolor="#f0f0f0"><td><b>internal::stage_task</b> (defined in <a class="el" href="a00175.html">tbb::filter</a>)</td><td><a class="el" href="a00175.html">tbb::filter</a></td><td><code> [friend]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00175.html#15c29cae5d237e6d63dbfe5c94af89d5">is_bound</a>() const </td><td><a class="el" href="a00175.html">tbb::filter</a></td><td><code> [inline]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00175.html#cd53206c4795ef2df5df26b795caf692">is_ordered</a>() const </td><td><a class="el" href="a00175.html">tbb::filter</a></td><td><code> [inline]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00175.html#fcfec27656a69ff2072802ac001e936f">is_serial</a>() const </td><td><a class="el" href="a00175.html">tbb::filter</a></td><td><code> [inline]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00175.html#fa1b3dc1f4f47563ccab7f4d92f5b543">operator()</a>(void *item)=0</td><td><a class="el" href="a00175.html">tbb::filter</a></td><td><code> [pure virtual]</code></td></tr>
+  <tr bgcolor="#f0f0f0"><td><b>pipeline</b> (defined in <a class="el" href="a00175.html">tbb::filter</a>)</td><td><a class="el" href="a00175.html">tbb::filter</a></td><td><code> [friend]</code></td></tr>
+  <tr bgcolor="#f0f0f0"><td><b>thread_bound_filter</b> (defined in <a class="el" href="a00175.html">tbb::filter</a>)</td><td><a class="el" href="a00175.html">tbb::filter</a></td><td><code> [friend]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00175.html#66d159f362293e3964ba3da8bc1d2604">~filter</a>()</td><td><a class="el" href="a00175.html">tbb::filter</a></td><td><code> [virtual]</code></td></tr>
 </table><hr>
 <p></p>
 Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.

@@ -42,7 +42,7 @@
 
 static bool bad_hashing = false;
 
-namespace tbb { 
+namespace tbb {
     namespace internal {
         static void hooked_warning( const char* /*format*/, ... ) {
             ASSERT(bad_hashing, "unexpected runtime_warning: bad hashing");
@@ -145,7 +145,7 @@ public:
         --MyDataCount;
         my_state = DEAD;
     }
-    static MyData make( int i ) {   
+    static MyData make( int i ) {
         MyData result;
         result.data = i;
         return result;
@@ -197,7 +197,7 @@ public:
     }
     unsigned long hash( const MyKey& k ) const {
         return k.key;
-    }   
+    }
 };
 
 class YourHashCompare {
@@ -207,7 +207,7 @@ public:
     }
     unsigned long hash( const MyKey& ) const {
         return 1;
-    }   
+    }
 };
 
 typedef local_counting_allocator<std::allocator<MyData> > MyAllocator;
@@ -275,7 +275,7 @@ struct Find {
             else
                 (*ca).second.set_value( ~ca->second.value_of() );
         } else {
-            if( UseKey(i) ) 
+            if( UseKey(i) )
                 REPORT("Line %d: key %d missing\n",__LINE__,i);
         }
     }
@@ -324,7 +324,7 @@ struct InsertErase  {
     static void apply( YourTable& table, int i ) {
         if ( i%3 ) {
             int key = i%IE_SIZE;
-            if ( table.insert( std::make_pair(MyKey::make(key), MyData2()) ) ) 
+            if ( table.insert( std::make_pair(MyKey::make(key), MyData2()) ) )
                 ++InsertEraseCount[key];
         } else {
             int key = i%IE_SIZE;
@@ -359,7 +359,7 @@ class TableOperation: NoAssign {
     MyTable& my_table;
 public:
     void operator()( const tbb::blocked_range<int>& range ) const {
-        for( int i=range.begin(); i!=range.end(); ++i ) 
+        for( int i=range.begin(); i!=range.end(); ++i )
             Op::apply(my_table,i);
     }
     TableOperation( MyTable& table ) : my_table(table) {}
@@ -419,14 +419,14 @@ template<typename RangeType>
 struct ParallelTraverseBody: NoAssign {
     const size_t n;
     AtomicByte* const array;
-    ParallelTraverseBody( AtomicByte array_[], size_t n_ ) : 
-        n(n_), 
+    ParallelTraverseBody( AtomicByte array_[], size_t n_ ) :
+        n(n_),
         array(array_)
     {}
     void operator()( const RangeType& range ) const {
         for( typename RangeType::iterator i = range.begin(); i!=range.end(); ++i ) {
             int k = i->first.value_of();
-            ASSERT( 0<=k && size_t(k)<n, NULL ); 
+            ASSERT( 0<=k && size_t(k)<n, NULL );
             ++array[k];
         }
     }
@@ -464,13 +464,13 @@ void ParallelTraverseTable( MyTable& table, size_t n, size_t expected_size ) {
 }
 
 void TestInsertFindErase( int nthread ) {
-    int n=250000; 
+    int n=250000;
 
     // compute m = number of unique keys
-    int m = 0;       
+    int m = 0;
     for( int i=0; i<n; ++i )
         m += UseKey(i);
- 
+
     MyAllocator a; a.items_freed = a.frees = 100;
     ASSERT( MyDataCount==0, NULL );
     MyTable table(a);
@@ -506,7 +506,7 @@ void TestInsertFindErase( int nthread ) {
     if(nthread > 1) {
         YourTable ie_table;
         for( int i=0; i<IE_SIZE; ++i )
-            InsertEraseCount[i] = 0;        
+            InsertEraseCount[i] = 0;
         DoConcurrentOperations<InsertErase,YourTable>(ie_table,n/2,"insert_erase",nthread);
         for( int i=0; i<IE_SIZE; ++i )
             ASSERT( InsertEraseCount[i]==ie_table.count(MyKey::make(i)), NULL );
@@ -530,7 +530,7 @@ public:
             while( Counter<i ) {
                 if( ++j==1000000 ) {
                     // If Counter<i after a million iterations, then we almost surely have
-                    // more logical threads than physical threads, and should yield in 
+                    // more logical threads than physical threads, and should yield in
                     // order to let suspended logical threads make progress.
                     j = 0;
                     __TBB_Yield();
@@ -541,13 +541,13 @@ public:
             {
                 MyTable::accessor a;
                 MyKey key = MyKey::make(i);
-                if( my_table.insert( a, key ) ) 
+                if( my_table.insert( a, key ) )
                     a->second.set_value( 1 );
-                else 
-                    a->second.set_value( a->second.value_of()+1 );      
+                else
+                    a->second.set_value( a->second.value_of()+1 );
                 k = a->second.value_of();
             }
-            if( k==my_nthread ) 
+            if( k==my_nthread )
                 Counter=i+1;
         }
     }
@@ -647,7 +647,7 @@ static void FillTable( MyTable& x, int n ) {
     for( int i=1; i<=n; ++i ) {
         MyKey key( MyKey::make(-i) ); // hash values must not be specified in direct order
         typename MyTable::accessor a;
-        bool b = x.insert(a,key); 
+        bool b = x.insert(a,key);
         ASSERT(b, NULL);
         a->second.set_value( i*i );
     }
@@ -661,8 +661,8 @@ static void CheckTable( const MyTable& x, int n ) {
     for( int i=1; i<=n; ++i ) {
         MyKey key( MyKey::make(-i) );
         typename MyTable::const_accessor a;
-        bool b = x.find(a,key); 
-        ASSERT( b, NULL ); 
+        bool b = x.find(a,key);
+        ASSERT( b, NULL );
         ASSERT( a->second.value_of()==i*i, NULL );
     }
     int count = 0;
@@ -717,7 +717,7 @@ void TestAssignment() {
             ASSERT( (t1 == t2) == (i == j), NULL );
             CheckTable(t2,j);
 
-            MyTable& tref = t2=t1; 
+            MyTable& tref = t2=t1;
             ASSERT( &tref==&t2, NULL );
             ASSERT( t1 == t2, NULL );
             CheckTable(t1,i);
@@ -749,7 +749,7 @@ void TestIteratorsAndRanges() {
     TestIteratorAssignment<MyTable::iterator>( v.begin() );
     // doesn't compile as expected: TestIteratorAssignment<typename V::iterator>( u.begin() );
 
-    // check for non-existing 
+    // check for non-existing
     ASSERT(v.equal_range(MyKey::make(-1)) == std::make_pair(v.end(), v.end()), NULL);
     ASSERT(u.equal_range(MyKey::make(-1)) == std::make_pair(u.end(), u.end()), NULL);
 

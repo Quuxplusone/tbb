@@ -61,6 +61,7 @@ endif
 OBJ = o
 DLL = so
 
+TBB.LST =
 TBB.DEF =
 TBB.DLL = libtbb$(DEBUG_SUFFIX).$(DLL)
 TBB.LIB = $(TBB.DLL)

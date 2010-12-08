@@ -37,6 +37,10 @@
 #include <cstdio>
 #include <cstdlib>
 
+#if _WIN32||_WIN64
+#include "tbb/machine/windows_api.h"
+#endif
+
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
     #pragma warning (push)
@@ -166,7 +170,7 @@ void PrintVersion() {
 
 void PrintExtraVersionInfo( const char* category, const char* description ) {
     if( PrintVersionFlag ) 
-        fprintf(stderr, "%s: %s\t%s\n", "TBB", category, description );
+        fprintf(stderr, "TBB: %s\t%s\n", category, description );
 }
 
 void PrintRMLVersionInfo( void* arg, const char* server_info ) {

@@ -43,7 +43,7 @@ export COMPILER_VERSION := $(shell icc -V </dev/null 2>&1 | grep 'Version')
 
 OPENMP_FLAG = -openmp
 LIBS = -lpthread
-LINK_FLAGS = 
+LINK_FLAGS =
 LIB_LINK_FLAGS = -dynamiclib -i-static
 C_FLAGS = $(CPLUS_FLAGS)
 

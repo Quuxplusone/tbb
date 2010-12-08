@@ -26,7 +26,6 @@
     the GNU General Public License.
 */
 
-
 #if _WIN32 || _WIN64
 #include "tbb/machine/windows_api.h"
 #else

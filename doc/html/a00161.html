@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::interface4::concurrent_hash_map&lt; Key, T, HashCompare, Allocator &gt;::accessor Class Reference</title>
+<title>tbb::cache_aligned_allocator&lt; void &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,42 +21,39 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00272.html">tbb</a>::<b>interface4</b>::<a class="el" href="a00160.html">concurrent_hash_map</a>::<a class="el" href="a00161.html">accessor</a></div>
-<h1>tbb::interface4::concurrent_hash_map&lt; Key, T, HashCompare, Allocator &gt;::accessor Class Reference</h1><!-- doxytag: class="tbb::interface4::concurrent_hash_map::accessor" --><!-- doxytag: inherits="tbb::interface4::concurrent_hash_map::const_accessor" -->Allows write access to elements and combines data access, locking, and garbage collection.  
+<a class="el" href="a00278.html">tbb</a>::<a class="el" href="a00161.html">cache_aligned_allocator&lt; void &gt;</a></div>
+<h1>tbb::cache_aligned_allocator&lt; void &gt; Class Template Reference<br>
+<small>
+[<a class="el" href="a00288.html">Memory Allocation</a>]</small>
+</h1><!-- doxytag: class="tbb::cache_aligned_allocator&lt; void &gt;" -->Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00331.html">concurrent_hash_map.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00334.html">cache_aligned_allocator.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::interface4::concurrent_hash_map&lt; Key, T, HashCompare, Allocator &gt;::accessor:
-<p><center><img src="a00161.png" usemap="#tbb::interface4::concurrent_hash_map< Key, T, HashCompare, Allocator >::accessor_map" border="0" alt=""></center>
-<map name="tbb::interface4::concurrent_hash_map< Key, T, HashCompare, Allocator >::accessor_map">
-<area href="a00163.html" alt="tbb::interface4::concurrent_hash_map< Key, T, HashCompare, Allocator >::const_accessor" shape="rect" coords="0,0,530,24">
-</map>
-<a href="a00017.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00009.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="49eec74f272bab187d176c0d9d16a7fe"></a><!-- doxytag: member="tbb::interface4::concurrent_hash_map::accessor::value_type" ref="49eec74f272bab187d176c0d9d16a7fe" args="" -->
-typedef concurrent_hash_map::value_type&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00161.html#49eec74f272bab187d176c0d9d16a7fe">value_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ce89776145998f0685a767b4f195272d"></a><!-- doxytag: member="tbb::cache_aligned_allocator&lt; void &gt;::pointer" ref="ce89776145998f0685a767b4f195272d" args="" -->
+typedef void *&nbsp;</td><td class="memItemRight" valign="bottom"><b>pointer</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Type of value. <br></td></tr>
-<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e8938f0cd1211e88a1d73527ed3636c4"></a><!-- doxytag: member="tbb::interface4::concurrent_hash_map::accessor::operator *" ref="e8938f0cd1211e88a1d73527ed3636c4" args="() const " -->
-reference&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00161.html#e8938f0cd1211e88a1d73527ed3636c4">operator *</a> () const </td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4431fbbe1a8cfeb19c48ad0072078f45"></a><!-- doxytag: member="tbb::cache_aligned_allocator&lt; void &gt;::const_pointer" ref="4431fbbe1a8cfeb19c48ad0072078f45" args="" -->
+typedef const void *&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_pointer</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Return reference to associated value in hash table. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fcebc32c020202cc37e60eadef157569"></a><!-- doxytag: member="tbb::interface4::concurrent_hash_map::accessor::operator-&gt;" ref="fcebc32c020202cc37e60eadef157569" args="() const " -->
-pointer&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00161.html#fcebc32c020202cc37e60eadef157569">operator-&gt;</a> () const </td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2ab296f4ecdd75f8e193ff92004a697d"></a><!-- doxytag: member="tbb::cache_aligned_allocator&lt; void &gt;::value_type" ref="2ab296f4ecdd75f8e193ff92004a697d" args="" -->
+typedef void&nbsp;</td><td class="memItemRight" valign="bottom"><b>value_type</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Return pointer to associated value in hash table. <br></td></tr>
+<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>rebind</b></td></tr>
+
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename Key, typename T, typename HashCompare, typename Allocator&gt;<br>
- class tbb::interface4::concurrent_hash_map&lt; Key, T, HashCompare, Allocator &gt;::accessor</h3>
+<h3>template&lt;&gt;<br>
+ class tbb::cache_aligned_allocator&lt; void &gt;</h3>
 
-Allows write access to elements and combines data access, locking, and garbage collection. 
+Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00331.html">concurrent_hash_map.h</a></ul>
+<li><a class="el" href="a00334.html">cache_aligned_allocator.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.

@@ -94,13 +94,6 @@ static inline void __TBB_machine_and( volatile void *ptr, uint64_t addend ) {
     __asm__ __volatile__("lock\nandq %1,%0" : "=m"(*(volatile uint64_t*)ptr) : "r"(addend), "m"(*(volatile uint64_t*)ptr) : "memory");
 }
 
-static inline void __TBB_machine_pause( int32_t delay ) {
-    for (int32_t i = 0; i < delay; i++) {
-       __asm__ __volatile__("pause;");
-    }
-    return;
-}
-
 // Machine specific atomic operations
 
 #define __TBB_CompareAndSwap1(P,V,C) __TBB_machine_cmpswp1(P,V,C)
@@ -129,6 +122,12 @@ static inline void __TBB_machine_pause( int32_t delay ) {
 
 // Definition of other functions
 #ifndef __TBB_Pause
+static inline void __TBB_machine_pause( int32_t delay ) {
+    for (int32_t i = 0; i < delay; i++) {
+       __asm__ __volatile__("pause;");
+    }
+    return;
+}
 #define __TBB_Pause(V) __TBB_machine_pause(V)
 #endif
 #define __TBB_Log2(V)    __TBB_machine_lg(V)

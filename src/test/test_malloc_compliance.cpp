@@ -97,6 +97,7 @@ void limitMem( int limit )
 #define HARNESS_CUSTOM_MAIN 1
 #include "harness.h"
 #include "harness_barrier.h"
+#include "harness_tbb_independence.h"
 #if __linux__
 #include <stdint.h> // uintptr_t
 #endif
@@ -164,28 +165,6 @@ static bool perProcessLimits = true;
 #endif
 
 const size_t POWERS_OF_2 = 20;
-
-#if __linux__  && __ia64__
-/* Can't use Intel compiler intrinsic due to internal error reported by
-   10.1 compiler */
-pthread_mutex_t counter_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-int32_t __TBB_machine_fetchadd4__TBB_full_fence (volatile void *ptr, int32_t value)
-{
-    pthread_mutex_lock(&counter_mutex);
-    int32_t result = *(int32_t*)ptr;
-    *(int32_t*)ptr = result + value;
-    pthread_mutex_unlock(&counter_mutex);
-    return result;
-}
-
-void __TBB_machine_pause(int32_t /*delay*/) {}
-
-#elif (_WIN32||_WIN64) && defined(_M_AMD64) && !__MINGW64__
-
-void __TBB_machine_pause(__int32 /*delay*/ ) {}
-
-#endif
 
 struct MemStruct
 {
@@ -1007,9 +986,6 @@ void CMemTest::RunAllTests(int total_threads)
 #else
     UniquePointer();
     AddrArifm();
-#if !__TBB_MIC_NATIVE
-    NULLReturn(1*MByte,100*MByte,total_threads);
-#endif
 #endif
     if (FullLog) REPORT("All tests ended\nclearing memory...");
 }

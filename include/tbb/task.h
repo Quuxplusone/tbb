@@ -197,7 +197,9 @@ namespace internal {
             thread-specific pools. */
         scheduler* origin;
 
-        //! The scheduler that owns the task.
+        //! Obsolete. The scheduler that owns the task.
+        /** Retained only for the sake of backward binary compatibility. 
+            Still used by inline methods in the task.h header. **/
         scheduler* owner;
 
         //! The task whose reference count includes me.
@@ -214,7 +216,8 @@ namespace internal {
         reference_count ref_count;
 
         //! Obsolete. Used to be scheduling depth before TBB 2.2
-        /** Retained only for the sake of backward binary compatibility. **/
+        /** Retained only for the sake of backward binary compatibility.
+            Not used by TBB anymore. **/
         int depth;
 
         //! A task::state_type, stored as a byte for compactness.
@@ -589,13 +592,13 @@ public:
 #endif /* TBB_USE_THREADING_TOOLS||TBB_USE_ASSERT */
     }
 
-    //! Atomically increment reference count.
+    //! Atomically increment reference count and returns its old value.
     /** Has acquire semantics */  
     void increment_ref_count() {
         __TBB_FetchAndIncrementWacquire( &prefix().ref_count );
     }
 
-    //! Atomically decrement reference count.  
+    //! Atomically decrement reference count and returns its new value.
     /** Has release semantics. */  
     int decrement_ref_count() {
 #if TBB_USE_THREADING_TOOLS||TBB_USE_ASSERT
@@ -639,6 +642,7 @@ public:
     }
 
 #endif /* __TBB_ARENA_PER_MASTER */
+
     //! The innermost task being executed or destroyed by the current thread at the moment.
     static task& __TBB_EXPORTED_FUNC self();
 

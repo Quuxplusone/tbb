@@ -51,23 +51,13 @@
 #include "atomic.h"
 #include "aligned_space.h"
 #include "tbb_exception.h"
+#include "tbb_profiling.h"
 #include "_concurrent_unordered_internal.h" // Need tbb_hasher
 #if TBB_USE_PERFORMANCE_WARNINGS
 #include <typeinfo>
 #endif
 
 namespace tbb {
-
-//! @cond INTERNAL
-namespace internal {
-    //! ITT instrumented routine that loads pointer from location pointed to by src.
-    void* __TBB_EXPORTED_FUNC itt_load_pointer_with_acquire_v3( const void* src );
-    //! ITT instrumented routine that stores src into location pointed to by dst.
-    void __TBB_EXPORTED_FUNC itt_store_pointer_with_release_v3( void* dst, void* src );
-    //! Routine that loads pointer from location pointed to by src without causing ITT to report a race.
-    void* __TBB_EXPORTED_FUNC itt_load_pointer_v3( const void* src );
-}
-//! @endcond
 
 //! hash_compare that is default argument for concurrent_hash_map
 template<typename Key>
@@ -221,12 +211,7 @@ namespace interface4 {
                 sz = segment_size( k );
                 segment_ptr_t ptr = alloc.allocate( sz );
                 init_buckets( ptr, sz, is_initial );
-#if TBB_USE_THREADING_TOOLS
-                // TODO: actually, fence and notification are unnecessary here and below
-                itt_store_pointer_with_release_v3( my_table + k, ptr );
-#else
-                my_table[k] = ptr;// my_mask has release fence
-#endif
+                itt_hide_store_word( my_table[k], ptr );
                 sz <<= 1;// double it to get entire capacity of the container
             } else { // the first block
                 __TBB_ASSERT( k == embedded_block, "Wrong segment index" );
@@ -235,17 +220,9 @@ namespace interface4 {
                 init_buckets( ptr, sz - embedded_buckets, is_initial );
                 ptr -= segment_base(embedded_block);
                 for(segment_index_t i = embedded_block; i < first_block; i++) // calc the offsets
-#if TBB_USE_THREADING_TOOLS
-                    itt_store_pointer_with_release_v3( my_table + i, ptr + segment_base(i) );
-#else
-                    my_table[i] = ptr + segment_base(i);
-#endif
+                    itt_hide_store_word( my_table[i], ptr + segment_base(i) );
             }
-#if TBB_USE_THREADING_TOOLS
-            itt_store_pointer_with_release_v3( &my_mask, (void*)(sz-1) );
-#else
-            my_mask = sz - 1;
-#endif
+            itt_store_word_with_release( my_mask, sz-1 );
             watchdog.my_segment_ptr = 0;
         }
 
@@ -272,11 +249,7 @@ namespace interface4 {
         // Splitting into two functions should help inlining
         inline bool check_mask_race( const hashcode_t h, hashcode_t &m ) const {
             hashcode_t m_now, m_old = m;
-#if TBB_USE_THREADING_TOOLS
-            m_now = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-            m_now = my_mask;
-#endif
+            m_now = (hashcode_t) itt_load_word_with_acquire( my_mask );
             if( m_old != m_now )
                 return check_rehashing_collision( h, m_old, m = m_now );
             return false;
@@ -293,11 +266,7 @@ namespace interface4 {
                 m_old = (m_old<<1) - 1; // get full mask from a bit
                 __TBB_ASSERT((m_old&(m_old+1))==0 && m_old <= m, NULL);
                 // check whether it is rehashing/ed
-#if TBB_USE_THREADING_TOOLS
-                if( itt_load_pointer_with_acquire_v3(&( get_bucket(h & m_old)->node_list )) != rehash_req )
-#else
-                if( __TBB_load_with_acquire(get_bucket( h & m_old )->node_list) != rehash_req )
-#endif
+                if( itt_load_word_with_acquire(get_bucket(h & m_old)->node_list) != rehash_req )
                 {
 #if __TBB_STATISTICS
                     my_info_restarts++; // race collisions
@@ -316,11 +285,7 @@ namespace interface4 {
             if( sz >= mask ) { // TODO: add custom load_factor 
                 segment_index_t new_seg = segment_index_of( mask+1 );
                 __TBB_ASSERT( is_valid(my_table[new_seg-1]), "new allocations must not publish new mask until segment has allocated");
-#if TBB_USE_THREADING_TOOLS
-                if( !itt_load_pointer_v3(my_table+new_seg)
-#else
-                if( !my_table[new_seg]
-#endif
+                if( !itt_hide_load_word(my_table[new_seg])
                   && __TBB_CompareAndSwapW(&my_table[new_seg], 2, 0) == 0 )
                     return new_seg; // The value must be processed
             }
@@ -656,12 +621,8 @@ protected:
         //! find a bucket by masked hashcode, optionally rehash, and acquire the lock
         inline void acquire( concurrent_hash_map *base, const hashcode_t h, bool writer = false ) {
             my_b = base->get_bucket( h );
-#if TBB_USE_THREADING_TOOLS
             // TODO: actually, notification is unnecessary here, just hiding double-check
-            if( itt_load_pointer_with_acquire_v3(&my_b->node_list) == internal::rehash_req
-#else
-            if( __TBB_load_with_acquire(my_b->node_list) == internal::rehash_req
-#endif
+            if( itt_load_word_with_acquire(my_b->node_list) == internal::rehash_req
                 && try_acquire( my_b->mutex, /*write=*/true ) )
             {
                 if( my_b->node_list == internal::rehash_req ) base->rehash_bucket( my_b, h ); //recursive rehashing
@@ -966,21 +927,13 @@ protected:
         Must not be called concurrently with erasure operations. */
     const_pointer internal_fast_find( const Key& key ) const {
         hashcode_t h = my_hash_compare.hash( key );
-#if TBB_USE_THREADING_TOOLS
-        hashcode_t m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-        hashcode_t m = my_mask;
-#endif
+        hashcode_t m = (hashcode_t) itt_load_word_with_acquire( my_mask );
         node *n;
     restart:
         __TBB_ASSERT((m&(m+1))==0, NULL);
         bucket *b = get_bucket( h & m );
-#if TBB_USE_THREADING_TOOLS
         // TODO: actually, notification is unnecessary here, just hiding double-check
-        if( itt_load_pointer_with_acquire_v3(&b->node_list) == internal::rehash_req )
-#else
-        if( __TBB_load_with_acquire(b->node_list) == internal::rehash_req )
-#endif
+        if( itt_load_word_with_acquire(b->node_list) == internal::rehash_req )
         {
             bucket::scoped_t lock;
             if( lock.try_acquire( b->mutex, /*write=*/true ) ) {
@@ -1010,11 +963,7 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key
     __TBB_ASSERT( !result || !result->my_node, NULL );
     bool return_value;
     hashcode_t const h = my_hash_compare.hash( key );
-#if TBB_USE_THREADING_TOOLS
-    hashcode_t m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-    hashcode_t m = my_mask;
-#endif
+    hashcode_t m = (hashcode_t) itt_load_word_with_acquire( my_mask );
     segment_index_t grow_segment = 0;
     node *n, *tmp_n = 0;
     restart:
@@ -1069,11 +1018,7 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key
                     b.release();
                     __TBB_ASSERT( !op_insert || !return_value, "Can't acquire new item in locked bucket?" );
                     __TBB_Yield();
-#if TBB_USE_THREADING_TOOLS
-                    m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-                    m = my_mask;
-#endif
+                    m = (hashcode_t) itt_load_word_with_acquire( my_mask );
                     goto restart;
                 }
             } while( !result->my_lock.try_acquire( n->mutex, write ) );
@@ -1119,11 +1064,7 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::exclude( const_accessor &item_acc
     node_base *const n = item_accessor.my_node;
     item_accessor.my_node = NULL; // we ought release accessor anyway
     hashcode_t const h = item_accessor.my_hash;
-#if TBB_USE_THREADING_TOOLS
-    hashcode_t m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-    hashcode_t m = my_mask;
-#endif
+    hashcode_t m = (hashcode_t) itt_load_word_with_acquire( my_mask );
     do {
         // get bucket
         bucket_accessor b( this, h & m, /*writer=*/true );
@@ -1152,11 +1093,7 @@ template<typename Key, typename T, typename HashCompare, typename A>
 bool concurrent_hash_map<Key,T,HashCompare,A>::erase( const Key &key ) {
     node_base *n;
     hashcode_t const h = my_hash_compare.hash( key );
-#if TBB_USE_THREADING_TOOLS
-    hashcode_t m = (hashcode_t) itt_load_pointer_with_acquire_v3( &my_mask );
-#else
-    hashcode_t m = my_mask;
-#endif
+    hashcode_t m = (hashcode_t) itt_load_word_with_acquire( my_mask );
 restart:
     {//lock scope
         // get bucket

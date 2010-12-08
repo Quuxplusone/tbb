@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::task_scheduler_init Class Reference</title>
+<title>tbb::spin_rw_mutex_v3::scoped_lock Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,138 +21,97 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00272.html">tbb</a>::<a class="el" href="a00208.html">task_scheduler_init</a></div>
-<h1>tbb::task_scheduler_init Class Reference<br>
-<small>
-[<a class="el" href="a00285.html">Task Scheduling</a>]</small>
-</h1><!-- doxytag: class="tbb::task_scheduler_init" -->Class representing reference to tbb scheduler.  
+<a class="el" href="a00278.html">tbb</a>::<a class="el" href="a00207.html">spin_rw_mutex_v3</a>::<a class="el" href="a00208.html">scoped_lock</a></div>
+<h1>tbb::spin_rw_mutex_v3::scoped_lock Class Reference</h1><!-- doxytag: class="tbb::spin_rw_mutex_v3::scoped_lock" -->The scoped locking pattern.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00454.html">task_scheduler_init.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00446.html">spin_rw_mutex.h</a>&gt;</code>
 <p>
-<a href="a00084.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00074.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#d476053cc712e572554823492a5229ce">initialize</a> (int number_of_threads=<a class="el" href="a00208.html#8f5988e2b0fbb2d533fcbb7f2583743f">automatic</a>)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#d6ea60dee5563f702379bf5e51aa8806">scoped_lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Ensure that scheduler exists for this thread.  <a href="#d476053cc712e572554823492a5229ce"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#d5ed214a8bb53b0466ed91ff4734b9a3">initialize</a> (int number_of_threads, stack_size_type thread_stack_size)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct lock that has not acquired a mutex.  <a href="#d6ea60dee5563f702379bf5e51aa8806"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="42a92d4f8fdde425b111cfa8a9228071"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::scoped_lock::scoped_lock" ref="42a92d4f8fdde425b111cfa8a9228071" args="(spin_rw_mutex &amp;m, bool write=true)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#42a92d4f8fdde425b111cfa8a9228071">scoped_lock</a> (<a class="el" href="a00207.html">spin_rw_mutex</a> &amp;m, bool write=true)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The overloaded method with stack size parameter.  <a href="#d5ed214a8bb53b0466ed91ff4734b9a3"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f73257e04cb7fb9bd5be2b635d9016f1"></a><!-- doxytag: member="tbb::task_scheduler_init::terminate" ref="f73257e04cb7fb9bd5be2b635d9016f1" args="()" -->
-void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#f73257e04cb7fb9bd5be2b635d9016f1">terminate</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire lock on given mutex. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d7eaaa3f2e2c5dc11e7005811b1bdd04"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::scoped_lock::~scoped_lock" ref="d7eaaa3f2e2c5dc11e7005811b1bdd04" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#d7eaaa3f2e2c5dc11e7005811b1bdd04">~scoped_lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Inverse of method initialize. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="421600bf9bf9338bcf937063f2ff0e90"></a><!-- doxytag: member="tbb::task_scheduler_init::task_scheduler_init" ref="421600bf9bf9338bcf937063f2ff0e90" args="(int number_of_threads=automatic, stack_size_type thread_stack_size=0)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#421600bf9bf9338bcf937063f2ff0e90">task_scheduler_init</a> (int number_of_threads=<a class="el" href="a00208.html#8f5988e2b0fbb2d533fcbb7f2583743f">automatic</a>, stack_size_type thread_stack_size=0)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock (if lock is held). <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b0b646ec5be02a127d159bbb7ca65353"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::scoped_lock::acquire" ref="b0b646ec5be02a127d159bbb7ca65353" args="(spin_rw_mutex &amp;m, bool write=true)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#b0b646ec5be02a127d159bbb7ca65353">acquire</a> (<a class="el" href="a00207.html">spin_rw_mutex</a> &amp;m, bool write=true)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Shorthand for default constructor followed by call to intialize(number_of_threads). <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4da6c86292d80c703a66c1f6f5299488"></a><!-- doxytag: member="tbb::task_scheduler_init::~task_scheduler_init" ref="4da6c86292d80c703a66c1f6f5299488" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#4da6c86292d80c703a66c1f6f5299488">~task_scheduler_init</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire lock on given mutex. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#3f0b1e3f2efab63336400348bd070226">upgrade_to_writer</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destroy scheduler for this thread if thread has no other live task_scheduler_inits. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="12752282977029f23416642bc03e8b74"></a><!-- doxytag: member="tbb::task_scheduler_init::is_active" ref="12752282977029f23416642bc03e8b74" args="() const " -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#12752282977029f23416642bc03e8b74">is_active</a> () const </td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Upgrade reader to become a writer.  <a href="#3f0b1e3f2efab63336400348bd070226"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="61b14d00a78185c9b2d206ebfc379124"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::scoped_lock::release" ref="61b14d00a78185c9b2d206ebfc379124" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#61b14d00a78185c9b2d206ebfc379124">release</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Returns true if scheduler is active (initialized); false otherwise. <br></td></tr>
-<tr><td colspan="2"><br><h2>Static Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">static int __TBB_EXPORTED_FUNC&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#ba00714c33a41a3c2216f48613971cab">default_num_threads</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c2c2c38a08cb9080e87099fac3e5bc94"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::scoped_lock::downgrade_to_reader" ref="c2c2c38a08cb9080e87099fac3e5bc94" args="()" -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#c2c2c38a08cb9080e87099fac3e5bc94">downgrade_to_reader</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Returns the number of threads tbb scheduler would create if initialized by default.  <a href="#ba00714c33a41a3c2216f48613971cab"></a><br></td></tr>
-<tr><td colspan="2"><br><h2>Static Public Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8f5988e2b0fbb2d533fcbb7f2583743f"></a><!-- doxytag: member="tbb::task_scheduler_init::automatic" ref="8f5988e2b0fbb2d533fcbb7f2583743f" args="" -->
-static const int&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#8f5988e2b0fbb2d533fcbb7f2583743f">automatic</a> = -1</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Downgrade writer to become a reader. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9879626968d9b9a04cd2ec0fb2e84ae1"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::scoped_lock::try_acquire" ref="9879626968d9b9a04cd2ec0fb2e84ae1" args="(spin_rw_mutex &amp;m, bool write=true)" -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#9879626968d9b9a04cd2ec0fb2e84ae1">try_acquire</a> (<a class="el" href="a00207.html">spin_rw_mutex</a> &amp;m, bool write=true)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Typedef for number of threads that is automatic. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e6c860f1e559026ff3ef4599c0d6c514"></a><!-- doxytag: member="tbb::task_scheduler_init::deferred" ref="e6c860f1e559026ff3ef4599c0d6c514" args="" -->
-static const int&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00208.html#e6c860f1e559026ff3ef4599c0d6c514">deferred</a> = -2</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Argument to <a class="el" href="a00208.html#d476053cc712e572554823492a5229ce">initialize()</a> or constructor that causes initialization to be deferred. <br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Try acquire lock on given mutex. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Class representing reference to tbb scheduler. 
+The scoped locking pattern. 
 <p>
-A thread must construct a <a class="el" href="a00208.html">task_scheduler_init</a>, and keep it alive, during the time that it uses the services of class task. 
+It helps to avoid the common problem of forgetting to release lock. It also nicely provides the "node" for queuing locks. 
 <p>
-<hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="ba00714c33a41a3c2216f48613971cab"></a><!-- doxytag: member="tbb::task_scheduler_init::default_num_threads" ref="ba00714c33a41a3c2216f48613971cab" args="()" -->
+<hr><h2>Constructor &amp; Destructor Documentation</h2>
+<a class="anchor" name="d6ea60dee5563f702379bf5e51aa8806"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::scoped_lock::scoped_lock" ref="d6ea60dee5563f702379bf5e51aa8806" args="()" -->
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">static int __TBB_EXPORTED_FUNC tbb::task_scheduler_init::default_num_threads           </td>
+          <td class="memname">tbb::spin_rw_mutex_v3::scoped_lock::scoped_lock           </td>
           <td>(</td>
           <td class="paramname">          </td>
           <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [static]</code></td>
+          <td width="100%"><code> [inline]</code></td>
         </tr>
       </table>
 </div>
 <div class="memdoc">
 
 <p>
-Returns the number of threads tbb scheduler would create if initialized by default. 
+Construct lock that has not acquired a mutex. 
 <p>
-Result returned by this method does not depend on whether the scheduler has already been initialized.<p>
-Because tbb 2.0 does not support blocking tasks yet, you may use this method to boost the number of threads in the tbb's internal pool, if your tasks are doing I/O operations. The optimal number of additional threads depends on how much time your tasks spend in the blocked state. 
+Equivalent to zero-initialization of *this. 
 </div>
 </div><p>
-<a class="anchor" name="d5ed214a8bb53b0466ed91ff4734b9a3"></a><!-- doxytag: member="tbb::task_scheduler_init::initialize" ref="d5ed214a8bb53b0466ed91ff4734b9a3" args="(int number_of_threads, stack_size_type thread_stack_size)" -->
+<hr><h2>Member Function Documentation</h2>
+<a class="anchor" name="3f0b1e3f2efab63336400348bd070226"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::scoped_lock::upgrade_to_writer" ref="3f0b1e3f2efab63336400348bd070226" args="()" -->
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void __TBB_EXPORTED_METHOD tbb::task_scheduler_init::initialize           </td>
+          <td class="memname">bool tbb::spin_rw_mutex_v3::scoped_lock::upgrade_to_writer           </td>
           <td>(</td>
-          <td class="paramtype">int&nbsp;</td>
-          <td class="paramname"> <em>number_of_threads</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">stack_size_type&nbsp;</td>
-          <td class="paramname"> <em>thread_stack_size</em></td><td>&nbsp;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td><td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-The overloaded method with stack size parameter. 
-<p>
-Overloading is necessary to preserve ABI compatibility 
-</div>
-</div><p>
-<a class="anchor" name="d476053cc712e572554823492a5229ce"></a><!-- doxytag: member="tbb::task_scheduler_init::initialize" ref="d476053cc712e572554823492a5229ce" args="(int number_of_threads=automatic)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void __TBB_EXPORTED_METHOD tbb::task_scheduler_init::initialize           </td>
-          <td>(</td>
-          <td class="paramtype">int&nbsp;</td>
-          <td class="paramname"> <em>number_of_threads</em> = <code><a class="el" href="a00208.html#8f5988e2b0fbb2d533fcbb7f2583743f">automatic</a></code>          </td>
+          <td class="paramname">          </td>
           <td>&nbsp;)&nbsp;</td>
-          <td width="100%"></td>
+          <td width="100%"><code> [inline]</code></td>
         </tr>
       </table>
 </div>
 <div class="memdoc">
 
 <p>
-Ensure that scheduler exists for this thread. 
+Upgrade reader to become a writer. 
 <p>
-A value of -1 lets tbb decide on the number of threads, which is typically the number of hardware threads. For production code, the default value of -1 should be used, particularly if the client code is mixed with third party clients that might also use tbb.<p>
-The number_of_threads is ignored if any other task_scheduler_inits currently exist. A thread may construct multiple task_scheduler_inits. Doing so does no harm because the underlying scheduler is reference counted. 
+Returns true if the upgrade happened without re-acquiring the lock and false if opposite 
 </div>
 </div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00454.html">task_scheduler_init.h</a></ul>
+<li><a class="el" href="a00446.html">spin_rw_mutex.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.

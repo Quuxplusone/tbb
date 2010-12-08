@@ -102,4 +102,104 @@ namespace tbb {
 
 #endif /* no tools support */
 
+#include "atomic.h"
+// Need these to work regardless of tools support
+namespace tbb {
+    namespace internal {
+
+        enum notify_type {prepare=0, cancel, acquired, releasing};
+        const uintptr_t NUM_NOTIFY_TYPES = 4; // set to # elements in enum above
+        
+        void __TBB_EXPORTED_FUNC call_itt_notify_v5(int t, void *ptr);
+        void __TBB_EXPORTED_FUNC itt_store_pointer_with_release_v3(void *dst, void *src);
+        void* __TBB_EXPORTED_FUNC itt_load_pointer_with_acquire_v3(const void *src);
+        void* __TBB_EXPORTED_FUNC itt_load_pointer_v3( const void* src );
+
+        // two template arguments are to workaround /Wp64 warning with tbb::atomic specialized for unsigned type
+        template <typename T, typename U>
+        inline void itt_store_word_with_release(tbb::atomic<T>& dst, U src) {
+#if TBB_USE_THREADING_TOOLS
+            // This assertion should be replaced with static_assert
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+            itt_store_pointer_with_release_v3(&dst, (void *)uintptr_t(src));
+#else
+            dst = src;
+#endif // TBB_USE_THREADING_TOOLS
+        }
+
+        template <typename T>
+        inline T itt_load_word_with_acquire(const tbb::atomic<T>& src) {
+#if TBB_USE_THREADING_TOOLS
+            // This assertion should be replaced with static_assert
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
+            // Workaround for overzealous compiler warnings 
+            #pragma warning (push)
+            #pragma warning (disable: 4311)
+#endif
+            T result = (T)itt_load_pointer_with_acquire_v3(&src);
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
+            #pragma warning (pop)
+#endif
+            return result;
+#else
+            return src;
+#endif // TBB_USE_THREADING_TOOLS
+        }
+
+        template <typename T>
+        inline void itt_store_word_with_release(T& dst, T src) {
+#if TBB_USE_THREADING_TOOLS
+            // This assertion should be replaced with static_assert
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+            itt_store_pointer_with_release_v3(&dst, (void *)src);
+#else
+            __TBB_store_with_release(dst, src); 
+#endif // TBB_USE_THREADING_TOOLS
+        }
+
+        template <typename T>
+        inline T itt_load_word_with_acquire(const T& src) {
+#if TBB_USE_THREADING_TOOLS
+            // This assertion should be replaced with static_assert
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+            return (T)itt_load_pointer_with_acquire_v3(&src);
+#else
+            return __TBB_load_with_acquire(src);
+#endif // TBB_USE_THREADING_TOOLS
+        }
+        
+        template <typename T>
+        inline void itt_hide_store_word(T& dst, T src) {
+#if TBB_USE_THREADING_TOOLS
+            // This assertion should be replaced with static_assert
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+            itt_store_pointer_with_release_v3(&dst, (void *)src);
+#else
+            dst = src;
+#endif
+        }
+
+        template <typename T>
+        inline T itt_hide_load_word(const T& src) {
+#if TBB_USE_THREADING_TOOLS
+            // This assertion should be replaced with static_assert
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+            return (T)itt_load_pointer_v3(&src);
+#else
+            return src;
+#endif
+        }
+
+#if TBB_USE_THREADING_TOOLS
+        inline void call_itt_notify(notify_type t, void *ptr) {
+            call_itt_notify_v5((int)t, ptr);
+        }
+#else
+        inline void call_itt_notify(notify_type /*t*/, void * /*ptr*/) {}
+#endif // TBB_USE_THREADING_TOOLS
+
+    } // namespace internal
+} // namespace tbb
+
 #endif /* __TBB_profiling_H */

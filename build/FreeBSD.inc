@@ -69,7 +69,8 @@ OBJ = o
 DLL = so
 LIBEXT=so
 
-TBB.DEF = 
+TBB.LST =
+TBB.DEF =
 TBB.DLL = libtbb$(DEBUG_SUFFIX).$(DLL)
 TBB.LIB = $(TBB.DLL)
 LINK_TBB.LIB = $(TBB.LIB)

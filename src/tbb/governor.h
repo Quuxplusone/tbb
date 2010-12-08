@@ -35,7 +35,7 @@
 #endif /* !__TBB_ARENA_PER_MASTER */
 #include "../rml/include/rml_tbb.h"
 
-#include "tbb_misc.h" // for DetectNumberOfWorkers and ThreadStackSize
+#include "tbb_misc.h" // for AvailableHwConcurrency and ThreadStackSize
 #include "tls.h"
 
 #if __TBB_SURVIVE_THREAD_SWITCH
@@ -114,9 +114,9 @@ class governor {
 
 public:
     static unsigned default_num_threads () {
-        // No memory fence required, because at worst each invoking thread calls DetectNumberOfWorkers once.
+        // No memory fence required, because at worst each invoking thread calls AvailableHwConcurrency once.
         return DefaultNumberOfThreads ? DefaultNumberOfThreads : 
-                                        DefaultNumberOfThreads = DetectNumberOfWorkers();
+                                        DefaultNumberOfThreads = AvailableHwConcurrency();
     }
     //! Processes scheduler initialization request (possibly nested) in a master thread
     /** If necessary creates new instance of arena and/or local scheduler.

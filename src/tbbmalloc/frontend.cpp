@@ -383,6 +383,9 @@ static inline void  setThreadMallocTLS( TLSData * newvalue ) {
 
 /*********** End code to provide thread ID and a TLS pointer **********/
 
+static void *internalMalloc(size_t size);
+static void  internalFree(void *object);
+
 #if !MALLOC_DEBUG
 #if __INTEL_COMPILER || _MSC_VER
 #define NOINLINE(decl) __declspec(noinline) decl
@@ -1454,11 +1457,11 @@ static void *allocateAligned(size_t size, size_t alignment)
 
     void *result;
     if (size<=maxSegregatedObjectSize && alignment<=maxSegregatedObjectSize)
-        result = scalable_malloc(alignUp(size? size: sizeof(size_t), alignment));
+        result = internalMalloc(alignUp(size? size: sizeof(size_t), alignment));
     else if (size<minLargeObjectSize && alignment<=fittingAlignment)
-        result = scalable_malloc(size);
+        result = internalMalloc(size);
     else if (size+alignment < minLargeObjectSize) {
-        void *unaligned = scalable_malloc(size+alignment);
+        void *unaligned = internalMalloc(size+alignment);
         if (!unaligned) return NULL;
         result = alignUp(unaligned, alignment);
     } else {
@@ -1487,7 +1490,7 @@ static void *reallocAligned(void *ptr, size_t size, size_t alignment = 0)
             return ptr;
         } else {
             copySize = lmb->objectSize;
-            result = alignment ? allocateAligned(size, alignment) : scalable_malloc(size);
+            result = alignment ? allocateAligned(size, alignment) : internalMalloc(size);
         }
     } else {
         Block* block = (Block *)alignDown(ptr, blockSize);
@@ -1495,12 +1498,12 @@ static void *reallocAligned(void *ptr, size_t size, size_t alignment = 0)
         if (size <= copySize && (0==alignment || isAligned(ptr, alignment))) {
             return ptr;
         } else {
-            result = alignment ? allocateAligned(size, alignment) : scalable_malloc(size);
+            result = alignment ? allocateAligned(size, alignment) : internalMalloc(size);
         }
     }
     if (result) {
         memcpy(result, ptr, copySize<size? copySize: size);
-        scalable_free(ptr);
+        internalFree(ptr);
     }
     return result;
 }
@@ -1588,6 +1591,145 @@ static inline void freeSmallObject (void *object)
 
 }
 
+static void *internalMalloc(size_t size)
+{
+    Bin* bin;
+    Block * mallocBlock;
+    FreeObject *result = NULL;
+
+    if (!size) size = sizeof(size_t);
+
+#if MALLOC_CHECK_RECURSION
+    if (RecursiveMallocCallProtector::sameThreadActive()) {
+        result = size<minLargeObjectSize? StartupBlock::allocate(size) : 
+              (FreeObject*)mallocLargeObject(size, blockSize, /*startupAlloc=*/ true);
+        if (!result) errno = ENOMEM;
+        return result;
+    }
+#endif
+
+    if (!isMallocInitialized()) 
+        doInitialization();
+
+    /*
+     * Use Large Object Allocation
+     */
+    if (size >= minLargeObjectSize) {
+        result = (FreeObject*)mallocLargeObject(size, largeObjectAlignment);
+        if (!result) errno = ENOMEM;
+        return result;
+    }
+
+    /*
+     * Get an element in thread-local array corresponding to the given size;
+     * It keeps ptr to the active block for allocations of this size
+     */
+    bin = Bin::getAllocationBin(size);
+    if ( !bin ) {
+        errno = ENOMEM;
+        return NULL;
+    }
+
+    /* Get the block of you want to try to allocate in. */
+    mallocBlock = bin->getActiveBlock();
+
+    if (mallocBlock) {
+        do {
+            if( (result = mallocBlock->allocate()) ) {
+                return result;
+            }
+            // the previous block, if any, should be empty enough
+        } while( (mallocBlock = bin->setPreviousBlockActive()) );
+    }
+
+    /*
+     * else privatize publicly freed objects in some block and allocate from it
+     */
+    mallocBlock = bin->getPublicFreeListBlock();
+    if (mallocBlock) {
+        if (mallocBlock->emptyEnoughToUse()) {
+            bin->moveBlockToBinFront(mallocBlock);
+        }
+        MALLOC_ASSERT( mallocBlock->freeListNonNull(), ASSERT_TEXT );
+        if ( (result = mallocBlock->allocateFromFreeList()) ) {
+            return result;
+        }
+        /* Else something strange happened, need to retry from the beginning; */
+        TRACEF(( "[ScalableMalloc trace] Something is wrong: no objects in public free list; reentering.\n" ));
+        return internalMalloc(size);
+    }
+
+    /*
+     * no suitable own blocks, try to get a partial block that some other thread has discarded.
+     */
+    mallocBlock = orphanedBlocks->get(bin, size);
+    while (mallocBlock) {
+        bin->pushTLSBin(mallocBlock);
+        bin->setActiveBlock(mallocBlock); // TODO: move under the below condition?
+        if( (result = mallocBlock->allocate()) ) {
+            return result;
+        }
+        mallocBlock = orphanedBlocks->get(bin, size);
+    }
+
+    /*
+     * else try to get a new empty block
+     */
+    mallocBlock = Block::getEmpty(size);
+    if (mallocBlock) {
+        bin->pushTLSBin(mallocBlock);
+        bin->setActiveBlock(mallocBlock);
+        if( (result = mallocBlock->allocate()) ) {
+            return result;
+        }
+        /* Else something strange happened, need to retry from the beginning; */
+        TRACEF(( "[ScalableMalloc trace] Something is wrong: no objects in empty block; reentering.\n" ));
+        return internalMalloc(size);
+    }
+    /*
+     * else nothing works so return NULL
+     */
+    TRACEF(( "[ScalableMalloc trace] No memory found, returning NULL.\n" ));
+    errno = ENOMEM;
+    return NULL;
+}
+
+static void internalFree (void *object) {
+    if (!object)
+        return;
+
+    MALLOC_ASSERT(isRecognized(object), "Invalid pointer in scalable_free detected.");
+
+    if (isLargeObject(object))
+        freeLargeObject(object);
+    else
+        freeSmallObject(object);
+}
+
+static size_t internalMsize(void* ptr)
+{
+    if (ptr) {
+        MALLOC_ASSERT(isRecognized(ptr), "Invalid pointer in scalable_msize detected.");
+        if (isLargeObject(ptr)) {
+            LargeMemoryBlock* lmb = ((LargeObjectHdr*)ptr - 1)->memoryBlock;
+            return lmb->objectSize;
+        } else {
+            Block* block = (Block *)alignDown(ptr, blockSize);
+#if MALLOC_CHECK_RECURSION
+            size_t size = block->getSize()? block->getSize() : StartupBlock::msize(ptr);
+#else
+            size_t size = block->getSize();
+#endif
+            MALLOC_ASSERT(size>0 && size<minLargeObjectSize, ASSERT_TEXT);
+            return size;
+        }
+    }
+    errno = EINVAL;
+    // Unlike _msize, return 0 in case of parameter error.
+    // Returning size_t(-1) looks more like the way to troubles.
+    return 0;
+}
+
 } // namespace internal
 } // namespace rml
 
@@ -1673,125 +1815,14 @@ extern "C" void mallocProcessShutdownNotification(void)
 #endif
 }
 
-/********* The malloc code          *************/
-
 extern "C" void * scalable_malloc(size_t size)
 {
-    Bin* bin;
-    Block * mallocBlock;
-    FreeObject *result = NULL;
-
-    if (!size) size = sizeof(size_t);
-
-#if MALLOC_CHECK_RECURSION
-    if (RecursiveMallocCallProtector::sameThreadActive()) {
-        result = size<minLargeObjectSize? StartupBlock::allocate(size) : 
-              (FreeObject*)mallocLargeObject(size, blockSize, /*startupAlloc=*/ true);
-        if (!result) errno = ENOMEM;
-        return result;
-    }
-#endif
-
-    if (!isMallocInitialized()) 
-        doInitialization();
-
-    /*
-     * Use Large Object Allocation
-     */
-    if (size >= minLargeObjectSize) {
-        result = (FreeObject*)mallocLargeObject(size, largeObjectAlignment);
-        if (!result) errno = ENOMEM;
-        return result;
-    }
-
-    /*
-     * Get an element in thread-local array corresponding to the given size;
-     * It keeps ptr to the active block for allocations of this size
-     */
-    bin = Bin::getAllocationBin(size);
-    if ( !bin ) {
-        errno = ENOMEM;
-        return NULL;
-    }
-
-    /* Get the block of you want to try to allocate in. */
-    mallocBlock = bin->getActiveBlock();
-
-    if (mallocBlock) {
-        do {
-            if( (result = mallocBlock->allocate()) ) {
-                return result;
-            }
-            // the previous block, if any, should be empty enough
-        } while( (mallocBlock = bin->setPreviousBlockActive()) );
-    }
-
-    /*
-     * else privatize publicly freed objects in some block and allocate from it
-     */
-    mallocBlock = bin->getPublicFreeListBlock();
-    if (mallocBlock) {
-        if (mallocBlock->emptyEnoughToUse()) {
-            bin->moveBlockToBinFront(mallocBlock);
-        }
-        MALLOC_ASSERT( mallocBlock->freeListNonNull(), ASSERT_TEXT );
-        if ( (result = mallocBlock->allocateFromFreeList()) ) {
-            return result;
-        }
-        /* Else something strange happened, need to retry from the beginning; */
-        TRACEF(( "[ScalableMalloc trace] Something is wrong: no objects in public free list; reentering.\n" ));
-        return scalable_malloc(size);
-    }
-
-    /*
-     * no suitable own blocks, try to get a partial block that some other thread has discarded.
-     */
-    mallocBlock = orphanedBlocks->get(bin, size);
-    while (mallocBlock) {
-        bin->pushTLSBin(mallocBlock);
-        bin->setActiveBlock(mallocBlock); // TODO: move under the below condition?
-        if( (result = mallocBlock->allocate()) ) {
-            return result;
-        }
-        mallocBlock = orphanedBlocks->get(bin, size);
-    }
-
-    /*
-     * else try to get a new empty block
-     */
-    mallocBlock = Block::getEmpty(size);
-    if (mallocBlock) {
-        bin->pushTLSBin(mallocBlock);
-        bin->setActiveBlock(mallocBlock);
-        if( (result = mallocBlock->allocate()) ) {
-            return result;
-        }
-        /* Else something strange happened, need to retry from the beginning; */
-        TRACEF(( "[ScalableMalloc trace] Something is wrong: no objects in empty block; reentering.\n" ));
-        return scalable_malloc(size);
-    }
-    /*
-     * else nothing works so return NULL
-     */
-    TRACEF(( "[ScalableMalloc trace] No memory found, returning NULL.\n" ));
-    errno = ENOMEM;
-    return NULL;
+    return internalMalloc(size);
 }
 
-/********* End the malloc code      *************/
-
-/********* The free code            *************/
-
-extern "C" void scalable_free (void *object) {
-if (!object)
-        return;
-
-    MALLOC_ASSERT(isRecognized(object), "Invalid pointer in scalable_free detected.");
-
-    if (isLargeObject(object))
-        freeLargeObject(object);
-    else
-        freeSmallObject(object);
+extern "C" void scalable_free (void *object)
+{
+    internalFree(object);
 }
 
 /*
@@ -1829,10 +1860,10 @@ extern "C" void* scalable_realloc(void* ptr, size_t size)
 {
     /* corner cases left out of reallocAligned to not deal with errno there */
     if (!ptr) {
-        return scalable_malloc(size);
+        return internalMalloc(size);
     }
     if (!size) {
-        scalable_free(ptr);
+        internalFree(ptr);
         return NULL;
     }
     void* tmp = reallocAligned(ptr, size, 0);
@@ -1847,11 +1878,11 @@ extern "C" void* scalable_realloc(void* ptr, size_t size)
 extern "C" void* safer_scalable_realloc (void* ptr, size_t sz, void* original_realloc) 
 {
     if (!ptr) {
-        return scalable_malloc(sz);
+        return internalMalloc(sz);
     }
     if (isRecognized(ptr)) {
         if (!sz) {
-            scalable_free(ptr);
+            internalFree(ptr);
             return NULL;
         }
         void* tmp = reallocAligned(ptr, sz, 0);
@@ -1863,7 +1894,7 @@ extern "C" void* safer_scalable_realloc (void* ptr, size_t sz, void* original_re
             orig_ptrs *original_ptrs = static_cast<orig_ptrs*>(original_realloc);
             if ( original_ptrs->orig_msize ){
                 size_t oldSize = original_ptrs->orig_msize(ptr);
-                void *newBuf = scalable_malloc(sz);
+                void *newBuf = internalMalloc(sz);
                 if (newBuf) {
                     memcpy(newBuf, ptr, sz<oldSize? sz : oldSize);
                     if ( original_ptrs->orig_free ){
@@ -1899,7 +1930,7 @@ extern "C" void* safer_scalable_realloc (void* ptr, size_t sz, void* original_re
 extern "C" void * scalable_calloc(size_t nobj, size_t size)
 {
     size_t arraySize = nobj * size;
-    void* result = scalable_malloc(arraySize);
+    void* result = internalMalloc(arraySize);
     if (result)
         memset(result, 0, arraySize);
     return result;
@@ -1943,7 +1974,7 @@ extern "C" void * scalable_aligned_realloc(void *ptr, size_t size, size_t alignm
         return allocateAligned(size, alignment);
     }
     if (!size) {
-        scalable_free(ptr);
+        internalFree(ptr);
         return NULL;
     }
 
@@ -1964,7 +1995,7 @@ extern "C" void * safer_scalable_aligned_realloc(void *ptr, size_t size, size_t 
     }
     if (isRecognized(ptr)) {
         if (!size) {
-            scalable_free(ptr);
+            internalFree(ptr);
             return NULL;
         }
         void* tmp = reallocAligned(ptr, size, alignment);
@@ -2002,7 +2033,7 @@ extern "C" void * safer_scalable_aligned_realloc(void *ptr, size_t size, size_t 
 
 extern "C" void scalable_aligned_free(void *ptr)
 {
-    scalable_free(ptr);
+    internalFree(ptr);
 }
 
 /********* end code for aligned allocation API **********/
@@ -2014,26 +2045,7 @@ extern "C" void scalable_aligned_free(void *ptr)
  */
 extern "C" size_t scalable_msize(void* ptr)
 {
-    if (ptr) {
-        MALLOC_ASSERT(isRecognized(ptr), "Invalid pointer in scalable_msize detected.");
-        if (isLargeObject(ptr)) {
-            LargeMemoryBlock* lmb = ((LargeObjectHdr*)ptr - 1)->memoryBlock;
-            return lmb->objectSize;
-        } else {
-            Block* block = (Block *)alignDown(ptr, blockSize);
-#if MALLOC_CHECK_RECURSION
-            size_t size = block->getSize()? block->getSize() : StartupBlock::msize(ptr);
-#else
-            size_t size = block->getSize();
-#endif
-            MALLOC_ASSERT(size>0 && size<minLargeObjectSize, ASSERT_TEXT);
-            return size;
-        }
-    }
-    errno = EINVAL;
-    // Unlike _msize, return 0 in case of parameter error.
-    // Returning size_t(-1) looks more like the way to troubles.
-    return 0;
+    return internalMsize(ptr);
 }
 
 /*
@@ -2045,7 +2057,7 @@ extern "C" size_t safer_scalable_msize (void *object, size_t (*original_msize)(v
     if (object) {
         // Check if the memory was allocated by scalable_malloc
         if (isRecognized(object))
-            return scalable_msize(object);
+            return internalMsize(object);
         else if (original_msize)
             return original_msize(object);
     }

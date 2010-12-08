@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::combinable&lt; T &gt; Class Template Reference</title>
+<title>tbb::blocked_range2d&lt; RowValue, ColValue &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,58 +21,60 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00272.html">tbb</a>::<a class="el" href="a00158.html">combinable</a></div>
-<h1>tbb::combinable&lt; T &gt; Class Template Reference<br>
+<a class="el" href="a00278.html">tbb</a>::<a class="el" href="a00158.html">blocked_range2d</a></div>
+<h1>tbb::blocked_range2d&lt; RowValue, ColValue &gt; Class Template Reference<br>
 <small>
-[<a class="el" href="a00281.html">Containers</a>]</small>
-</h1><!-- doxytag: class="tbb::combinable" -->Thread-local storage with optional reduction.  
+[<a class="el" href="a00286.html">Algorithms</a>]</small>
+</h1><!-- doxytag: class="tbb::blocked_range2d" -->A 2-dimensional range that models the Range concept.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00330.html">combinable.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00332.html">blocked_range2d.h</a>&gt;</code>
 <p>
-<a href="a00011.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00005.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
+<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a807a22fe658ec38b8edfd69521d0383"></a><!-- doxytag: member="tbb::blocked_range2d::row_range_type" ref="a807a22fe658ec38b8edfd69521d0383" args="" -->
+typedef <a class="el" href="a00157.html">blocked_range</a>&lt; RowValue &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00158.html#a807a22fe658ec38b8edfd69521d0383">row_range_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Type for size of an iteation range. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="750d5c6ac9915443df477a30031c07fd"></a><!-- doxytag: member="tbb::blocked_range2d::col_range_type" ref="750d5c6ac9915443df477a30031c07fd" args="" -->
+typedef <a class="el" href="a00157.html">blocked_range</a>&lt; ColValue &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>col_range_type</b></td></tr>
+
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="d03619e90e62555aa5634fcc8adadcc9"></a><!-- doxytag: member="tbb::combinable::combinable" ref="d03619e90e62555aa5634fcc8adadcc9" args="(finit _finit)" -->
-template&lt;typename finit&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><b>combinable</b> (finit _finit)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4180bc35d4f8ed9f20045dba4f2a1bdc"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="4180bc35d4f8ed9f20045dba4f2a1bdc" args="(RowValue row_begin, RowValue row_end, typename row_range_type::size_type row_grainsize, ColValue col_begin, ColValue col_end, typename col_range_type::size_type col_grainsize)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (RowValue row_begin, RowValue row_end, typename <a class="el" href="a00157.html#f5707bffea38eee5c9680f37358afb8e">row_range_type::size_type</a> row_grainsize, ColValue col_begin, ColValue col_end, typename <a class="el" href="a00157.html#f5707bffea38eee5c9680f37358afb8e">col_range_type::size_type</a> col_grainsize)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2c87e79ae98588a5780f708773388843"></a><!-- doxytag: member="tbb::combinable::~combinable" ref="2c87e79ae98588a5780f708773388843" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00158.html#2c87e79ae98588a5780f708773388843">~combinable</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="485434db1609b2074d86cb604f3c674e"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="485434db1609b2074d86cb604f3c674e" args="(RowValue row_begin, RowValue row_end, ColValue col_begin, ColValue col_end)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (RowValue row_begin, RowValue row_end, ColValue col_begin, ColValue col_end)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">destructor <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="57012803b7bc7416452cb930121ff210"></a><!-- doxytag: member="tbb::combinable::combinable" ref="57012803b7bc7416452cb930121ff210" args="(const combinable &amp;other)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>combinable</b> (const <a class="el" href="a00158.html">combinable</a> &amp;other)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d144cb2d88cef553420311aca8667a44"></a><!-- doxytag: member="tbb::blocked_range2d::empty" ref="d144cb2d88cef553420311aca8667a44" args="() const " -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00158.html#d144cb2d88cef553420311aca8667a44">empty</a> () const </td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c9650d59f65b1042afa232ede57dfca9"></a><!-- doxytag: member="tbb::combinable::operator=" ref="c9650d59f65b1042afa232ede57dfca9" args="(const combinable &amp;other)" -->
-<a class="el" href="a00158.html">combinable</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>operator=</b> (const <a class="el" href="a00158.html">combinable</a> &amp;other)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if range is empty. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ad36a9b38e4fef26d376f99552ce2d92"></a><!-- doxytag: member="tbb::blocked_range2d::is_divisible" ref="ad36a9b38e4fef26d376f99552ce2d92" args="() const " -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00158.html#ad36a9b38e4fef26d376f99552ce2d92">is_divisible</a> () const </td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f09233cccb9b5e8a58874e43a703cac2"></a><!-- doxytag: member="tbb::combinable::clear" ref="f09233cccb9b5e8a58874e43a703cac2" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>clear</b> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if range is divisible into two pieces. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4f80e6db02bfa4e90e2a219de9f17461"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="4f80e6db02bfa4e90e2a219de9f17461" args="(blocked_range2d &amp;r, split)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (<a class="el" href="a00158.html">blocked_range2d</a> &amp;r, <a class="el" href="a00209.html">split</a>)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2d7550204bcb88fa8810b5a39e9cad24"></a><!-- doxytag: member="tbb::combinable::local" ref="2d7550204bcb88fa8810b5a39e9cad24" args="()" -->
-T &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>local</b> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f496e7348a82652fba581203477cc07c"></a><!-- doxytag: member="tbb::blocked_range2d::rows" ref="f496e7348a82652fba581203477cc07c" args="() const " -->
+const <a class="el" href="a00157.html">row_range_type</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00158.html#f496e7348a82652fba581203477cc07c">rows</a> () const </td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="93a42052881ecccdd8ddff16a1b1cca1"></a><!-- doxytag: member="tbb::combinable::local" ref="93a42052881ecccdd8ddff16a1b1cca1" args="(bool &amp;exists)" -->
-T &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>local</b> (bool &amp;exists)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The rows of the iteration space. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="392a46759af2c884957115771affa7f4"></a><!-- doxytag: member="tbb::blocked_range2d::cols" ref="392a46759af2c884957115771affa7f4" args="() const " -->
+const <a class="el" href="a00157.html">col_range_type</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00158.html#392a46759af2c884957115771affa7f4">cols</a> () const </td></tr>
 
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="9be306b4a073066dcac4043dc189c514"></a><!-- doxytag: member="tbb::combinable::combine" ref="9be306b4a073066dcac4043dc189c514" args="(combine_func_t f_combine)" -->
-template&lt;typename combine_func_t&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">T&nbsp;</td><td class="memTemplItemRight" valign="bottom"><b>combine</b> (combine_func_t f_combine)</td></tr>
-
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="dcd23283834149c87c345c0e476dfee8"></a><!-- doxytag: member="tbb::combinable::combine_each" ref="dcd23283834149c87c345c0e476dfee8" args="(combine_func_t f_combine)" -->
-template&lt;typename combine_func_t&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><b>combine_each</b> (combine_func_t f_combine)</td></tr>
-
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The columns of the iteration space. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename T&gt;<br>
- class tbb::combinable&lt; T &gt;</h3>
+<h3>template&lt;typename RowValue, typename ColValue = RowValue&gt;<br>
+ class tbb::blocked_range2d&lt; RowValue, ColValue &gt;</h3>
 
-Thread-local storage with optional reduction. 
+A 2-dimensional range that models the Range concept. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00330.html">combinable.h</a></ul>
+<li><a class="el" href="a00332.html">blocked_range2d.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.

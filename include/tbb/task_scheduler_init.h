@@ -87,14 +87,24 @@ public:
             terminate();
         internal::poison_pointer( my_scheduler );
     }
-    //! Returns the number of threads tbb scheduler would create if initialized by default.
+    //! Returns the number of threads TBB scheduler would create if initialized by default.
     /** Result returned by this method does not depend on whether the scheduler 
         has already been initialized.
         
         Because tbb 2.0 does not support blocking tasks yet, you may use this method
         to boost the number of threads in the tbb's internal pool, if your tasks are 
         doing I/O operations. The optimal number of additional threads depends on how
-        much time your tasks spend in the blocked state. */
+        much time your tasks spend in the blocked state.
+        
+        Before TBB 3.0 U4 this method returned the number of logical CPU in the
+        system. Currently on Windows, Linux and FreeBSD it returns the number of
+        logical CPUs available to the current process in accordance with its affinity
+        mask.
+        
+        NOTE: The return value of this method never changes after its first invocation. 
+        This means that changes in the process affinity mask that took place after
+        this method was first invoked will not affect the number of worker threads
+        in the TBB worker threads pool. */
     static int __TBB_EXPORTED_FUNC default_num_threads ();
 
     //! Returns true if scheduler is active (initialized); false otherwise

@@ -31,18 +31,7 @@
 
 #include "tbb/tbb_stddef.h"
 #include "tbb/tbb_machine.h"
-
-#if _WIN32||_WIN64
-#include "tbb/machine/windows_api.h"
-#elif __linux__
-#include <sys/sysinfo.h>
-#define __TBB_DetectNumberOfWorkers() get_nprocs()
-#elif defined(__sun)
-#include <sys/sysinfo.h>
-#include <unistd.h>
-#elif defined(__FreeBSD__) || defined(_AIX)
-#include <unistd.h>
-#endif
+#include "tbb/atomic.h"     // For atomic_xxx definitions
 
 namespace tbb {
 namespace internal {
@@ -57,35 +46,34 @@ const size_t MByte = 1<<20;
     const size_t ThreadStackSize = 4*MByte;
 #endif
 
-#if defined(__TBB_DetectNumberOfWorkers) // covers Linux, Mac OS*, and other platforms
 
-static inline int DetectNumberOfWorkers() {
-    int n = __TBB_DetectNumberOfWorkers(); 
-    return n>0? n: 1; // Fail safety strap
+#ifndef __TBB_HardwareConcurrency
+
+//! Returns maximal parallelism level supported by the current OS configuration.
+int AvailableHwConcurrency();
+
+#else
+
+inline int AvailableHwConcurrency() {
+    int n = __TBB_HardwareConcurrency();
+    return n > 0 ? n : 1; // Fail safety strap
 }
+#endif /* __TBB_HardwareConcurrency */
 
-#else /* !__TBB_DetectNumberOfWorkers */
 
 #if _WIN32||_WIN64
 
-static inline int DetectNumberOfWorkers() {
-    SYSTEM_INFO si;
-    GetSystemInfo(&si);
-    return static_cast<int>(si.dwNumberOfProcessors);
-}
+//! Returns number of processor groups in the current OS configuration.
+/** AvailableHwConcurrency must be called at least once before calling this method. **/
+int NumberOfProcessorGroups();
 
-#elif defined(_SC_NPROCESSORS_ONLN)
+//! Retrieves index of processor group containing processor with the given index
+int FindProcessorGroupIndex ( int processorIndex );
 
-static inline int DetectNumberOfWorkers() {
-    int number_of_workers = sysconf(_SC_NPROCESSORS_ONLN);
-    return number_of_workers>0? number_of_workers: 1;
-}
+//! Affinitizes the thread to the specified processor group
+void MoveThreadIntoProcessorGroup( void* hThread, int groupIndex );
 
-#else
-#error DetectNumberOfWorkers: Method to detect the number of available CPUs is unknown
-#endif /* os kind */
-
-#endif /* !__TBB_DetectNumberOfWorkers */
+#endif /* _WIN32||_WIN64 */
 
 //! Throws std::runtime_error with what() returning error_code description prefixed with aux_info
 void handle_win_error( int error_code );
@@ -93,10 +81,10 @@ void handle_win_error( int error_code );
 //! True if environment variable with given name is set and not 0; otherwise false.
 bool GetBoolEnvironmentVariable( const char * name );
 
-//! Print TBB version information on stderr
+//! Prints TBB version information on stderr
 void PrintVersion();
 
-//! Print extra TBB version information on stderr
+//! Prints arbitrary extra TBB version information on stderr
 void PrintExtraVersionInfo( const char* category, const char* description );
 
 //! A callback routine to print RML version information on stderr
@@ -154,6 +142,52 @@ public:
         a = GetPrime( seed );
     }
 };
+
+//------------------------------------------------------------------------
+// Atomic extensions
+//------------------------------------------------------------------------
+
+//! Atomically replaces value of dst with newValue if they satisfy condition of compare predicate
+/** Return value semantics is the same as for CAS. **/
+template<typename T1, typename T2, class Pred> 
+T1 atomic_update ( tbb::atomic<T1>& dst, const T2& newValue, Pred compare ) {
+    T1 oldValue = dst;
+    while ( compare(oldValue, newValue) ) {
+        if ( dst.compare_and_swap(newValue, oldValue) == oldValue )
+            break;
+        oldValue = dst;
+    }
+    return oldValue;
+}
+
+//! One-time initialization states
+enum do_once_state {
+    do_once_fallow = 0, ///< No execution attempts have been undertaken yet
+    do_once_pending,    ///< A thread is executing associated do-once routine
+    do_once_executed,   ///< Do-once routine has been executed
+    initialization_complete = do_once_executed  ///< Convenience alias
+};
+
+//! One-time initialization function
+/** /param initializer Either pointer to function without arguments or functor 
+            object with operator function without arguments.
+    /param state Shared state associated with initializer that specifies its 
+            initialization state. Must be initially set to #uninitialized value
+            (e.g. by means of default static zero initialization). **/
+template <typename F>
+void atomic_do_once ( const F& initializer, atomic<do_once_state>& state ) {
+    // tbb::atomic provides necessary acquire and release fences.
+    if( state != do_once_executed ) {
+        if( state == do_once_fallow ) {
+            if( state.compare_and_swap( do_once_pending, do_once_fallow ) == do_once_fallow ) {
+                initializer();
+                state = do_once_executed;
+            }
+        }
+        else
+            spin_wait_until_eq( state, do_once_executed );
+    }
+}
 
 } // namespace internal
 } // namespace tbb

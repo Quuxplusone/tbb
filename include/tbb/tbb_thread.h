@@ -170,6 +170,15 @@ namespace internal {
         native_handle_type native_handle() { return my_handle; }
     
         //! The number of hardware thread contexts.
+        /** Before TBB 3.0 U4 this methods returned the number of logical CPU in
+            the system. Currently on Windows, Linux and FreeBSD it returns the
+            number of logical CPUs available to the current process in accordance
+            with its affinity mask.
+            
+            NOTE: The return value of this method never changes after its first
+            invocation. This means that changes in the process affinity mask that
+            took place after this method was first invoked will not affect the
+            number of worker threads in the TBB worker threads pool. **/
         static unsigned __TBB_EXPORTED_FUNC hardware_concurrency();
     private:
         native_handle_type my_handle; 

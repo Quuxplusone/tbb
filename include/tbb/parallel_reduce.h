@@ -32,35 +32,13 @@
 #include "task.h"
 #include "aligned_space.h"
 #include "partitioner.h"
+#include "tbb_profiling.h"
 #include <new>
 
 namespace tbb {
 
 //! @cond INTERNAL
 namespace internal {
-
-    //! ITT instrumented routine that stores src into location pointed to by dst.
-    void __TBB_EXPORTED_FUNC itt_store_pointer_with_release_v3( void* dst, void* src );
-
-    //! ITT instrumented routine that loads pointer from location pointed to by src.
-    void* __TBB_EXPORTED_FUNC itt_load_pointer_with_acquire_v3( const void* src );
-
-    template<typename T> inline void parallel_reduce_store_body( T*& dst, T* src ) {
-#if TBB_USE_THREADING_TOOLS
-        itt_store_pointer_with_release_v3(&dst,src);
-#else
-        __TBB_store_with_release(dst,src);
-#endif /* TBB_USE_THREADING_TOOLS */
-    }
-
-    template<typename T> inline T* parallel_reduce_load_body( T*& src ) {
-#if TBB_USE_THREADING_TOOLS
-        return static_cast<T*>(itt_load_pointer_with_acquire_v3(&src));
-#else
-        return __TBB_load_with_acquire(src);
-#endif /* TBB_USE_THREADING_TOOLS */
-    }
-
     //! 0 if root, 1 if a left child, 2 if a right child.
     /** Represented as a char, not enum, for compactness. */
     typedef char reduction_context;
@@ -88,7 +66,7 @@ namespace internal {
                 s->~Body();
             }
             if( my_context==1 ) 
-                parallel_reduce_store_body( static_cast<finish_reduce*>(parent())->my_body, my_body );
+                itt_store_word_with_release( static_cast<finish_reduce*>(parent())->my_body, my_body );
             return NULL;
         }       
         template<typename Range,typename Body_, typename Partitioner>
@@ -157,7 +135,7 @@ public:
     task* start_reduce<Range,Body,Partitioner>::execute() {
         if( my_context==2 ) {
             finish_type* p = static_cast<finish_type*>(parent() );
-            if( !parallel_reduce_load_body(p->my_body) ) {
+            if( !itt_load_word_with_acquire(p->my_body) ) {
                 my_body = new( p->zombie_space.begin() ) Body(*my_body,split());
                 p->has_right_zombie = true;
             } 
@@ -165,7 +143,7 @@ public:
         if( !my_range.is_divisible() || my_partition.should_execute_range(*this) ) {
             (*my_body)( my_range );
             if( my_context==1 ) 
-                parallel_reduce_store_body(static_cast<finish_type*>(parent())->my_body, my_body );
+                itt_store_word_with_release(static_cast<finish_type*>(parent())->my_body, my_body );
             return my_partition.continue_after_execute_range();
         } else {
             finish_type& c = *new( allocate_continuation()) finish_type(my_context);

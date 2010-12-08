@@ -741,14 +741,12 @@ void RunTests () {
     TestConcurrentCtxDestruction();
 #endif
 }
-#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 int TestMain () {
     REMARK ("Using %s", TBB_USE_CAPTURED_EXCEPTION ? "tbb:captured_exception" : "exact exception propagation");
     MinThread = min(NUM_ROOTS_IN_GROUP, min(tbb::task_scheduler_init::default_num_threads(), max(2, MinThread)));
     MaxThread = min(NUM_ROOTS_IN_GROUP, max(MinThread, min(tbb::task_scheduler_init::default_num_threads(), MaxThread)));
     ASSERT (NUM_ROOTS_IN_GROUP < NUM_ROOT_TASKS, "Fix defines");
-#if __TBB_TASK_GROUP_CONTEXT
 #if TBB_USE_EXCEPTIONS
     // Test0 always runs on one thread
     Test0();
@@ -757,7 +755,12 @@ int TestMain () {
     for ( g_NumThreads = MinThread; g_NumThreads <= MaxThread; ++g_NumThreads )
         RunTests();
     return Harness::Done;
-#else
-    return Harness::Skipped;
-#endif /* __TBB_TASK_GROUP_CONTEXT */
 }
+
+#else /* !__TBB_TASK_GROUP_CONTEXT */
+
+int TestMain () {
+    return Harness::Skipped;
+}
+
+#endif /* !__TBB_TASK_GROUP_CONTEXT */

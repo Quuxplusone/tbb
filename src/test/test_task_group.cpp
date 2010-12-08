@@ -810,7 +810,7 @@ int TestMain () {
         Concurrency::SchedulerPolicy sp( 4,
                                 Concurrency::SchedulerKind, Concurrency::ThreadScheduler,
                                 Concurrency::MinConcurrency, 1,
-                                Concurrency::MaxConcurrency    , p,
+                                Concurrency::MaxConcurrency, p,
                                 Concurrency::TargetOversubscriptionFactor, 1);
         Concurrency::Scheduler  *s = Concurrency::Scheduler::Create( sp );
 #endif /* !TBBTEST_USE_TBB */

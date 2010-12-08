@@ -81,7 +81,7 @@ void TestCompareAndSwapAcquireRelease( T i, T j, T k ) {
     T old = x.counter.template compare_and_swap<M>( j, k );
     ASSERT( old==i, NULL );
     ASSERT( x.counter==i, "old value not retained" );
-    // Test compare and swap that should suceed
+    // Test compare and swap that should succeed
     old = x.counter.template compare_and_swap<M>( j, i );
     ASSERT( old==i, NULL );
     ASSERT( x.counter==j, "value not updated?" );
@@ -96,7 +96,7 @@ void TestCompareAndSwap( T i, T j, T k ) {
     T old = x.counter.compare_and_swap( j, k );
     ASSERT( old==i, NULL );
     ASSERT( x.counter==i, "old value not retained" );
-    // Test compare and swap that should suceed
+    // Test compare and swap that should succeed
     old = x.counter.compare_and_swap( j, i );
     ASSERT( old==i, NULL );
     if( x.counter==i ) {

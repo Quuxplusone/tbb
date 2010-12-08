@@ -48,11 +48,8 @@
 #endif
 
 extern "C" {
-    void * scalable_malloc(size_t size);
-    void   scalable_free(void *object);
     void mallocThreadShutdownNotification(void*);
 }
-
 
 /********* Various compile-time options        **************/
 

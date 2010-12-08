@@ -65,6 +65,9 @@
 #include "queuing_mutex.h"
 #include "queuing_rw_mutex.h"
 #include "reader_writer_lock.h"
+#if TBB_PREVIEW_CONCURRENT_PRIORITY_QUEUE
+#include "concurrent_priority_queue.h"
+#endif
 #include "recursive_mutex.h"
 #include "spin_mutex.h"
 #include "spin_rw_mutex.h"

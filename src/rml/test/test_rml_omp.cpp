@@ -180,7 +180,7 @@ void FireUpJobs( MyServer& server, MyClient& client, int max_thread, int n_extra
 
 void DoClientSpecificVerification( MyServer& server, int /*n_thread*/ )
 {
-    ASSERT( server.current_balance()==int(tbb::internal::DetectNumberOfWorkers())-1, NULL );
+    ASSERT( server.current_balance()==int(tbb::internal::AvailableHwConcurrency())-1, NULL );
 }
 
 int TestMain () {

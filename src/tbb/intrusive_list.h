@@ -188,6 +188,7 @@ public:
 
     void remove( T& val ) {
         __TBB_ASSERT( node(val).my_prev_node != &node(val) && node(val).my_next_node != &node(val), "Element to remove is not in the list" );
+        __TBB_ASSERT( node(val).my_prev_node->my_next_node == &node(val) && node(val).my_next_node->my_prev_node == &node(val), "Element to remove is not in the list" );
         --my_size;
         node(val).my_next_node->my_prev_node = node(val).my_prev_node;
         node(val).my_prev_node->my_next_node = node(val).my_next_node;

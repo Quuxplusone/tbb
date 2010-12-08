@@ -35,8 +35,13 @@
 // Suppress usage of #pragma comment
 #define __TBB_NO_IMPLICIT_LINKAGE 1
 
+// Enable preview features if any 
+#define __TBB_BUILD 1
+
 #define __TBB_TASK_CPP_DIRECTLY_INCLUDED 1
 #include "../tbb/tbb_main.cpp"
+#include "../tbb/dynamic_link.cpp"
+#include "../tbb/tbb_misc_ex.cpp"
 
 // Tasking subsystem files
 #include "../tbb/governor.cpp"
@@ -51,7 +56,6 @@
 
 // Other dependencies
 #include "../tbb/cache_aligned_allocator.cpp"
-#include "../tbb/dynamic_link.cpp"
 #include "../tbb/tbb_thread.cpp"
 #include "../tbb/mutex.cpp"
 #include "../tbb/spin_rw_mutex.cpp"

@@ -68,6 +68,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -149,6 +150,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -230,6 +232,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -311,6 +314,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -393,6 +397,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(DXSDK_DIR)\lib\x86"
 				GenerateDebugInformation="true"
@@ -475,6 +480,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(DXSDK_DIR)\lib\x64"
 				GenerateDebugInformation="true"
@@ -559,6 +565,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(DXSDK_DIR)\lib\x86"
 				GenerateDebugInformation="true"
@@ -641,6 +648,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(DXSDK_DIR)\lib\x64"
 				GenerateDebugInformation="true"

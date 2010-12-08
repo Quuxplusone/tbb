@@ -53,6 +53,10 @@ inline char* duplicate_string ( const char* src ) {
     return dst;
 }
 
+captured_exception::~captured_exception () throw() {
+    clear();
+}
+
 void captured_exception::set ( const char* name, const char* info ) throw() {
     my_exception_name = duplicate_string( name );
     my_exception_info = duplicate_string( info );
@@ -148,7 +152,7 @@ task_group_context::~task_group_context () {
     if ( my_kind != isolated ) {
         generic_scheduler *s = (generic_scheduler*)my_owner;
         if ( governor::is_set(s) ) {
-            // Local update of the context list 
+            // Local update of the context list
             uintptr_t local_count_snapshot = s->local_cancel_count;
             s->local_ctx_list_update = 1;
             __TBB_full_memory_fence();
@@ -164,15 +168,15 @@ task_group_context::~task_group_context () {
                 __TBB_store_with_release( s->local_ctx_list_update, 0 );
                 if ( local_count_snapshot != global_cancel_count ) {
                     // Another thread was propagating cancellation request when we removed
-                    // ourselves from the list. We must ensure that it is not accessing us 
-                    // when this destructor finishes. We'll be able to acquire the lock 
+                    // ourselves from the list. We must ensure that it is not accessing us
+                    // when this destructor finishes. We'll be able to acquire the lock
                     // below only after the other thread finishes with us.
                     spin_mutex::scoped_lock lock(s->context_list_mutex);
                 }
             }
         }
         else {
-            // Nonlocal update of the context list 
+            // Nonlocal update of the context list
             if ( __TBB_FetchAndStoreW(&my_kind, dying) == detached ) {
                 my_node.my_prev->my_next = my_node.my_next;
                 my_node.my_next->my_prev = my_node.my_prev;
@@ -213,8 +217,8 @@ void task_group_context::init () {
         my_node.my_prev = &s->context_list_head;
         s->context_list_head.my_next->my_prev = &my_node;
         my_node.my_next = s->context_list_head.my_next;
-        // Thread local list of contexts allows concurrent traversal by another 
-        // thread while propagating cancellation request. Release fence ensures 
+        // Thread local list of contexts allows concurrent traversal by another
+        // thread while propagating cancellation request. Release fence ensures
         // visibility of my_node's members in the traversing thread.
         __TBB_store_with_release(s->context_list_head.my_next, &my_node);
     }

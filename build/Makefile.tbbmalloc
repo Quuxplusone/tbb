@@ -155,8 +155,8 @@ test_malloc_overload_proxy.$(TEST_EXT): test_malloc_overload.cpp $(MALLOC_PROXY_
 test_malloc_whitebox.$(TEST_EXT): test_malloc_whitebox.cpp $(MALLOC_ASM.OBJ) tbb_misc_malloc.$(OBJ)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(M_CPLUS_FLAGS) $(M_INCLUDES) $^ $(LIBS) $(LIBDL) $(LINK_FLAGS)
 
-test_malloc_lib_unload.$(TEST_EXT): test_malloc_lib_unload.cpp
-	$(CPLUS) $(OUTPUT_KEY)$@ $(M_CPLUS_FLAGS) $(M_INCLUDES) $^ $(LIBS) $(LIBDL) $(LINK_FLAGS)
+test_malloc_lib_unload.$(TEST_EXT): test_malloc_lib_unload.cpp test_malloc_lib_unload_dll.$(DLL)
+	$(CPLUS) $(OUTPUT_KEY)$@ $(M_CPLUS_FLAGS) $(M_INCLUDES) $< $(LIBS) test_malloc_lib_unload_dll.$(LIBEXT)  $(LIBDL) $(LINK_FLAGS)
 
 $(MALLOC_MAIN_TESTS): %.$(TEST_EXT): %.$(OBJ) $(MALLOC_LIB)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $< $(MALLOC_LIB) $(LIBS) $(LINK_FLAGS)
@@ -175,14 +175,20 @@ endif
 test_malloc_atexit.$(TEST_EXT): test_malloc_atexit.$(OBJ) test_malloc_atexit_dll.$(DLL)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $< $(MALLOC_PROXY_LIB) $(MALLOC_LIB) test_malloc_atexit_dll.$(LIBEXT) $(LIBS) $(LINK_FLAGS)
 
-MALLOC_TESTS = $(MALLOC_MAIN_TESTS) $(MALLOC_OVERLOAD_TESTS) $(MALLOC_C_TESTS) test_malloc_whitebox.$(TEST_EXT) test_malloc_lib_unload.$(TEST_EXT)
+MALLOC_TESTS = $(MALLOC_MAIN_TESTS) $(MALLOC_C_TESTS) test_malloc_whitebox.$(TEST_EXT)
+ifneq (,$(MALLOCPROXY.DLL))
+MALLOC_TESTS += $(MALLOC_OVERLOAD_TESTS) test_malloc_lib_unload.$(TEST_EXT)
+endif
+
 # run_cmd is usually empty
 malloc_test: $(call cross_suffix,$(MALLOC.DLL)) $(TEST_PREREQUISITE) $(MALLOC_TESTS)
+ifneq (,$(MALLOCPROXY.DLL))
 	$(run_cmd) ./test_malloc_atexit.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_malloc_lib_unload.$(TEST_EXT) $(args)
-	$(run_cmd) ./test_malloc_whitebox.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) $(TEST_LAUNCHER) -l $(call cross_suffix,$(MALLOCPROXY.DLL)) test_malloc_overload.$(TEST_EXT) $(args)
 	$(run_cmd) $(TEST_LAUNCHER) test_malloc_overload_proxy.$(TEST_EXT) $(args)
+endif
+	$(run_cmd) ./test_malloc_whitebox.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) $(TEST_LAUNCHER) test_malloc_compliance.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_ScalableAllocator.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_ScalableAllocator_STL.$(TEST_EXT) $(args)

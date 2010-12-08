@@ -27,13 +27,13 @@
 */
 
 #if _WIN32||_WIN64
-#include <process.h>        /* Need _beginthreadex from there */
+#include <process.h>        // _beginthreadex()
 #endif
-#include "tbb_misc.h"       // handle_win_error, ThreadStackSize
+#include "tbb_misc.h"       // handle_win_error(), ThreadStackSize
 #include "tbb/tbb_stddef.h"
 #include "tbb/tbb_thread.h"
 #include "tbb/tbb_allocator.h"
-#include "tbb/task_scheduler_init.h" /* Need task_scheduler_init::default_num_threads() */
+#include "governor.h"       // default_num_threads()
 
 namespace tbb {
 namespace internal {
@@ -118,7 +118,7 @@ void tbb_thread_v3::internal_start( __TBB_NATIVE_THREAD_ROUTINE_PTR(start_routin
 }
 
 unsigned tbb_thread_v3::hardware_concurrency() {
-    return task_scheduler_init::default_num_threads();
+    return governor::default_num_threads();
 }
 
 tbb_thread_v3::id thread_get_id_v3() {

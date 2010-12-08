@@ -30,7 +30,6 @@
 #include "tbb/combinable.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/parallel_for.h"
-#include "tbb/parallel_reduce.h"
 #include "tbb/blocked_range.h"
 #include "tbb/tick_count.h"
 #include "tbb/tbb_allocator.h"

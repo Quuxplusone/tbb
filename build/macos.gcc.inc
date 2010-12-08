@@ -42,7 +42,7 @@ EXPORT_KEY = -Wl,-exported_symbols_list,
 LIBDL = -ldl
 
 LIBS = -lpthread
-LINK_FLAGS = 
+LINK_FLAGS =
 LIB_LINK_FLAGS = -dynamiclib
 C_FLAGS = $(CPLUS_FLAGS)
 

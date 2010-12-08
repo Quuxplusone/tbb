@@ -71,7 +71,8 @@ LIBEXT=dylib
 
 def_prefix = $(if $(findstring 64,$(arch)),mac64,mac32)
 
-TBB.DEF = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.def
+TBB.LST = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.lst
+TBB.DEF = $(TBB.LST:.lst=.def)
 TBB.DLL = libtbb$(DEBUG_SUFFIX).$(DLL)
 TBB.LIB = $(TBB.DLL)
 LINK_TBB.LIB = $(TBB.LIB)

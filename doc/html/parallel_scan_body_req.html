@@ -16,7 +16,7 @@
   </ul></div>
 <div class="nav">
 <a class="el" href="index.html">Main Page</a>&nbsp;&raquo&nbsp;<a class="el" href="concepts.html">TBB concepts</a></div>
-<h1><a class="anchor" name="parallel_scan_body_req">Requirements on parallel_scan body</a></h1>Class <code>Body</code> implementing the concept of parallel_reduce body must define: -<div class="fragment"><pre class="fragment"> Body::Body( Body&amp;, split ); 
+<h1><a class="anchor" name="parallel_scan_body_req">Requirements on parallel_scan body</a></h1>Class <code>Body</code> implementing the concept of parallel_scan body must define: -<div class="fragment"><pre class="fragment"> Body::Body( Body&amp;, split ); 
 </pre></div> Splitting constructor. Split <code>b</code> so that <code>this</code> and <code>b</code> can accumulate separately -<div class="fragment"><pre class="fragment"> Body::~Body(); 
 </pre></div> Destructor -<div class="fragment"><pre class="fragment"> <span class="keywordtype">void</span> Body::operator()( <span class="keyword">const</span> Range&amp; r, pre_scan_tag ); 
 </pre></div> Preprocess iterations for range <code>r</code> -<div class="fragment"><pre class="fragment"> <span class="keywordtype">void</span> Body::operator()( <span class="keyword">const</span> Range&amp; r, final_scan_tag ); 

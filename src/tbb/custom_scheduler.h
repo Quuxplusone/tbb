@@ -423,8 +423,9 @@ exception_was_caught:
         t = receive_or_steal_task( parent.prefix().ref_count, !old_innermost_running_task );
         if (!t) {
             if( parent.prefix().ref_count==1 ) goto done;
-            __TBB_ASSERT( is_worker() && !old_innermost_running_task, "a thread exits dispatch loop prematurely" );
-            innermost_running_task = NULL;
+            __TBB_ASSERT( ConcurrentWaitsEnabled(parent) ||
+                          is_worker() && !old_innermost_running_task, "a thread exits dispatch loop prematurely" );
+            innermost_running_task = old_innermost_running_task;
             return;
         }
         __TBB_ASSERT(t,NULL);

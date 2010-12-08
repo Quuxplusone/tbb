@@ -67,6 +67,7 @@ TBB_CPLUS.OBJ = concurrent_hash_map.$(OBJ) \
 		critical_section.$(OBJ) \
 		task.$(OBJ) \
 		tbb_misc.$(OBJ) \
+		tbb_misc_ex.$(OBJ) \
 		mutex.$(OBJ) \
 		recursive_mutex.$(OBJ) \
 		condition_variable.$(OBJ) \
@@ -101,7 +102,7 @@ WARNING_KEY += $(WARNING_SUPPRESS)
 include $(tbb_root)/build/common_rules.inc
 
 ifneq (,$(TBB.DEF))
-tbb.def: $(TBB.DEF)
+tbb.def: $(TBB.DEF) $(TBB.LST)
 	$(CMD) "$(CPLUS) $(PREPROC_ONLY) $(TBB.DEF) $(INCLUDES) $(CPLUS_FLAGS) >tbb.def 2>$(NUL) || exit 0"
 
 LIB_LINK_FLAGS += $(EXPORT_KEY)tbb.def

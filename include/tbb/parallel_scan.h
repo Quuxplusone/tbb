@@ -306,7 +306,7 @@ namespace internal {
 // Requirements on Range concept are documented in blocked_range.h
 
 /** \page parallel_scan_body_req Requirements on parallel_scan body
-    Class \c Body implementing the concept of parallel_reduce body must define:
+    Class \c Body implementing the concept of parallel_scan body must define:
     - \code Body::Body( Body&, split ); \endcode    Splitting constructor.
                                                     Split \c b so that \c this and \c b can accumulate separately
     - \code Body::~Body(); \endcode                 Destructor
