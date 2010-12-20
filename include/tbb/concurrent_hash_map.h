@@ -66,7 +66,7 @@ struct tbb_hash_compare {
     static bool equal( const Key& a, const Key& b ) { return a == b; }
 };
 
-namespace interface4 {
+namespace interface5 {
 
     template<typename Key, typename T, typename HashCompare = tbb_hash_compare<Key>, typename A = tbb_allocator<std::pair<Key, T> > >
     class concurrent_hash_map;
@@ -357,7 +357,7 @@ namespace interface4 {
         }
 #if !defined(_MSC_VER) || defined(__INTEL_COMPILER)
         template<typename Key, typename T, typename HashCompare, typename A>
-        friend class interface4::concurrent_hash_map;
+        friend class interface5::concurrent_hash_map;
 #else
     public: // workaround
 #endif
@@ -614,7 +614,6 @@ protected:
 
     //! bucket accessor is to find, rehash, acquire a lock, and access a bucket
     class bucket_accessor : public bucket::scoped_t {
-        bool my_is_writer; // TODO: use it from base type
         bucket *my_b;
     public:
         bucket_accessor( concurrent_hash_map *base, const hashcode_t h, bool writer = false ) { acquire( base, h, writer ); }
@@ -626,17 +625,14 @@ protected:
                 && try_acquire( my_b->mutex, /*write=*/true ) )
             {
                 if( my_b->node_list == internal::rehash_req ) base->rehash_bucket( my_b, h ); //recursive rehashing
-                my_is_writer = true;
             }
-            else bucket::scoped_t::acquire( my_b->mutex, /*write=*/my_is_writer = writer );
+            else bucket::scoped_t::acquire( my_b->mutex, writer );
             __TBB_ASSERT( my_b->node_list != internal::rehash_req, NULL);
         }
         //! check whether bucket is locked for write
-        bool is_writer() { return my_is_writer; }
+        bool is_writer() { return bucket::scoped_t::is_writer; }
         //! get bucket pointer
         bucket *operator() () { return my_b; }
-        // TODO: optimize out
-        bool upgrade_to_writer() { my_is_writer = true; return bucket::scoped_t::upgrade_to_writer(); }
     };
 
     // TODO refactor to hash_base
@@ -676,11 +672,9 @@ public:
     
     class accessor;
     //! Combines data access, locking, and garbage collection.
-    class const_accessor {
+    class const_accessor : private node::scoped_t /*which derived from no_copy*/ {
         friend class concurrent_hash_map<Key,T,HashCompare,Allocator>;
         friend class accessor;
-        void operator=( const accessor & ) const; // Deny access
-        const_accessor( const accessor & );       // Deny access
     public:
         //! Type of value
         typedef const typename concurrent_hash_map::value_type value_type;
@@ -691,7 +685,7 @@ public:
         //! Set to null
         void release() {
             if( my_node ) {
-                my_lock.release();
+                node::scoped_t::release();
                 my_node = 0;
             }
         }
@@ -712,11 +706,11 @@ public:
 
         //! Destroy result after releasing the underlying reference.
         ~const_accessor() {
-            my_node = NULL; // my_lock.release() is called in scoped_lock destructor
+            my_node = NULL; // scoped lock's release() is called in its destructor
         }
-    private:
+    protected:
+        bool is_writer() { return node::scoped_t::is_writer; }
         node *my_node;
-        typename node::scoped_t my_lock;
         hashcode_t my_hash;
     };
 
@@ -896,13 +890,13 @@ public:
     //! Erase item by const_accessor.
     /** Return true if item was erased by particularly this call. */
     bool erase( const_accessor& item_accessor ) {
-        return exclude( item_accessor, /*readonly=*/ true );
+        return exclude( item_accessor );
     }
 
     //! Erase item by accessor.
     /** Return true if item was erased by particularly this call. */
     bool erase( accessor& item_accessor ) {
-        return exclude( item_accessor, /*readonly=*/ false );
+        return exclude( item_accessor );
     }
 
 protected:
@@ -910,7 +904,7 @@ protected:
     bool lookup( bool op_insert, const Key &key, const T *t, const_accessor *result, bool write );
 
     //! delete item by accessor
-    bool exclude( const_accessor &item_accessor, bool readonly );
+    bool exclude( const_accessor &item_accessor );
 
     //! Returns an iterator for an item defined by the key, or for the next item after it (if upper==true)
     template<typename I>
@@ -1009,7 +1003,7 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key
         if( !result ) goto check_growth;
         // TODO: the following seems as generic/regular operation
         // acquire the item
-        if( !result->my_lock.try_acquire( n->mutex, write ) ) {
+        if( !result->try_acquire( n->mutex, write ) ) {
             // we are unlucky, prepare for longer wait
             tbb::internal::atomic_backoff trials;
             do {
@@ -1021,7 +1015,7 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key
                     m = (hashcode_t) itt_load_word_with_acquire( my_mask );
                     goto restart;
                 }
-            } while( !result->my_lock.try_acquire( n->mutex, write ) );
+            } while( !result->try_acquire( n->mutex, write ) );
         }
     }//lock scope
     result->my_node = n;
@@ -1059,10 +1053,9 @@ std::pair<I, I> concurrent_hash_map<Key,T,HashCompare,A>::internal_equal_range( 
 }
 
 template<typename Key, typename T, typename HashCompare, typename A>
-bool concurrent_hash_map<Key,T,HashCompare,A>::exclude( const_accessor &item_accessor, bool readonly ) {
+bool concurrent_hash_map<Key,T,HashCompare,A>::exclude( const_accessor &item_accessor ) {
     __TBB_ASSERT( item_accessor.my_node, NULL );
     node_base *const n = item_accessor.my_node;
-    item_accessor.my_node = NULL; // we ought release accessor anyway
     hashcode_t const h = item_accessor.my_hash;
     hashcode_t m = (hashcode_t) itt_load_word_with_acquire( my_mask );
     do {
@@ -1074,7 +1067,7 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::exclude( const_accessor &item_acc
         if( !*p ) { // someone else was the first
             if( check_mask_race( h, m ) )
                 continue;
-            item_accessor.my_lock.release();
+            item_accessor.release();
             return false;
         }
         __TBB_ASSERT( *p == n, NULL );
@@ -1082,10 +1075,10 @@ bool concurrent_hash_map<Key,T,HashCompare,A>::exclude( const_accessor &item_acc
         my_size--;
         break;
     } while(true);
-    if( readonly ) // need to get exclusive lock
-        item_accessor.my_lock.upgrade_to_writer(); // return value means nothing here
-    item_accessor.my_lock.release();
-    delete_node( n ); // Only one thread can delete it due to write lock on the chain_mutex
+    if( !item_accessor.is_writer() ) // need to get exclusive lock
+        item_accessor.upgrade_to_writer(); // return value means nothing here
+    item_accessor.release();
+    delete_node( n ); // Only one thread can delete it
     return true;
 }
 
@@ -1309,9 +1302,9 @@ void concurrent_hash_map<Key,T,HashCompare,A>::internal_copy(I first, I last) {
     }
 }
 
-} // namespace interface4
+} // namespace interface5
 
-using interface4::concurrent_hash_map;
+using interface5::concurrent_hash_map;
 
 
 template<typename Key, typename T, typename HashCompare, typename A1, typename A2>

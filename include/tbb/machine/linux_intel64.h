@@ -140,3 +140,28 @@ static inline void __TBB_machine_pause( int32_t delay ) {
 // Use generic definitions from tbb_machine.h
 #undef __TBB_TryLockByte
 #undef __TBB_LockByte
+
+// API to retrieve/update FPU control setting
+#ifndef __TBB_CPU_CTL_ENV_PRESENT
+#define __TBB_CPU_CTL_ENV_PRESENT 1
+
+struct __TBB_cpu_ctl_env_t {
+    int     mxcsr;
+    short   x87cw;
+};
+
+inline void __TBB_get_cpu_ctl_env ( __TBB_cpu_ctl_env_t* ctl ) {
+    __asm__ __volatile__ (
+            "stmxcsr %0\n\t"
+            "fstcw %1"
+            : "=m"(ctl->mxcsr), "=m"(ctl->x87cw)
+    );
+}
+inline void __TBB_set_cpu_ctl_env ( const __TBB_cpu_ctl_env_t* ctl ) {
+    __asm__ __volatile__ (
+            "ldmxcsr %0\n\t"
+            "fldcw %1"
+            : : "m"(ctl->mxcsr), "m"(ctl->x87cw)
+    );
+}
+#endif

@@ -379,9 +379,9 @@ public:
         code. This will become critically important for binary compatibility, if 
         we ever have to change the size of the context object.
 
-        Boosting the runtime version will also be necessary whenever new fields
-        are introduced in the currently unused padding areas or the meaning of 
-        the existing fields is changed or extended. **/
+        Boosting the runtime version will also be necessary if new data fields are 
+        introduced in the currently unused padding areas and these fields are updated 
+        by inline methods. **/
     task_group_context ( kind_type relation_with_parent = bound,
                          uintptr_t traits = default_traits )
         : my_kind(relation_with_parent)

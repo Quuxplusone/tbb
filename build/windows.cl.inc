@@ -99,7 +99,8 @@ ASSEMBLY_SOURCE=$(arch)-masm
 ifeq (intel64,$(arch))
     ASM=ml64 /nologo
     ASM_FLAGS += /DEM64T=1 /c /Zi
-    TBB_ASM.OBJ = atomic_support.obj
+    TBB_ASM.OBJ = atomic_support.obj inte64_misc.obj
+    MALLOC_ASM.OBJ = atomic_support.obj
 else
     ASM=ml /nologo
     ASM_FLAGS += /c /coff /Zi

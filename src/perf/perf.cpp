@@ -485,7 +485,7 @@ inline bool __TBB_bool( bool b ) { return b; }
     }
 
 #define STOP_WORKERS()  \
-    if ( theSettings.my_opts & UseTaskScheduler && init.is_active() ) { \
+    if ( theSettings.my_opts & UseTaskScheduler && init.is_active() ) {     \
         if ( trapper )                                                      \
             delete trapper;                                                 \
         init.terminate();                                                   \
@@ -509,6 +509,8 @@ inline bool __TBB_bool( bool b ) { return b; }
         duration_t TimeSingleRun ( Test::ThreadInfo& ti ) const {
             if ( my_availableMethods & idOnStart )
                 my_test->OnStart(ti);
+            // Warming run
+            (my_test->*my_fnRun)(ti);
             multipleMastersBarrier.wait();
             tbb::tick_count t0 = tbb::tick_count::now();
             (my_test->*my_fnRun)(ti);
@@ -529,7 +531,7 @@ inline bool __TBB_bool( bool b ) { return b; }
             Test::ThreadInfo ti = { tid, NULL };
             durations_t &d = TlsTimings[tid].my_durations;
             bool singleMaster = my_cfg->my_numMasters == 1;
-            START_WORKERS( !singleMaster || singleMaster && StatisticsMode, 
+            START_WORKERS( !singleMaster || (singleMaster && StatisticsMode), 
                             my_cfg->my_numThreads, my_cfg->my_affinityMode, singleMaster, singleMaster );
             for ( uintptr_t k = 0; k < my_numRuns; ++k )  {
                 if ( my_numRepeats > 1 ) {
@@ -644,7 +646,8 @@ inline bool __TBB_bool( bool b ) { return b; }
                     TestResults &tr = theSession[i];
                     Test *t = tr.my_test;
                     int mastersRange = t->MaxNumMasters() - t->MinNumMasters() + 1;
-                    for ( int w = 0; w < t->NumWorkloads(); ++w ) {
+                    int numWorkloads = theSettings.my_opts & UseSmallestWorkloadOnly ? 1 : t->NumWorkloads();
+                    for ( int w = 0; w < numWorkloads; ++w ) {
                         if ( multipleMasters )
                             for ( int m = 1; m < mastersRange; ++m )
                                 fn( tr, mastersRange, w, p, m, a, numTests );
@@ -685,7 +688,7 @@ inline bool __TBB_bool( bool b ) { return b; }
         for ( size_t i = 0; i < theSession.size(); ++i ) {
             TestResults &tr = theSession[i];
             Test &t = *tr.my_test;
-            int numWorkloads = t.NumWorkloads();
+            int numWorkloads = theSettings.my_opts & UseSmallestWorkloadOnly ? 1 : t.NumWorkloads();
             int numConfigs = numConfigsBase * numWorkloads;
             if ( t.MaxNumMasters() > 1 ) {
                 ASSERT( theSettings.my_opts & UseTaskScheduler, "Multiple masters mode is only valid for task scheduler tests" );
@@ -726,7 +729,8 @@ inline bool __TBB_bool( bool b ) { return b; }
                 tr.my_availableMethods |= idOnStart;
 
             RunConfig rc = { 1, 1, 1, 0, 0 };
-            for ( int w = 0; w < t.NumWorkloads(); ++w ) {
+            int numWorkloads = theSettings.my_opts & UseSmallestWorkloadOnly ? 1 : t.NumWorkloads();
+            for ( int w = 0; w < numWorkloads; ++w ) {
                 WorkloadName[0] = 0;
                 t.SetWorkload(w);
                 if ( !WorkloadName[0] )

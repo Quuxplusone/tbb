@@ -24,6 +24,24 @@
 # invalidate any other reasons why the executable file might be covered by
 # the GNU General Public License.
 
+####### Detections and Commands ###############################################
+
+ifeq (icc,$(compiler))
+  export COMPILER_VERSION := ICC: $(shell icc -V </dev/null 2>&1 | grep 'Version')
+  ifneq (,$(findstring IA-32, $(COMPILER_VERSION)))
+    export arch:=ia32
+  endif
+  ifneq (,$(findstring Intel(R) 64, $(COMPILER_VERSION)))
+    export arch:=intel64
+  endif
+  ifneq (,$(findstring IA-64, $(COMPILER_VERSION)))
+    export arch:=ia64
+  endif
+  ifeq (,$(arch))
+    $(warning "Unknown Intel compiler")
+  endif
+endif
+
 ifndef arch
         uname_m:=$(shell uname -m)
         ifeq ($(uname_m),i686)

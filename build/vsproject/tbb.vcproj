@@ -191,6 +191,32 @@
 " Outputs="intel64\Release-MT\atomic_support.obj"/>
 				</FileConfiguration>
 			</File>
+			<File RelativePath="..\..\src\tbb\intel64-masm\inte64_misc.asm">
+				<FileConfiguration Name="Debug|Win32" ExcludedFromBuild="true">
+				</FileConfiguration>
+				<FileConfiguration Name="Debug|x64">
+					<Tool Name="VCCustomBuildTool" Description="building inte64_misc.obj" CommandLine="ml64 /Fo&quot;intel64\Debug\inte64_misc.obj&quot; /DUSE_FRAME_POINTER /DEM64T=1 /c /Zi ../../src/tbb/intel64-masm/inte64_misc.asm
+" Outputs="intel64\Debug\inte64_misc.obj"/>
+				</FileConfiguration>
+				<FileConfiguration Name="Release|Win32" ExcludedFromBuild="true">
+				</FileConfiguration>
+				<FileConfiguration Name="Release|x64">
+					<Tool Name="VCCustomBuildTool" Description="building inte64_misc.obj" CommandLine="ml64 /Fo&quot;intel64\Release\inte64_misc.obj&quot;  /DEM64T=1 /c /Zi ../../src/tbb/intel64-masm/inte64_misc.asm
+" Outputs="intel64\Release\inte64_misc.obj"/>
+				</FileConfiguration>
+				<FileConfiguration Name="Debug-MT|Win32" ExcludedFromBuild="true">
+				</FileConfiguration>
+				<FileConfiguration Name="Debug-MT|x64">
+					<Tool Name="VCCustomBuildTool" Description="building inte64_misc.obj" CommandLine="ml64 /Fo&quot;intel64\Debug-MT\inte64_misc.obj&quot; /DUSE_FRAME_POINTER /DEM64T=1 /c /Zi ../../src/tbb/intel64-masm/inte64_misc.asm
+" Outputs="intel64\Debug-MT\inte64_misc.obj"/>
+				</FileConfiguration>
+				<FileConfiguration Name="Release-MT|Win32" ExcludedFromBuild="true">
+				</FileConfiguration>
+				<FileConfiguration Name="Release-MT|x64">
+					<Tool Name="VCCustomBuildTool" Description="building inte64_misc.obj" CommandLine="ml64 /Fo&quot;intel64\Release-MT\inte64_misc.obj&quot;  /DEM64T=1 /c /Zi ../../src/tbb/intel64-masm/inte64_misc.asm
+" Outputs="intel64\Release-MT\inte64_misc.obj"/>
+				</FileConfiguration>
+			</File>
 			<File RelativePath="..\..\src\tbb\ia32-masm\atomic_support.asm">
 				<FileConfiguration Name="Debug|Win32">
 					<Tool Name="MASM" AdditionalOptions="/coff /Zi"/>

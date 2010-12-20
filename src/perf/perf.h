@@ -221,7 +221,8 @@ enum SessionOptions {
     UseSerialBaseline = 0x02,
     UseBaselines = UseBaseline | UseSerialBaseline,
     UseTaskScheduler = 0x10,
-    UseAffinityModes = 0x20
+    UseAffinityModes = 0x20,
+    UseSmallestWorkloadOnly = 0x40
 };
 
 struct SessionSettings {

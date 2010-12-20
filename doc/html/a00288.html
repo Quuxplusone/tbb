@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>Memory Allocation</title>
+<title>tbb::zero_allocator&lt; void, Allocator &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -10,298 +10,53 @@
     <li><a href="index.html"><span>Main&nbsp;Page</span></a></li>
     <li><a href="modules.html"><span>Modules</span></a></li>
     <li><a href="namespaces.html"><span>Namespaces</span></a></li>
-    <li><a href="annotated.html"><span>Classes</span></a></li>
+    <li id="current"><a href="annotated.html"><span>Classes</span></a></li>
     <li><a href="files.html"><span>Files</span></a></li>
     <li><a href="pages.html"><span>Related&nbsp;Pages</span></a></li>
   </ul></div>
-<h1>Memory Allocation</h1><table border="0" cellpadding="0" cellspacing="0">
+<div class="tabs">
+  <ul>
+    <li><a href="annotated.html"><span>Class&nbsp;List</span></a></li>
+    <li><a href="hierarchy.html"><span>Class&nbsp;Hierarchy</span></a></li>
+    <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
+  </ul></div>
+<div class="nav">
+<a class="el" href="a00342.html">tbb</a>::<a class="el" href="a00288.html">zero_allocator&lt; void, Allocator &gt;</a></div>
+<h1>tbb::zero_allocator&lt; void, Allocator &gt; Class Template Reference<br>
+<small>
+[<a class="el" href="a00351.html">Memory Allocation</a>]</small>
+</h1><!-- doxytag: class="tbb::zero_allocator&lt; void, Allocator &gt;" -->Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1.  
+<a href="#_details">More...</a>
+<p>
+<code>#include &lt;<a class="el" href="a00565.html">tbb_allocator.h</a>&gt;</code>
+<p>
+<a href="a00129.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
+<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ce4f3bf06e8aaf8020fa443297eff5f7"></a><!-- doxytag: member="tbb::zero_allocator&lt; void, Allocator &gt;::base_allocator_type" ref="ce4f3bf06e8aaf8020fa443297eff5f7" args="" -->
+typedef Allocator&lt; void &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>base_allocator_type</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5cd644eeecd6d729c848c8e99ffd4592"></a><!-- doxytag: member="tbb::zero_allocator&lt; void, Allocator &gt;::value_type" ref="5cd644eeecd6d729c848c8e99ffd4592" args="" -->
+typedef base_allocator_type::value_type&nbsp;</td><td class="memItemRight" valign="bottom"><b>value_type</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8f68aa346a17c94f8c5c7945a2c50858"></a><!-- doxytag: member="tbb::zero_allocator&lt; void, Allocator &gt;::pointer" ref="8f68aa346a17c94f8c5c7945a2c50858" args="" -->
+typedef base_allocator_type::pointer&nbsp;</td><td class="memItemRight" valign="bottom"><b>pointer</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ae95a5761371ee7b61f2c339385684e9"></a><!-- doxytag: member="tbb::zero_allocator&lt; void, Allocator &gt;::const_pointer" ref="ae95a5761371ee7b61f2c339385684e9" args="" -->
+typedef base_allocator_type::const_pointer&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_pointer</b></td></tr>
+
 <tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00151.html">tbb::aligned_space&lt; T, N &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Block of space aligned sufficiently to construct an array T with N elements.  <a href="a00151.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00160.html">tbb::cache_aligned_allocator&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5.  <a href="a00160.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00161.html">tbb::cache_aligned_allocator&lt; void &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1.  <a href="a00161.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00202.html">tbb::scalable_allocator&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5.  <a href="a00202.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00203.html">tbb::scalable_allocator&lt; void &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1.  <a href="a00203.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00215.html">tbb::tbb_allocator&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5.  <a href="a00215.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00216.html">tbb::tbb_allocator&lt; void &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1.  <a href="a00216.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00224.html">tbb::zero_allocator&lt; T, Allocator &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5.  <a href="a00224.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00225.html">tbb::zero_allocator&lt; void, Allocator &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1.  <a href="a00225.html#_details">More...</a><br></td></tr>
-<tr><td colspan="2"><br><h2>Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void *__TBB_EXPORTED_FUNC&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00288.html#gc25b8e6c76db0b346a8249796a7a2475">scalable_malloc</a> (size_t size)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void __TBB_EXPORTED_FUNC&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00288.html#gca3579c21244dba9f0c351e5984d4565">scalable_free</a> (void *ptr)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void *__TBB_EXPORTED_FUNC&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00288.html#g951bbbbd2d041acb59ba5fa910b52543">scalable_realloc</a> (void *ptr, size_t size)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void *__TBB_EXPORTED_FUNC&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00288.html#g3f5a2fde0bcaa3eda35be32c8658f444">scalable_calloc</a> (size_t nobj, size_t size)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">int __TBB_EXPORTED_FUNC&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00288.html#g05dcec987480bb2c82ecdead6a085899">scalable_posix_memalign</a> (void **memptr, size_t alignment, size_t size)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void *__TBB_EXPORTED_FUNC&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00288.html#gc1c7aaa1fe85c17ba5a3a96f7e8d89e7">scalable_aligned_malloc</a> (size_t size, size_t alignment)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void *__TBB_EXPORTED_FUNC&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00288.html#gbaea91376be80dfabd7c93eaffd9abaa">scalable_aligned_realloc</a> (void *ptr, size_t size, size_t alignment)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void __TBB_EXPORTED_FUNC&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00288.html#g65a20e812012f15ec7442d5b45d0cba5">scalable_aligned_free</a> (void *ptr)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">size_t __TBB_EXPORTED_FUNC&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00288.html#g0965ce1b4b7835f92869c7fd867265f7">scalable_msize</a> (void *ptr)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>rebind</b></td></tr>
 
 </table>
-<hr><h2>Function Documentation</h2>
-<a class="anchor" name="g65a20e812012f15ec7442d5b45d0cba5"></a><!-- doxytag: member="scalable_allocator.h::scalable_aligned_free" ref="g65a20e812012f15ec7442d5b45d0cba5" args="(void *ptr)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void __TBB_EXPORTED_FUNC scalable_aligned_free           </td>
-          <td>(</td>
-          <td class="paramtype">void *&nbsp;</td>
-          <td class="paramname"> <em>ptr</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
+<hr><a name="_details"></a><h2>Detailed Description</h2>
+<h3>template&lt;template&lt; typename T &gt; class Allocator&gt;<br>
+ class tbb::zero_allocator&lt; void, Allocator &gt;</h3>
 
+Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1. 
 <p>
-The "_aligned_free" analogue. 
-</div>
-</div><p>
-<a class="anchor" name="gc1c7aaa1fe85c17ba5a3a96f7e8d89e7"></a><!-- doxytag: member="scalable_allocator.h::scalable_aligned_malloc" ref="gc1c7aaa1fe85c17ba5a3a96f7e8d89e7" args="(size_t size, size_t alignment)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void* __TBB_EXPORTED_FUNC scalable_aligned_malloc           </td>
-          <td>(</td>
-          <td class="paramtype">size_t&nbsp;</td>
-          <td class="paramname"> <em>size</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&nbsp;</td>
-          <td class="paramname"> <em>alignment</em></td><td>&nbsp;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td><td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-The "_aligned_malloc" analogue. 
-</div>
-</div><p>
-<a class="anchor" name="gbaea91376be80dfabd7c93eaffd9abaa"></a><!-- doxytag: member="scalable_allocator.h::scalable_aligned_realloc" ref="gbaea91376be80dfabd7c93eaffd9abaa" args="(void *ptr, size_t size, size_t alignment)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void* __TBB_EXPORTED_FUNC scalable_aligned_realloc           </td>
-          <td>(</td>
-          <td class="paramtype">void *&nbsp;</td>
-          <td class="paramname"> <em>ptr</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&nbsp;</td>
-          <td class="paramname"> <em>size</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&nbsp;</td>
-          <td class="paramname"> <em>alignment</em></td><td>&nbsp;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td><td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-The "_aligned_realloc" analogue. 
-</div>
-</div><p>
-<a class="anchor" name="g3f5a2fde0bcaa3eda35be32c8658f444"></a><!-- doxytag: member="scalable_allocator.h::scalable_calloc" ref="g3f5a2fde0bcaa3eda35be32c8658f444" args="(size_t nobj, size_t size)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void* __TBB_EXPORTED_FUNC scalable_calloc           </td>
-          <td>(</td>
-          <td class="paramtype">size_t&nbsp;</td>
-          <td class="paramname"> <em>nobj</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&nbsp;</td>
-          <td class="paramname"> <em>size</em></td><td>&nbsp;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td><td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-The "calloc" analogue complementing scalable_malloc. 
-</div>
-</div><p>
-<a class="anchor" name="gca3579c21244dba9f0c351e5984d4565"></a><!-- doxytag: member="scalable_allocator.h::scalable_free" ref="gca3579c21244dba9f0c351e5984d4565" args="(void *ptr)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void __TBB_EXPORTED_FUNC scalable_free           </td>
-          <td>(</td>
-          <td class="paramtype">void *&nbsp;</td>
-          <td class="paramname"> <em>ptr</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-The "free" analogue to discard a previously allocated piece of memory. 
-</div>
-</div><p>
-<a class="anchor" name="gc25b8e6c76db0b346a8249796a7a2475"></a><!-- doxytag: member="scalable_allocator.h::scalable_malloc" ref="gc25b8e6c76db0b346a8249796a7a2475" args="(size_t size)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void* __TBB_EXPORTED_FUNC scalable_malloc           </td>
-          <td>(</td>
-          <td class="paramtype">size_t&nbsp;</td>
-          <td class="paramname"> <em>size</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-The "malloc" analogue to allocate block of memory of size bytes. 
-</div>
-</div><p>
-<a class="anchor" name="g0965ce1b4b7835f92869c7fd867265f7"></a><!-- doxytag: member="scalable_allocator.h::scalable_msize" ref="g0965ce1b4b7835f92869c7fd867265f7" args="(void *ptr)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">size_t __TBB_EXPORTED_FUNC scalable_msize           </td>
-          <td>(</td>
-          <td class="paramtype">void *&nbsp;</td>
-          <td class="paramname"> <em>ptr</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-The analogue of _msize/malloc_size/malloc_usable_size. Returns the usable size of a memory block previously allocated by scalable_*, or 0 (zero) if ptr does not point to such a block. 
-</div>
-</div><p>
-<a class="anchor" name="g05dcec987480bb2c82ecdead6a085899"></a><!-- doxytag: member="scalable_allocator.h::scalable_posix_memalign" ref="g05dcec987480bb2c82ecdead6a085899" args="(void **memptr, size_t alignment, size_t size)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">int __TBB_EXPORTED_FUNC scalable_posix_memalign           </td>
-          <td>(</td>
-          <td class="paramtype">void **&nbsp;</td>
-          <td class="paramname"> <em>memptr</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&nbsp;</td>
-          <td class="paramname"> <em>alignment</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&nbsp;</td>
-          <td class="paramname"> <em>size</em></td><td>&nbsp;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td><td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-The "posix_memalign" analogue. 
-</div>
-</div><p>
-<a class="anchor" name="g951bbbbd2d041acb59ba5fa910b52543"></a><!-- doxytag: member="scalable_allocator.h::scalable_realloc" ref="g951bbbbd2d041acb59ba5fa910b52543" args="(void *ptr, size_t size)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void* __TBB_EXPORTED_FUNC scalable_realloc           </td>
-          <td>(</td>
-          <td class="paramtype">void *&nbsp;</td>
-          <td class="paramname"> <em>ptr</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&nbsp;</td>
-          <td class="paramname"> <em>size</em></td><td>&nbsp;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td><td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-The "realloc" analogue complementing scalable_malloc. 
-</div>
-</div><p>
+<hr>The documentation for this class was generated from the following file:<ul>
+<li><a class="el" href="a00565.html">tbb_allocator.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.

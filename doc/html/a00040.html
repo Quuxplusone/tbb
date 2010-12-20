@@ -20,11 +20,16 @@
     <li><a href="hierarchy.html"><span>Class&nbsp;Hierarchy</span></a></li>
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
-<h1>tbb::null_mutex Member List</h1>This is the complete list of members for <a class="el" href="a00185.html">tbb::null_mutex</a>, including all inherited members.<p><table>
-  <tr bgcolor="#f0f0f0"><td><b>is_fair_mutex</b> (defined in <a class="el" href="a00185.html">tbb::null_mutex</a>)</td><td><a class="el" href="a00185.html">tbb::null_mutex</a></td><td><code> [static]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>is_recursive_mutex</b> (defined in <a class="el" href="a00185.html">tbb::null_mutex</a>)</td><td><a class="el" href="a00185.html">tbb::null_mutex</a></td><td><code> [static]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>is_rw_mutex</b> (defined in <a class="el" href="a00185.html">tbb::null_mutex</a>)</td><td><a class="el" href="a00185.html">tbb::null_mutex</a></td><td><code> [static]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>null_mutex</b>() (defined in <a class="el" href="a00185.html">tbb::null_mutex</a>)</td><td><a class="el" href="a00185.html">tbb::null_mutex</a></td><td><code> [inline]</code></td></tr>
+<h1>tbb::sender&lt; T &gt; Member List</h1>This is the complete list of members for <a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a>, including all inherited members.<p><table>
+  <tr class="memlist"><td><a class="el" href="a00264.html#d3aa21714dfc464e65a471816e38ea89">output_type</a> typedef</td><td><a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a></td><td></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00264.html#be48ac70174cf8e08e2b0279cd6343d3">register_successor</a>(successor_type &amp;r)=0</td><td><a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a></td><td><code> [pure virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00264.html#3f345427e812e8741370308ff88f30bf">remove_successor</a>(successor_type &amp;r)=0</td><td><a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a></td><td><code> [pure virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00264.html#c0746cda7dfd266f01acaf6cd5d4b77d">successor_type</a> typedef</td><td><a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a></td><td></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00264.html#add46946c4c7330422733432e4032fac">try_consume</a>()</td><td><a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00264.html#bf8c9235810354f3353a899c982645de">try_get</a>(T &amp;)</td><td><a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00264.html#28c41df1c0c7ed485b4a691ec8f30098">try_release</a>()</td><td><a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00264.html#3506c7275aeeb2fc3ba5d5f10ee0adac">try_reserve</a>(T &amp;)</td><td><a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
+  <tr bgcolor="#f0f0f0"><td><b>~sender</b>() (defined in <a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a>)</td><td><a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
 </table><hr>
 <p></p>
 Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.

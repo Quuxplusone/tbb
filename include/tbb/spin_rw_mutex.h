@@ -162,7 +162,7 @@ public:
             return result;
         }
 
-    private:
+    protected:
         //! The pointer to the current mutex that is held, or NULL if no mutex is held.
         spin_rw_mutex* mutex;
 

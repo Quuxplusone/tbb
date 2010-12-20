@@ -26,12 +26,15 @@
     the GNU General Public License.
 */
 
-#define  __TBB_COUNT_TASK_NODES 1
-#include "harness_inject_scheduler.h"
+#include "harness.h"
 
 #if __TBB_TASK_GROUP_CONTEXT
 
 #define __TBB_ATOMICS_CODEGEN_BROKEN __SUNPRO_CC
+
+#define private public
+#include "tbb/task.h"
+#undef private
 
 #include "tbb/task_scheduler_init.h"
 #include "tbb/spin_mutex.h"
@@ -272,6 +275,24 @@ void Test4 () {
         ASSERT (g_CurStat.Executed() >= num_tasks_expected - NUM_CHILD_TASKS, "Unexpected number of executed tasks");
     ASSERT_TEST_POSTCOND();
 } // void Test4 ()
+
+/** The same as Test4, except the contexts are bound. **/
+void Test4_1 () {
+    ResetGlobals();
+    tbb::task_list  tl;
+    for ( size_t i = 0; i < NUM_ROOT_TASKS; ++i )
+        tl.push_back( *new( tbb::task::allocate_root() ) RootLauncherTask(tbb::task_group_context::bound) );
+    TRY();
+        tbb::task::spawn_root_and_wait(tl);
+    CATCH_AND_ASSERT();
+    ASSERT (!exceptionCaught, "exception in this scope is unexpected");
+    intptr_t  num_tasks_expected = NUM_ROOT_TASKS * (NUM_CHILD_TASKS + 2);
+    ASSERT (g_CurStat.Existed() == num_tasks_expected, "Wrong total number of tasks");
+    if ( g_SolitaryException )
+        ASSERT (g_CurStat.Executed() >= num_tasks_expected - NUM_CHILD_TASKS, "Unexpected number of executed tasks");
+    ASSERT_TEST_POSTCOND();
+} // void Test4_1 ()
+
 
 class RootsGroupLauncherTask : public TaskBase {
     tbb::task* do_execute () {
@@ -533,6 +554,7 @@ void CheckException () {
     The test also checks the correctness of multiple rethrowing of the pending exception. **/
 void TestMovableException () {
     ResetGlobals();
+    bool bUnsupported = false;
     tbb::task_group_context ctx;
     tbb::empty_task *r = new( tbb::task::allocate_root() ) tbb::empty_task;
     ASSERT (!g_CurStat.Existing() && !g_CurStat.Existed() && !g_CurStat.Executed(), 
@@ -555,8 +577,13 @@ void TestMovableException () {
             g_ExceptionCaught = true;
             g_UnknownException = unknownException = true;
         }
-        ctx.register_pending_exception();
-        ASSERT (ctx.is_group_execution_cancelled(), "After exception registration the context must be in the cancelled state");
+        try {
+            ctx.register_pending_exception();
+        } catch ( ... ) {
+            bUnsupported = true;
+            REPORT( "Warning: register_pending_exception() failed. This is expected in case of linking with static msvcrt\n" );
+        }
+        ASSERT (ctx.is_group_execution_cancelled() || bUnsupported, "After exception registration the context must be in the cancelled state");
     }
     r->destroy(*r);
     ASSERT_EXCEPTION();
@@ -575,8 +602,8 @@ void TestMovableException () {
         g_ExceptionCaught = true;
         g_UnknownException = true;
     }
-    ASSERT (g_ExceptionCaught, "no exception occurred");
-    ASSERT (__TBB_EXCEPTION_TYPE_INFO_BROKEN || !g_UnknownException, "unknown exception was caught");
+    ASSERT (g_ExceptionCaught || bUnsupported, "no exception occurred");
+    ASSERT (__TBB_EXCEPTION_TYPE_INFO_BROKEN || !g_UnknownException  || bUnsupported, "unknown exception was caught");
     r->destroy(*r);
 } // void Test10 ()
 
@@ -729,6 +756,7 @@ void RunTests () {
     Test2();
     Test3();
     Test4();
+    Test4_1();
     Test5();
     Test6();
     Test7();

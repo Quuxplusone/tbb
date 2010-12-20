@@ -59,6 +59,10 @@ namespace internal {
 static __cilk_tbb_retcode (*watch_stack_handler)(struct __cilk_tbb_unwatch_thunk* u,
                                                  struct __cilk_tbb_stack_op_thunk o);
 
+#if __TBB_WEAK_SYMBOLS
+    #pragma weak __cilkrts_watch_stack
+#endif
+
 //! Table describing the how to link the handlers.
 static const dynamic_link_descriptor CilkLinkTable[] = {
     DLD(__cilkrts_watch_stack, watch_stack_handler)

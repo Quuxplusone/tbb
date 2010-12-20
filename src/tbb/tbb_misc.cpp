@@ -222,6 +222,9 @@ extern "C" void __TBB_machine_store8_slow( volatile void *ptr, int64_t value ) {
 #endif /* !__TBB_RML_STATIC */
 
 #if __TBB_ipf
+/* It was found that on IPF inlining of __TBB_machine_lockbyte leads
+   to serious performance regression with ICC 10.0. So keep it out-of-line.
+ */
 extern "C" intptr_t __TBB_machine_lockbyte( volatile unsigned char& flag ) {
     if ( !__TBB_TryLockByte(flag) ) {
         tbb::internal::atomic_backoff b;

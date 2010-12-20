@@ -198,3 +198,25 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
     #pragma warning (pop)
 #endif // warnings 4244, 4267 are back
 
+// API to retrieve/update FPU control setting
+#define __TBB_CPU_CTL_ENV_PRESENT 1
+
+struct __TBB_cpu_ctl_env_t {
+    int     mxcsr;
+    short   x87cw;
+};
+inline void __TBB_get_cpu_ctl_env ( __TBB_cpu_ctl_env_t* ctl ) {
+    __asm {
+        __asm mov     eax, ctl
+        __asm stmxcsr [eax]
+        __asm fstcw   [eax+4]
+    }
+}
+inline void __TBB_set_cpu_ctl_env ( const __TBB_cpu_ctl_env_t* ctl ) {
+    __asm {
+        __asm mov     eax, ctl
+        __asm ldmxcsr [eax]
+        __asm fldcw   [eax+4]
+    }
+}
+

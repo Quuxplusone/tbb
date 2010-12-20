@@ -169,7 +169,7 @@ using tbb::internal::init_condvar_module;
 
 void internal_initialize_condition_variable( condvar_impl_t& cv )
 {
-    atomic_do_once( init_condvar_module, condvar_api_state );
+    atomic_do_once( &init_condvar_module, condvar_api_state );
     __TBB_init_condvar( &cv.cv_native );
 }
 

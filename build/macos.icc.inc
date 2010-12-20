@@ -38,8 +38,6 @@ WARNING_KEY = -w1
 DYLIB_KEY = -dynamiclib
 EXPORT_KEY = -Wl,-exported_symbols_list,
 LIBDL = -ldl
-export COMPILER_VERSION := $(shell icc -V </dev/null 2>&1 | grep 'Version')
-#TODO: autodetection of arch from COMPILER_VERSION!!
 
 OPENMP_FLAG = -openmp
 LIBS = -lpthread

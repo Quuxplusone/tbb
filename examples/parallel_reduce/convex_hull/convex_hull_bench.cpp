@@ -30,6 +30,7 @@
     This file contains a few implementations, so it may look overly complicated.
     The most efficient implementation is also separated into convex_hull_sample.cpp
 */
+#include <cassert>
 #include "convex_hull.h"
 
 typedef util::point<double> point_t;
@@ -42,25 +43,9 @@ typedef util::point<double> point_t;
 
 typedef std::vector< point_t > pointVec_t;
 
+void serial_initialize(pointVec_t &points);
+
 // C++ style serial code
-
-class FillRNDPointsVector : public std::unary_function<point_t&, void> {
-    unsigned int rseed;
-    size_t       count;
-public:
-    FillRNDPointsVector() : rseed(1), count(0) {}
-
-    void operator()(point_t& p) {
-        p = util::GenerateRNDPoint<double>(count, rseed);
-    }
-};
-
-void initialize(pointVec_t &points) {
-    points.clear();
-    points.resize(cfg::MAXPOINTS);
-
-    std::for_each(points.begin(), points.end(), FillRNDPointsVector());
-}
 
 class FindXExtremum : public std::unary_function<const point_t&, void> {
 public:
@@ -91,6 +76,7 @@ private:
         case maxX:
             return p.x>extrXPoint.x; break;
         }
+        return false; // avoid warning
     }
 };
 
@@ -145,17 +131,15 @@ point_t divide(const pointVec_t &P, pointVec_t &P_reduced, const point_t &p1, co
 }
 
 void divide_and_conquer(const pointVec_t &P, pointVec_t &H, point_t p1, point_t p2) {
-    if (P.size()<2) {
+    assert(P.size() >= 2);
+    pointVec_t P_reduced;
+    pointVec_t H1, H2;
+    point_t p_far = divide(P, P_reduced, p1, p2);
+    if (P_reduced.size()<2) {
         H.push_back(p1);
-        H.insert(H.end(), P.begin(), P.end());
+        H.insert(H.end(), P_reduced.begin(), P_reduced.end());
     }
     else {
-        pointVec_t P_reduced;
-        pointVec_t H1, H2;
-        point_t p_far;
-
-        p_far = divide(P, P_reduced, p1, p2);
-
         divide_and_conquer(P_reduced, H1, p1, p_far);
         divide_and_conquer(P_reduced, H2, p_far, p2);
 
@@ -165,8 +149,10 @@ void divide_and_conquer(const pointVec_t &P, pointVec_t &H, point_t p1, point_t 
 }
 
 void quickhull(const pointVec_t &points, pointVec_t &hull) {
-    hull.clear();
-
+    if (points.size() < 2) {
+        hull.insert(hull.end(), points.begin(), points.end());
+        return;
+    }
     point_t p_maxx = extremum<FindXExtremum::maxX>(points);
     point_t p_minx = extremum<FindXExtremum::minX>(points);
 
@@ -188,13 +174,13 @@ int main(int argc, char* argv[]) {
     std::cout << "Starting serial version of QUICK HULL algorithm" << std::endl;
 
     tm_init = util::gettime();
-    initialize(points);
+    serial_initialize(points);
+    tm_start = util::gettime();
+    std::cout << "Init time: " << util::time_diff(tm_init, tm_start) << "  Points in input: " << points.size() << "\n";
     tm_start = util::gettime();
     quickhull(points, hull);
     tm_end = util::gettime();
-
-    util::WriteResults(1, util::time_diff(tm_init, tm_start),
-        util::time_diff(tm_start, tm_end));
+    std::cout << "Serial time: " << util::time_diff(tm_start, tm_end) << "  Points in hull: " << hull.size() << "\n";
 }
 
 #else // USETBB - parallel version of Quick Hull algorithm
@@ -237,6 +223,8 @@ void appendVector(mutex_t& insertMutex, const point_t* src, size_t srcSize,
 }
 
 #endif // USECONCVEC
+
+void serial_initialize(pointVec_t &points);
 
 class FillRNDPointsVector {
     pointVec_t          &points;
@@ -305,13 +293,12 @@ mutex_t FillRNDPointsVector_buf::insertMutex = mutex_t();
 
 template<typename BodyType>
 void initialize(pointVec_t &points) {
-    points.clear();
-
     // In the buffered version, a temporary storage for as much as grainSize elements 
     // is allocated inside the body. Since auto_partitioner may increase effective
     // range size which would cause a crash, simple partitioner has to be used.
+
     tbb::parallel_for(range_t(0, cfg::MAXPOINTS, BodyType::grainSize),
-                      BodyType(points), tbb::simple_partitioner());
+    BodyType(points), tbb::simple_partitioner());
 }
 
 class FindXExtremum {
@@ -517,25 +504,26 @@ point_t divide(const pointVec_t &P, pointVec_t &P_reduced,
 
 void divide_and_conquer(const pointVec_t &P, pointVec_t &H,
                         point_t p1, point_t p2, bool buffered) {
-    if (P.size()<2) {
+    assert(P.size() >= 2);
+    pointVec_t P_reduced;
+    pointVec_t H1, H2;
+    point_t p_far;
+    
+    if(buffered) {
+        p_far = divide<SplitByCP_buf>(P, P_reduced, p1, p2);
+    } else {
+        p_far = divide<SplitByCP>(P, P_reduced, p1, p2);
+    }
+
+    if (P_reduced.size()<2) {
         H.push_back(p1);
 #if USECONCVEC
-        appendVector(P, H);
+        appendVector(P_reduced, H);
 #else // insert into STD::VECTOR
-        H.insert(H.end(), P.begin(), P.end());
+        H.insert(H.end(), P_reduced.begin(), P_reduced.end());
 #endif
     }
     else {
-        pointVec_t P_reduced;
-        pointVec_t H1, H2;
-        point_t p_far;
-
-        if(buffered) {
-            p_far = divide<SplitByCP_buf>(P, P_reduced, p1, p2);
-        } else {
-            p_far = divide<SplitByCP>(P, P_reduced, p1, p2);
-        }
-
         divide_and_conquer(P_reduced, H1, p1, p_far, buffered);
         divide_and_conquer(P_reduced, H2, p_far, p2, buffered);
 
@@ -550,7 +538,14 @@ void divide_and_conquer(const pointVec_t &P, pointVec_t &H,
 }
 
 void quickhull(const pointVec_t &points, pointVec_t &hull, bool buffered) {
-    hull.clear();
+    if (points.size() < 2) {
+#if USECONCVEC
+        appendVector(points, hull);
+#else // STD::VECTOR
+        hull.insert(hull.end(), points.begin(), points.end());
+#endif // USECONCVEC
+        return;
+    }
 
     point_t p_maxx = extremum<FindXExtremum::maxX>(points);
     point_t p_minx = extremum<FindXExtremum::minX>(points);
@@ -573,69 +568,71 @@ int main(int argc, char* argv[]) {
     pointVec_t      hull;
     int             nthreads;
     util::my_time_t tm_init, tm_start, tm_end;
-    pointVec_t      tmp_points;
 
 #if USECONCVEC
-    std::cout << "Starting TBB unbufferred push_back version of QUICK HULL algorithm" << std::endl;
+    std::cout << "Starting TBB unbuffered push_back version of QUICK HULL algorithm" << std::endl;
 #else
-    std::cout << "Starting STL locked unbufferred push_back version of QUICK HULL algorithm" << std::endl;
+    std::cout << "Starting STL locked unbuffered push_back version of QUICK HULL algorithm" << std::endl;
 #endif // USECONCVEC
 
-    for(nthreads=cfg::NUM_THREADS_START; nthreads<=cfg::NUM_THREADS_END;
-        ++nthreads) {
-        tbb::task_scheduler_init init(nthreads);
 #if INIT_ONCE
-        if(nthreads==cfg::NUM_THREADS_START) {
-            tm_init = util::gettime();
-            initialize<FillRNDPointsVector>(points);
-        }
-        else /* timing generation for stats, but use original data set */ {
-            tm_init = util::gettime();
-            initialize<FillRNDPointsVector>(tmp_points);
-        }
-#else
-        tm_init = util::gettime();
-        initialize<FillRNDPointsVector>(points);
-#endif // INIT_ONCE
-        tm_start = util::gettime();
-        quickhull(points, hull, false);
-        tm_end = util::gettime();
+    tm_init = util::gettime();
+    serial_initialize(points);
+    tm_start = util::gettime();
+    std::cout << "Serial init time: " << util::time_diff(tm_init, tm_start) << "  Points in input: " << points.size() << "\n";
 
-        util::WriteResults(nthreads, util::time_diff(tm_init, tm_start),
-            util::time_diff(tm_start, tm_end));
-    }
-
-#if USECONCVEC 
-    std::cout << "Starting TBB bufferred version of QUICK HULL algorithm" << std::endl;
-#else
-    std::cout << "Starting STL locked bufferred version of QUICK HULL algorithm" << std::endl;
 #endif
 
     for(nthreads=cfg::NUM_THREADS_START; nthreads<=cfg::NUM_THREADS_END;
         ++nthreads) {
         tbb::task_scheduler_init init(nthreads);
-#if INIT_ONCE
-        if(nthreads==cfg::NUM_THREADS_START) {
-            tm_init = util::gettime();
-            initialize<FillRNDPointsVector_buf>(points);
-        }
-        else /* timing generation for stats, but use original data set */ {
-            tm_init = util::gettime();
-            initialize<FillRNDPointsVector_buf>(tmp_points);
-        }
+#if !INIT_ONCE
+        points.clear();
+        tm_init = util::gettime();
+        initialize<FillRNDPointsVector>(points);
+        tm_start = util::gettime();
+        std::cout << "Parallel init time on " << nthreads << " threads: " << util::time_diff(tm_init, tm_start) << "  Points in input: " << points.size() << "\n";
+#endif // !INIT_ONCE
+        tm_start = util::gettime();
+        quickhull(points, hull, false);
+        tm_end = util::gettime();
+        std::cout << "Time on " << nthreads << " threads: " << util::time_diff(tm_start, tm_end) << "  Points in hull: " << hull.size() << "\n";
+        hull.clear();
+    }
+
+#if USECONCVEC 
+    std::cout << "Starting TBB buffered version of QUICK HULL algorithm" << std::endl;
 #else
+    std::cout << "Starting STL locked buffered version of QUICK HULL algorithm" << std::endl;
+#endif
+
+    for(nthreads=cfg::NUM_THREADS_START; nthreads<=cfg::NUM_THREADS_END;
+        ++nthreads) {
+        tbb::task_scheduler_init init(nthreads);
+#if !INIT_ONCE
+        points.clear();
         tm_init = util::gettime();
         initialize<FillRNDPointsVector_buf>(points);
-#endif // INIT_ONCE
+        tm_start = util::gettime();
+        std::cout << "Init time on " << nthreads << " threads: " << util::time_diff(tm_init, tm_start) << "  Points in input: " << points.size() << "\n";
+#endif // !INIT_ONCE
         tm_start = util::gettime();
         quickhull(points, hull, true);
         tm_end = util::gettime();
-
-        util::WriteResults(nthreads, util::time_diff(tm_init, tm_start),
-            util::time_diff(tm_start, tm_end));
+        std::cout << "Time on " << nthreads << " threads: " << util::time_diff(tm_start, tm_end) << "  Points in hull: " << hull.size() << "\n";
+        hull.clear();
     }    
 
     return 0;
 }
 
 #endif // USETBB
+
+void serial_initialize(pointVec_t &points) {
+    points.resize(cfg::MAXPOINTS);
+
+    unsigned int rseed=1;
+    for(size_t i=0, count=0; long(i)<cfg::MAXPOINTS; ++i) {
+        points[i] = util::GenerateRNDPoint<double>(count, rseed);
+    }
+}

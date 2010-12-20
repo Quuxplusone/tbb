@@ -43,7 +43,6 @@
     inline void do_yield() {sched_yield();}
 
 #elif USE_WINTHREAD
-    #define _WIN32_WINNT 0x0400
     #include "tbb/machine/windows_api.h"
     #define TlsSetValue_func TlsSetValue
     #define TlsGetValue_func TlsGetValue
@@ -70,7 +69,7 @@ class Block;
 inline bool isMallocInitialized();
 
 bool RecursiveMallocCallProtector::noRecursion() {
-    MALLOC_ASSERT(isMallocInitialized(), 
+    MALLOC_ASSERT(isMallocInitialized(),
                   "Recursion status can be checked only when initialization was done.");
     return !mallocRecursionDetected;
 }
@@ -168,7 +167,7 @@ unsigned int getThreadId() { return ThreadId::get().id; }
  *   for debugging purposes you will need to obey this invariant.
  * The total size of the header needs to be a power of 2 to simplify
  * the alignment requirements. For now it is a 128 byte structure.
- * To avoid false sharing, the fields changed only locally are separated 
+ * To avoid false sharing, the fields changed only locally are separated
  * from the fields changed by foreign threads.
  * Changing the size of the block header would require to change
  * some bin allocation sizes, in particular "fitting" sizes (see above).
@@ -195,7 +194,7 @@ protected:
     friend class StartupBlock;
     friend void BlockI::initialize(void *bumpPtr);
 };
-    
+
 class Block : public LocalBlockFields {
     size_t       __pad_local_fields[(blockHeaderAlignment-sizeof(LocalBlockFields))/sizeof(size_t)];
     FreeObject  *publicFreeList;
@@ -223,7 +222,7 @@ public:
     inline FreeObject *findObjectToFree(void *object) const;
     bool checkFreePrecond() const { return allocatedCount>0; }
     const BackRefIdx *getBackRef() const { return &backRefIdx; }
-    
+
 protected:
     static Block *getRaw(bool startup);
     void cleanBlockHeader();
@@ -331,7 +330,7 @@ static char globalBinSpace[sizeof(LifoList)*numBlockBinLimit];
 static OrphanedBlocks *orphanedBlocks = (OrphanedBlocks*)globalBinSpace;
 
 /*
- * Per-thread pool of 16KB blocks. Idea behind it is to not share with other 
+ * Per-thread pool of 16KB blocks. Idea behind it is to not share with other
  * threads memory that are likely in local cache(s) of our CPU.
  */
 class FreeBlockPool {
@@ -473,7 +472,7 @@ static unsigned int getIndexOrObjectSize (unsigned int size)
         if( size <= fittingSize3 ) {
             if( size <= fittingSize2 ) {
                 if( size <= fittingSize1 )
-                    return indexRequest ? minFittingIndex : fittingSize1; 
+                    return indexRequest ? minFittingIndex : fittingSize1;
                 else
                     return indexRequest ? minFittingIndex+1 : fittingSize2;
             } else
@@ -693,7 +692,7 @@ TLSData* Bin::createTLS()
 Bin* Bin::getAllocationBin(size_t size)
 {
     TLSData* tls = getThreadMallocTLS();
-    if( !tls ) 
+    if( !tls )
         tls = createTLS();
     MALLOC_ASSERT( tls, ASSERT_TEXT );
     return tls->bin + getIndex(size);
@@ -951,7 +950,7 @@ void Block::initEmptyBlock(size_t size)
     // Having getIndex and getObjectSize called next to each other
     // allows better compiler optimization as they basically share the code.
     unsigned int index = getIndex(size);
-    unsigned int objSz = getObjectSize(size); 
+    unsigned int objSz = getObjectSize(size);
     Bin* tlsBin = getThreadMallocTLS()->bin;
 
     cleanBlockHeader();
@@ -1015,7 +1014,7 @@ void FreeBlockPool::returnBlock(Block *block)
     MALLOC_ASSERT( size <= POOL_HIGH_MARK, ASSERT_TEXT );
     if (size == POOL_HIGH_MARK) {
         // release cold blocks and add hot one
-        Block *headToFree = head, 
+        Block *headToFree = head,
               *tailToFree = tail;
         for (int i=0; i<POOL_LOW_MARK-2; i++)
             headToFree = headToFree->next;
@@ -1135,7 +1134,7 @@ FreeObject *Block::findObjectToFree(void *object) const
     FreeObject *objectToFree;
     // Due to aligned allocations, a pointer passed to scalable_free
     // might differ from the address of internally allocated object.
-    // Small objects however should always be fine.    
+    // Small objects however should always be fine.
     if (objectSize <= maxSegregatedObjectSize)
         objectToFree = (FreeObject*)object;
     // "Fitting size" allocations are suspicious if aligned higher than naturally
@@ -1158,12 +1157,12 @@ FreeObject *Block::findObjectToFree(void *object) const
 #if MALLOC_CHECK_RECURSION
 
 /*
- * It's a special kind of allocation that can be used when malloc is 
+ * It's a special kind of allocation that can be used when malloc is
  * not available (either during startup or when malloc was already called and
- * we are, say, inside pthread_setspecific's call). 
- * Block can contain objects of different sizes, 
- * allocations are performed by moving bump pointer and increasing of object counter, 
- * releasing is done via counter of objects allocated in the block 
+ * we are, say, inside pthread_setspecific's call).
+ * Block can contain objects of different sizes,
+ * allocations are performed by moving bump pointer and increasing of object counter,
+ * releasing is done via counter of objects allocated in the block
  * or moving bump pointer if releasing object is on a bound.
  */
 
@@ -1199,7 +1198,7 @@ StartupBlock *StartupBlock::getBlock()
 }
 
 /* TODO: Function is called when malloc nested call is detected, so simultaneous
-   usage from different threads are unprobable, so block pre-allocation 
+   usage from different threads are unprobable, so block pre-allocation
    can be not useful, and the code might be simplified. */
 FreeObject *StartupBlock::allocate(size_t size)
 {
@@ -1207,7 +1206,7 @@ FreeObject *StartupBlock::allocate(size_t size)
     StartupBlock *newBlock = NULL;
     bool newBlockUnused = false;
 
-    /* Objects must be aligned on their natural bounds, 
+    /* Objects must be aligned on their natural bounds,
        and objects bigger than word on word's bound. */
     size = alignUp(size, sizeof(size_t));
     // We need size of an object to implement msize.
@@ -1219,7 +1218,7 @@ FreeObject *StartupBlock::allocate(size_t size)
 
     {
         MallocMutex::scoped_lock scoped_cs(startupMallocLock);
-    
+
         if (!firstStartupBlock || firstStartupBlock->availableSize() < reqSize) {
             if (!newBlock && !(newBlock = StartupBlock::getBlock()))
                 return NULL;
@@ -1231,7 +1230,7 @@ FreeObject *StartupBlock::allocate(size_t size)
             newBlockUnused = true;
         result = firstStartupBlock->bumpPtr;
         firstStartupBlock->allocatedCount++;
-        firstStartupBlock->bumpPtr = 
+        firstStartupBlock->bumpPtr =
             (FreeObject *)((uintptr_t)firstStartupBlock->bumpPtr + reqSize);
     }
     if (newBlock && newBlockUnused)
@@ -1247,12 +1246,12 @@ void StartupBlock::free(void *ptr)
     Block* blockToRelease = NULL;
     {
         MallocMutex::scoped_lock scoped_cs(startupMallocLock);
-    
+
         MALLOC_ASSERT(firstStartupBlock, ASSERT_TEXT);
-        MALLOC_ASSERT(startupAllocObjSizeMark==objectSize 
+        MALLOC_ASSERT(startupAllocObjSizeMark==objectSize
                       && allocatedCount>0, ASSERT_TEXT);
         MALLOC_ASSERT((uintptr_t)ptr>=(uintptr_t)this+sizeof(StartupBlock)
-                      && (uintptr_t)ptr+StartupBlock::msize(ptr)<=(uintptr_t)this+blockSize, 
+                      && (uintptr_t)ptr+StartupBlock::msize(ptr)<=(uintptr_t)this+blockSize,
                       ASSERT_TEXT);
         if (0 == --allocatedCount) {
             if (this == firstStartupBlock)
@@ -1265,7 +1264,7 @@ void StartupBlock::free(void *ptr)
         } else if ((uintptr_t)ptr + StartupBlock::msize(ptr) == (uintptr_t)bumpPtr) {
             // last object in the block released
             FreeObject *newBump = (FreeObject*)((size_t*)ptr - 1);
-            MALLOC_ASSERT((uintptr_t)newBump>(uintptr_t)this+sizeof(StartupBlock), 
+            MALLOC_ASSERT((uintptr_t)newBump>(uintptr_t)this+sizeof(StartupBlock),
                           ASSERT_TEXT);
             bumpPtr = newBump;
         }
@@ -1352,8 +1351,8 @@ static void doInitialization()
         RecursiveMallocCallProtector::detectNaiveOverload();
 #endif
         MALLOC_ASSERT( mallocInitialized==1, ASSERT_TEXT );
-        // Store must have release fence, otherwise mallocInitialized==2 
-        // might become remotely visible before side effects of 
+        // Store must have release fence, otherwise mallocInitialized==2
+        // might become remotely visible before side effects of
         // initMemoryManager() become remotely visible.
         FencedStore( mallocInitialized, 2 );
     }
@@ -1466,10 +1465,10 @@ static void *allocateAligned(size_t size, size_t alignment)
         result = alignUp(unaligned, alignment);
     } else {
         /* This can be the first allocation call. */
-        if (!isMallocInitialized()) 
+        if (!isMallocInitialized())
             doInitialization();
         // take into account only alignment that are higher then natural
-        result = mallocLargeObject(size, largeObjectAlignment>alignment? 
+        result = mallocLargeObject(size, largeObjectAlignment>alignment?
                                          largeObjectAlignment: alignment);
     }
 
@@ -1526,7 +1525,7 @@ FreeObject *Block::findAllocatedObject(const void *address) const
     return (FreeObject*)((uintptr_t)address - (offset? objectSize-offset: 0));
 }
 
-/* 
+/*
  * Bad dereference caused by a foreign pointer is possible only here, not earlier in call chain.
  * Separate function isolates SEH code, as it has bad influence on compiler optimization.
  */
@@ -1538,7 +1537,7 @@ static inline BackRefIdx safer_dereference (const BackRefIdx *ptr)
 #endif
         id = *ptr;
 #if _MSC_VER
-    } __except( GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION? 
+    } __except( GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION?
                 EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH ) {
         id = BackRefIdx();
     }
@@ -1548,7 +1547,7 @@ static inline BackRefIdx safer_dereference (const BackRefIdx *ptr)
 
 bool isLargeObject(void *object)
 {
-    if (!isAligned(object, largeObjectAlignment)) 
+    if (!isAligned(object, largeObjectAlignment))
         return false;
     LargeObjectHdr *header = (LargeObjectHdr*)object - 1;
     BackRefIdx idx = safer_dereference(&header->backRefIdx);
@@ -1570,7 +1569,7 @@ static inline bool isRecognized (void* ptr)
     return isLargeObject(ptr) || isSmallObject(ptr);
 }
 
-static inline void freeSmallObject (void *object) 
+static inline void freeSmallObject (void *object)
 {
     /* mask low bits to get the block */
     Block *block = (Block *)alignDown(object, blockSize);
@@ -1601,14 +1600,14 @@ static void *internalMalloc(size_t size)
 
 #if MALLOC_CHECK_RECURSION
     if (RecursiveMallocCallProtector::sameThreadActive()) {
-        result = size<minLargeObjectSize? StartupBlock::allocate(size) : 
+        result = size<minLargeObjectSize? StartupBlock::allocate(size) :
               (FreeObject*)mallocLargeObject(size, blockSize, /*startupAlloc=*/ true);
         if (!result) errno = ENOMEM;
         return result;
     }
 #endif
 
-    if (!isMallocInitialized()) 
+    if (!isMallocInitialized())
         doInitialization();
 
     /*
@@ -1829,7 +1828,7 @@ extern "C" void scalable_free (void *object)
  * A variant that provides additional memory safety, by checking whether the given address
  * was obtained with this allocator, and if not redirecting to the provided alternative call.
  */
-extern "C" void safer_scalable_free (void *object, void (*original_free)(void*)) 
+extern "C" void safer_scalable_free (void *object, void (*original_free)(void*))
 {
     if (!object)
         return;
@@ -1875,7 +1874,7 @@ extern "C" void* scalable_realloc(void* ptr, size_t size)
  * A variant that provides additional memory safety, by checking whether the given address
  * was obtained with this allocator, and if not redirecting to the provided alternative call.
  */
-extern "C" void* safer_scalable_realloc (void* ptr, size_t sz, void* original_realloc) 
+extern "C" void* safer_scalable_realloc (void* ptr, size_t sz, void* original_realloc)
 {
     if (!ptr) {
         return internalMalloc(sz);
@@ -1921,8 +1920,8 @@ extern "C" void* safer_scalable_realloc (void* ptr, size_t sz, void* original_re
 
 /*
  * From K&R
- * calloc returns a pointer to space for an array of nobj objects, 
- * each of size size, or NULL if the request cannot be satisfied. 
+ * calloc returns a pointer to space for an array of nobj objects,
+ * each of size size, or NULL if the request cannot be satisfied.
  * The space is initialized to zero bytes.
  *
  */
@@ -1958,7 +1957,7 @@ extern "C" void * scalable_aligned_malloc(size_t size, size_t alignment)
         return NULL;
     }
     void* tmp = allocateAligned(size, alignment);
-    if (!tmp) 
+    if (!tmp)
         errno = ENOMEM;
     return tmp;
 }
@@ -2052,7 +2051,7 @@ extern "C" size_t scalable_msize(void* ptr)
  * A variant that provides additional memory safety, by checking whether the given address
  * was obtained with this allocator, and if not redirecting to the provided alternative call.
  */
-extern "C" size_t safer_scalable_msize (void *object, size_t (*original_msize)(void*)) 
+extern "C" size_t safer_scalable_msize (void *object, size_t (*original_msize)(void*))
 {
     if (object) {
         // Check if the memory was allocated by scalable_malloc

@@ -53,6 +53,7 @@ namespace internal {
 
 class arena;
 class generic_scheduler;
+template<typename SchedulerTraits> class custom_scheduler;
 
 //------------------------------------------------------------------------
 // Class market
@@ -60,6 +61,7 @@ class generic_scheduler;
 
 class market : no_copy, rml::tbb_client {
     friend void ITT_DoUnsafeOneTimeInitialization ();
+    template<typename SchedulerTraits> friend class custom_scheduler;
 
     typedef intrusive_list<arena> arena_list_type;
 

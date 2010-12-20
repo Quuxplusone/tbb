@@ -30,6 +30,8 @@
 
 #include "../tbb/itt_notify.h" // for __TBB_load_ittnotify()
 
+#include "../tbb/tbb_assert_impl.h" // Out-of-line TBB assertion handling routines are instantiated here.
+
 #undef UNICODE
 
 #if USE_PTHREAD
@@ -199,6 +201,13 @@ void __TBB_internal_free(void *object)
 
 #endif /* MALLOC_CHECK_RECURSION */
 
+#include "../tbb/tbb_version.h"
+
+/** The leading "\0" is here so that applying "strings" to the binary
+    delivers a clean result.
+    volatile added to prevent possible dropping of constant by linker. */
+volatile char VersionString[] = "\0" TBB_VERSION_STRINGS;
+
 } } // namespaces
 
 #ifdef _WIN32
@@ -219,3 +228,19 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInst, DWORD callReason, LPVOID )
 
 #endif //_WIN32
 
+#if __TBB_ipf
+/* It was found that on IPF inlining of __TBB_machine_lockbyte leads
+   to serious performance regression with ICC 10.0. So keep it out-of-line.
+
+   This code is copy-pasted from tbb_misc.cpp.
+ */
+extern "C" intptr_t __TBB_machine_lockbyte( volatile unsigned char& flag ) {
+    if ( !__TBB_TryLockByte(flag) ) {
+        tbb::internal::atomic_backoff b;
+        do {
+            b.pause();
+        } while ( !__TBB_TryLockByte(flag) );
+    }
+    return 0;
+}
+#endif

@@ -89,12 +89,12 @@ public:
     void push_back ( const T& val )
     {
         if ( !m_pos ) {
-            m_segments[m_num_segments++] = m_cur_segment;
-            __TBB_ASSERT ( m_num_segments < max_segments, "Maximal capacity exceeded" );
+            if ( !m_num_segments ) m_segments[m_num_segments++] = m_cur_segment;
             m_size += m_cur_segment_size;
             m_cur_segment_size *= 2;
             m_pos = m_cur_segment_size;
-            m_cur_segment = (T*)NFS_Allocate( m_cur_segment_size * sizeof(T), 1, NULL );
+            m_segments[m_num_segments++] = m_cur_segment = (T*)NFS_Allocate( m_cur_segment_size * sizeof(T), 1, NULL );
+            __TBB_ASSERT ( m_num_segments < max_segments, "Maximal capacity exceeded" );
         }
         m_cur_segment[--m_pos] = val;
     }
@@ -107,7 +107,7 @@ public:
         memcpy( dst, m_cur_segment + m_pos, size * sizeof(T) );
         dst += size;
         size = m_cur_segment_size / 2;
-        for ( long i = (long)m_num_segments - 1; i >= 0; --i ) {
+        for ( long i = (long)m_num_segments - 2; i >= 0; --i ) {
             memcpy( dst, m_segments[i], size * sizeof(T) );
             dst += size;
             size /= 2;
@@ -124,10 +124,10 @@ protected:
     //! Insertion position in m_cur_segment
     size_t  m_pos;
 
-    //! Array of filled segments (has fixed size specified by the second template parameter)
+    //! Array of segments (has fixed size specified by the second template parameter)
     T       *m_segments[max_segments];
     
-    //! Number of filled segments (the size of m_segments)
+    //! Number of segments (the size of m_segments)
     size_t  m_num_segments;
 
     //! Number of items in the segments in m_segments

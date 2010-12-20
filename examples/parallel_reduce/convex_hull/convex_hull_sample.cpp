@@ -34,6 +34,7 @@
     - INIT_ONCE defined to 0
     - only buffered version is used
 */
+#include <cassert>
 #include "convex_hull.h"
 
 #include "tbb/task_scheduler_init.h"
@@ -42,6 +43,8 @@
 #include "tbb/blocked_range.h"
 #include "tbb/tick_count.h"
 #include "tbb/concurrent_vector.h"
+
+#define INIT_ONCE 1
 
 typedef util::point<double>               point_t;
 typedef tbb::concurrent_vector< point_t > pointVec_t;
@@ -78,9 +81,16 @@ public:
     }
 };
 
-void initialize(pointVec_t &points) {
-    points.clear();
+void serial_initialize(pointVec_t &points) {
+    points.resize(cfg::MAXPOINTS);
 
+    unsigned int rseed=1;
+    for(size_t i=0, count=0; long(i)<cfg::MAXPOINTS; ++i) {
+        points[i] = util::GenerateRNDPoint<double>(count, rseed);
+    }
+}
+
+void initialize(pointVec_t &points) {
     // In the buffered version, a temporary storage for as much as grainSize elements 
     // is allocated inside the body. Since auto_partitioner may increase effective
     // range size which would cause a crash, simple partitioner has to be used.
@@ -220,16 +230,15 @@ point_t divide(const pointVec_t &P, pointVec_t &P_reduced,
 
 void divide_and_conquer(const pointVec_t &P, pointVec_t &H,
                             point_t p1, point_t p2) {
-    if (P.size()<2) {
+    assert(P.size() >= 2);
+    pointVec_t P_reduced;
+    pointVec_t H1, H2;
+    point_t p_far = divide(P, P_reduced, p1, p2);
+    if (P_reduced.size()<2) {
         H.push_back(p1);
-        appendVector(P, H);
+        appendVector(P_reduced, H);
     }
     else {
-        pointVec_t P_reduced;
-        pointVec_t H1, H2;
-
-        point_t p_far = divide(P, P_reduced, p1, p2);
-
         divide_and_conquer(P_reduced, H1, p1, p_far);
         divide_and_conquer(P_reduced, H2, p_far, p2);
 
@@ -239,7 +248,10 @@ void divide_and_conquer(const pointVec_t &P, pointVec_t &H,
 }
 
 void quickhull(const pointVec_t &points, pointVec_t &hull) {
-    hull.clear();
+    if (points.size() < 2) {
+        appendVector(points, hull);
+        return;
+    }
 
     point_t p_maxx = extremum<FindXExtremum::maxX>(points);
     point_t p_minx = extremum<FindXExtremum::minX>(points);
@@ -255,24 +267,33 @@ void quickhull(const pointVec_t &points, pointVec_t &hull) {
 int main(int argc, char* argv[]) {
     util::ParseInputArgs(argc, argv);
 
-    pointVec_t      points;
+    pointVec_t      points, tmp_points;
     pointVec_t      hull;
     int             nthreads;
     util::my_time_t tm_init, tm_start, tm_end;
 
-    std::cout << " Starting TBB-bufferred version of QUICK HULL algorithm" << std::endl;
+    std::cout << "Starting TBB-buffered version of QUICK HULL algorithm" << std::endl;
+
+    tm_init = util::gettime();
+    serial_initialize(points);
+    tm_start = util::gettime();
+    std::cout << "Serial init time: " << util::time_diff(tm_init, tm_start) << "  Points in input: " << points.size() << "\n";
 
     for(nthreads=cfg::NUM_THREADS_START; nthreads<=cfg::NUM_THREADS_END;
         ++nthreads) {
         tbb::task_scheduler_init init(nthreads);
+#if !INIT_ONCE
+        tmp_points.clear();
         tm_init = util::gettime();
-        initialize(points);
+        initialize(tmp_points);
+        tm_start = util::gettime();
+        std::cout << "Init time on " << nthreads << " threads: " << util::time_diff(tm_init, tm_start) << " Points in input: " << points.size() << "\n";
+#endif
         tm_start = util::gettime();
         quickhull(points, hull);
         tm_end = util::gettime();
-
-        util::WriteResults(nthreads, util::time_diff(tm_init, tm_start),
-            util::time_diff(tm_start, tm_end));
+        std::cout << "Time on " << nthreads << " threads: " << util::time_diff(tm_start, tm_end) << " Points in hull: " << hull.size() << "\n";
+        hull.clear();
     }
 
     return 0;

@@ -789,7 +789,6 @@ namespace interface6 {
 
         //! Returns reference to calling thread's local copy, creating one if necessary
         reference local(bool& exists)  {
-            __TBB_ASSERT(ETS_key_type==ets_no_key,"ets_key_per_instance not yet implemented"); 
             void* ptr = this->table_lookup(exists);
             return *(T*)ptr;
         }

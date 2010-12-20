@@ -93,7 +93,7 @@ task& allocate_root_with_context_proxy::allocate( size_t size ) const {
             uintptr_t local_count_snapshot = v->local_cancel_count;
             // Prevent load of global_cancel_count from being hoisted above store
             // to my_context.my_parent and load of local_cancel_count.
-            __TBB_full_memory_fence();
+            atomic_fence();
             // The full fence guarantees that if no cancelation propagation was
             // detected by the following condition, either my_context's parent 
             // has correct cancelation state or my_context will receive cancelation

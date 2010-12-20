@@ -55,6 +55,7 @@
 
 #include <cstdarg>
 
+
 #ifdef HARNESS_INCOMPLETE_SOURCES
 #error Source files are not complete. Check the build environment
 #endif

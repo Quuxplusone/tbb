@@ -87,8 +87,8 @@ int TestMain ();
 
 #include <new>
 
-#define HARNESS_EXPORT
-#define REPORT_FATAL_ERROR REPORT
+    #define HARNESS_EXPORT
+    #define REPORT_FATAL_ERROR REPORT
 
 #if _WIN32||_WIN64
     #include "tbb/machine/windows_api.h"
@@ -216,9 +216,6 @@ static void ParseCommandLine( int argc, char* argv[] ) {
 
 #if !HARNESS_CUSTOM_MAIN
 
-#if __TBB_MIC
-#pragma offload_attribute (pop)
-#endif
 
 HARNESS_EXPORT
 #if HARNESS_NO_PARSE_COMMAND_LINE
@@ -227,23 +224,12 @@ int main() {
 int main(int argc, char* argv[]) {
     ParseCommandLine( argc, argv );
 #endif
-#if __TBB_MIC
-    int res = Harness::Unknown;
-    #pragma offload target(mic) out(res)
-    {
-        res = TestMain ();
-    }
-#else
     int res = TestMain ();
-#endif
     ASSERT( res==Harness::Done || res==Harness::Skipped, "Wrong return code by TestMain");
     REPORT( res==Harness::Done ? "done\n" : "skip\n" );
     return 0;
 }
 
-#if __TBB_MIC
-#pragma offload_attribute (target(mic))
-#endif
 
 #endif /* !HARNESS_CUSTOM_MAIN */
 
@@ -465,12 +451,20 @@ public:
 
 #if _WIN32 || _WIN64
     void Sleep ( int ms ) { ::Sleep(ms); }
+
+    typedef DWORD tid_t;
+    tid_t CurrentTid () { return GetCurrentThreadId(); }
+
 #else /* !WIN */
+
     void Sleep ( int ms ) {
         timespec  requested = { ms / 1000, (ms % 1000)*1000000 };
         timespec  remaining = { 0, 0 };
         nanosleep(&requested, &remaining);
     }
+
+    typedef pthread_t tid_t;
+    tid_t CurrentTid () { return pthread_self(); }
 #endif /* !WIN */
 
 } // namespace Harness

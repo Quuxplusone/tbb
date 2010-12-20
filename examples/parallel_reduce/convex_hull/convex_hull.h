@@ -29,7 +29,6 @@
 #ifndef __CONVEX_HULL_H__
 #define __CONVEX_HULL_H__
 
-#define _SCL_SECURE_NO_DEPRECATE
 #include <cstdlib>
 #include <iostream>
 #include <iomanip>
@@ -134,8 +133,8 @@ namespace util {
         point() : x(T()), y(T()) {}
         point(T _x, T _y) : x(_x), y(_y) {}
         //why do we need below line? it fails to compile with suncc
-	    //point(const point<T>& _P) : x(_P.x), y(_P.y) {} 
-	};
+        //point(const point<T>& _P) : x(_P.x), y(_P.y) {} 
+    };
 
     int random(unsigned int& rseed) {
 #if __linux__ || __APPLE__ || __FreeBSD__ 

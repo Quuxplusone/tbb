@@ -71,7 +71,7 @@ public:
                 // We are stolen, let our parent to start waiting for us
                 m_Parent->m_GoAhead = false;
             }
-            tbb::task &t = *new( tbb::task::allocate_child() ) this_type(this, m_Depth - 1);
+            tbb::task &t = *new( allocate_child() ) this_type(this, m_Depth - 1);
             set_ref_count( 2 );
             spawn( t );
             // Give a willing thief a chance to steal
@@ -114,14 +114,14 @@ public:
             tbb::task_list list;
             ASSERT( list.empty(), NULL );
             for( int k=0; k<m_ChildCount; ++k ) {
-                list.push_back( *new( tbb::task::allocate_child() ) RecursiveTask(m_ChildCount/2,m_Depth-1 ) );
+                list.push_back( *new( allocate_child() ) RecursiveTask(m_ChildCount/2,m_Depth-1 ) );
                 ASSERT( !list.empty(), NULL );
             }
             set_ref_count( m_ChildCount+1 );
             SpawnList( list, 1 );
             // Now try reusing this as the parent.
             set_ref_count(2);
-            list.push_back( *new (tbb::task::allocate_child() ) tbb::empty_task() );
+            list.push_back( *new ( allocate_child() ) tbb::empty_task() );
             SpawnList( list, 2 );
         }
         return NULL;
@@ -218,12 +218,12 @@ void TestSafeContinuation( int nthread ) {
 tbb::atomic<int> TotalCount;
 
 struct AffinityTask: public tbb::task {
-    const tbb::task::affinity_id expected_affinity_id; 
+    const affinity_id expected_affinity_id; 
     bool noted;
     /** Computing affinities is NOT supported by TBB, and may disappear in the future.
         It is done here for sake of unit testing. */
     AffinityTask( int expected_affinity_id_ ) : 
-        expected_affinity_id(tbb::task::affinity_id(expected_affinity_id_)), 
+        expected_affinity_id(affinity_id(expected_affinity_id_)), 
         noted(false) 
     {
         set_affinity(expected_affinity_id);
@@ -241,7 +241,7 @@ struct AffinityTask: public tbb::task {
         // We exploit those conditions for sake of unit testing.
         ASSERT( id!=expected_affinity_id, NULL );
         ASSERT( !noted, "note_affinity_id called twice!" );
-        ASSERT ( &tbb::task::self() == (tbb::task*)this, "Wrong innermost running task" );
+        ASSERT ( &self() == (tbb::task*)this, "Wrong innermost running task" );
         noted = true;
     }
 };
@@ -278,7 +278,7 @@ struct NoteAffinityTask: public tbb::task {
     bool noted;
     NoteAffinityTask( int id ) : noted(false)
     {
-        set_affinity(tbb::task::affinity_id(id));
+        set_affinity(affinity_id(id));
     }
     ~NoteAffinityTask () {
         ASSERT (noted, "note_affinity has not been called");
@@ -288,7 +288,7 @@ struct NoteAffinityTask: public tbb::task {
     }
     /*override*/ void note_affinity( affinity_id /*id*/ ) {
         noted = true;
-        ASSERT ( &tbb::task::self() == (tbb::task*)this, "Wrong innermost running task" );
+        ASSERT ( &self() == (tbb::task*)this, "Wrong innermost running task" );
     }
 };
 
@@ -394,7 +394,7 @@ class TaskWithMember: public tbb::task {
         x = y;
         if( count>0 ) { 
             set_ref_count(2);
-            tbb::task* t = new( tbb::task::allocate_child() ) TaskWithMember<T>(count-1);
+            tbb::task* t = new( allocate_child() ) TaskWithMember<T>(count-1);
             spawn_and_wait_for_all(*t);
         }
         return NULL;
@@ -494,7 +494,7 @@ public:
     DagTask *successor_to_below, *successor_to_right;
     DagTask( int i_, int j_ ) : i(i_), j(j_), sum_from_left(0), sum_from_above(0) {}
     task* execute() {
-        __TBB_ASSERT( ref_count()==0, NULL );
+        ASSERT( ref_count()==0, NULL );
         number_t sum = i==0 && j==0 ? 1 : sum_from_left+sum_from_above;
         check_sum(sum);
         ++execution_count;
@@ -555,7 +555,7 @@ class RelaxedOwnershipTask: public tbb::task {
 
     tbb::task* execute () {
         tbb::task &p = *parent();
-        tbb::task &r = *new( tbb::task::allocate_root() ) tbb::empty_task;
+        tbb::task &r = *new( allocate_root() ) tbb::empty_task;
         r.set_ref_count( 1 );
         m_barrier.wait();
         p.spawn( *new(p.allocate_child()) tbb::empty_task );
@@ -640,7 +640,7 @@ public:
     tbb::task* execute() {
         m_GoAhead = true;
         if ( m_Depth > 0 ) {
-            TaskWithChildToSteal &t = *new( tbb::task::allocate_child() ) TaskWithChildToSteal(m_Depth - 1);
+            TaskWithChildToSteal &t = *new( allocate_child() ) TaskWithChildToSteal(m_Depth - 1);
             t.SpawnAndWaitOnParent();
         }
         else
@@ -763,14 +763,14 @@ struct MasterBody : NoAssign, Harness::NoAfterlife {
             if( !m_Depth )
                 return NULL;
             set_ref_count(3);
-            spawn( *new( tbb::task::allocate_child() ) BinaryRecursiveTask(m_Depth - 1) );
-            spawn( *new( tbb::task::allocate_child() ) BinaryRecursiveTask(m_Depth - 1) );
+            spawn( *new( allocate_child() ) BinaryRecursiveTask(m_Depth - 1) );
+            spawn( *new( allocate_child() ) BinaryRecursiveTask(m_Depth - 1) );
             wait_for_all();
             return NULL;
         }
 
         void note_affinity( affinity_id ) {
-            __TBB_ASSERT( false, "These tasks cannot be stolen" );
+            ASSERT( false, "These tasks cannot be stolen" );
         }
     public:
         BinaryRecursiveTask ( int depth_ ) : m_Depth(depth_) {}
@@ -829,8 +829,8 @@ class EnqueuedTask : public tbb::task {
         // Capture execution order in the very beginning
         int execution_order = 2 - my_successor->decrement_ref_count();
         // Create some local work.
-        TaskGenerator& p = *new( tbb::task::allocate_root() ) TaskGenerator(2,2);
-        tbb::task::spawn_root_and_wait(p);
+        TaskGenerator& p = *new( allocate_root() ) TaskGenerator(2,2);
+        spawn_root_and_wait(p);
         if( execution_order==2 ) { // the "slower" of two peer tasks
             ++nCompletedPairs;
             // Of course execution order can differ from dequeue order.
@@ -851,10 +851,10 @@ public:
     static void FireTwoTasks( int* track ) {
         int progress = ++*track;
         if( progress < PairsPerTrack ) {
-            task* successor = new (tbb::task::allocate_root()) tbb::empty_task;
+            task* successor = new (allocate_root()) tbb::empty_task;
             successor->set_ref_count(2);
-            enqueue( *new (tbb::task::allocate_root()) EnqueuedTask(successor, 1, track) );
-            enqueue( *new (tbb::task::allocate_root()) EnqueuedTask(successor, 2, track) );
+            enqueue( *new (allocate_root()) EnqueuedTask(successor, 1, track) );
+            enqueue( *new (allocate_root()) EnqueuedTask(successor, 2, track) );
         }
     }
 
@@ -899,7 +899,7 @@ public:
             else {
                 ++stall_count;
                 // no progress for at least 0.1 s; consider it dead.
-                ASSERT(stall_count < stall_threshold, "no progress on enqueued tasks; deadlock?");
+                ASSERT(stall_count < stall_threshold, "no progress on enqueued tasks; deadlock, or the machine is oversubsribed?");
             }
             if( progress_mask==all_progressed || progress_mask^last_progress_mask ) {
                 uneven_progress_count = 0;

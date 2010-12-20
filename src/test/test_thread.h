@@ -104,7 +104,7 @@ public:
         if(delta+SHORT_TOLERANCE <= 0.0)
             REPORT("ERROR: Sleep interval too short (%g outside short tolerance(%g))\n", (t1-t0).seconds(), WAIT - SHORT_TOLERANCE);
         if(delta > LONG_TOLERANCE)
-            REPORT("WARNING: Sleep interval too long (%g outside long tolerance(%g))\n", (t1-t0).seconds(), WAIT + LONG_TOLERANCE);
+            REPORT("Warning: Sleep interval too long (%g outside long tolerance(%g))\n", (t1-t0).seconds(), WAIT + LONG_TOLERANCE);
 
         init_barrier.wait();
 

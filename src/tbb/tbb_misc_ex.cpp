@@ -77,7 +77,7 @@ static void initialize_hardware_concurrency_info () {
     for (;;) {
         int curMaskSize = BasicMaskSize * numMasks;
         processMask = new cpu_set_t[numMasks];
-        memset( processMask, curMaskSize, 0 );
+        memset( processMask, 0, curMaskSize );
         err = sched_getaffinity( pid, curMaskSize, processMask );
         if ( !err || errno != EINVAL || curMaskSize * CHAR_BIT >= 256 * 1024 )
             break;
@@ -91,7 +91,7 @@ static void initialize_hardware_concurrency_info () {
     for (;;) {
         int curMaskSize = BasicMaskSize * numMasks;
         processMask = new cpuset_t[numMasks];
-        memset( processMask, curMaskSize, 0 );
+        memset( processMask, 0, curMaskSize );
         // CPU_LEVEL_WHICH - anonymous (current) mask, CPU_LEVEL_CPUSET - assigned mask
 #if __TBB_MAIN_THREAD_AFFINITY_BROKEN
         err = cpuset_getaffinity( CPU_LEVEL_WHICH, CPU_WHICH_TID, -1, curMaskSize, processMask );
@@ -119,7 +119,7 @@ static void initialize_hardware_concurrency_info () {
 }
 
 int AvailableHwConcurrency() {
-    atomic_do_once( initialize_hardware_concurrency_info, hardware_concurrency_info );
+    atomic_do_once( &initialize_hardware_concurrency_info, hardware_concurrency_info );
     return theNumProcs;
 }
 
@@ -225,7 +225,7 @@ static void initialize_hardware_concurrency_info () {
 }
 
 int AvailableHwConcurrency() {
-    atomic_do_once( initialize_hardware_concurrency_info, hardware_concurrency_info );
+    atomic_do_once( &initialize_hardware_concurrency_info, hardware_concurrency_info );
     return theProcessorGroups[ProcessorGroupInfo::NumGroups - 1].numProcsRunningTotal;
 }
 

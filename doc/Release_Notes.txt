@@ -41,14 +41,14 @@ Software - Minimum Requirements
 
     Supported operating system (see below)
     Supported compiler (see below)
-    Xcode* tool suite 3.1.2 or higher (Mac OS* X systems only)
-    Microsoft* Internet Explorer* 6.0, or other compatible web browser
+    Xcode* tool suite 3.1.4 or higher (Mac OS* X systems only)
+    Microsoft* Internet Explorer* 8.0, or other compatible web browser
     Adobe(R) Reader(R)* 6.0 or higher
 
 Software - Recommended
 
     Intel(R) Parallel Studio
-    Intel(R) C++ Compiler 10.1 or higher
+    Intel(R) C++ Compiler 11.1 or higher
     Intel(R) Thread Checker 3.1 or higher
     Intel(R) Thread Profiler 3.1 or higher
 
@@ -61,18 +61,18 @@ Software - Supported Operating Systems
 	Microsoft* Windows* Server 2008
 	Microsoft* Windows* 7
     Linux* Systems
-	Red Hat* Enterprise Linux* 4, 5
+	Red Hat* Enterprise Linux* 5, 6, 4 (deprecated)
 	    (when using Red Hat* Enterprise Linux* 4 with Intel(R)
 	    Itanium(R) processors, operating system Update 2 or higher
 	    is recommended)
-	Fedora* 10, 11, 12
+	Fedora* 12, 13
 	    (not with Intel(R) Itanium(R) processors)
 	Asianux* 3.0
 	Debian* GNU/Linux* 5.0
-	Ubuntu* 9.04, 9.10
+	Ubuntu* 10.04
 	SuSE* Linux* Enterprise Server (SLES) 10, 11
     Mac OS* X Systems
-	Mac OS* X 10.5.6 or higher
+	Mac OS* X 10.5.8 or higher
 
 Software - Supported Compilers
 
@@ -82,13 +82,13 @@ Software - Supported Compilers
 	Windows* systems only)
     Microsoft* Visual C++ 10.0 (Microsoft* Visual Studio* 2010,
 	Windows* systems only)
-    Intel(R) C++ Compiler 10.1 or higher
+    Intel(R) C++ Compiler 11.1 or higher
     For each supported Linux* operating system, the standard gcc
 	version provided with that operating system is supported,
-	including gcc 3.4 through 4.4
+	including gcc 3.4 through 4.5
     For each supported Mac OS* X operating system, the standard gcc
 	version provided with that operating system is supported,
-	including: 4.0.1 or higher (Xcode* tool suite 3.1.2 or higher)
+	including: 4.0.1 or higher (Xcode* tool suite 3.1.4 or higher)
 
 
 Known Issues
@@ -99,14 +99,12 @@ Intel(R) Threading Building Blocks.
 
 Library Issues
 
-    - Unhandled exceptions in the user code executed in the context of
-	TBB algorithms or containers may cause segmentation faults when
-	Intel(R) C++ Compiler 10.x is used with glibc 2.3.2 to 2.3.4.
-
-    - To allow more accurate results to be obtained with Intel(R) Thread
-	Checker or Intel(R) Thread Profiler, download the latest update
-	releases of these products before using them with Intel(R)
-	Threading Building Blocks.
+    - If an application uses static version of MSVCRT libraries or uses
+	TBB DLL built with static MSVCRT (vc_mt variant), and throws
+	an exception from a functor passed to task_group::run_and_wait(),
+	the exception will not be intercepted by TBB and will not result
+	in cancellation of the task_group. For a workaround, catch the
+	exception in the functor and explicitly cancel the task_group.
 
     - If you are using Intel(R) Threading Building Blocks and OpenMP*
 	constructs mixed together in rapid succession in the same
@@ -127,15 +125,6 @@ Library Issues
 	the Tutorial in the product "doc" sub-directory for more details
 	on debug vs. release libraries.
     
-    - Installer doesn't accept non-commercial serial numbers on 
-	Fedora* 11. To install the product on the system use license 
-	file provided after registration of the serial number.
-
-    - Intel(R) TBB 2.2 Update 1 fixed known bugs with exception handling
-	in concurrent_vector. For applications using both exceptions 
-	and concurrent_vector, recompilation with TBB 2.2 Update 1
-	or a newer version is recommended.
-
 ------------------------------------------------------------------------
 Copyright (C) 2005-2010 Intel Corporation.  All Rights Reserved.
 

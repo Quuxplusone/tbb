@@ -873,13 +873,13 @@ struct TestQueueElements: NoAssign {
     void operator()( int k ) const {
         for( int i=0; i<1000; ++i ) {
             if( (i&0x1)==0 ) {
-                __TBB_ASSERT( T(k)<T(nthread), NULL );
+                ASSERT( T(k)<T(nthread), NULL );
                 queue.push( T(k) );
             } else {
                 // Pop item from queue
                 T item;
                 queue.try_pop(item);
-                __TBB_ASSERT( item<=T(nthread), NULL );
+                ASSERT( item<=T(nthread), NULL );
             }
         }
     }

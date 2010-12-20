@@ -414,7 +414,7 @@ exception_was_caught:
             return;
         }
 #if __TBB_ARENA_PER_MASTER
-        __TBB_ASSERT( my_arena->my_max_num_workers > 0 || parent.prefix().ref_count == 1, "deadlock detected" );
+        __TBB_ASSERT( my_arena->my_max_num_workers > 0 || my_market->my_ref_count > 1 || parent.prefix().ref_count == 1, "deadlock detected" );
 #else /* !__TBB_ARENA_PER_MASTER */
         __TBB_ASSERT( my_arena->prefix().number_of_workers>0||parent.prefix().ref_count==1, "deadlock detected" );
 #endif /* !__TBB_ARENA_PER_MASTER */

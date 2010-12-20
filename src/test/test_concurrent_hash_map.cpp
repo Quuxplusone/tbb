@@ -354,6 +354,32 @@ struct InnerInsert {
     }
 };
 
+#include "harness_barrier.h"
+// Test for the misuse of constness
+struct FakeExclusive : NoAssign {
+    Harness::SpinBarrier& barrier;
+    YourTable& table;
+    FakeExclusive(Harness::SpinBarrier& b, YourTable&t) : barrier(b), table(t) {}
+    void operator()( int i ) const {
+        if(i) {
+            YourTable::const_accessor real_ca;
+            // const accessor on non-const table aquired as reader (shared)
+            ASSERT( table.find(real_ca,MyKey::make(1)), NULL );
+            barrier.wait(); // item can be erased
+            Harness::Sleep(10); // let it enter the erase
+            real_ca->second.value_of(); // check the state while holding accessor
+        } else {
+            YourTable::accessor fake_ca;
+            const YourTable &const_table = table;
+            // non-const accessor on const table aquired as reader (shared)
+            ASSERT( const_table.find(fake_ca,MyKey::make(1)), NULL );
+            barrier.wait(); // readers aquired
+            // can mistakenly remove the item while other readers still refers to it
+            table.erase( fake_ca );
+        }
+    }
+};
+
 template<typename Op, typename MyTable>
 class TableOperation: NoAssign {
     MyTable& my_table;
@@ -512,6 +538,9 @@ void TestInsertFindErase( int nthread ) {
             ASSERT( InsertEraseCount[i]==ie_table.count(MyKey::make(i)), NULL );
 
         DoConcurrentOperations<InnerInsert,YourTable>(ie_table,2000,"inner insert",nthread);
+        Harness::SpinBarrier barrier(nthread);
+        REMARK("testing erase on fake exclusive accessor\n");
+        NativeParallelFor( nthread, FakeExclusive(barrier, ie_table));
     }
 }
 
@@ -892,6 +921,7 @@ int TestMain () {
         REPORT("ERROR: must use at least one thread\n");
         exit(1);
     }
+    if( MaxThread<2 ) MaxThread=2;
 
     // Do serial tests
     TestTypes();

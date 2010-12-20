@@ -155,7 +155,7 @@ task_group_context::~task_group_context () {
             // Local update of the context list
             uintptr_t local_count_snapshot = s->local_cancel_count;
             s->local_ctx_list_update = 1;
-            __TBB_full_memory_fence();
+            atomic_fence();
             if ( s->nonlocal_ctx_list_update ) {
                 spin_mutex::scoped_lock lock(s->context_list_mutex);
                 my_node.my_prev->my_next = my_node.my_next;

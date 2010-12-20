@@ -3230,7 +3230,7 @@ extern "C" factory::status_type __RML_open_factory( factory& f, version_type& se
     // End of hack
 
     // Initialize the_balance only once
-    tbb::internal::atomic_do_once ( init_rml_module, rml_module_state );
+    tbb::internal::atomic_do_once ( &init_rml_module, rml_module_state );
 
     server_version = SERVER_VERSION;
     f.scratch_ptr = 0;

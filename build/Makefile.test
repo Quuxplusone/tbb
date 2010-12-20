@@ -67,8 +67,7 @@ ifeq (,$(codecov))
 endif
 
 # These executables don't depend on the TBB library, but include core .cpp files directly
-TASK_CPP_DIRECTLY_INCLUDED = test_eh_tasks.$(TEST_EXT) \
- test_task_leaks.$(TEST_EXT) \
+TASK_CPP_DIRECTLY_INCLUDED = test_task_leaks.$(TEST_EXT) \
  test_task_assertions.$(TEST_EXT) \
  test_fast_random.$(TEST_EXT)
 
@@ -125,6 +124,7 @@ TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_tick_count.$(TEST_EXT)                  \
 	test_inits_loop.$(TEST_EXT)                  \
 	test_yield.$(TEST_EXT)                       \
+	test_eh_tasks.$(TEST_EXT)                    \
 	test_eh_algorithms.$(TEST_EXT)               \
 	test_parallel_invoke.$(TEST_EXT)             \
 	test_task_group.$(TEST_EXT)                  \
@@ -141,7 +141,22 @@ TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_intrusive_list.$(TEST_EXT)              \
 	test_cilk_interop.$(TEST_EXT)                \
 	test_concurrent_priority_queue.$(TEST_EXT)   \
+	test_faf_task.$(TEST_EXT)                    \
 	test_hw_concurrency.$(TEST_EXT)              \
+	test_fp.$(TEST_EXT)                          \
+	test_broadcast_node.$(TEST_EXT)              \
+	test_continue_node.$(TEST_EXT)               \
+	test_executable_node.$(TEST_EXT)             \
+	test_function_node.$(TEST_EXT)               \
+	test_limiter_node.$(TEST_EXT)                \
+	test_join_node.$(TEST_EXT)                   \
+	test_buffer_node.$(TEST_EXT)                 \
+	test_queue_node.$(TEST_EXT)                  \
+	test_priority_queue_node.$(TEST_EXT)         \
+	test_sequencer_node.$(TEST_EXT)              \
+	test_source_node.$(TEST_EXT)                 \
+	test_overwrite_node.$(TEST_EXT)              \
+	test_write_once_node.$(TEST_EXT)             \
 	test_tbb_version.$(TEST_EXT)                 # insert new files right above
 
 ifdef OPENMP_FLAG
@@ -172,8 +187,8 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(TASK_CPP_DIRECTLY_INCLUDED) $(TEST_TBB_PL
 	$(run_cmd) ./test_task.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_task_assertions.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_task_leaks.$(TEST_EXT) $(args)
-	$(run_cmd) ./test_eh_tasks.$(TEST_EXT) $(args) 2:4
 	$(run_cmd) ./test_fast_random.$(TEST_EXT) $(args) 1:16
+	$(run_cmd) ./test_eh_tasks.$(TEST_EXT) $(args) 2:4
 	$(run_cmd) ./test_cache_aligned_allocator.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_cache_aligned_allocator_STL.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_blocked_range.$(TEST_EXT) $(args) 1:4
@@ -220,7 +235,22 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(TASK_CPP_DIRECTLY_INCLUDED) $(TEST_TBB_PL
 	$(run_cmd) ./test_intrusive_list.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_cilk_interop.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_concurrent_priority_queue.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_faf_task.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_hw_concurrency.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_fp.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_broadcast_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_continue_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_executable_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_function_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_limiter_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_join_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_buffer_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_queue_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_priority_queue_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_sequencer_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_source_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_overwrite_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_write_once_node.$(TEST_EXT) $(args) 1:4
 
 CPLUS_FLAGS_DEPRECATED = $(DEFINE_KEY)TBB_DEPRECATED=1 $(subst $(WARNING_KEY),,$(CPLUS_FLAGS)) $(WARNING_SUPPRESS)
 

@@ -27,19 +27,10 @@
 */
 
 #include <typeinfo>
+#include "tbb/tbb_exception.h"
 #include "tbb/atomic.h"
 #include "harness.h"
 #include "harness_concurrency_tracker.h"
-
-namespace Harness {
-#if _WIN32 || _WIN64
-    typedef DWORD tid_t;
-    tid_t CurrentTid () { return GetCurrentThreadId(); }
-#else /* !WIN */
-    typedef pthread_t tid_t;
-    tid_t CurrentTid () { return pthread_self(); }
-#endif /* !WIN */
-} // namespace Harness
 
 int g_NumThreads = 0;
 Harness::tid_t  g_Master = 0;

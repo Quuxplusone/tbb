@@ -129,6 +129,10 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 #endif
 
 namespace tbb {
+
+//! Sequentially consistent full memory fence.
+inline void atomic_fence () { __TBB_full_memory_fence(); }
+
 namespace internal {
 
 //! Class that implements exponential backoff.

@@ -31,6 +31,13 @@
 #include "scheduler.h"
 #include "itt_notify.h"
 
+#if !__TBB_CPU_CTL_ENV_PRESENT
+inline void __TBB_get_cpu_ctl_env ( __TBB_cpu_ctl_env_t* ctl ) { fegetenv(ctl); }
+inline void __TBB_set_cpu_ctl_env ( const __TBB_cpu_ctl_env_t* ctl ) { fesetenv(ctl); }
+#endif /* !__TBB_CPU_CTL_ENV_PRESENT */
+
+#include <functional>
+
 #if __TBB_STATISTICS_STDOUT
 #include <cstdio>
 #endif
@@ -113,9 +120,7 @@ void arena::process( generic_scheduler& s ) {
             index = 1;
         if ( index == end ) {
             // Likely this arena is already saturated
-            if ( --my_num_threads_active == 0 )
-                close_arena();
-            return;
+            goto quit;
         }
     }
     ITT_NOTIFY(sync_acquired, &slot[index]);
@@ -126,13 +131,9 @@ void arena::process( generic_scheduler& s ) {
     slot[index].hint_for_push = index ^ unsigned(&s-(generic_scheduler*)NULL)>>16; // randomizer seed
     slot[index].hint_for_pop  = index; // initial value for round-robin
 
-    unsigned new_limit = index + 1;
-    unsigned old_limit = my_limit;
-    while ( new_limit > old_limit ) {
-        if ( my_limit.compare_and_swap(new_limit, old_limit) == old_limit )
-            break;
-        old_limit = my_limit;
-    }
+    __TBB_set_cpu_ctl_env(&my_cpu_ctl_env);
+
+    atomic_update( my_limit, index + 1, std::less<unsigned>() );
 
     for ( ;; ) {
         // Try to steal a task.
@@ -146,7 +147,6 @@ void arena::process( generic_scheduler& s ) {
             s.innermost_running_task = NULL;
             s.local_wait_for_all(*s.dummy_task,t);
         }
-        ++my_num_threads_leaving;
         __TBB_ASSERT ( slot[index].head == slot[index].tail, "Worker cannot leave arena while its task pool is not empty" );
         __TBB_ASSERT( slot[index].task_pool == EmptyTaskPool, "Empty task pool is not marked appropriately" );
         // Revalidate quitting condition
@@ -154,8 +154,6 @@ void arena::process( generic_scheduler& s ) {
         // of the non-atomicity of the decision making procedure
         if ( num_workers_active() >= my_num_workers_allotted || !my_num_workers_requested )
             break;
-        --my_num_threads_leaving;
-        __TBB_ASSERT( !slot[0].my_scheduler || my_num_threads_active > 0, "Who requested more workers after the last one left the dispatch loop and the master's gone?" );
     }
 #if __TBB_STATISTICS
     ++s.my_counters.arena_roundtrips;
@@ -167,17 +165,11 @@ void arena::process( generic_scheduler& s ) {
     __TBB_ASSERT( s.inbox.is_idle_state(true), NULL );
     __TBB_ASSERT( !s.innermost_running_task, NULL );
     __TBB_ASSERT( is_alive(my_guard), NULL );
-    // Decrementing my_num_threads_active first prevents extra workers from leaving
-    // this arena prematurely, but can result in some workers returning back just
-    // to repeat the escape attempt. If instead my_num_threads_leaving is decremented
-    // first, the result is the opposite - premature leaving is allowed and gratuitous
-    // return is prevented. Since such a race has any likelihood only when multiple
-    // workers are in the stealing loop, and consequently there is a lack of parallel
-    // work in this arena, we'd rather let them go out and try get employment in 
-    // other arenas (before returning into this one again).
-    --my_num_threads_leaving;
-    if ( !--my_num_threads_active )
-        close_arena();
+quit:
+    // In contrast to earlier versions of TBB (before 3.0 U5) now it is possible
+    // that arena may be temporarily left unpopulated by threads. See comments in
+    // arena::on_thread_leaving() for more details.
+    on_thread_leaving();
 }
 
 arena::arena ( market& m, unsigned max_num_workers ) {
@@ -190,6 +182,7 @@ arena::arena ( market& m, unsigned max_num_workers ) {
     my_num_slots = max(2u, max_num_workers + 1);
     my_max_num_workers = max_num_workers;
     my_num_threads_active = 1; // accounts for the master
+    __TBB_get_cpu_ctl_env(&my_cpu_ctl_env);
     __TBB_ASSERT ( my_max_num_workers < my_num_slots, NULL );
     // Construct mailboxes. Mark internal synchronization elements for the tools.
     for( unsigned i = 0; i < my_num_slots; ++i ) {
@@ -244,7 +237,11 @@ void arena::free_arena () {
         NFS_Free( slot[i].my_counters );
 #endif /* __TBB_STATISTICS */
     void* storage  = &mailbox(my_num_slots);
+    __TBB_ASSERT( my_num_threads_active == 0, NULL );
     this->~arena();
+#if TBB_USE_ASSERT > 1
+    memset( storage, 0, allocation_size(my_max_num_workers) );
+#endif /* TBB_USE_ASSERT */
     NFS_Free( storage );
 }
 
@@ -253,6 +250,7 @@ void arena::close_arena () {
     GATHER_STATISTIC( dump_arena_statistics() );
 #endif
     my_market->detach_arena( *this );
+    __TBB_ASSERT( is_alive(my_guard), NULL );
     free_arena();
 }
 

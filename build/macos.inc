@@ -25,6 +25,20 @@
 # the GNU General Public License.
 
 ####### Detections and Commands ###############################################
+
+ifeq (icc,$(compiler))
+  export COMPILER_VERSION := ICC: $(shell icc -V </dev/null 2>&1 | grep 'Version')
+  ifneq (,$(findstring IA-32, $(COMPILER_VERSION)))
+    export arch:=ia32
+  endif
+  ifneq (,$(findstring Intel(R) 64, $(COMPILER_VERSION)))
+    export arch:=intel64
+  endif
+  ifeq (,$(arch))
+    $(warning "Unknown Intel compiler")
+  endif
+endif
+
 ifndef arch
  ifeq ($(shell /usr/sbin/sysctl -n hw.machine),Power Macintosh)
    ifeq ($(shell /usr/sbin/sysctl -n hw.optional.64bitops),1)

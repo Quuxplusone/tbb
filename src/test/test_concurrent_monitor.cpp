@@ -85,7 +85,7 @@ void QueuingMutex::ScopedLock::Acquire( QueuingMutex& m )
     // "sending" the fields initialized above to other processors.
     ScopedLock* pred = m.q_tail.fetch_and_store<tbb::release>(this);
     if( pred ) {
-        __TBB_ASSERT( !pred->next, "the predecessor has another successor!");
+        ASSERT( !pred->next, "the predecessor has another successor!");
         pred->next = this;
         for( int i=0; i<16; ++i ) {
             if( going!=0ul ) break;

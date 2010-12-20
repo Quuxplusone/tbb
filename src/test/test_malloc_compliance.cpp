@@ -40,6 +40,10 @@ bool __tbb_test_errno = false;
 #include <stdio.h>
 #include "harness_report.h"
 
+#if defined(_MT) && defined(_DLL)
+    #pragma comment(lib, "version.lib")  // to use GetFileVersionInfo*
+#endif
+
 void limitMem( int limit )
 {
     static HANDLE hJob = NULL;
@@ -327,7 +331,6 @@ int main(int argc, char* argv[]) {
 //check if library compiled with /MD(d) and we can use errno
 #if _MSC_VER 
 #if defined(_MT) && defined(_DLL) //check errno if test itself compiled with /MD(d) only
-    #pragma comment(lib, "version.lib")
     char*  version_info_block = NULL;
     int version_info_block_size; 
     LPVOID comments_block = NULL;
@@ -986,6 +989,7 @@ void CMemTest::RunAllTests(int total_threads)
 #else
     UniquePointer();
     AddrArifm();
+    NULLReturn(1*MByte,100*MByte,total_threads);
 #endif
     if (FullLog) REPORT("All tests ended\nclearing memory...");
 }

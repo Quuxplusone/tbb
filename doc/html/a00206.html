@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::spin_mutex::scoped_lock Class Reference</title>
+<title>tbb::broadcast_node&lt; T &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,71 +21,60 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00278.html">tbb</a>::<a class="el" href="a00205.html">spin_mutex</a>::<a class="el" href="a00206.html">scoped_lock</a></div>
-<h1>tbb::spin_mutex::scoped_lock Class Reference</h1><!-- doxytag: class="tbb::spin_mutex::scoped_lock" -->Represents acquisition of a mutex.  
+<a class="el" href="a00342.html">tbb</a>::<a class="el" href="a00206.html">broadcast_node</a></div>
+<h1>tbb::broadcast_node&lt; T &gt; Class Template Reference</h1><!-- doxytag: class="tbb::broadcast_node" --><!-- doxytag: inherits="tbb::graph_node,tbb::receiver,tbb::sender" -->Forwards messages of type T to all successors.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00445.html">spin_mutex.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00443.html">graph.h</a>&gt;</code>
 <p>
-<a href="a00072.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<p>Inheritance diagram for tbb::broadcast_node&lt; T &gt;:
+<p><center><img src="a00206.png" usemap="#tbb::broadcast_node< T >_map" border="0" alt=""></center>
+<map name="tbb::broadcast_node< T >_map">
+<area href="a00233.html" alt="tbb::graph_node" shape="rect" coords="0,0,157,24">
+<area href="a00259.html" alt="tbb::receiver< T >" shape="rect" coords="167,0,324,24">
+<area href="a00264.html" alt="tbb::sender< T >" shape="rect" coords="334,0,491,24">
+</map>
+<a href="a00052.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
+<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="59ea89dbeab816742e6dc6af467e6c3f"></a><!-- doxytag: member="tbb::broadcast_node::input_type" ref="59ea89dbeab816742e6dc6af467e6c3f" args="" -->
+typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#59ea89dbeab816742e6dc6af467e6c3f">input_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The input type of this receiver. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b844ca1ee578a54bc11ff28467b12e7d"></a><!-- doxytag: member="tbb::broadcast_node::output_type" ref="b844ca1ee578a54bc11ff28467b12e7d" args="" -->
+typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#b844ca1ee578a54bc11ff28467b12e7d">output_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4dd13b81f6361fc244abe7cbcacd048c"></a><!-- doxytag: member="tbb::broadcast_node::predecessor_type" ref="4dd13b81f6361fc244abe7cbcacd048c" args="" -->
+typedef <a class="el" href="a00264.html">sender</a>&lt; <a class="el" href="a00206.html#59ea89dbeab816742e6dc6af467e6c3f">input_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#4dd13b81f6361fc244abe7cbcacd048c">predecessor_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The predecessor type for this node. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="453928c367d813cb481f1b9aa1e1742a"></a><!-- doxytag: member="tbb::broadcast_node::successor_type" ref="453928c367d813cb481f1b9aa1e1742a" args="" -->
+typedef <a class="el" href="a00259.html">receiver</a>&lt; <a class="el" href="a00206.html#b844ca1ee578a54bc11ff28467b12e7d">output_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#453928c367d813cb481f1b9aa1e1742a">successor_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="29ae680ae7f5e685c2e15535b9c855b3"></a><!-- doxytag: member="tbb::spin_mutex::scoped_lock::scoped_lock" ref="29ae680ae7f5e685c2e15535b9c855b3" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#29ae680ae7f5e685c2e15535b9c855b3">scoped_lock</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3f4149fa6b984b2138cb5ed40a2ddc6c"></a><!-- doxytag: member="tbb::broadcast_node::register_successor" ref="3f4149fa6b984b2138cb5ed40a2ddc6c" args="(receiver&lt; T &gt; &amp;r)" -->
+virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#3f4149fa6b984b2138cb5ed40a2ddc6c">register_successor</a> (<a class="el" href="a00259.html">receiver</a>&lt; T &gt; &amp;r)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct without acquiring a mutex. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5ce6807050a9e8f87bcb4a65dccb12ef"></a><!-- doxytag: member="tbb::spin_mutex::scoped_lock::scoped_lock" ref="5ce6807050a9e8f87bcb4a65dccb12ef" args="(spin_mutex &amp;m)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#5ce6807050a9e8f87bcb4a65dccb12ef">scoped_lock</a> (<a class="el" href="a00205.html">spin_mutex</a> &amp;m)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Adds a successor. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="eefb3210bb9727765ea7385ba163c2a6"></a><!-- doxytag: member="tbb::broadcast_node::remove_successor" ref="eefb3210bb9727765ea7385ba163c2a6" args="(receiver&lt; T &gt; &amp;r)" -->
+virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#eefb3210bb9727765ea7385ba163c2a6">remove_successor</a> (<a class="el" href="a00259.html">receiver</a>&lt; T &gt; &amp;r)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct and acquire lock on a mutex. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3ee3c338732b1f64b0b32a757807a30d"></a><!-- doxytag: member="tbb::spin_mutex::scoped_lock::acquire" ref="3ee3c338732b1f64b0b32a757807a30d" args="(spin_mutex &amp;m)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#3ee3c338732b1f64b0b32a757807a30d">acquire</a> (<a class="el" href="a00205.html">spin_mutex</a> &amp;m)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Removes s as a successor. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9b211e02554d6b39dc04f7e7f4e00073"></a><!-- doxytag: member="tbb::broadcast_node::try_put" ref="9b211e02554d6b39dc04f7e7f4e00073" args="(T t)" -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#9b211e02554d6b39dc04f7e7f4e00073">try_put</a> (T t)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire lock. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#9297ec188534b45dc0ca48f2f39a0501">try_acquire</a> (<a class="el" href="a00205.html">spin_mutex</a> &amp;m)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Try acquiring lock (non-blocking).  <a href="#9297ec188534b45dc0ca48f2f39a0501"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="eeb615e68e963e6bf8d9c11402d0ce8e"></a><!-- doxytag: member="tbb::spin_mutex::scoped_lock::release" ref="eeb615e68e963e6bf8d9c11402d0ce8e" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#eeb615e68e963e6bf8d9c11402d0ce8e">release</a> ()</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ac6fa425d1f06c56d8b70abc51aac844"></a><!-- doxytag: member="tbb::spin_mutex::scoped_lock::~scoped_lock" ref="ac6fa425d1f06c56d8b70abc51aac844" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html#ac6fa425d1f06c56d8b70abc51aac844">~scoped_lock</a> ()</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destroy lock. If holding a lock, releases the lock first. <br></td></tr>
-<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6ee2a2cdaf6a2128849e7d7723d9174f"></a><!-- doxytag: member="tbb::spin_mutex::scoped_lock::spin_mutex" ref="6ee2a2cdaf6a2128849e7d7723d9174f" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>spin_mutex</b></td></tr>
-
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Put an item to the receiver. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Represents acquisition of a mutex. 
-<p>
-<hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="9297ec188534b45dc0ca48f2f39a0501"></a><!-- doxytag: member="tbb::spin_mutex::scoped_lock::try_acquire" ref="9297ec188534b45dc0ca48f2f39a0501" args="(spin_mutex &amp;m)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool tbb::spin_mutex::scoped_lock::try_acquire           </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="a00205.html">spin_mutex</a> &amp;&nbsp;</td>
-          <td class="paramname"> <em>m</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
+<h3>template&lt;typename T&gt;<br>
+ class tbb::broadcast_node&lt; T &gt;</h3>
 
+Forwards messages of type T to all successors. 
 <p>
-Try acquiring lock (non-blocking). 
-<p>
-Return true if lock acquired; false otherwise. 
-</div>
-</div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00445.html">spin_mutex.h</a></ul>
+<li><a class="el" href="a00443.html">graph.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.

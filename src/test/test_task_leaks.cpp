@@ -159,6 +159,39 @@ void RunTaskGenerators( bool switchProducer = false, bool checkProducer = false 
     dummy_root->destroy( *dummy_root );
 }
 
+class TaskList: public tbb::task {
+    const int my_num_childs;
+public:
+    TaskList(const int num_childs) : my_num_childs(num_childs) {}
+    tbb::task* execute() {
+        tbb::task_list list;
+        for (int i=0; i<my_num_childs; ++i)
+        {
+            list.push_back( *new( allocate_child() ) tbb::empty_task );
+        }
+        set_ref_count(my_num_childs+1);
+        spawn(list);
+
+        wait_for_all();
+        return 0;
+    }
+};
+
+void RunTaskListGenerator()
+{
+    const int max_num_childs = 10000;
+    int num_childs=3;
+
+    while ( num_childs < max_num_childs )
+    {
+        tbb::task& root = *new( tbb::task::allocate_root() ) TaskList(num_childs);
+
+        tbb::task::spawn_root_and_wait(root);
+
+        num_childs = 3 * num_childs;
+    }
+}
+
 //! Tests whether task scheduler allows thieves to hoard task objects.
 /** The test takes a while to run, so we run it only with the default
     number of threads. */
@@ -179,6 +212,7 @@ void TestTaskReclamation() {
     for( int i=0; i<N; ++i ) {
         // First N iterations fill internal buffers and collect initial statistics
         RunTaskGenerators();
+        RunTaskListGenerator();
 
         size_t m = GetMemoryUsage();
         if( m-initial_amount_of_memory > 0)
@@ -203,6 +237,7 @@ void TestTaskReclamation() {
     for( int i=0; i < MaxIterations; ++i ) {
         // These iterations check for excessive memory use and unreasonable task count
         RunTaskGenerators( switchProducer, checkProducer );
+        RunTaskListGenerator();
 
         intptr_t n = internal::governor::local_scheduler()->get_task_node_count( /*count_arena_workers=*/true );
         size_t m = GetMemoryUsage();

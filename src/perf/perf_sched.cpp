@@ -52,7 +52,7 @@ const count_t N_med = N_fine * (count_t)log((double)N) / 5;
 
 class StaticTaskHolder {
 public:
-    tbb::task *my_SimpleLeafTaskPtr;
+    tbb::task *my_leafTaskPtr;
     StaticTaskHolder ();
 };
 
@@ -62,7 +62,15 @@ static count_t NumIterations;
 static count_t NumLeafTasks;
 static count_t NumRootTasks;
 
-class SimpleLeafTask : public tbb::task {
+class LeafTaskBase : public tbb::task {
+public:
+    count_t my_ID;
+
+    LeafTaskBase () {}
+    LeafTaskBase ( count_t id ) : my_ID(id) {}
+};
+
+class SimpleLeafTask : public LeafTaskBase {
     task* execute () {
         volatile count_t anchor = 0;
         for ( count_t i=0; i < NumIterations; ++i )
@@ -75,13 +83,15 @@ public:
 
 StaticTaskHolder::StaticTaskHolder () {
     static SimpleLeafTask s_t1(0);
-    my_SimpleLeafTaskPtr = &s_t1;
+    my_leafTaskPtr = &s_t1;
 }
 
 class Test_SPMC : public Perf::Test {
 protected:
     static const int numWorkloads = 4;
     static const count_t workloads[numWorkloads];
+
+    LeafTaskBase* my_leafTaskPtr;
 
     const char* Name () { return "SPMC"; }
 
@@ -105,8 +115,16 @@ protected:
 
     void RunSerial ( ThreadInfo& ) {
         const count_t n = NumLeafTasks * NumRootTasks;
-        for ( count_t i=0; i < n; ++i )
-            s_tasks.my_SimpleLeafTaskPtr->execute();
+        for ( count_t i=0; i < n; ++i ) {
+            my_leafTaskPtr->my_ID = i;
+            my_leafTaskPtr->execute();
+        }
+    }
+
+public:
+    Test_SPMC ( LeafTaskBase* leafTaskPtr = NULL ) {
+        static SimpleLeafTask t(0);
+        my_leafTaskPtr = leafTaskPtr ? leafTaskPtr : &t;
     }
 }; // class Test_SPMC
 
@@ -154,9 +172,7 @@ class Test_ShallowTree : public Test_SPMC {
     }
 }; // class Test_ShallowTree
 
-class LeafTaskSkewed : public tbb::task {
-    count_t my_ID;
-
+class LeafTaskSkewed : public LeafTaskBase {
     task* execute () {
         volatile count_t anchor = 0;
         double K = (double)NumRootTasks * NumLeafTasks;
@@ -166,10 +182,12 @@ class LeafTaskSkewed : public tbb::task {
         return NULL;
     }
 public:
-    LeafTaskSkewed ( count_t id ) : my_ID(id) {}
+    LeafTaskSkewed ( count_t id ) : LeafTaskBase(id) {}
 };
 
-class Test_ShallowTree_Skewed : public Perf::Test {
+class Test_ShallowTree_Skewed : public Test_SPMC {
+    static LeafTaskSkewed SerialTaskBody;
+
     const char* Name () { return "ShallowTree_Skewed"; }
 
     int NumWorkloads () { return 1; }
@@ -183,7 +201,12 @@ class Test_ShallowTree_Skewed : public Perf::Test {
     void Run ( ThreadInfo& ) {
         RunShallowTree<LeafTaskSkewed>();
     }
+
+public:
+    Test_ShallowTree_Skewed () : Test_SPMC(&SerialTaskBody) {}
 }; // class Test_ShallowTree_Skewed
+
+LeafTaskSkewed Test_ShallowTree_Skewed::SerialTaskBody(0);
 
 typedef tbb::blocked_range<count_t> range_t;
 
@@ -265,7 +288,7 @@ public:
 class SkewedForBody {
 public:
     void operator()( const range_t& r ) const {
-        count_t end = r.end() * r.end();
+        count_t end = (r.end() + 1) * (r.end() + 1);
         volatile count_t anchor = 0;
         for( count_t i = r.begin() * r.begin(); i < end; ++i )
             anchor += i;
@@ -415,8 +438,26 @@ public:
 }; // class Test_PReduce
 
 int main( int argc, char* argv[] ) {
-    Perf::SessionSettings opts (Perf::UseTaskScheduler);   // Perf::UseBaseline | Perf::MeasureOverhead
-    Test_PFor_Nested pf_dn_sp(DeepNesting, SimplePartitioner), pf_dn_ap(DeepNesting, AutoPartitioner);
+    Perf::SessionSettings opts (Perf::UseTaskScheduler | Perf::UseSerialBaseline, "perf_sched.txt");   // Perf::UseBaseline, Perf::UseSmallestWorkloadOnly
+    Perf::RegisterTest<Test_SPMC>();
+    Perf::RegisterTest<Test_ShallowTree>();
+    Perf::RegisterTest<Test_ShallowTree_Skewed>();
+    Test_PFor_Simple pf_sp(SimplePartitioner), pf_ap(AutoPartitioner);
+    Perf::RegisterTest(pf_sp);
+    Perf::RegisterTest(pf_ap);
+    Test_PReduce pr_sp(SimplePartitioner), pr_ap(AutoPartitioner);
+    Perf::RegisterTest(pr_sp);
+    Perf::RegisterTest(pr_ap);
+    Test_PFor_Skewed pf_s_sp(SimplePartitioner), pf_s_ap(AutoPartitioner);
+    Perf::RegisterTest(pf_s_sp);
+    Perf::RegisterTest(pf_s_ap);
+    Test_PFor_Nested pf_hn_sp(HollowNesting, SimplePartitioner), pf_hn_ap(HollowNesting, AutoPartitioner),
+                     pf_sn_sp(ShallowNesting, SimplePartitioner), pf_sn_ap(ShallowNesting, AutoPartitioner),
+                     pf_dn_sp(DeepNesting, SimplePartitioner), pf_dn_ap(DeepNesting, AutoPartitioner);
+    Perf::RegisterTest(pf_hn_sp);
+    Perf::RegisterTest(pf_hn_ap);
+    Perf::RegisterTest(pf_sn_sp);
+    Perf::RegisterTest(pf_sn_ap);
     Perf::RegisterTest(pf_dn_sp);
     Perf::RegisterTest(pf_dn_ap);
     return Perf::TestMain(argc, argv, &opts);

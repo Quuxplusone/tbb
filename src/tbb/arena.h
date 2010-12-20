@@ -32,6 +32,13 @@
 #include "tbb/tbb_stddef.h"
 #include "tbb/atomic.h"
 
+#include "tbb/tbb_machine.h"
+
+#if !__TBB_CPU_CTL_ENV_PRESENT
+    #include <fenv.h>
+    typedef fenv_t __TBB_cpu_ctl_env_t;
+#endif /* !__TBB_CPU_CTL_ENV_PRESENT */
+
 #if __TBB_ARENA_PER_MASTER
 #include "scheduler_common.h"
 #include "market.h"
@@ -263,8 +270,8 @@ struct arena_base : intrusive_list_node {
         arena shutdown and detaches from it. Plays the role of the arena's ref count. **/
     atomic<unsigned> my_num_threads_active;
 
-    //! Number of threads that has exited the dispatch loop but has not left the arena yet
-    atomic<unsigned> my_num_threads_leaving;
+    //! FPU control settings of arena's master thread captured at the moment of arena instantiation.
+    __TBB_cpu_ctl_env_t my_cpu_ctl_env;
 
     //! Current task pool state and estimate of available tasks amount.
     /** The estimate is either 0 (SNAPSHOT_EMPTY) or infinity (SNAPSHOT_FULL). 
@@ -274,9 +281,11 @@ struct arena_base : intrusive_list_node {
     tbb::atomic<uintptr_t> pool_state;
 
 #if __TBB_TASK_GROUP_CONTEXT
-    //! Pointer to the "default" task_group_context allocated by the arena's master.
+    //! Default task group context.
+    /** Used by root tasks allocated directly by the master thread (not from inside
+        a TBB task) without explicit context specification. **/
     task_group_context* my_master_default_ctx;
-#endif
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
     //! The task pool that guarantees eventual execution even if new tasks are constantly coming.
     task_stream my_task_stream;
@@ -295,10 +304,11 @@ class arena
 #if (__GNUC__<4 || __GNUC__==4 && __GNUC_MINOR__==0) && !__INTEL_COMPILER
     : public padded<arena_base>
 #else
-    : padded<arena_base>
+    : private padded<arena_base>
 #endif
 #endif /* __TBB_ARENA_PER_MASTER */
 {
+private:
     friend class generic_scheduler;
     template<typename SchedulerTraits> friend class custom_scheduler;
     friend class governor;
@@ -371,12 +381,12 @@ class arena
 
     //! The number of workers active in the arena.
     unsigned num_workers_active( ) {
-        return my_num_threads_active - my_num_threads_leaving - (slot[0].my_scheduler? 1: 0);
+        return my_num_threads_active - (slot[0].my_scheduler? 1 : 0);
     }
 
     //! If necessary, raise a flag that there is new job in arena.
     template<bool Spawned> void advertise_new_work();
-#else /*__TBB_ARENA_PER_MASTER*/
+#else /* !__TBB_ARENA_PER_MASTER */
     //! Server is going away and hence further calls to adjust_job_count_estimate are unsafe.
     static const pool_state_t SNAPSHOT_SERVER_GOING_AWAY = pool_state_t(-2);
 
@@ -385,7 +395,7 @@ class arena
 
     //! If necessary, raise a flag that task was added to pool recently.
     inline void mark_pool_full();
-#endif /* __TBB_ARENA_PER_MASTER */
+#endif /* !__TBB_ARENA_PER_MASTER */
 
     //! Check if there is job anywhere in arena.
     /** Return true if no job or if arena is being cleaned up. */
@@ -396,7 +406,10 @@ class arena
 
 #if __TBB_ARENA_PER_MASTER
     //! Registers the worker with the arena and enters TBB scheduler dispatch loop
-    void process( generic_scheduler& s );
+    void process( generic_scheduler& );
+
+    //! Notification that worker or master leaves its arena
+    inline void on_thread_leaving ();
 
 #if __TBB_STATISTICS
     //! Outputs internal statistics accumulated by the arena
@@ -413,8 +426,37 @@ class arena
     arena_slot slot[1];
 }; // class arena
 
-
 #if __TBB_ARENA_PER_MASTER
+inline void arena::on_thread_leaving () {
+    // In case of using fire-and-forget tasks (scheduled via task::enqueue()) 
+    // master thread is allowed to leave its arena before all its work is executed,
+    // and market may temporarily revoke all workers from this arena. Since revoked
+    // workers never attempt to reset arena state to EMPTY and cancel its request
+    // to RML for threads, the arena object is destroyed only when both the last
+    // thread is leaving it and arena's state is EMPTY (that is its master thread
+    // left and it does not contain any work).
+    //
+    // A worker that checks for work presence and transitions arena to the EMPTY 
+    // state (in snapshot taking procedure arena::is_out_of_work()) updates
+    // arena::my_pool_state first and only then arena::my_num_workers_requested.
+    // So the below check for work absence must be done against the latter field.
+    //
+    // Besides there is a time window between decrementing the active threads count
+    // and checking if there is an outstanding request for workers. New worker 
+    // thread may arrive during this window, finish whatever work is present, and
+    // then shutdown the arena. This sequence may result in destructing the same
+    // arena twice. So a local copy of the outstanding request value must be done
+    // before decrementing active threads count.
+    //
+    int requested = my_num_workers_requested;
+    if ( --my_num_threads_active==0 && !requested ) {
+        __TBB_ASSERT( !my_num_workers_requested, NULL );
+        __TBB_ASSERT( pool_state == SNAPSHOT_EMPTY || !my_max_num_workers, NULL );
+        close_arena();
+    }
+}
+
+
 template<bool Spawned> void arena::advertise_new_work() {
     if( !Spawned ) { // i.e. the work was enqueued
         if( my_max_num_workers==0 ) {
@@ -426,7 +468,7 @@ template<bool Spawned> void arena::advertise_new_work() {
         }
         // Local memory fence is required to avoid missed wakeups; see the comment below.
         // Starvation resistant tasks require mandatory concurrency, so missed wakeups are unacceptable.
-        __TBB_full_memory_fence(); 
+        atomic_fence(); 
     }
     // Double-check idiom that, in case of spawning, is deliberately sloppy about memory fences.
     // Technically, to avoid missed wakeups, there should be a full memory fence between the point we 
@@ -453,7 +495,7 @@ template<bool Spawned> void arena::advertise_new_work() {
             // telling RML that there is work to do.
             if( Spawned ) {
                 if( my_mandatory_concurrency ) {
-                    __TBB_ASSERT(my_max_num_workers==1, "");
+                    __TBB_ASSERT(my_max_num_workers==1, NULL);
                     // There was deliberate oversubscription on 1 core for sake of starvation-resistant tasks.
                     // Now a single active thread (must be the master) supposedly starts a new parallel region
                     // with relaxed sequential semantics, and oversubscription should be avoided.

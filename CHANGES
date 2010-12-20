@@ -1,3 +1,24 @@
+TBB 3.0 Update 5 commercial-aligned release
+
+Changes (w.r.t. TBB 3.0 Update 4 commercial-aligned release):
+
+- Added Community Preview feature: graph.
+- Added automatic propagation of master thread FPU settings to
+    TBB worker threads.
+- Added a public function to perform a sequentially consistent full 
+    memory fence: tbb::atomic_fence() in tbb/atomic.h.
+
+Bugs fixed:
+
+- Data race that could result in scheduler data structures corruption
+    when using fire-and-forget tasks.
+- Fixed a correctness bug in the convex hull example.
+
+Open-source contributions integrated:
+
+- Patch for calls to internal::atomic_do_once() by Andrey Semashev.
+
+------------------------------------------------------------------------
 TBB 3.0 Update 4 commercial-aligned release
 
 Changes (w.r.t. TBB 3.0 Update 3 commercial-aligned release):

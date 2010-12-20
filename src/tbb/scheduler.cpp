@@ -320,7 +320,7 @@ void generic_scheduler::cleanup_local_context_list () {
         spin_mutex::scoped_lock lock;
         // Full fence prevents reordering of store to local_ctx_list_update with 
         // load from nonlocal_ctx_list_update.
-        __TBB_full_memory_fence();
+        atomic_fence();
         // Check for the conflict with concurrent destroyer or cancelation propagator
         if ( nonlocal_ctx_list_update || local_count_snapshot != global_cancel_count )
             lock.acquire(context_list_mutex);
@@ -818,7 +818,7 @@ inline task* generic_scheduler::get_task() {
     task* result = NULL;
 retry:
     --my_arena_slot->tail;
-    __TBB_full_memory_fence();
+    atomic_fence();
     if ( (intptr_t)my_arena_slot->head > (intptr_t)my_arena_slot->tail ) {
         acquire_task_pool();
         if ( (intptr_t)my_arena_slot->head <= (intptr_t)my_arena_slot->tail ) {
@@ -869,7 +869,7 @@ task* generic_scheduler::steal_task( arena_slot& victim_slot ) {
     task* result = NULL;
 retry:
     ++victim_slot.head;
-    __TBB_full_memory_fence();
+    atomic_fence();
     if ( (intptr_t)victim_slot.head > (intptr_t)victim_slot.tail ) {
         --victim_slot.head;
     }
@@ -1140,23 +1140,23 @@ void generic_scheduler::cleanup_master() {
 #if __TBB_STATISTICS
     *a->slot[0].my_counters += s.my_counters;
 #endif /* __TBB_STATISTICS */
+    a->slot[0].my_scheduler = NULL;
+    s.free_scheduler();
+    // Resetting arena to EMPTY state (as earlier TBB versions did) should not be
+    // done here (or anywhere else in the master thread to that matter) because
+    // after introducing arena-per-master logic and fire-and-forget tasks doing 
+    // so can result either in arena's premature destruction (at least without
+    // additional costly checks in workers) or in unnecessary arena state changes
+    // (and ensuing workers migration).
+#if __TBB_STATISTICS_EARLY_DUMP
+    GATHER_STATISTIC( a->dump_arena_statistics() );
+#endif
+    a->on_thread_leaving();
 #else /* !__TBB_ARENA_PER_MASTER */
 #if _WIN32|_WIN64
     s.unregister_master();
 #endif /* _WIN32|_WIN64 */
-#endif /* __TBB_ARENA_PER_MASTER */
     s.free_scheduler();
-#if __TBB_ARENA_PER_MASTER
-    a->slot[0].my_scheduler = NULL;
-    // Do not close arena if some fire-and-forget tasks remain; workers should care of it.
-    if( a->my_task_stream.empty() && a->pool_state.fetch_and_store(arena::SNAPSHOT_EMPTY)!=arena::SNAPSHOT_EMPTY )
-        a->my_market->adjust_demand( *a, -(int)a->my_max_num_workers );
-#if __TBB_STATISTICS_EARLY_DUMP
-    GATHER_STATISTIC( a->dump_arena_statistics() );
-#endif
-    if ( --a->my_num_threads_active==0 && a->pool_state==arena::SNAPSHOT_EMPTY )
-        a->close_arena();
-#else /* !__TBB_ARENA_PER_MASTER */
     governor::finish_with_arena();
 #endif /* !__TBB_ARENA_PER_MASTER */
 }

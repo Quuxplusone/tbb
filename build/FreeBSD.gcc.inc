@@ -54,6 +54,7 @@ ASM=
 ASM_FLAGS=
 
 TBB_ASM.OBJ=
+MALLOC_ASM.OBJ=
 
 ifeq (ia64,$(arch))
 # Position-independent code (PIC) is a must on IA-64, even for regular (not shared) executables
@@ -77,6 +78,7 @@ ASSEMBLY_SOURCE=$(arch)-gas
 ifeq (ia64,$(arch))
     ASM=as
     TBB_ASM.OBJ = atomic_support.o lock_byte.o log2.o pause.o
+    MALLOC_ASM.OBJ = atomic_support.o lock_byte.o pause.o
 endif 
 #------------------------------------------------------------------------------
 # End of setting assembler data.

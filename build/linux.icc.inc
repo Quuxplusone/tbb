@@ -36,8 +36,6 @@ WARNING_KEY = -w1
 DYLIB_KEY = -shared
 EXPORT_KEY = -Wl,--version-script,
 LIBDL = -ldl
-export COMPILER_VERSION := ICC: $(shell icc -V </dev/null 2>&1 | grep 'Version')
-#TODO: autodetection of arch from COMPILER_VERSION!!
 
 TBB_NOSTRICT = 1
 
@@ -65,6 +63,7 @@ ASM=
 ASM_FLAGS=
 
 TBB_ASM.OBJ=
+MALLOC_ASM.OBJ=
 
 ifeq (ia32,$(arch))
     CPLUS_FLAGS += -falign-stack=maintain-16-byte
@@ -86,6 +85,7 @@ ASSEMBLY_SOURCE=$(arch)-gas
 ifeq (ia64,$(arch))
     ASM=ias
     TBB_ASM.OBJ = atomic_support.o lock_byte.o log2.o pause.o ia64_misc.o
+    MALLOC_ASM.OBJ += atomic_support.o lock_byte.o pause.o
 endif
 #------------------------------------------------------------------------------
 # End of setting assembler data.

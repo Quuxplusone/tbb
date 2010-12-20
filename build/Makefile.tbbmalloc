@@ -48,13 +48,8 @@ include $(tbb_root)/build/common_rules.inc
 #------------------------------------------------------
 
 # Object files that make up TBBMalloc
-MALLOC_CPLUS.OBJ = tbbmalloc.$(OBJ) dynamic_link.$(OBJ)
-MALLOC_CUSTOM.OBJ += tbb_misc_malloc.$(OBJ)
-MALLOC_ASM.OBJ = $(TBB_ASM.OBJ)
-
-# MALLOC_CPLUS.OBJ is built in two steps due to Intel Compiler Tracker # C69574
-MALLOC_CPLUS.OBJ += frontend.$(OBJ) backend.$(OBJ) large_objects.$(OBJ) backref.$(OBJ)
-MALLOC.OBJ := $(MALLOC_CPLUS.OBJ) $(MALLOC_ASM.OBJ) $(MALLOC_CUSTOM.OBJ) itt_notify.$(OBJ)
+MALLOC_CPLUS.OBJ = frontend.$(OBJ) backend.$(OBJ) large_objects.$(OBJ) backref.$(OBJ)
+MALLOC.OBJ := $(MALLOC_CPLUS.OBJ) $(MALLOC_ASM.OBJ) itt_notify_malloc.$(OBJ) tbbmalloc.$(OBJ)
 PROXY.OBJ := proxy.$(OBJ) tbb_function_replacement.$(OBJ)
 M_CPLUS_FLAGS := $(subst $(WARNING_KEY),,$(M_CPLUS_FLAGS)) $(DEFINE_KEY)__TBB_BUILD=1
 M_INCLUDES = $(INCLUDES) $(INCLUDE_KEY)$(MALLOC_ROOT) $(INCLUDE_KEY)$(MALLOC_SOURCE_ROOT)
@@ -62,7 +57,8 @@ M_INCLUDES = $(INCLUDES) $(INCLUDE_KEY)$(MALLOC_ROOT) $(INCLUDE_KEY)$(MALLOC_SOU
 # Suppress superfluous warnings for TBBmalloc compilation
 $(MALLOC.OBJ): M_CPLUS_FLAGS += $(WARNING_SUPPRESS)
 
-itt_notify.$(OBJ): CPLUS_FLAGS += $(PIC_KEY)
+tbbmalloc.$(OBJ): tbbmalloc.cpp version_string.tmp
+	$(CPLUS) $(COMPILE_ONLY) $(M_CPLUS_FLAGS) $(PIC_KEY) $(M_INCLUDES) $(INCLUDE_KEY). $<
 
 $(PROXY.OBJ): %.$(OBJ): %.cpp
 	$(CPLUS) $(COMPILE_ONLY) $(CPLUS_FLAGS) $(PIC_KEY) $(M_INCLUDES) $<
@@ -70,8 +66,8 @@ $(PROXY.OBJ): %.$(OBJ): %.cpp
 $(MALLOC_CPLUS.OBJ): %.$(OBJ): %.cpp
 	$(CPLUS) $(COMPILE_ONLY) $(M_CPLUS_FLAGS) $(PIC_KEY) $(M_INCLUDES) $<
 
-tbb_misc_malloc.$(OBJ): tbb_misc.cpp version_string.tmp
-	$(CPLUS) $(COMPILE_ONLY) $(M_CPLUS_FLAGS) $(PIC_KEY) $(OUTPUTOBJ_KEY)$@ $(INCLUDE_KEY). $(INCLUDES) $<
+itt_notify_malloc.$(OBJ): itt_notify.cpp
+	$(CPLUS) $(COMPILE_ONLY) $(M_CPLUS_FLAGS) $(PIC_KEY) $(OUTPUTOBJ_KEY)$@ $(INCLUDES) $<
 
 MALLOC_LINK_FLAGS = $(LIB_LINK_FLAGS)
 PROXY_LINK_FLAGS = $(LIB_LINK_FLAGS) 
@@ -152,8 +148,8 @@ test_malloc_overload.$(TEST_EXT): test_malloc_overload.cpp
 test_malloc_overload_proxy.$(TEST_EXT): test_malloc_overload.cpp $(MALLOC_PROXY_LIB)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(subst /MT,/MD,$(M_CPLUS_FLAGS)) $(M_INCLUDES) $< $(LIBDL) $(MALLOC_PROXY_LIB) $(LIBS) $(LINK_FLAGS)
 
-test_malloc_whitebox.$(TEST_EXT): test_malloc_whitebox.cpp $(MALLOC_ASM.OBJ) tbb_misc_malloc.$(OBJ)
-	$(CPLUS) $(OUTPUT_KEY)$@ $(M_CPLUS_FLAGS) $(M_INCLUDES) $^ $(LIBS) $(LIBDL) $(LINK_FLAGS)
+test_malloc_whitebox.$(TEST_EXT): test_malloc_whitebox.cpp $(MALLOC_ASM.OBJ) version_string.tmp
+	$(CPLUS) $(OUTPUT_KEY)$@ $(M_CPLUS_FLAGS) $(M_INCLUDES) $(INCLUDE_KEY). $< $(MALLOC_ASM.OBJ) $(LIBS) $(LIBDL) $(LINK_FLAGS)
 
 test_malloc_lib_unload.$(TEST_EXT): test_malloc_lib_unload.cpp test_malloc_lib_unload_dll.$(DLL)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(M_CPLUS_FLAGS) $(M_INCLUDES) $< $(LIBS) test_malloc_lib_unload_dll.$(LIBEXT)  $(LIBDL) $(LINK_FLAGS)

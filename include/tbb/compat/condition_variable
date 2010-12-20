@@ -220,7 +220,7 @@ private:
 template<typename M>
 bool unique_lock<M>::try_lock_for( const tick_count::interval_t &i)
 { 
-   const int unique_lock_tick = 100; /* microseconds; 0.1 milliseconds */
+    const int unique_lock_tick = 100; /* microseconds; 0.1 milliseconds */
     // the smallest wait-time is 0.1 milliseconds.
     bool res = pm->try_lock();
     int duration_in_micro; 

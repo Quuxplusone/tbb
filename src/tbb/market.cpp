@@ -267,38 +267,3 @@ intptr_t market::workers_task_node_count() {
 } // namespace tbb
 
 #endif /* __TBB_ARENA_PER_MASTER */
-
-/*
-    Notes:
-
-1.  Consider parallel cancellations at the different levels of the context tree:
-
-        Ctx1 <- Cancelled by Thread1            |- Thread2 started processing
-         |                                      |
-        Ctx2                                    |- Thread1 started processing
-         |                                   T1 |- Thread2 finishes and syncs up local counters
-        Ctx3 <- Cancelled by Thread2            |
-         |                                      |- Ctx5 is bound to Ctx2
-        Ctx4                                    |
-                                             T2 |- Thread1 reaches Ctx2
-                                             
-    Thread-propagator of each cancellation increments global counter. However the thread 
-    propagating the cancellation from the outermost context (Thread1) may be the last 
-    to finish. Which means that the local counters may be synchronized earlier (by Thread2, 
-    at Time1) than it propagated cancellation into Ctx2 (at time Time2). If a new context 
-    (Ctx5) is created and bound to Ctx2 between Time1 and Time2, checking its parent only 
-    (Ctx2) may result in cancellation request being lost.
-
-    This issue is solved by doing the whole propagation under the lock (the_scheduler_list_mutex).
-
-    If we need more concurrency while processing parallel cancellations, we could try 
-    the following modification of the propagation algorithm:
-
-    advance global counter and remember it
-    for each thread:
-        scan thread's list of contexts
-    for each thread:
-        sync up its local counter only if the global counter has not been changed
-
-    However this version of the algorithm requires more analysis and verification.
-*/
