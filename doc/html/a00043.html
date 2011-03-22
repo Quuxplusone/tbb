@@ -20,21 +20,16 @@
     <li><a href="hierarchy.html"><span>Class&nbsp;Hierarchy</span></a></li>
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
-<h1>tbb::graph Member List</h1>This is the complete list of members for <a class="el" href="a00232.html">tbb::graph</a>, including all inherited members.<p><table>
-  <tr class="memlist"><td><a class="el" href="a00232.html#633b9b55e3248b785efd13264261f0e5">concurrency</a> enum name</td><td><a class="el" href="a00232.html">tbb::graph</a></td><td></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00232.html#ff3b6a3ef2ae1e661dcdb398c227b43c">decrement_wait_count</a>()</td><td><a class="el" href="a00232.html">tbb::graph</a></td><td><code> [inline]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00232.html#1ba8311506558a2419101722f5d49ba9">graph</a>()</td><td><a class="el" href="a00232.html">tbb::graph</a></td><td><code> [inline]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00232.html#1e5c5ae6538ec714cee107d1004705b9">increment_wait_count</a>()</td><td><a class="el" href="a00232.html">tbb::graph</a></td><td><code> [inline]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00232.html#34d61d8b6560e5b2eb42e0112701db0f">root_task</a>()</td><td><a class="el" href="a00232.html">tbb::graph</a></td><td><code> [inline]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00232.html#4c5e8dc5a45e641d534d6206838cfa7f">run</a>(Receiver &amp;r, Body body)</td><td><a class="el" href="a00232.html">tbb::graph</a></td><td><code> [inline]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00232.html#71213dd18099298dc74731e293c8286a">run</a>(Body body)</td><td><a class="el" href="a00232.html">tbb::graph</a></td><td><code> [inline]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>serial</b> enum value (defined in <a class="el" href="a00232.html">tbb::graph</a>)</td><td><a class="el" href="a00232.html">tbb::graph</a></td><td></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>unlimited</b> enum value (defined in <a class="el" href="a00232.html">tbb::graph</a>)</td><td><a class="el" href="a00232.html">tbb::graph</a></td><td></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00232.html#bafd6349fdc6563ffa02746866e30bec">wait_for_all</a>()</td><td><a class="el" href="a00232.html">tbb::graph</a></td><td><code> [inline]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00232.html#55332084e7884a26ff288b8fe960030d">~graph</a>()</td><td><a class="el" href="a00232.html">tbb::graph</a></td><td><code> [inline]</code></td></tr>
+<h1>tbb::receiver&lt; T &gt; Member List</h1>This is the complete list of members for <a class="el" href="a00277.html">tbb::receiver&lt; T &gt;</a>, including all inherited members.<p><table>
+  <tr class="memlist"><td><a class="el" href="a00277.html#9cfd5ef0d67d5bbfb5f9a76d75e62765">input_type</a> typedef</td><td><a class="el" href="a00277.html">tbb::receiver&lt; T &gt;</a></td><td></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00277.html#c802c845b51c6d129153b684d33f7310">predecessor_type</a> typedef</td><td><a class="el" href="a00277.html">tbb::receiver&lt; T &gt;</a></td><td></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00277.html#14ae737c8fca4c8bf8e1a736dfbac444">register_predecessor</a>(predecessor_type &amp;)</td><td><a class="el" href="a00277.html">tbb::receiver&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00277.html#d2f23b40b328dc254a7c2a0a30f408e4">remove_predecessor</a>(predecessor_type &amp;)</td><td><a class="el" href="a00277.html">tbb::receiver&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00277.html#6e5422b03b4570138f227b3d5d0073b8">try_put</a>(T t)=0</td><td><a class="el" href="a00277.html">tbb::receiver&lt; T &gt;</a></td><td><code> [pure virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00277.html#18f74b83abae0ee1e4ce07942797ef27">~receiver</a>()</td><td><a class="el" href="a00277.html">tbb::receiver&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
 </table><hr>
 <p></p>
-Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

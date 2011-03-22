@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -50,7 +50,7 @@ task& allocate_root_proxy::allocate( size_t size ) {
     internal::generic_scheduler* v = governor::local_scheduler();
     __TBB_ASSERT( v, "thread did not activate a task_scheduler_init object?" );
 #if __TBB_TASK_GROUP_CONTEXT
-    task_prefix& p = v->innermost_running_task->prefix();
+    task_prefix& p = v->my_innermost_running_task->prefix();
 
     ITT_STACK_CREATE(p.context->itt_caller);
 #endif
@@ -72,46 +72,20 @@ void allocate_root_proxy::free( task& task ) {
 // Methods of allocate_root_with_context_proxy
 //------------------------------------------------------------------------
 task& allocate_root_with_context_proxy::allocate( size_t size ) const {
-    internal::generic_scheduler* v = governor::local_scheduler();
-    __TBB_ASSERT( v, "thread did not activate a task_scheduler_init object?" );
-    task_prefix& p = v->innermost_running_task->prefix();
-    task& t = v->allocate_task( size, __TBB_CONTEXT_ARG(NULL, &my_context) );
+    internal::generic_scheduler* s = governor::local_scheduler();
+    __TBB_ASSERT( s, "Scheduler auto-initialization failed?" );
+    task& t = s->allocate_task( size, __TBB_CONTEXT_ARG(NULL, &my_context) );
     // Supported usage model prohibits concurrent initial binding. Thus we do not 
     // need interlocked operations or fences to manipulate with my_context.my_kind
     if ( my_context.my_kind == task_group_context::binding_required ) {
-        __TBB_ASSERT ( my_context.my_owner, "Context without owner" );
-        __TBB_ASSERT ( !my_context.my_parent, "Parent context set before initial binding" );
-        // If we are in the outermost task dispatch loop of a master thread, then
-        // there is nothing to bind this context to, and we skip the binding part.
-        if ( v->innermost_running_task != v->dummy_task ) {
-            // Though the following assignment makes my_context accessible for 
-            // cancelation propagation, we cannot rely on the cancellation being 
-            // propagated into it without taking a global lock. Instead we always 
-            // check the state of my_context's ancestors, and use cancelation 
-            // epoch counters to minimize the depth of inspection.
-            my_context.my_parent = p.context;
-            uintptr_t local_count_snapshot = v->local_cancel_count;
-            // Prevent load of global_cancel_count from being hoisted above store
-            // to my_context.my_parent and load of local_cancel_count.
-            atomic_fence();
-            // The full fence guarantees that if no cancelation propagation was
-            // detected by the following condition, either my_context's parent 
-            // has correct cancelation state or my_context will receive cancelation
-            // signal if new cancelation starts after 
-            if ( local_count_snapshot != global_cancel_count ) {
-                // Another thread is propagating cancellation right now. Make sure 
-                // that my_context's parent gets the cancellation request (if one 
-                // of its ancestors is canceled) before we read it later on.
-                p.context->propagate_cancellation_from_ancestors();
-            }
-            if ( p.context->my_cancellation_requested ) {
-                // Propagate cancellation state from the parent context
-                my_context.my_cancellation_requested = 1;
-            }
-        }
-        my_context.my_kind = task_group_context::binding_completed;
+        // If we are in the outermost task dispatch loop of a master thread, then 
+        // there is nothing to bind this context to, and we skip the binding part 
+        // treating the context as isolated.
+        if ( s->my_innermost_running_task == s->my_dummy_task )
+            my_context.my_kind = task_group_context::isolated;
+        else
+            my_context.bind_to( s );
     }
-    // else the context either has already been associated with its parent or is isolated
     ITT_STACK_CREATE(my_context.itt_caller);
     return t;
 }
@@ -216,9 +190,11 @@ using namespace tbb::internal;
 
 void task::internal_set_ref_count( int count ) {
     __TBB_ASSERT( count>=0, "count must not be negative" );
-    __TBB_ASSERT( !(prefix().extra_state & es_ref_count_active), "ref_count race detected" );
-    ITT_NOTIFY(sync_releasing, &prefix().ref_count);
-    prefix().ref_count = count;
+    task_prefix &p = prefix();
+    __TBB_ASSERT(p.ref_count==1 && p.state==allocated && self().parent()==this
+        || !(p.extra_state & es_ref_count_active), "ref_count race detected");
+    ITT_NOTIFY(sync_releasing, &p.ref_count);
+    p.ref_count = count;
 }
 
 internal::reference_count task::internal_decrement_ref_count() {
@@ -233,8 +209,8 @@ internal::reference_count task::internal_decrement_ref_count() {
 task& task::self() {
     generic_scheduler *v = governor::local_scheduler();
     v->assert_task_pool_valid();
-    __TBB_ASSERT( v->innermost_running_task, NULL );
-    return *v->innermost_running_task;
+    __TBB_ASSERT( v->my_innermost_running_task, NULL );
+    return *v->my_innermost_running_task;
 }
 
 bool task::is_owned_by_current_thread() const {
@@ -273,6 +249,23 @@ void task::spawn_and_wait_for_all( task_list& list ) {
     that the compiler is unlikely to optimize. */
 void task::note_affinity( affinity_id ) {
 }
+
+#if __TBB_TASK_GROUP_CONTEXT
+void task::change_group ( task_group_context& ctx ) {
+    prefix().context = &ctx;
+    if ( ctx.my_kind == task_group_context::binding_required ) {
+        internal::generic_scheduler* s = governor::local_scheduler();
+        // If we are in the outermost task dispatch loop of a master thread, then 
+        // there is nothing to bind this context to, and we skip the binding part 
+        // treating the context as isolated.
+        if ( s->my_innermost_running_task == s->my_dummy_task )
+            ctx.my_kind = task_group_context::isolated;
+        else
+            ctx.bind_to( s );
+    }
+    ITT_STACK_CREATE(ctx.itt_caller);
+}
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 } // namespace tbb
 

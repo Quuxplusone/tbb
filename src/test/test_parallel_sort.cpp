@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -311,7 +311,7 @@ bool init_iter(std::string *iter, std::string *sorted_list, size_t n, const std:
                 test_type = "sin";
                 for (size_t i = 0; i < n; i++) {
                     char buffer[20];
-#if __STDC_SECURE_LIB__>=200411 && !__MINGW64__
+#if __STDC_SECURE_LIB__>=200411
                     sprintf_s(buffer, sizeof(buffer), "%f", float(sin(float(i))));
 #else
                     sprintf(buffer, "%f", float(sin(float(i))));

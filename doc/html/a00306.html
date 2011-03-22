@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>graph.h File Reference</title>
+<title>tbb::zero_allocator&lt; T, Allocator &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -10,140 +10,81 @@
     <li><a href="index.html"><span>Main&nbsp;Page</span></a></li>
     <li><a href="modules.html"><span>Modules</span></a></li>
     <li><a href="namespaces.html"><span>Namespaces</span></a></li>
-    <li><a href="annotated.html"><span>Classes</span></a></li>
-    <li id="current"><a href="files.html"><span>Files</span></a></li>
+    <li id="current"><a href="annotated.html"><span>Classes</span></a></li>
+    <li><a href="files.html"><span>Files</span></a></li>
     <li><a href="pages.html"><span>Related&nbsp;Pages</span></a></li>
   </ul></div>
 <div class="tabs">
   <ul>
-    <li><a href="files.html"><span>File&nbsp;List</span></a></li>
-    <li><a href="globals.html"><span>File&nbsp;Members</span></a></li>
+    <li><a href="annotated.html"><span>Class&nbsp;List</span></a></li>
+    <li><a href="hierarchy.html"><span>Class&nbsp;Hierarchy</span></a></li>
+    <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
-<h1>graph.h File Reference</h1>The graph related classes and functions. <a href="#_details">More...</a>
+<div class="nav">
+<a class="el" href="a00362.html">tbb</a>::<a class="el" href="a00306.html">zero_allocator</a></div>
+<h1>tbb::zero_allocator&lt; T, Allocator &gt; Class Template Reference<br>
+<small>
+[<a class="el" href="a00373.html">Memory Allocation</a>]</small>
+</h1><!-- doxytag: class="tbb::zero_allocator" -->Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5.  
+<a href="#_details">More...</a>
 <p>
-
+<code>#include &lt;<a class="el" href="a00588.html">tbb_allocator.h</a>&gt;</code>
 <p>
-<a href="a00443.html">Go to the source code of this file.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00134.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Namespaces</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00342.html">tbb</a></td></tr>
+<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="77c87446a645cc3dbeba6fc82cc7eec0"></a><!-- doxytag: member="tbb::zero_allocator::base_allocator_type" ref="77c87446a645cc3dbeba6fc82cc7eec0" args="" -->
+typedef Allocator&lt; T &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>base_allocator_type</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::internal</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2eb3bf02103f455e0614e0a392388428"></a><!-- doxytag: member="tbb::zero_allocator::value_type" ref="2eb3bf02103f455e0614e0a392388428" args="" -->
+typedef base_allocator_type::value_type&nbsp;</td><td class="memItemRight" valign="bottom"><b>value_type</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="54d0a81317a90278dc492d44cc7dcdfc"></a><!-- doxytag: member="tbb::zero_allocator::pointer" ref="54d0a81317a90278dc492d44cc7dcdfc" args="" -->
+typedef base_allocator_type::pointer&nbsp;</td><td class="memItemRight" valign="bottom"><b>pointer</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="50536b451124814064b0e8ff7b6cea21"></a><!-- doxytag: member="tbb::zero_allocator::const_pointer" ref="50536b451124814064b0e8ff7b6cea21" args="" -->
+typedef base_allocator_type::const_pointer&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_pointer</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2ef488ecc55bf4a619f68b021d5b93e2"></a><!-- doxytag: member="tbb::zero_allocator::reference" ref="2ef488ecc55bf4a619f68b021d5b93e2" args="" -->
+typedef base_allocator_type::reference&nbsp;</td><td class="memItemRight" valign="bottom"><b>reference</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="31f0de5db53e4c219e8548078572e1ff"></a><!-- doxytag: member="tbb::zero_allocator::const_reference" ref="31f0de5db53e4c219e8548078572e1ff" args="" -->
+typedef base_allocator_type::const_reference&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_reference</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="55acbfec8d7fd904c9b2040816522084"></a><!-- doxytag: member="tbb::zero_allocator::size_type" ref="55acbfec8d7fd904c9b2040816522084" args="" -->
+typedef base_allocator_type::size_type&nbsp;</td><td class="memItemRight" valign="bottom"><b>size_type</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c54d45a74bd3b48ff8db174c266ddede"></a><!-- doxytag: member="tbb::zero_allocator::difference_type" ref="c54d45a74bd3b48ff8db174c266ddede" args="" -->
+typedef base_allocator_type::difference_type&nbsp;</td><td class="memItemRight" valign="bottom"><b>difference_type</b></td></tr>
+
+<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8c48c0436e3239be8f07c53c7f6658e4"></a><!-- doxytag: member="tbb::zero_allocator::zero_allocator" ref="8c48c0436e3239be8f07c53c7f6658e4" args="(const zero_allocator &amp;a)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>zero_allocator</b> (const <a class="el" href="a00306.html">zero_allocator</a> &amp;a)  throw ()</td></tr>
+
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="67685c1cfcd3b5f81ac8f3c8dd1375b9"></a><!-- doxytag: member="tbb::zero_allocator::zero_allocator" ref="67685c1cfcd3b5f81ac8f3c8dd1375b9" args="(const zero_allocator&lt; U &gt; &amp;a)" -->
+template&lt;typename U&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><b>zero_allocator</b> (const <a class="el" href="a00306.html">zero_allocator</a>&lt; U &gt; &amp;a)  throw ()</td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b6e7eb50d9faeca418d56a9758357377"></a><!-- doxytag: member="tbb::zero_allocator::allocate" ref="b6e7eb50d9faeca418d56a9758357377" args="(const size_type n, const void *hint=0)" -->
+pointer&nbsp;</td><td class="memItemRight" valign="bottom"><b>allocate</b> (const size_type n, const void *hint=0)</td></tr>
 
 <tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00233.html">tbb::graph_node</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>rebind</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The base of all graph nodes. Allows them to be stored in a collection for deletion.  <a href="a00233.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00221.html">tbb::continue_msg</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">An empty class used for messages that mean "I'm done".  <a href="a00221.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html">tbb::sender&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Pure virtual template class that defines a sender of messages of type T.  <a href="a00264.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00259.html">tbb::receiver&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Pure virtual template class that defines a receiver of messages of type T.  <a href="a00259.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00223.html">tbb::continue_receiver</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Base class for receivers of completion messages.  <a href="a00223.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00232.html">tbb::graph</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The graph class.  <a href="a00232.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::graph::run_task&lt; Body &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::graph::run_and_put_task&lt; Receiver, Body &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00267.html">tbb::source_node&lt; Output &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">An executable node that acts as a source, i.e. it has no predecessors.  <a href="a00267.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00231.html">tbb::function_node&lt; Input, Output &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Implements a function node that supports Input -&gt; Output.  <a href="a00231.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00226.html">tbb::executable_node&lt; Output &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Implements an executable node that supports <a class="el" href="a00221.html">continue_msg</a> -&gt; Output.  <a href="a00226.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::overwrite_node&lt; T &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::write_once_node&lt; T &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00222.html">tbb::continue_node</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Broadcasts completion message when it receives completion messages from all predecessors. Then resets.  <a href="a00222.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00206.html">tbb::broadcast_node&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages of type T to all successors.  <a href="a00206.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00196.html">tbb::aggregator&lt; AggregatorOperation &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Aggregator abstract base class.  <a href="a00196.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00207.html">tbb::buffer_node&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in arbitrary order.  <a href="a00207.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::buffer_node&lt; T &gt;::buffer_operation</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::buffer_node&lt; T &gt;::my_agg_t</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00251.html">tbb::queue_node&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in FIFO order.  <a href="a00251.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html">tbb::sequencer_node&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in sequence order.  <a href="a00265.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html">tbb::priority_queue_node&lt; T, Compare &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in priority order.  <a href="a00250.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::priority_queue_node&lt; T, Compare &gt;::my_prio_agg_t</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00237.html">tbb::limiter_node&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages only if the threshold has not been reached.  <a href="a00237.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::internal::forwarding_base</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::internal::join_helper&lt; N &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::internal::join_helper&lt; 1 &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00236.html">tbb::internal::join_port&lt; T, JoinNodeType &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The type of a join port.  <a href="a00236.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::internal::join_node_base&lt; N, InputTuple, OutputTuple &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::internal::null_element</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::join_node&lt; T0, T1, T2, T3 &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::join_node&lt; T0, T1, T2, internal::null_element &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::join_node&lt; T0, T1, internal::null_element, internal::null_element &gt;</b></td></tr>
-
-<tr><td colspan="2"><br><h2>Enumerations</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><b>aggregator_operation_status</b> { <b>WAITING</b> =  0, 
-<b>SUCCESS</b>, 
-<b>FAILED</b>
- }</td></tr>
-
-<tr><td colspan="2"><br><h2>Functions</h2></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="0a5a2559e7d28a9bf8f9e5e60d745e86"></a><!-- doxytag: member="graph.h::make_edge" ref="0a5a2559e7d28a9bf8f9e5e60d745e86" args="(sender&lt; T &gt; &amp;p, receiver&lt; T &gt; &amp;s)" -->
-template&lt;typename T&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00342.html#0a5a2559e7d28a9bf8f9e5e60d745e86">tbb::make_edge</a> (sender&lt; T &gt; &amp;p, receiver&lt; T &gt; &amp;s)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Makes an edge between a single predecessor and a single successor. <br></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="ac6def751039959ab7ab1e52c8535fd3"></a><!-- doxytag: member="graph.h::make_edges" ref="ac6def751039959ab7ab1e52c8535fd3" args="(sender&lt; T &gt; &amp;p, SIterator s_begin, SIterator s_end)" -->
-template&lt;typename T, typename SIterator&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00342.html#ac6def751039959ab7ab1e52c8535fd3">tbb::make_edges</a> (sender&lt; T &gt; &amp;p, SIterator s_begin, SIterator s_end)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Makes edges between a single predecessor and multiple successors. <br></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="9368d2f689961f790bf7aa4a8cc1135e"></a><!-- doxytag: member="graph.h::make_edges" ref="9368d2f689961f790bf7aa4a8cc1135e" args="(PIterator p_begin, PIterator p_end, receiver&lt; T &gt; &amp;s)" -->
-template&lt;typename T, typename PIterator&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00342.html#9368d2f689961f790bf7aa4a8cc1135e">tbb::make_edges</a> (PIterator p_begin, PIterator p_end, receiver&lt; T &gt; &amp;s)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Makes edges between a set of predecessors and a single successor. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-The graph related classes and functions. 
+<h3>template&lt;typename T, template&lt; typename X &gt; class Allocator = tbb_allocator&gt;<br>
+ class tbb::zero_allocator&lt; T, Allocator &gt;</h3>
+
+Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5. 
 <p>
-There are some applications that best express dependencies as messages passed between nodes in a graph. These messages may contain data or simply act as signals that a predecessors has completed. The graph class and its associated node classes can be used to express such applcations. <hr>
+The class is an adapter over an actual allocator that fills the allocation using memset function with template argument C as the value. The members are ordered the same way they are in section 20.4.1 of the ISO C++ standard. 
+<p>
+<hr>The documentation for this class was generated from the following file:<ul>
+<li><a class="el" href="a00588.html">tbb_allocator.h</a></ul>
+<hr>
 <p></p>
-Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

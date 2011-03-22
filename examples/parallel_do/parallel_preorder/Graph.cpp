@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,9 +26,9 @@
     the GNU General Public License.
 */
 
-#include <cstdio>
 #include <cstdlib>
 #include "Graph.h"
+#include <iostream>
 
 using namespace std;
 
@@ -65,10 +65,10 @@ void Graph::create_random_dag( size_t number_of_nodes ) {
 
 void Graph::print() {
     for( size_t k=0; k<my_vertex_set.size(); ++k ) {
-        printf("Cell %d:",int(k));
+        std::cout<<"Cell "<<k<<":";
         for( size_t j=0; j<my_vertex_set[k].successor.size(); ++j )
-            printf(" %d",int(my_vertex_set[k].successor[j] - &my_vertex_set[0]));
-        printf("\n");
+            std::cout<<" "<<int(my_vertex_set[k].successor[j] - &my_vertex_set[0]);
+        std::cout<<std::endl;
     }
 }
 

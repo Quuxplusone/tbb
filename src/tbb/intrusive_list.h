@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,8 +30,6 @@
 #define _TBB_intrusive_list_H
 
 #include "tbb/tbb_stddef.h"
-
-#if __TBB_ARENA_PER_MASTER
 
 namespace tbb {
 namespace internal {
@@ -250,7 +248,5 @@ class intrusive_list : public intrusive_list_base<intrusive_list<T>, T>
 
 } // namespace internal
 } // namespace tbb
-
-#endif /* __TBB_ARENA_PER_MASTER */
 
 #endif /* _TBB_intrusive_list_H */

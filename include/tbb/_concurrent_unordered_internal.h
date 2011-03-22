@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -701,6 +701,7 @@ protected:
     concurrent_unordered_base(const concurrent_unordered_base& right, const allocator_type& a)
         : Traits(right.my_hash_compare), my_solist(a), my_allocator(a)
     {
+        internal_init();
         internal_copy(right);
     }
 
@@ -901,6 +902,11 @@ public:
 
         // Clear buckets
         internal_clear();
+
+        // Initialize bucket 0
+        __TBB_ASSERT(my_buckets[0] == NULL, NULL);
+        raw_iterator dummy_node = my_solist.raw_begin();
+        set_bucket(0, dummy_node);
     }
 
     // Lookup
@@ -1049,7 +1055,7 @@ private:
         // Allocate an array of segment pointers
         memset(my_buckets, 0, pointers_per_table * sizeof(void *));
 
-        // Insert the first element in the split-ordered list
+        // Initialize bucket 0
         raw_iterator dummy_node = my_solist.raw_begin();
         set_bucket(0, dummy_node);
     }
@@ -1265,11 +1271,8 @@ private:
     // Bucket APIs
     void init_bucket(size_type bucket)
     {
-        // Bucket 0 has no parent. Initialize it and return.
-        if (bucket == 0) {
-            internal_init();
-            return;
-        }
+        // Bucket 0 has no parent.
+        __TBB_ASSERT( bucket != 0, "The first bucket must always be initialized");
 
         size_type parent_bucket = get_parent(bucket);
 

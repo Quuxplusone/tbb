@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,8 +32,8 @@
 
 #include "tbb/task_scheduler_init.h"
 
-#define N 1000
-#define T 10
+#define N 300
+#define T 4 
 #define M 4
 
 template< typename R >
@@ -41,20 +41,35 @@ void simple_read_write_tests() {
     tbb::write_once_node<R> n;
 
     for ( int t = 0; t < T; ++t ) {
+        R v0(0);
         harness_counting_receiver<R> r[M];
+
+        ASSERT( n.is_valid() == false, NULL );
+        ASSERT( n.try_get( v0 ) == false, NULL );
+
+        if ( t % 2 ) {
+            ASSERT( n.try_put( static_cast<R>(N+1) ), NULL );
+            ASSERT( n.is_valid() == true, NULL );
+            ASSERT( n.try_get( v0 ) == true, NULL );
+            ASSERT( v0 == R(N+1), NULL );
+       }
 
         for (int i = 0; i < M; ++i) {
            ASSERT( n.register_successor(r[i]), NULL );
         }
-        R v0;
-        ASSERT( n.is_valid() == false, NULL );
-        ASSERT( n.try_get( v0 ) == false, NULL );
+      
+        if ( t%2 ) {
+            for (int i = 0; i < M; ++i) {
+                 size_t c = r[i].my_count;
+                 ASSERT( int(c) == 1, NULL );
+            }
+        }
 
         for (int i = 1; i <= N; ++i ) {
             R v1(static_cast<R>(i));
 
             bool result = n.try_put( v1 );
-            if ( i == 1 ) 
+            if ( !(t%2) && i == 1 ) 
                 ASSERT( result == true, NULL );
             else
                 ASSERT( result == false, NULL );
@@ -64,7 +79,10 @@ void simple_read_write_tests() {
             for (int j = 0; j < N; ++j ) {
                 R v2(0);
                 ASSERT( n.try_get( v2 ), NULL );
-                ASSERT( R(1) == v2, NULL );
+                if ( t%2 ) 
+                    ASSERT( R(N+1) == v2, NULL );
+                else 
+                    ASSERT( R(1) == v2, NULL );
             }
         }
         for (int i = 0; i < M; ++i) {

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,6 +32,13 @@
 #include "tbb/tbb_stddef.h"
 #include "tbb/tbb_machine.h"
 #include "tbb/atomic.h"     // For atomic_xxx definitions
+
+#if __linux__ || __FreeBSD__
+#include <sys/param.h>  // __FreeBSD_version
+#if __FreeBSD_version >= 701000
+#include <sys/cpuset.h>
+#endif
+#endif
 
 namespace tbb {
 namespace internal {
@@ -162,32 +169,84 @@ T1 atomic_update ( tbb::atomic<T1>& dst, const T2& newValue, Pred compare ) {
 
 //! One-time initialization states
 enum do_once_state {
-    do_once_fallow = 0, ///< No execution attempts have been undertaken yet
-    do_once_pending,    ///< A thread is executing associated do-once routine
-    do_once_executed,   ///< Do-once routine has been executed
+    do_once_uninitialized = 0,  ///< No execution attempts have been undertaken yet
+    do_once_pending,            ///< A thread is executing associated do-once routine
+    do_once_executed,           ///< Do-once routine has been executed
     initialization_complete = do_once_executed  ///< Convenience alias
 };
 
 //! One-time initialization function
-/** /param initializer Either pointer to function without arguments or functor 
-            object with operator function without arguments.
+/** /param initializer Pointer to function without arguments
+           The variant that returns bool is used for cases when initialization can fail
+           and it is OK to continue execution, but the state should be reset so that 
+           the initialization attempt was repeated the next time.
     /param state Shared state associated with initializer that specifies its 
             initialization state. Must be initially set to #uninitialized value
             (e.g. by means of default static zero initialization). **/
 template <typename F>
 void atomic_do_once ( const F& initializer, atomic<do_once_state>& state ) {
     // tbb::atomic provides necessary acquire and release fences.
-    if( state != do_once_executed ) {
-        if( state == do_once_fallow ) {
-            if( state.compare_and_swap( do_once_pending, do_once_fallow ) == do_once_fallow ) {
-                initializer();
-                state = do_once_executed;
+    // The loop in the implementation is necessary to avoid race when thread T2 
+    // that arrived in the middle of initialization attempt by another thread T1
+    // has just made initialization possible.
+    // In such a case T2 has to rely on T1 to initialize, but T1 may already be past
+    // the point where it can recognize the changed conditions.
+    while ( state != do_once_executed ) {
+        if( state == do_once_uninitialized ) {
+            if( state.compare_and_swap( do_once_pending, do_once_uninitialized ) == do_once_uninitialized ) {
+                run_initializer( initializer, state );
+                break;
             }
         }
-        else
-            spin_wait_until_eq( state, do_once_executed );
+        spin_wait_while_eq( state, do_once_pending );
     }
 }
+
+// Run the initializer which can not fail
+inline void run_initializer( void (*f)(), atomic<do_once_state>& state ) {
+    f();
+    state = do_once_executed;
+}
+
+// Run the initializer which can require repeated call
+inline void run_initializer( bool (*f)(), atomic<do_once_state>& state ) {
+    state = f() ? do_once_executed : do_once_uninitialized;
+}
+
+#ifdef __TBB_HardwareConcurrency
+    class affinity_helper {
+    public:
+        void protect_affinity_mask() {}
+    };
+#elif __linux__ || __FreeBSD_version >= 701000
+  #if __linux__
+    typedef cpu_set_t basic_mask_t;
+  #elif __FreeBSD_version >= 701000
+    typedef cpuset_t basic_mask_t;
+  #else
+    #error affinity_helper is not implemented in this OS
+  #endif
+    class affinity_helper {
+        basic_mask_t* threadMask;
+        int is_changed;
+    public:
+        affinity_helper() : threadMask(NULL), is_changed(0) {}
+        ~affinity_helper();
+        void protect_affinity_mask();
+    };
+#elif defined(_SC_NPROCESSORS_ONLN)
+    class affinity_helper {
+    public:
+        void protect_affinity_mask() {}
+    };
+#elif _WIN32||_WIN64
+    class affinity_helper {
+    public:
+        void protect_affinity_mask() {}
+    };
+#else
+    #error affinity_helper is not implemented in this OS
+#endif /* __TBB_HardwareConcurrency */
 
 } // namespace internal
 } // namespace tbb

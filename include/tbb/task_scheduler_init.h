@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,6 +30,7 @@
 #define __TBB_task_scheduler_init_H
 
 #include "tbb_stddef.h"
+#include "limits.h"
 
 namespace tbb {
 
@@ -43,11 +44,29 @@ namespace internal {
 } // namespace internal
 //! @endcond
 
-//! Class representing reference to tbb scheduler.
-/** A thread must construct a task_scheduler_init, and keep it alive,
-    during the time that it uses the services of class task.
+//! Class delimiting the scope of task scheduler activity.
+/** A thread can construct a task_scheduler_init object and keep it alive
+    while it uses TBB's tasking subsystem (including parallel algorithms).
+
+    This class allows to customize properties of the TBB task pool to some extent.
+    For example it can limit concurrency level of parallel work initiated by the
+    given thread. It also can be used to specify stack size of the TBB worker threads,
+    though this setting is not effective if the thread pool has already been created.
+
+    If a parallel construct is used without task_scheduler_init object previously
+    created, the scheduler will be initialized automatically with default settings,
+    and will persist until this thread exits. Default concurrency level is defined
+    as described in task_scheduler_init::initialize().
     @ingroup task_scheduling */
 class task_scheduler_init: internal::no_copy {
+#if TBB_USE_EXCEPTIONS
+    enum ExceptionPropagationMode {
+        propagation_mode_exact = 1u,
+        propagation_mode_captured = 2u,
+        propagation_mode_mask = propagation_mode_exact | propagation_mode_captured
+    };
+#endif /* TBB_USE_EXCEPTIONS */
+
     /** NULL if not currently initialized. */
     internal::scheduler* my_scheduler;
 public:
@@ -59,10 +78,13 @@ public:
     static const int deferred = -2;
 
     //! Ensure that scheduler exists for this thread
-    /** A value of -1 lets tbb decide on the number of threads, which is typically 
-        the number of hardware threads. For production code, the default value of -1 
-        should be used, particularly if the client code is mixed with third party clients 
-        that might also use tbb.
+    /** A value of -1 lets TBB decide on the number of threads, which is usually
+        maximal hardware concurrency for this process, that is the number of logical
+        CPUs on the machine (possibly limited by the processor affinity mask of this
+        process (Windows) or of this thread (Linux, FreeBSD). It is preferable option
+        for production code because it helps to avoid nasty surprises when several
+        TBB based components run side-by-side or in a nested fashion inside the same
+        process.
 
         The number_of_threads is ignored if any other task_scheduler_inits 
         currently exist.  A thread may construct multiple task_scheduler_inits.  
@@ -76,8 +98,19 @@ public:
     //! Inverse of method initialize.
     void __TBB_EXPORTED_METHOD terminate();
 
-    //! Shorthand for default constructor followed by call to intialize(number_of_threads).
+    //! Shorthand for default constructor followed by call to initialize(number_of_threads).
     task_scheduler_init( int number_of_threads=automatic, stack_size_type thread_stack_size=0 ) : my_scheduler(NULL)  {
+#if TBB_USE_EXCEPTIONS
+        // Take two lowest order bits of the stack size argument to communicate
+        // default exception propagation mode of the client to be used when the
+        // client manually creates tasks in the master thread and does not use
+        // explicit task group context object. This is necessary because newer 
+        // TBB binaries with exact propagation enabled by default may be used 
+        // by older clients that expect tbb::captured_exception wrapper.
+        // All zeros mean old client - no preference. 
+        __TBB_ASSERT( !(thread_stack_size & propagation_mode_mask), "Requested stack size is not aligned" );
+        thread_stack_size |= TBB_USE_CAPTURED_EXCEPTION ? propagation_mode_captured : propagation_mode_exact;
+#endif /* TBB_USE_EXCEPTIONS */
         initialize( number_of_threads, thread_stack_size );
     }
 

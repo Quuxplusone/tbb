@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -53,8 +53,11 @@
 #include "tbb_exception.h"
 #include "tbb_profiling.h"
 #include "_concurrent_unordered_internal.h" // Need tbb_hasher
-#if TBB_USE_PERFORMANCE_WARNINGS
+#if TBB_USE_PERFORMANCE_WARNINGS || __TBB_STATISTICS
 #include <typeinfo>
+#endif
+#if __TBB_STATISTICS
+#include <stdio.h>
 #endif
 
 namespace tbb {
@@ -135,9 +138,6 @@ namespace interface5 {
         atomic<unsigned> my_info_resizes; // concurrent ones
         mutable atomic<unsigned> my_info_restarts; // race collisions
         atomic<unsigned> my_info_rehashes;  // invocations of rehash_bucket
-        #if !TBB_USE_PERFORMANCE_WARNINGS
-        #error Please enable TBB_USE_PERFORMANCE_WARNINGS as well
-        #endif
 #endif
         //! Constructor
         hash_map_base() {
@@ -241,7 +241,7 @@ namespace interface5 {
             while( segment_ptr_t seg = my_table[++s] )
                 if( seg[h].node_list == rehash_req ) {
                     seg[h].node_list = empty_rehashed;
-                    mark_rehashed_levels( h + segment_base(s) );
+                    mark_rehashed_levels( h + ((hashcode_t)1<<s) ); // optimized segment_base(s)
                 }
         }
 
@@ -283,7 +283,7 @@ namespace interface5 {
             add_to_bucket( b, n );
             // check load factor
             if( sz >= mask ) { // TODO: add custom load_factor 
-                segment_index_t new_seg = segment_index_of( mask+1 );
+                segment_index_t new_seg = __TBB_Log2( mask+1 ); //optimized segment_index_of
                 __TBB_ASSERT( is_valid(my_table[new_seg-1]), "new allocations must not publish new mask until segment has allocated");
                 if( !itt_hide_load_word(my_table[new_seg])
                   && __TBB_CompareAndSwapW(&my_table[new_seg], 2, 0) == 0 )
@@ -1196,8 +1196,8 @@ template<typename Key, typename T, typename HashCompare, typename A>
 void concurrent_hash_map<Key,T,HashCompare,A>::clear() {
     hashcode_t m = my_mask;
     __TBB_ASSERT((m&(m+1))==0, NULL);
-#if TBB_USE_ASSERT || TBB_USE_PERFORMANCE_WARNINGS
-#if TBB_USE_PERFORMANCE_WARNINGS
+#if TBB_USE_ASSERT || TBB_USE_PERFORMANCE_WARNINGS || __TBB_STATISTICS
+#if TBB_USE_PERFORMANCE_WARNINGS || __TBB_STATISTICS
     int current_size = int(my_size), buckets = int(m)+1, empty_buckets = 0, overpopulated_buckets = 0; // usage statistics
     static bool reported = false;
 #endif
@@ -1209,7 +1209,7 @@ void concurrent_hash_map<Key,T,HashCompare,A>::clear() {
         node_base *n = bp->node_list;
         __TBB_ASSERT( is_valid(n) || n == internal::empty_rehashed || n == internal::rehash_req, "Broken internal structure" );
         __TBB_ASSERT( *reinterpret_cast<intptr_t*>(&bp->mutex) == 0, "concurrent or unexpectedly terminated operation during clear() execution" );
-#if TBB_USE_PERFORMANCE_WARNINGS
+#if TBB_USE_PERFORMANCE_WARNINGS || __TBB_STATISTICS
         if( n == internal::empty_rehashed ) empty_buckets++;
         else if( n == internal::rehash_req ) buckets--;
         else if( n->next ) overpopulated_buckets++;
@@ -1222,7 +1222,7 @@ void concurrent_hash_map<Key,T,HashCompare,A>::clear() {
         }
 #endif
     }
-#if TBB_USE_PERFORMANCE_WARNINGS
+#if TBB_USE_PERFORMANCE_WARNINGS || __TBB_STATISTICS
 #if __TBB_STATISTICS
     printf( "items=%d buckets: capacity=%d rehashed=%d empty=%d overpopulated=%d"
         " concurrent: resizes=%u rehashes=%u restarts=%u\n",
@@ -1241,7 +1241,7 @@ void concurrent_hash_map<Key,T,HashCompare,A>::clear() {
         reported = true;
     }
 #endif
-#endif//TBB_USE_ASSERT || TBB_USE_PERFORMANCE_WARNINGS
+#endif//TBB_USE_ASSERT || TBB_USE_PERFORMANCE_WARNINGS || __TBB_STATISTICS
     my_size = 0;
     segment_index_t s = segment_index_of( m );
     __TBB_ASSERT( s+1 == pointers_per_table || !my_table[s+1], "wrong mask or concurrent grow" );

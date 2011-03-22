@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -1525,6 +1525,8 @@ void tbb_connection_v2::adjust_job_count_estimate( int delta ) {
 
         server_thread* new_threads_anchor = NULL;
         thread_map::size_type i;
+        {
+        tbb::internal::affinity_helper fpa;
         for( i=0; i<n; ++i ) {
             // Obtain unrealized threads
             thread_map::value_type* k = my_thread_map.add_one_thread( false );
@@ -1532,11 +1534,14 @@ void tbb_connection_v2::adjust_job_count_estimate( int delta ) {
                 // No unrealized threads left.
                 break;
             // Eagerly start the thread off.
+            fpa.protect_affinity_mask();
             my_thread_map.bind_one_thread( *this, *k );
             server_thread& t = k->thread();
             __TBB_ASSERT( !t.link, NULL );
             t.link = new_threads_anchor;
             new_threads_anchor = &t;
+        }
+        // Implicit destruction of fpa resets original affinity mask.
         }
 
         thread_map::size_type j=0; 
@@ -1916,12 +1921,7 @@ __RML_DECL_THREAD_ROUTINE server_thread::thread_routine( void* arg ) {
 
 void server_thread::launch( size_t stack_size ) {
 #if USE_WINTHREAD
-    HANDLE hThread = INVALID_HANDLE_VALUE;
-    thread_monitor::launch( thread_routine, this, stack_size, &hThread );
-    if ( tbb::internal::NumberOfProcessorGroups() > 1 )
-        tbb::internal::MoveThreadIntoProcessorGroup( hThread,
-                        tbb::internal::FindProcessorGroupIndex((int)my_index) );
-    CloseHandle( hThread );
+    thread_monitor::launch( thread_routine, this, stack_size, &this->my_index );
 #else
     thread_monitor::launch( thread_routine, this, stack_size );
 #endif /* USE_PTHREAD */

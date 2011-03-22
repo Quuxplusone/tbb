@@ -39,14 +39,16 @@ if the cell values are changed to type "float".  The reason is twofold.
 
 <H2>Files</H2>
 <DL>
+<DT><A HREF="main.cpp">main.cpp</A>
+<DD>Main program which parses command line options and runs the algorithm with different numbers of threads.
 <DT><A HREF="parallel_preorder.cpp">parallel_preorder.cpp</A>
-<DD>Source code for example.
-<DT><A HREF="Graph.cpp">Graph.cpp</A>
-<DD>Source code for example.
+<DD>Implementation of the parallel preorder traversal algorithm.
 <DT><A HREF="Graph.h">Graph.h</A>
-<DD>Source code for example.
+<DD>Interfaces of the Graph and Cell classes.
+<DT><A HREF="Graph.cpp">Graph.cpp</A>
+<DD>Implementations of the Graph and Cell classes.
 <DT><A HREF="Matrix.h">Matrix.h</A>
-<DD>Source code for example.
+<DD>The Matrix class definition.
 <DT><A HREF="Makefile">Makefile</A>
 <DD>Makefile for building example.
 </DL>
@@ -64,21 +66,24 @@ General build directions can be found <A HREF=../../index.html#build>here</A>.
 
 <H2>Usage</H2>
 <DL>
-<DT><TT>parallel_preorder [<I>M</I>[:<I>N</I>] [<I>Rounds</I> [<I>'pause'</I>]]]</TT>
-<DD><I>M</I> and <I>N</I> are a range of numbers of threads to be used.
-<DD><I>Rounds</I> is the number of rounds the example runs internally. Default value 
-    is 50; reduce it to shorten example run time.
-<DD>If 'pause' is specified, the application will wait for a user to hit return before it exits.
-<DT>To run a short version of this example, e.g., for use with Intel&reg; Threading Tools:
+<DT><TT>parallel_preorder <I>-h</I></TT>
+<DD>Prints the help for command line options
+<DT><TT>parallel_preorder [<I>n-of-threads</I>=value] [<I>n-of-nodes</I>=value] [<I>n-of-traversals</I>=value] [<I>silent</I>] </TT>
+<DT><TT>parallel_preorder [<I>n-of-threads</I> [<I>n-of-nodes</I> [<I>n-of-traversals</I>]]] [<I>silent</I>] </TT> 
+<DD><I>n-of-threads</I> is the number of threads to use; a range of the form <I>low</I>[:<I>high</I>], where low and optional high are non-negative integers or 'auto' for the TBB default.<BR>
+    <I>n-of-nodes</I> is a number of nodes in the graph. Default value is 1000.<BR>
+    <I>n-of-traversals</I> is the number of times to evaluate the graph. Default value is 500.<BR>
+    <I>silent</I> - no output except elapsed time.<BR>
+<DT>To run a short version of this example, e.g., for use with Intel&reg; Parallel Inspector:
 <DD>Build a <I>debug</I> version of the example
     (see the <A HREF=../../index.html#build>build directions</A>).
-    <BR>Run it with the desired number of threads and smaller number of rounds, e.g., <TT>parallel_preorder 4 5</TT>.
+    <BR>Run it with the desired number of threads and smaller number of traversals, e.g., <TT>parallel_preorder 4 1000 5</TT>.
 </DL>
 
 <HR>
 <A HREF="../index.html">Up to parent directory</A>
 <p></p>
-Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are 
 registered trademarks or trademarks of Intel Corporation or its 

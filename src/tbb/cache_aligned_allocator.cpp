@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -91,7 +91,7 @@ static void* (*padded_allocate_handler)( size_t bytes, size_t alignment ) = &dum
 //! Handler for padded memory deallocation
 static void (*padded_free_handler)( void* p ) = &dummy_padded_free;
 
-//! Table describing the how to link the handlers.
+//! Table describing how to link the handlers.
 static const dynamic_link_descriptor MallocLinkTable[] = {
     DLD(scalable_malloc, MallocHandler),
     DLD(scalable_free, FreeHandler),
@@ -113,7 +113,7 @@ static const dynamic_link_descriptor MallocLinkTable[] = {
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".dylib"
 #elif __linux__
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX  __TBB_STRING(.so.TBB_COMPATIBLE_INTERFACE_VERSION)
-#elif __FreeBSD__ || __sun || _AIX
+#elif __FreeBSD__ || __NetBSD__ || __sun || _AIX
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".so"
 #else
 #error Unknown OS
@@ -128,7 +128,7 @@ void initialize_cache_aligned_allocator() {
     bool success = dynamic_link( MALLOCLIB_NAME, MallocLinkTable, 4 );
     if( !success ) {
         // If unsuccessful, set the handlers to the default routines.
-        // This must be done now, and not before FillDynanmicLinks runs, because if other
+        // This must be done now, and not before FillDynamicLinks runs, because if other
         // threads call the handlers, we want them to go through the DoOneTimeInitializations logic,
         // which forces them to wait.
         FreeHandler = &free;
@@ -141,7 +141,7 @@ void initialize_cache_aligned_allocator() {
 #endif
 }
 
-//! Defined in task.cpp
+//! Defined in tbb_main.cpp
 extern void DoOneTimeInitializations();
 
 //! Executed on very first call through MallocHandler
@@ -193,8 +193,13 @@ void* NFS_Allocate( size_t n, size_t element_size, void* /*hint*/ ) {
         // Overflow
         throw_exception(eid_bad_alloc);
     }
+    // scalable_aligned_malloc considers zero size request an error, and returns NULL
+    if (bytes==0) bytes = 1;
     
     void* result = (*padded_allocate_handler)( bytes, m );
+    if (!result)
+        throw_exception(eid_bad_alloc);
+
     __TBB_ASSERT( ((size_t)result&(m-1)) == 0, "The address returned isn't aligned to cache line size" );
     return result;
 }
@@ -204,14 +209,14 @@ void NFS_Free( void* p ) {
 }
 
 static void* padded_allocate( size_t bytes, size_t alignment ) {    
-    unsigned char* base;
-    if( !(base=(unsigned char*)malloc(alignment+bytes)) ) {        
-        throw_exception(eid_bad_alloc);
+    unsigned char* result = NULL;
+    unsigned char* base = (unsigned char*)malloc(alignment+bytes);
+    if( base ) {        
+        // Round up to the next line
+        result = (unsigned char*)((uintptr_t)(base+alignment)&-alignment);
+        // Record where block actually starts.
+        ((uintptr_t*)result)[-1] = uintptr_t(base);
     }
-    // Round up to the next line
-    unsigned char* result = (unsigned char*)((uintptr_t)(base+alignment)&-alignment);
-    // Record where block actually starts.
-    ((uintptr_t*)result)[-1] = uintptr_t(base);
     return result;    
 }
 
@@ -226,10 +231,8 @@ static void padded_free( void* p ) {
 }
 
 void* __TBB_EXPORTED_FUNC allocate_via_handler_v3( size_t n ) {    
-    void* result;
-    result = (*MallocHandler) (n);
+    void* result = (*MallocHandler) (n);
     if (!result) {
-        // Overflow
         throw_exception(eid_bad_alloc);
     }
     return result;
@@ -247,9 +250,10 @@ bool __TBB_EXPORTED_FUNC is_malloc_used_v3() {
         (*FreeHandler)(void_ptr);
     }
     __TBB_ASSERT( MallocHandler!=&DummyMalloc && FreeHandler!=&DummyFree, NULL );
-    __TBB_ASSERT((MallocHandler==&malloc && FreeHandler==&free) ||
-                 (MallocHandler!=&malloc && FreeHandler!=&free), NULL );
-    return MallocHandler == &malloc;
+    // Cast to void avoids type mismatch errors on some compilers (e.g. __IBMCPP__)
+    __TBB_ASSERT( !(((void*)MallocHandler==(void*)&malloc) ^ ((void*)FreeHandler==(void*)&free)),
+                  "Both shim pointers must refer to routines from the same package (either TBB or CRT)" );
+    return (void*)MallocHandler == (void*)&malloc;
 }
 
 } // namespace internal
@@ -257,21 +261,11 @@ bool __TBB_EXPORTED_FUNC is_malloc_used_v3() {
 } // namespace tbb
 
 #if __TBB_RML_STATIC
-#include "tbb/atomic.h"
-static tbb::atomic<int> module_inited;
 namespace tbb {
 namespace internal {
+static tbb::atomic<do_once_state> module_state;
 void DoOneTimeInitializations() {
-    if( module_inited!=2 ) {
-        if( module_inited.compare_and_swap(1, 0)==0 ) {
-            initialize_cache_aligned_allocator();
-            module_inited = 2;
-        } else {
-            do {
-                __TBB_Yield();
-            } while( module_inited!=2 );
-        }
-    }
+    atomic_do_once( &initialize_cache_aligned_allocator, module_state );
 }
 }} //namespace tbb::internal
 #endif

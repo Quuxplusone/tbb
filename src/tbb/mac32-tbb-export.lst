@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -76,6 +76,7 @@ __TBB_SYMBOL( _ZN3tbb4task7destroyERS0_ )
 // Exception handling in task scheduler
 __TBB_SYMBOL( _ZNK3tbb8internal32allocate_root_with_context_proxy8allocateEm )
 __TBB_SYMBOL( _ZNK3tbb8internal32allocate_root_with_context_proxy4freeERNS_4taskE )
+__TBB_SYMBOL( _ZN3tbb4task12change_groupERNS_18task_group_contextE )
 __TBB_SYMBOL( _ZNK3tbb18task_group_context28is_group_execution_cancelledEv )
 __TBB_SYMBOL( _ZN3tbb18task_group_context22cancel_group_executionEv )
 __TBB_SYMBOL( _ZN3tbb18task_group_context26register_pending_exceptionEv )
@@ -83,6 +84,10 @@ __TBB_SYMBOL( _ZN3tbb18task_group_context5resetEv )
 __TBB_SYMBOL( _ZN3tbb18task_group_context4initEv )
 __TBB_SYMBOL( _ZN3tbb18task_group_contextD1Ev )
 __TBB_SYMBOL( _ZN3tbb18task_group_contextD2Ev )
+#if __TBB_TASK_PRIORITY
+__TBB_SYMBOL( _ZN3tbb18task_group_context12set_priorityENS_10priority_tE )
+__TBB_SYMBOL( _ZNK3tbb18task_group_context8priorityEv )
+#endif /* __TBB_TASK_PRIORITY */
 __TBB_SYMBOL( _ZNK3tbb18captured_exception4nameEv )
 __TBB_SYMBOL( _ZNK3tbb18captured_exception4whatEv )
 __TBB_SYMBOL( _ZN3tbb18captured_exception10throw_selfEv )
@@ -155,7 +160,7 @@ __TBB_SYMBOL( __TBB_machine_store8_slow )
 #endif
 __TBB_SYMBOL( TBB_runtime_interface_version )
 
-// itt_notify.cpp
+// tbb_main.cpp
 __TBB_SYMBOL( _ZN3tbb8internal32itt_load_pointer_with_acquire_v3EPKv )
 __TBB_SYMBOL( _ZN3tbb8internal33itt_store_pointer_with_release_v3EPvS1_ )
 __TBB_SYMBOL( _ZN3tbb8internal18call_itt_notify_v5EiPv )
@@ -183,6 +188,7 @@ __TBB_SYMBOL( _ZN3tbb8pipelineD2Ev )
 __TBB_SYMBOL( _ZTIN3tbb8pipelineE )
 __TBB_SYMBOL( _ZTSN3tbb8pipelineE )
 __TBB_SYMBOL( _ZTVN3tbb8pipelineE )
+__TBB_SYMBOL( _ZN3tbb6filter16set_end_of_inputEv )
 
 // queuing_rw_mutex.cpp
 __TBB_SYMBOL( _ZN3tbb16queuing_rw_mutex11scoped_lock17upgrade_to_writerEv )

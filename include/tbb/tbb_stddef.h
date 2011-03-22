@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,7 +34,7 @@
 #define TBB_VERSION_MINOR 0
 
 // Engineering-focused interface version
-#define TBB_INTERFACE_VERSION 5005
+#define TBB_INTERFACE_VERSION 5006
 #define TBB_INTERFACE_VERSION_MAJOR TBB_INTERFACE_VERSION/1000
 
 // The oldest major interface version still supported
@@ -101,7 +101,7 @@
 
 // Define preprocessor symbols used to determine architecture
 #if _WIN32||_WIN64
-#   if defined(_M_AMD64)
+#   if defined(_M_X64)||defined(__x86_64__)  // the latter for MinGW support
 #       define __TBB_x86_64 1
 #   elif defined(_M_IA64)
 #       define __TBB_ipf 1
@@ -122,6 +122,9 @@
 #       define __TBB_generic_arch 1
 #   endif
 #endif
+
+// tbb_config.h should be included the first since it contains macro definitions used in other headers
+#include "tbb_config.h"
 
 #if _MSC_VER
 // define the parts of stdint.h that are needed, but put them inside tbb::internal
@@ -156,8 +159,6 @@ namespace internal {
 #include "_tbb_windef.h"
 #undef __TBB_tbb_windef_H
 #endif
-
-#include "tbb_config.h"
 
 //! The namespace tbb contains all components of the library.
 namespace tbb {

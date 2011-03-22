@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -27,7 +27,7 @@
 CPLUS = icpc
 CONLY = icc
 COMPILE_ONLY = -c -MMD
-PREPROC_ONLY = -E -x c
+PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
 OUTPUT_KEY = -o #
@@ -61,6 +61,24 @@ ifneq (00,$(lambdas)$(cpp0x))
 	CPLUS_FLAGS += -std=c++0x -D_TBB_CPP0X
 endif
 
+#------------------------------------------------------------------------------
+# Setting assembler data.
+#------------------------------------------------------------------------------
+
+ASM = as
+ifeq (intel64,$(arch))
+    ASM_FLAGS += -arch x86_64
+endif
+ifeq (ia32,$(arch))
+    ASM_FLAGS += -arch i386
+endif
+ifeq ($(cfg), debug)
+    ASM_FLAGS += -g
+endif
+
+#------------------------------------------------------------------------------
+# End of setting assembler data.
+#------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
 # Setting tbbmalloc data.

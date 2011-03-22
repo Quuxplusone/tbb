@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -70,11 +70,11 @@ itt_notify_malloc.$(OBJ): itt_notify.cpp
 	$(CPLUS) $(COMPILE_ONLY) $(M_CPLUS_FLAGS) $(PIC_KEY) $(OUTPUTOBJ_KEY)$@ $(INCLUDES) $<
 
 MALLOC_LINK_FLAGS = $(LIB_LINK_FLAGS)
-PROXY_LINK_FLAGS = $(LIB_LINK_FLAGS) 
+PROXY_LINK_FLAGS = $(LIB_LINK_FLAGS)
 
 ifneq (,$(MALLOC.DEF))
 tbbmalloc.def: $(MALLOC.DEF)
-	$(CMD) "$(CPLUS) $(PREPROC_ONLY) $(MALLOC.DEF) $(CPLUS_FLAGS) >tbbmalloc.def 2>$(NUL) || exit 0"
+	$(CPLUS) $(PREPROC_ONLY) $< $(CPLUS_FLAGS) $(INCLUDES) > $@
 
 MALLOC_LINK_FLAGS += $(EXPORT_KEY)tbbmalloc.def
 $(MALLOC.DLL): tbbmalloc.def
@@ -82,11 +82,11 @@ endif
 
 $(MALLOC.DLL): BUILDING_LIBRARY = $(MALLOC.DLL)
 $(MALLOC.DLL): $(MALLOC.OBJ) $(MALLOC.RES) $(MALLOC_NO_VERSION.DLL)
-	$(LIB_LINK_CMD) $(LIB_OUTPUT_KEY)$(MALLOC.DLL) $(MALLOC.OBJ) $(MALLOC.RES) $(LIB_LINK_LIBS) $(MALLOC_LINK_FLAGS)
+	$(subst $(CPLUS),$(CONLY),$(LIB_LINK_CMD)) $(LIB_OUTPUT_KEY)$(MALLOC.DLL) $(MALLOC.OBJ) $(MALLOC.RES) $(LIB_LINK_LIBS) $(MALLOC_LINK_FLAGS)
 
 ifneq (,$(MALLOCPROXY.DEF))
 tbbmallocproxy.def: $(MALLOCPROXY.DEF)
-	$(CMD) "$(CPLUS) $(PREPROC_ONLY) $(MALLOCPROXY.DEF) $(CPLUS_FLAGS) >tbbmallocproxy.def 2>$(NUL) || exit 0"
+	$(CPLUS) $(PREPROC_ONLY) $< $(CPLUS_FLAGS) $(INCLUDES) > $@
 
 PROXY_LINK_FLAGS += $(EXPORT_KEY)tbbmallocproxy.def
 $(MALLOCPROXY.DLL): tbbmallocproxy.def
@@ -96,8 +96,6 @@ ifneq (,$(MALLOCPROXY.DLL))
 $(MALLOCPROXY.DLL): BUILDING_LIBRARY = $(MALLOCPROXY.DLL)
 $(MALLOCPROXY.DLL): $(PROXY.OBJ) $(MALLOCPROXY_NO_VERSION.DLL) $(MALLOC.DLL) $(MALLOC.RES)
 	$(LIB_LINK_CMD) $(LIB_OUTPUT_KEY)$(MALLOCPROXY.DLL) $(PROXY.OBJ) $(MALLOC.RES) $(LIB_LINK_LIBS) $(LINK_MALLOC.LIB) $(PROXY_LINK_FLAGS)
-
-malloc: $(MALLOCPROXY.DLL)
 endif
 
 ifneq (,$(MALLOC_NO_VERSION.DLL))
@@ -112,7 +110,7 @@ endif
 
 malloc: $(MALLOC.DLL) $(MALLOCPROXY.DLL)
 
-malloc_dll: $(MALLOC.DLL) 
+malloc_dll: $(MALLOC.DLL)
 
 malloc_proxy_dll: $(MALLOCPROXY.DLL)
 

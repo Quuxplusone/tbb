@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,8 +31,7 @@
 
 #include "tbb/tbb_stddef.h"
 
-#if __TBB_ARENA_PER_MASTER
-
+#include "scheduler_common.h"
 #include "tbb/atomic.h"
 #include "tbb/spin_mutex.h"
 #include "../rml/include/rml_tbb.h"
@@ -60,8 +59,12 @@ template<typename SchedulerTraits> class custom_scheduler;
 //------------------------------------------------------------------------
 
 class market : no_copy, rml::tbb_client {
-    friend void ITT_DoUnsafeOneTimeInitialization ();
+    friend class generic_scheduler;
+    friend class arena;
     template<typename SchedulerTraits> friend class custom_scheduler;
+    friend class tbb::task_group_context;
+private:
+    friend void ITT_DoUnsafeOneTimeInitialization ();
 
     typedef intrusive_list<arena> arena_list_type;
 
@@ -76,18 +79,8 @@ class market : no_copy, rml::tbb_client {
     //! Reference count controlling market object lifetime
     intptr_t my_ref_count;
 
-    //! List of active arenas
-    arena_list_type my_arenas;
-
-    //! The first arena to be checked when idle worker seeks for an arena to enter
-    /** The check happens in round-robin fashion. **/
-    arena_list_type::iterator my_next_arena;
-
     //! Lightweight mutex guarding accounting operations with arenas list
     spin_mutex  my_arenas_list_mutex;
-
-    //! Number of workers that were requested by all arenas
-    atomic<int> my_total_demand;
 
     //! Pointer to the RML server object that services this TBB instance.
     rml::tbb_server* my_server;
@@ -98,14 +91,75 @@ class market : no_copy, rml::tbb_client {
     //! Number of workers requested from the underlying resource manager
     unsigned my_max_num_workers;
 
+    //! Number of workers that have been delivered by RML
+    /** Used to assign indices to the new workers coming from RML, and busy part
+        of my_workers array. **/
+    atomic<unsigned> my_num_workers;
+
+#if __TBB_TASK_PRIORITY
+    //! Highest priority among active arenas in the market.
+    /** Arena priority level is its tasks highest priority (specified by arena's
+        my_top_priority member).
+        Arena is active when it has outstanding request for workers. Note that 
+        inactive arena may have workers lingering there for some time. **/
+    intptr_t my_global_top_priority;
+
+    //! Lowest priority among active arenas in the market.
+    /** See also my_global_top_priority **/
+    intptr_t my_global_bottom_priority;
+
+    //! Tracks events that may bring tasks in offload areas to the top priority level.
+    /** Incremented when global top priority is decremented or a task group priority
+        is elevated to the current top level. **/
+    uintptr_t my_global_reload_epoch;
+
+    //! Information about arenas at a particular priority level
+    struct priority_level_info {
+        //! List of arenas at this priority level
+        arena_list_type arenas;
+
+        //! The first arena to be checked when idle worker seeks for an arena to enter
+        /** The check happens in round-robin fashion. **/
+        arena_list_type::iterator next_arena;
+
+        //! Total amount of workers requested by arenas at this priority level.
+        int workers_requested;
+
+        //! Maximal amount of workers the market can tell off to this priority level.
+        int workers_available;
+
+#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
+        //! Total amount of workers that are in arenas at this priority level.
+        int workers_present;
+#endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
+    }; // struct priority_level_info
+
+    //! Information about arenas at different priority levels
+    priority_level_info my_priority_levels[num_priority_levels];
+
+#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
+    //! Lowest priority level having workers available.
+    intptr_t my_lowest_populated_level;
+#endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
+
+#else /* !__TBB_TASK_PRIORITY */
+
+    //! List of registered arenas
+    arena_list_type my_arenas;
+
+    //! The first arena to be checked when idle worker seeks for an arena to enter
+    /** The check happens in round-robin fashion. **/
+    arena_list_type::iterator my_next_arena;
+
+    //! Number of workers that were requested by all arenas
+    int my_total_demand;
+#endif /* !__TBB_TASK_PRIORITY */
+
 #if __TBB_COUNT_TASK_NODES
     //! Net number of nodes that have been allocated from heap.
     /** Updated each time a scheduler or arena is destroyed. */
     atomic<intptr_t> my_task_node_count;
 #endif /* __TBB_COUNT_TASK_NODES */
-
-    //! Number of workers that have been delivered by RML
-    atomic<unsigned> my_num_workers;
 
     //! Constructor
     market ( unsigned max_num_workers, size_t stack_size );
@@ -116,18 +170,63 @@ class market : no_copy, rml::tbb_client {
     //! Destroys and deallocates market object created by market::create()
     void destroy ();
 
+#if __TBB_TASK_PRIORITY
     //! Returns next arena that needs more workers, or NULL.
-    arena* arena_in_need ();
+    arena* arena_in_need (
+#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
+                           arena* prev_arena
+#endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
+                         );
 
-    //! Recalculates the number of workers assigned to each arena.
+    //! Recalculates the number of workers assigned to each arena at and below the specified priority.
     /** The actual number of workers servicing a particular arena may temporarily 
         deviate from the calculated value. **/
-    void update_allotment ( int max_workers );
+    void update_allotment ( intptr_t highest_affected_priority );
+
+    //! Changes arena's top and bottom priority boundaries if necessary
+    void update_arena_top_priority ( arena& a, intptr_t newPriority );
+
+    inline void update_global_top_priority ( intptr_t newPriority );
+
+    void assert_market_valid () const {
+        __TBB_ASSERT( (my_priority_levels[my_global_top_priority].workers_requested > 0
+                           && !my_priority_levels[my_global_top_priority].arenas.empty())
+                       || (my_global_top_priority == my_global_bottom_priority &&
+                           my_global_top_priority == normalized_normal_priority), NULL );
+    }
+
+#else /* !__TBB_TASK_PRIORITY */
+
+    //! Recalculates the number of workers assigned to each arena in the list.
+    /** The actual number of workers servicing a particular arena may temporarily 
+        deviate from the calculated value. **/
+    void update_allotment () { update_allotment( my_arenas, my_total_demand, (int)my_max_num_workers ); }
+
+    //! Returns next arena that needs more workers, or NULL.
+    arena* arena_in_need () {
+        spin_mutex::scoped_lock lock(my_arenas_list_mutex);
+        return arena_in_need(my_arenas, my_next_arena);
+    }
+    void assert_market_valid () const {}
+#endif /* !__TBB_TASK_PRIORITY */
 
     //! Returns number of masters doing computational (CPU-intensive) work
     int num_active_masters () { return 1; }  // APM TODO: replace with a real mechanism
 
-    // // //
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Helpers to unify code branches dependent on priority feature presence
+
+    void insert_arena_into_list ( arena& a );
+
+    void remove_arena_from_list ( arena& a );
+
+    arena* arena_in_need ( arena_list_type &arenas, arena_list_type::iterator& next );
+
+    static void update_allotment ( arena_list_type& arenas, int total_demand, int max_workers );
+
+
+    ////////////////////////////////////////////////////////////////////////////////
     // Implementation of rml::tbb_client interface methods
 
     /*override*/ version_type version () const { return 0; }
@@ -165,25 +264,7 @@ public:
     //! Returns the requested stack size of worker threads.
     size_t worker_stack_size () const { return my_stack_size; }
 
-#if __TBB_COUNT_TASK_NODES
-    //! Returns the number of task objects "living" in worker threads
-    intptr_t workers_task_node_count();
-
-    //! Net number of nodes that have been allocated from heap.
-    /** Updated each time a scheduler or arena is destroyed. */
-    void update_task_node_count( intptr_t delta ) { my_task_node_count += delta; }
-#endif /* __TBB_COUNT_TASK_NODES */
-
-#if __TBB_TASK_GROUP_CONTEXT
-    //! Propagates cancellation request to all descendants of the context.
-    void propagate_cancellation ( task_group_context& ctx );
-
-    //! Array of pointers to the registered workers
-    /** Used by cancellation propagation mechanism.
-        Must be the last data member of the class market. **/
-    generic_scheduler* my_workers[1];
-#endif /* __TBB_TASK_GROUP_CONTEXT */
-#if __TBB_ARENA_PER_MASTER && ( _WIN32||_WIN64 )
+#if _WIN32||_WIN64
     //! register master with the resource manager
     void register_master( ::rml::server::execution_resource_t& rsc_handle ) {
         __TBB_ASSERT( my_server, "RML server not defined?" );
@@ -195,9 +276,66 @@ public:
     void unregister_master( ::rml::server::execution_resource_t& rsc_handle ) const {
         my_server->unregister_master( rsc_handle );
     }
-#endif /* !__TBB_ARENA_PER_MASTER && ( _WIN32||_WIN64 ) */
+#endif /* WIN */
+
+#if __TBB_TASK_GROUP_CONTEXT
+    //! Finds all contexts affected by the state change and propagates the new state to them.
+    template <typename T>
+    bool propagate_task_group_state ( T task_group_context::*mptr_state, task_group_context& src, T new_state );
+#endif /* __TBB_TASK_GROUP_CONTEXT */
+
+#if __TBB_TASK_PRIORITY
+    //! Lowers arena's priority is not higher than newPriority 
+    /** Returns true if arena priority was actually elevated. **/ 
+    bool lower_arena_priority ( arena& a, intptr_t new_priority, intptr_t old_priority );
+
+    //! Makes sure arena's priority is not lower than newPriority 
+    /** Returns true if arena priority was elevated. Also updates arena's bottom
+        priority boundary if necessary.
+
+        This method is called whenever a user changes priority, because whether
+        it was hiked or sunk can be determined for sure only under the lock used
+        by this function. **/
+    bool update_arena_priority ( arena& a, intptr_t new_priority );
+#endif /* __TBB_TASK_PRIORITY */
+
+#if __TBB_COUNT_TASK_NODES
+    //! Returns the number of task objects "living" in worker threads
+    intptr_t workers_task_node_count();
+
+    //! Net number of nodes that have been allocated from heap.
+    /** Updated each time a scheduler or arena is destroyed. */
+    void update_task_node_count( intptr_t delta ) { my_task_node_count += delta; }
+#endif /* __TBB_COUNT_TASK_NODES */
+
+#if __TBB_TASK_GROUP_CONTEXT
+    //! Array of pointers to the registered workers
+    /** Used by cancellation propagation mechanism.
+        Must be the last data member of the class market. **/
+    generic_scheduler* my_workers[1];
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 }; // class market
+
+#if __TBB_TASK_PRIORITY
+    #define BeginForEachArena(a)    \
+        spin_mutex::scoped_lock arena_list_lock(my_arenas_list_mutex);  \
+        for ( intptr_t i = my_global_top_priority; i >= my_global_bottom_priority; --i ) {  \
+            /*spin_mutex::scoped_lock arena_list_lock(my_priority_levels[i].my_arenas_list_mutex);*/ \
+            arena_list_type &arenas = my_priority_levels[i].arenas;
+#else /* !__TBB_TASK_PRIORITY */
+    #define BeginForEachArena(a)    \
+        arena_list_type &arenas = my_arenas; {
+#endif /* !__TBB_TASK_PRIORITY */
+
+#define ForEachArena(a)     \
+    BeginForEachArena(a)    \
+        arena_list_type::iterator it = arenas.begin();  \
+        for ( ; it != arenas.end(); ++it ) {            \
+            arena &a = *it;
+
+#define EndForEach() }}
+
 
 } // namespace internal
 } // namespace tbb
@@ -206,7 +344,5 @@ public:
     // Workaround for overzealous compiler warnings in /Wp64 mode
     #pragma warning (pop)
 #endif // warning 4244 is back
-
-#endif /* __TBB_ARENA_PER_MASTER */
 
 #endif /* _TBB_market_H */

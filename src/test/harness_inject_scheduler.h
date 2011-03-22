@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -45,9 +45,7 @@
 
 // Tasking subsystem files
 #include "../tbb/governor.cpp"
-#if __TBB_ARENA_PER_MASTER
 #include "../tbb/market.cpp"
-#endif /* __TBB_ARENA_PER_MASTER */
 #include "../tbb/arena.cpp"
 #include "../tbb/scheduler.cpp"
 #include "../tbb/observer_proxy.cpp"

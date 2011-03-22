@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -135,4 +135,4 @@ drawing_area::drawing_area(int x, int y, int sizex, int sizey)
     index = base_index; // current index
 }
 
-drawing_area::~drawing_area() {}
+void drawing_area::update() {}

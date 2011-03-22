@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::graph_node Class Reference</title>
+<title>tbb::interface5::concurrent_hash_map&lt; Key, T, HashCompare, Allocator &gt;::bucket_accessor Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,38 +21,42 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00342.html">tbb</a>::<a class="el" href="a00233.html">graph_node</a></div>
-<h1>tbb::graph_node Class Reference</h1><!-- doxytag: class="tbb::graph_node" -->The base of all graph nodes. Allows them to be stored in a collection for deletion.  
+<a class="el" href="a00362.html">tbb</a>::<b>interface5</b>::<a class="el" href="a00231.html">concurrent_hash_map</a>::<a class="el" href="a00233.html">bucket_accessor</a></div>
+<h1>tbb::interface5::concurrent_hash_map&lt; Key, T, HashCompare, Allocator &gt;::bucket_accessor Class Reference</h1><!-- doxytag: class="tbb::interface5::concurrent_hash_map::bucket_accessor" -->bucket accessor is to find, rehash, acquire a lock, and access a bucket  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00443.html">graph.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00424.html">concurrent_hash_map.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::graph_node:
-<p><center><img src="a00233.png" usemap="#tbb::graph_node_map" border="0" alt=""></center>
-<map name="tbb::graph_node_map">
-<area href="a00206.html" alt="tbb::broadcast_node< T >" shape="rect" coords="0,56,255,80">
-<area href="a00207.html" alt="tbb::buffer_node< T >" shape="rect" coords="265,56,520,80">
-<area href="a00226.html" alt="tbb::executable_node< Output >" shape="rect" coords="530,56,785,80">
-<area href="a00226.html" alt="tbb::executable_node< tbb::continue_msg >" shape="rect" coords="795,56,1050,80">
-<area href="a00231.html" alt="tbb::function_node< Input, Output >" shape="rect" coords="1060,56,1315,80">
-<area href="a00237.html" alt="tbb::limiter_node< T >" shape="rect" coords="1325,56,1580,80">
-<area href="a00267.html" alt="tbb::source_node< Output >" shape="rect" coords="1590,56,1845,80">
-<area href="a00251.html" alt="tbb::queue_node< T >" shape="rect" coords="265,112,520,136">
-<area href="a00222.html" alt="tbb::continue_node" shape="rect" coords="530,112,785,136">
-<area href="a00250.html" alt="tbb::priority_queue_node< T, Compare >" shape="rect" coords="132,168,387,192">
-<area href="a00265.html" alt="tbb::sequencer_node< T >" shape="rect" coords="397,168,652,192">
-</map>
-<a href="a00038.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00017.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
+<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b1dcb174ab54b8612b25b6126d18d6c3"></a><!-- doxytag: member="tbb::interface5::concurrent_hash_map::bucket_accessor::bucket_accessor" ref="b1dcb174ab54b8612b25b6126d18d6c3" args="(concurrent_hash_map *base, const hashcode_t h, bool writer=false)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>bucket_accessor</b> (<a class="el" href="a00231.html">concurrent_hash_map</a> *base, const hashcode_t h, bool writer=false)</td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d11c77f4d70a94d4fb344492bbf18007"></a><!-- doxytag: member="tbb::interface5::concurrent_hash_map::bucket_accessor::acquire" ref="d11c77f4d70a94d4fb344492bbf18007" args="(concurrent_hash_map *base, const hashcode_t h, bool writer=false)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00233.html#d11c77f4d70a94d4fb344492bbf18007">acquire</a> (<a class="el" href="a00231.html">concurrent_hash_map</a> *base, const hashcode_t h, bool writer=false)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">find a bucket by masked hashcode, optionally rehash, and acquire the lock <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="07d958f151a0eaa92f50fd56ad6440e2"></a><!-- doxytag: member="tbb::interface5::concurrent_hash_map::bucket_accessor::is_writer" ref="07d958f151a0eaa92f50fd56ad6440e2" args="()" -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00233.html#07d958f151a0eaa92f50fd56ad6440e2">is_writer</a> ()</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">check whether bucket is locked for write <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fa6314b861c574f86ed189b124cf5853"></a><!-- doxytag: member="tbb::interface5::concurrent_hash_map::bucket_accessor::operator()" ref="fa6314b861c574f86ed189b124cf5853" args="()" -->
+bucket *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00233.html#fa6314b861c574f86ed189b124cf5853">operator()</a> ()</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">get bucket pointer <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-The base of all graph nodes. Allows them to be stored in a collection for deletion. 
+<h3>template&lt;typename Key, typename T, typename HashCompare, typename Allocator&gt;<br>
+ class tbb::interface5::concurrent_hash_map&lt; Key, T, HashCompare, Allocator &gt;::bucket_accessor</h3>
+
+bucket accessor is to find, rehash, acquire a lock, and access a bucket 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00443.html">graph.h</a></ul>
+<li><a class="el" href="a00424.html">concurrent_hash_map.h</a></ul>
 <hr>
 <p></p>
-Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

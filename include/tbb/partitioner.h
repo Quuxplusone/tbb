@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -73,7 +73,6 @@ class affinity_partition_type;
 
 template<typename Range, typename Body, typename Partitioner> class start_for;
 template<typename Range, typename Body, typename Partitioner> class start_reduce;
-template<typename Range, typename Body> class start_reduce_with_affinity;
 template<typename Range, typename Body, typename Partitioner> class start_scan;
 
 } // namespace internal
@@ -135,7 +134,6 @@ public:
 private:
     template<typename Range, typename Body, typename Partitioner> friend class internal::start_for;
     template<typename Range, typename Body, typename Partitioner> friend class internal::start_reduce;
-    template<typename Range, typename Body> friend class internal::start_reduce_with_affinity;
     template<typename Range, typename Body, typename Partitioner> friend class internal::start_scan;
 
     typedef internal::affinity_partition_type partition_type;

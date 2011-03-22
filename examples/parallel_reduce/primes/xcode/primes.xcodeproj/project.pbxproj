@@ -10,6 +10,7 @@
 		A1F593A60B8F042A00073279 /* primes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F593A50B8F042A00073279 /* primes.cpp */; };
 		A1F593B70B8F06F900073279 /* libtbb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A1F593B30B8F06F900073279 /* libtbb.dylib */; };
 		A1F593BB0B8F072500073279 /* libtbb.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = A1F593B30B8F06F900073279 /* libtbb.dylib */; };
+		EA8D882D1301731B00385DE1 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EA8D882C1301731B00385DE1 /* main.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -29,6 +30,8 @@
 		8DD76F6C0486A84900D96B5E /* primes */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = primes; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1F593A50B8F042A00073279 /* primes.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = primes.cpp; path = ../primes.cpp; sourceTree = SOURCE_ROOT; };
 		A1F593B30B8F06F900073279 /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = ../../../../lib/libtbb.dylib; sourceTree = SOURCE_ROOT; };
+		EA8D882B130172E400385DE1 /* primes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = primes.h; path = ../primes.h; sourceTree = SOURCE_ROOT; };
+		EA8D882C1301731B00385DE1 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = ../main.cpp; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,6 +59,8 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				EA8D882C1301731B00385DE1 /* main.cpp */,
+				EA8D882B130172E400385DE1 /* primes.h */,
 				A1F593A50B8F042A00073279 /* primes.cpp */,
 			);
 			name = Source;
@@ -121,6 +126,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1F593A60B8F042A00073279 /* primes.cpp in Sources */,
+				EA8D882D1301731B00385DE1 /* main.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

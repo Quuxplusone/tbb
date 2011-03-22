@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -57,7 +57,7 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 #pragma managed(pop)
 #endif
 
-#elif __linux__ || __FreeBSD__
+#elif __linux__ || __FreeBSD__ || __NetBSD__
 
 #if __i386__
 #include "machine/linux_ia32.h"
@@ -89,6 +89,7 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 
 #define __asm__ asm 
 #define __volatile__ volatile
+
 #if __i386  || __i386__
 #include "machine/linux_ia32.h"
 #elif __x86_64__
@@ -97,8 +98,13 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 #include "machine/sunos_sparc.h"
 #endif
 #include <sched.h>
+
 #define __TBB_Yield() sched_yield()
 
+#endif /* Sun */
+
+#ifndef __TBB_64BIT_ATOMICS
+#define __TBB_64BIT_ATOMICS 1
 #endif
 
 //! Prerequisites for each architecture port
@@ -115,7 +121,7 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
     architecture+compiler it can be a hardware fence, a compiler fence, both or
     nothing. **/
 #if    !defined(__TBB_CompareAndSwap4) \
-    || !defined(__TBB_CompareAndSwap8) \
+    || !defined(__TBB_CompareAndSwap8) && __TBB_64BIT_ATOMICS \
     || !defined(__TBB_Yield)           \
     || !defined(__TBB_full_memory_fence)    \
     || !defined(__TBB_release_consistency_helper)
@@ -248,10 +254,12 @@ inline uint32_t __TBB_CompareAndSwapGeneric <4,uint32_t> (volatile void *ptr, ui
     return __TBB_CompareAndSwap4(ptr,value,comparand);
 }
 
+#if __TBB_64BIT_ATOMICS
 template<>
 inline uint64_t __TBB_CompareAndSwapGeneric <8,uint64_t> (volatile void *ptr, uint64_t value, uint64_t comparand ) { 
     return __TBB_CompareAndSwap8(ptr,value,comparand);
 }
+#endif
 
 template<size_t S, typename T>
 inline T __TBB_FetchAndAddGeneric (volatile void *ptr, T addend) {
@@ -290,7 +298,7 @@ inline T __TBB_FetchAndStoreGeneric (volatile void *ptr, T value) {
 // strictest alignment is 16.
 #ifndef __TBB_TypeWithAlignmentAtLeastAsStrict
 
-#if __GNUC__ || __SUNPRO_CC
+#if __GNUC__ || __SUNPRO_CC || __IBMCPP__
 struct __TBB_machine_type_with_strictest_alignment {
     int member[4];
 } __attribute__((aligned(16)));
@@ -321,7 +329,7 @@ struct work_around_alignment_bug {
 #endif
 };
 #define __TBB_TypeWithAlignmentAtLeastAsStrict(T) tbb::internal::type_with_alignment<tbb::internal::work_around_alignment_bug<sizeof(T),T>::alignment>
-#elif __GNUC__ || __SUNPRO_CC
+#elif __GNUC__ || __SUNPRO_CC || __IBMCPP__
 #define __TBB_TypeWithAlignmentAtLeastAsStrict(T) tbb::internal::type_with_alignment<__alignof__(T)>
 #else
 #define __TBB_TypeWithAlignmentAtLeastAsStrict(T) __TBB_machine_type_with_strictest_alignment
@@ -561,7 +569,7 @@ struct __TBB_machine_load_store {
     }
 };
 
-#if __TBB_WORDSIZE==4
+#if __TBB_WORDSIZE==4 && __TBB_64BIT_ATOMICS
 #if _MSC_VER
 using tbb::internal::int64_t;
 #endif
@@ -655,14 +663,18 @@ inline void __TBB_AtomicAND( volatile void *operand, uintptr_t addend ) {
 }
 #endif
 
+#ifndef __TBB_Byte
+typedef unsigned char __TBB_Byte;
+#endif
+
 #ifndef __TBB_TryLockByte
-inline bool __TBB_TryLockByte( unsigned char &flag ) {
+inline bool __TBB_TryLockByte( __TBB_Byte &flag ) {
     return __TBB_CompareAndSwap1(&flag,1,0)==0;
 }
 #endif
 
 #ifndef __TBB_LockByte
-inline uintptr_t __TBB_LockByte( unsigned char& flag ) {
+inline uintptr_t __TBB_LockByte( __TBB_Byte& flag ) {
     if ( !__TBB_TryLockByte(flag) ) {
         tbb::internal::atomic_backoff b;
         do {
@@ -672,6 +684,8 @@ inline uintptr_t __TBB_LockByte( unsigned char& flag ) {
     return 0;
 }
 #endif
+
+#define __TBB_UnlockByte __TBB_store_with_release
 
 #ifndef __TBB_ReverseByte
 inline unsigned char __TBB_ReverseByte(unsigned char src) {

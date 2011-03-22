@@ -126,7 +126,7 @@ Library Issues
 	on debug vs. release libraries.
     
 ------------------------------------------------------------------------
-Copyright (C) 2005-2010 Intel Corporation.  All Rights Reserved.
+Copyright (C) 2005-2011 Intel Corporation.  All Rights Reserved.
 
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

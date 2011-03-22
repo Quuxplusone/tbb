@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,7 +35,6 @@
 #include "harness.h"
 
 #include <cstdio>
-#include <cmath>
 
 #define N 1000
 #define C 10

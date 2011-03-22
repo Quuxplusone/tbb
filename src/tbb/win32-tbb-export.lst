@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -77,12 +77,17 @@ __TBB_SYMBOL( ?destroy@task@tbb@@QAEXAAV12@@Z )
 #if __TBB_TASK_GROUP_CONTEXT
 __TBB_SYMBOL( ?allocate@allocate_root_with_context_proxy@internal@tbb@@QBEAAVtask@3@I@Z )
 __TBB_SYMBOL( ?free@allocate_root_with_context_proxy@internal@tbb@@QBEXAAVtask@3@@Z )
+__TBB_SYMBOL( ?change_group@task@tbb@@QAEXAAVtask_group_context@2@@Z )
 __TBB_SYMBOL( ?is_group_execution_cancelled@task_group_context@tbb@@QBE_NXZ )
 __TBB_SYMBOL( ?cancel_group_execution@task_group_context@tbb@@QAE_NXZ )
 __TBB_SYMBOL( ?reset@task_group_context@tbb@@QAEXXZ )
 __TBB_SYMBOL( ?init@task_group_context@tbb@@IAEXXZ )
 __TBB_SYMBOL( ?register_pending_exception@task_group_context@tbb@@QAEXXZ )
 __TBB_SYMBOL( ??1task_group_context@tbb@@QAE@XZ )
+#if __TBB_TASK_PRIORITY
+__TBB_SYMBOL( ?set_priority@task_group_context@tbb@@QAEXW4priority_t@2@@Z )
+__TBB_SYMBOL( ?priority@task_group_context@tbb@@QBE?AW4priority_t@2@XZ )
+#endif /* __TBB_TASK_PRIORITY */
 __TBB_SYMBOL( ?name@captured_exception@tbb@@UBEPBDXZ )
 __TBB_SYMBOL( ?what@captured_exception@tbb@@UBEPBDXZ )
 __TBB_SYMBOL( ??1captured_exception@tbb@@UAE@XZ )
@@ -108,7 +113,7 @@ __TBB_SYMBOL( ?set_assertion_handler@tbb@@YAP6AXPBDH00@ZP6AX0H00@Z@Z )
 __TBB_SYMBOL( ?runtime_warning@internal@tbb@@YAXPBDZZ )
 __TBB_SYMBOL( TBB_runtime_interface_version )
 
-// itt_notify.cpp
+// tbb_main.cpp
 __TBB_SYMBOL( ?itt_load_pointer_with_acquire_v3@internal@tbb@@YAPAXPBX@Z )
 __TBB_SYMBOL( ?itt_store_pointer_with_release_v3@internal@tbb@@YAXPAX0@Z )
 __TBB_SYMBOL( ?call_itt_notify_v5@internal@tbb@@YAXHPAX@Z )
@@ -129,6 +134,7 @@ __TBB_SYMBOL( ?run@pipeline@tbb@@QAEXIAAVtask_group_context@2@@Z )
 #endif
 __TBB_SYMBOL( ?process_item@thread_bound_filter@tbb@@QAE?AW4result_type@12@XZ )
 __TBB_SYMBOL( ?try_process_item@thread_bound_filter@tbb@@QAE?AW4result_type@12@XZ )
+__TBB_SYMBOL( ?set_end_of_input@filter@tbb@@IAEXXZ )
 
 // queuing_rw_mutex.cpp
 __TBB_SYMBOL( ?internal_construct@queuing_rw_mutex@tbb@@QAEXXZ )

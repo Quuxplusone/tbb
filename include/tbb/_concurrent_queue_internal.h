@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,6 +35,7 @@
 #include "spin_mutex.h"
 #include "cache_aligned_allocator.h"
 #include "tbb_exception.h"
+#include "tbb_profiling.h"
 #include <new>
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
@@ -48,7 +49,6 @@
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     #pragma warning (pop)
 #endif
-
 
 namespace tbb {
 
@@ -145,7 +145,7 @@ private:
 #endif
 
 //! A queue using simple locking.
-/** For efficient, this class has no constructor.  
+/** For efficiency, this class has no constructor.
     The caller is expected to zero-initialize it. */
 template<typename T>
 class micro_queue : no_copy {
@@ -238,8 +238,9 @@ void micro_queue<T>::push( const void* item, ticket k, concurrent_queue_base_v3<
         p->mask = 0;
         p->next = NULL;
     }
-    
+
     if( tail_counter!=k ) spin_wait_until_my_turn( tail_counter, k, *base.my_rep );
+    call_itt_notify(acquired, &tail_counter);
         
     if( p ) {
         spin_mutex::scoped_lock lock( page_mutex );
@@ -252,14 +253,15 @@ void micro_queue<T>::push( const void* item, ticket k, concurrent_queue_base_v3<
     } else {
         p = tail_page;
     }
-   
     __TBB_TRY {
         copy_item( *p, index, item );
         // If no exception was thrown, mark item as present.
-        p->mask |= uintptr_t(1)<<index;
+        itt_hide_store_word(p->mask,  p->mask | uintptr_t(1)<<index);
+        call_itt_notify(releasing, &tail_counter);
         tail_counter += concurrent_queue_rep_base::n_queue; 
     } __TBB_CATCH (...) {
         ++base.my_rep->n_invalid_entries;
+        call_itt_notify(releasing, &tail_counter);
         tail_counter += concurrent_queue_rep_base::n_queue; 
         __TBB_RETHROW();
     }
@@ -269,7 +271,9 @@ template<typename T>
 bool micro_queue<T>::pop( void* dst, ticket k, concurrent_queue_base_v3<T>& base ) {
     k &= -concurrent_queue_rep_base::n_queue;
     if( head_counter!=k ) spin_wait_until_eq( head_counter, k );
+    call_itt_notify(acquired, &head_counter);
     if( tail_counter==k ) spin_wait_while_eq( tail_counter, k );
+    call_itt_notify(acquired, &tail_counter);
     page& p = *head_page;
     __TBB_ASSERT( &p, NULL );
     size_t index = k/concurrent_queue_rep_base::n_queue & (base.my_rep->items_per_page-1);
@@ -332,7 +336,7 @@ void micro_queue<T>::invalidate_page_and_rethrow( ticket k ) {
     page* invalid_page = (page*)uintptr_t(1);
     {
         spin_mutex::scoped_lock lock( page_mutex );
-        tail_counter = k+concurrent_queue_rep_base::n_queue+1;
+        itt_store_word_with_release(tail_counter, k+concurrent_queue_rep_base::n_queue+1);
         page* q = tail_page;
         if( is_valid_page(q) )
             q->next = invalid_page;
@@ -380,7 +384,7 @@ micro_queue_pop_finalizer<T>::~micro_queue_pop_finalizer() {
             my_queue.tail_page = NULL;
         }
     }
-    my_queue.head_counter = my_ticket;
+    itt_store_word_with_release(my_queue.head_counter, my_ticket);
     if( is_valid_page(p) ) {
         allocator.deallocate_page( p );
     }
@@ -455,11 +459,11 @@ protected:
     concurrent_queue_base_v3();
 
     /* override */ virtual ~concurrent_queue_base_v3() {
-#if __TBB_USE_ASSERT
+#if TBB_USE_ASSERT
         size_t nq = my_rep->n_queue;
         for( size_t i=0; i<nq; i++ )
             __TBB_ASSERT( my_rep->array[i].tail_page==NULL, "pages were not freed properly" );
-#endif /* __TBB_USE_ASSERT */
+#endif /* TBB_USE_ASSERT */
         cache_aligned_allocator<concurrent_queue_rep<T> >().deallocate(my_rep,1);
     }
 
@@ -648,9 +652,8 @@ protected:
 
     //! Default constructor
     concurrent_queue_iterator_base_v3() : my_rep(NULL), my_item(NULL) {
-#if __GNUC__==4&&__GNUC_MINOR__==3
-        // to get around a possible gcc 4.3 bug
-        __TBB_release_consistency_helper();
+#if __TBB_GCC_OPTIMIZER_ORDERING_BROKEN
+        __asm__ __volatile__("": : :"memory");
 #endif
     }
 

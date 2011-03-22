@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -25,6 +25,15 @@
     invalidate any other reasons why the executable file might be covered by
     the GNU General Public License.
 */
+
+#if __TBB_TEST_PIC && !__PIC__
+// Position independent code test was requested but __PIC__ is not defined; skip
+#include "harness.h"
+int TestMain() {
+    return Harness::Skipped;
+}
+
+#else
 
 // Put tbb/atomic.h first, so if it is missing a prerequisite header, we find out about it.
 // The tests here do *not* test for atomicity, just serial correctness. */
@@ -61,7 +70,11 @@ struct TestStruct {
             ASSERT( reinterpret_cast<byte_type*>(&suffix)[sizeof(T)-j-1] == byte_type(0x11*(j+1)), NULL );
         }
     }
+    static tbb::atomic<T> gCounter;
 };
+
+// A global variable of type tbb::atomic<>
+template<typename T> tbb::atomic<T> TestStruct<T>::gCounter;
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     #pragma warning( pop )
@@ -104,6 +117,11 @@ void TestCompareAndSwap( T i, T j, T k ) {
     } else {    
         ASSERT( x.counter==j, "value trashed" );
     }
+    // Check that atomic global variables work
+    TestStruct<T>::gCounter = i;
+    old = TestStruct<T>::gCounter.compare_and_swap( j, i );
+    ASSERT( old==i, NULL );
+    ASSERT( TestStruct<T>::gCounter==j, "value not updated?" );
     TestCompareAndSwapAcquireRelease<T,tbb::acquire>(i,j,k);
     TestCompareAndSwapAcquireRelease<T,tbb::release>(i,j,k);
 }
@@ -126,6 +144,11 @@ void TestFetchAndStore( T i, T j ) {
     T old = x.counter.fetch_and_store( j );
     ASSERT( old==i, NULL );
     ASSERT( x.counter==j, NULL );
+    // Check that atomic global variables work
+    TestStruct<T>::gCounter = i;
+    old = TestStruct<T>::gCounter.fetch_and_store( j );
+    ASSERT( old==i, NULL );
+    ASSERT( TestStruct<T>::gCounter==j, "value not updated?" );
     TestFetchAndStoreAcquireRelease<T,tbb::acquire>(i,j);
     TestFetchAndStoreAcquireRelease<T,tbb::release>(i,j);
 }
@@ -205,6 +228,13 @@ void TestFetchAndAdd( T i ) {
     ASSERT( x.counter==i, NULL );
     x.counter = i;
     ASSERT( x.counter==i, NULL );
+
+    // Check that atomic global variables work
+    TestStruct<T>::gCounter = i;
+    value = TestStruct<T>::gCounter.fetch_and_add( 42 );
+    expected = i+42;
+    ASSERT( value==i, NULL );
+    ASSERT( TestStruct<T>::gCounter==expected, "value not updated?" );
 
     TestFetchAndAddAcquireRelease<T,tbb::acquire>(i);
     TestFetchAndAddAcquireRelease<T,tbb::release>(i);
@@ -473,8 +503,14 @@ class ArrayElement {
 };
 
 int TestMain () {
+    #if __TBB_64BIT_ATOMICS
     TestAtomicInteger<unsigned long long>("unsigned long long");
     TestAtomicInteger<long long>("long long");
+    #else
+    REPORT("64-bit atomics not supported\n");
+    // TODO: advise about possibility to have 64-bit atomics on 64-bit PowerPC hardware even for 32-bit build?
+    ASSERT(sizeof(long long)==8, "type long long is not 64 bits");
+    #endif
     TestAtomicInteger<unsigned long>("unsigned long");
     TestAtomicInteger<long>("long");
     TestAtomicInteger<unsigned int>("unsigned int");
@@ -500,7 +536,11 @@ int TestMain () {
     TestAtomicBool();
     TestAtomicEnum();
     TestAtomicFloat<float>("float");
+    #if __TBB_64BIT_ATOMICS
     TestAtomicFloat<double>("double");
+    #else
+    ASSERT(sizeof(double)==8, "type double is not 64 bits");
+    #endif
     ASSERT( !ParallelError, NULL );
     TestMaskedCAS<unsigned char>();
     TestMaskedCAS<unsigned short>();
@@ -808,3 +848,5 @@ void TestParallel( const char* name ) {
     TestLoadAndStoreFences<T>(name);
     TestAssignment<T>(name);
 }
+
+#endif // __TBB_TEST_PIC && !__PIC__

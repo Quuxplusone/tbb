@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -84,30 +84,40 @@ __MACHINE_DECL_ATOMICS(4,int32_t,"l")
 static inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t comparand )
 {
     int64_t result;
-#if __PIC__ 
-    /* compiling position-independent code */
-    // EBX register preserved for compliance with position-independent code rules on IA32
-    __asm__ __volatile__ (
-            "pushl %%ebx\n\t"
-            "movl  (%%ecx),%%ebx\n\t"
-            "movl  4(%%ecx),%%ecx\n\t"
-            "lock\n\t cmpxchg8b %1\n\t"
-            "popl  %%ebx"
-             : "=A"(result), "=m"(*(int64_t *)ptr)
-             : "m"(*(int64_t *)ptr)
-             , "0"(comparand)
-             , "c"(&value)
-             : "memory", "esp"
-#if __INTEL_COMPILER
-             ,"ebx"
-#endif
-    );
-#else /* !__PIC__ */
     union {
         int64_t i64;
         int32_t i32[2];
     };
     i64 = value;
+#if __PIC__ 
+    /* compiling position-independent code */
+    // EBX register preserved for compliance with position-independent code rules on IA32
+    int32_t tmp;
+    __asm__ __volatile__ (
+            "movl  %%ebx,%2\n\t"
+            "movl  %5,%%ebx\n\t"
+#if __GNUC__==3
+            "lock\n\t cmpxchg8b %1\n\t"
+#else
+            "lock\n\t cmpxchg8b (%3)\n\t"
+#endif
+            "movl  %2,%%ebx"
+             : "=A"(result)
+             , "=m"(*(__TBB_VOLATILE int64_t *)ptr)
+             , "=m"(tmp)
+#if __GNUC__==3
+             : "m"(*(__TBB_VOLATILE int64_t *)ptr)
+#else
+             : "SD"(ptr)
+#endif
+             , "0"(comparand)
+             , "m"(i32[0]), "c"(i32[1])
+             : "memory"
+#if __INTEL_COMPILER
+             ,"ebx"
+#endif
+    );
+#else /* !__PIC__ */
     __asm__ __volatile__ (
             "lock\n\t cmpxchg8b %1\n\t"
              : "=A"(result), "=m"(*(__TBB_VOLATILE int64_t *)ptr)

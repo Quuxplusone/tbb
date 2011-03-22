@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -79,7 +79,7 @@ bool TestBootstrapLeak() {
     }
 
     ptrdiff_t memory_leak = 0;
-    // Notice that 16K boot strap memory block is enough to serve 42 threads.
+    // Note that 16K boot strap memory block is enough to serve 42 threads.
     const int num_thread_runs = 200;
     for (int run=0; run<3; run++) {
         memory_in_use = GetMemoryUsage();

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -41,6 +41,7 @@
 #include "tbb/tick_count.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tbb_allocator.h"
+#include "../../common/utility/utility.h"
 
 
 //! String type with scalable allocator.
@@ -52,17 +53,12 @@ using namespace tbb;
 using namespace std;
 
 //! Set to true to counts.
-static bool Verbose = false;
-
-//! Working threads count
-static int NThread = 1;
-
+static bool verbose = false;
+static bool silent = false;
 //! Problem size
 long N = 1000000;
 const int size_factor = 2;
 
-//! Indicates if the number of threads wasn't set explicitly
-static bool is_number_of_threads_set = false;
 //! A concurrent hash table that maps strings to ints.
 typedef concurrent_hash_map<MyString,int> StringTable;
 
@@ -90,20 +86,12 @@ static void CountOccurrences(int nthreads) {
 
     int n = 0;
     for( StringTable::iterator i=table.begin(); i!=table.end(); ++i ) {
-        if( Verbose && nthreads )
+        if( verbose && nthreads )
             printf("%s %d\n",i->first.c_str(),i->second);
         n += i->second;
     }
 
-    if (is_number_of_threads_set) {
-        printf("threads = %d  total = %d  unique = %u  time = %g\n", nthreads, n, unsigned(table.size()), (t1-t0).seconds());
-    } else {
-        if ( nthreads == 1 ) {
-            printf("serial run   total = %d  unique = %u  time = %g\n", n, unsigned(table.size()), (t1-t0).seconds());
-        } else {
-            printf("parallel run total = %d  unique = %u  time = %g\n", n, unsigned(table.size()), (t1-t0).seconds());
-        }
-    }
+    if ( !silent ) printf("total = %d  unique = %u  time = %g\n", n, unsigned(table.size()), (t1-t0).seconds());
 }
 
 /// Generator of random words
@@ -198,51 +186,58 @@ static void CreateData() {
     MyString planet = Data[12]; planet[0] = toupper(planet[0]);
     MyString helloworld = Data[0]; helloworld[0] = toupper(helloworld[0]);
     helloworld += ", "+Data[1]+" "+Data[2]+" "+Data[3]+" "+Data[4]+" "+Data[5];
-    printf("Message from planet '%s': %s!\nAnalyzing whole text...\n", planet.c_str(), helloworld.c_str());
-}
-
-/// Main Driver 
-
-static void ParseCommandLine( int argc, char* argv[] ) {
-    int i = 1;
-    if( i<argc && strcmp( argv[i], "verbose" )==0 ) {
-        Verbose = true;
-        ++i;
-    }
-    if( i<argc )
-        if( !isdigit(argv[i][0]) ) {
-            fprintf(stderr,"Usage: %s [verbose] [number-of-strings] [number-of-threads]\n",argv[0]);
-            exit(1);
-        } else {
-            N = strtol(argv[i++],0,0);
-        }
-    if( i<argc )
-        if( !isdigit(argv[i][0]) ) {
-            fprintf(stderr,"Usage: %s [verbose] [number-of-strings] [number-of-threads]\n",argv[0]);
-            exit(1);
-        } else {
-            NThread = strtol(argv[i++],0,0);
-            is_number_of_threads_set = true;
-        }
+    if ( !silent ) printf("Message from planet '%s': %s!\nAnalyzing whole text...\n", planet.c_str(), helloworld.c_str());
 }
 
 int main( int argc, char* argv[] ) {
-    srand(2);
-    ParseCommandLine( argc, argv );
-    Data = new MyString[N];
-    CreateData();
-    if (is_number_of_threads_set) {
-        task_scheduler_init init(NThread);
-        CountOccurrences(NThread);
-    } else { // Number of threads wasn't set explicitly. Run serial and parallel version
-        { // serial run
-            task_scheduler_init init_serial(1);
-            CountOccurrences(1);
+    try {
+        tbb::tick_count mainStartTime = tbb::tick_count::now();
+        srand(2);
+
+        //! Working threads count
+        // The 1st argument is the function to obtain 'auto' value; the 2nd is the default value
+        // The example interprets 0 threads as "run serially, then fully subscribed"
+        utility::thread_number_range threads(tbb::task_scheduler_init::default_num_threads,0);
+
+        utility::parse_cli_arguments(argc,argv,
+            utility::cli_argument_pack()
+            //"-h" option for for displaying help is present implicitly
+            .positional_arg(threads,"n-of-threads","number of threads to use; a range of the form low[:high], where low and optional high are non-negative integers or 'auto' for the TBB default.")
+            .positional_arg(N,"n-of-strings","number of strings")
+            .arg(verbose,"verbose","verbose mode")
+            .arg(silent,"silent","no output except elapsed time")
+            );
+
+        if ( silent ) verbose = false;
+
+        Data = new MyString[N];
+        CreateData();
+
+        if ( threads.first ) {
+            for(int p = threads.first;  p <= threads.last; ++p ) {
+                if ( !silent ) printf("threads = %d  ", p );
+                task_scheduler_init init( p );
+                CountOccurrences( p );
+            }
+        } else { // Number of threads wasn't set explicitly. Run serial and parallel version
+            { // serial run
+                if ( !silent ) printf("serial run   ");
+                task_scheduler_init init_serial(1);
+                CountOccurrences(1);
+            }
+            { // parallel run (number of threads is selected automatically)
+                if ( !silent ) printf("parallel run ");
+                task_scheduler_init init_parallel;
+                CountOccurrences(0);
+            }
         }
-        { // parallel run (number of threads is selected automatically)
-            task_scheduler_init init_parallel;
-            CountOccurrences(0);
-        }
+
+        delete[] Data;
+
+        utility::report_elapsed_time((tbb::tick_count::now() - mainStartTime).seconds());
+
+        return 0;
+    } catch(std::exception& e) {
+        std::cerr<<"error occurred. error text is :\"" <<e.what()<<"\"\n";
     }
-    delete[] Data;
 }

@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -63,8 +63,8 @@ _WIN32_WINNT=0x0400
 
 TBB.LST =
 TBB.DEF = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.def
-TBB.DLL = tbb$(DEBUG_SUFFIX).$(DLL)
-TBB.LIB = tbb$(DEBUG_SUFFIX).$(LIBEXT)
+TBB.DLL = tbb$(CPF_SUFFIX)$(DEBUG_SUFFIX).$(DLL)
+TBB.LIB = tbb$(CPF_SUFFIX)$(DEBUG_SUFFIX).$(LIBEXT)
 TBB.RES =
 #On Windows we specify appropriate tbb library using #pragma comment
 LINK_TBB.LIB =

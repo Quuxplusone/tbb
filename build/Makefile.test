@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -60,6 +60,9 @@ include $(tbb_root)/build/common_rules.inc
 test_model_plugin.$(TEST_EXT): test_model_plugin.$(OBJ) test_model_plugin_dll.$(DLL)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $< $(LIBDL) $(LIBS) $(LINK_FLAGS)
 
+test_cilk_dynamic_load.$(TEST_EXT): test_cilk_dynamic_load.$(OBJ) test_cilk_dynamic_load_dll.$(DLL)
+	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $< $(LINK_TBB.LIB) $(LIBDL) $(LIBS) $(LINK_FLAGS)
+
 # tbb_misc.$(OBJ) has to be specified here (instead of harness_inject_scheduler.h) because it carries dependency on version_string.tmp
 TASK_CPP_DEPENDENCIES = $(TBB_ASM.OBJ) tbb_misc.$(OBJ)
 ifeq (,$(codecov))
@@ -86,10 +89,15 @@ test_tbb_header2.$(OBJ): test_tbb_header.cpp
 test_tbb_header.$(TEST_EXT): test_tbb_header.$(OBJ) test_tbb_header2.$(OBJ) $(TBB.LIB)
 	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) test_tbb_header.$(OBJ) test_tbb_header2.$(OBJ) $(LINK_TBB.LIB) $(LIBS) $(LINK_FLAGS)
 
+# Checks that TBB atomics work correctly in position independent code
+test_atomic_pic.$(TEST_EXT): test_atomic.cpp
+	$(CPLUS) $(OUTPUT_KEY)$@ $(CPLUS_FLAGS) $(PIC_KEY) $(CXX_ONLY_FLAGS) $(CXX_WARN_SUPPRESS) $(INCLUDES) $(DEFINE_KEY)__TBB_TEST_PIC=1 $< $(LINK_TBB.LIB) $(LIBS) $(AUX_LIBS) $(LINK_FLAGS)
+
 # The main list of TBB tests
 TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_aligned_space.$(TEST_EXT)               \
 	test_atomic.$(TEST_EXT)                      \
+	test_atomic_pic.$(TEST_EXT)                  \
 	test_blocked_range.$(TEST_EXT)               \
 	test_blocked_range2d.$(TEST_EXT)             \
 	test_blocked_range3d.$(TEST_EXT)             \
@@ -140,7 +148,9 @@ TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_tbb_condition_variable.$(TEST_EXT)      \
 	test_intrusive_list.$(TEST_EXT)              \
 	test_cilk_interop.$(TEST_EXT)                \
+	test_cilk_dynamic_load.$(TEST_EXT)           \
 	test_concurrent_priority_queue.$(TEST_EXT)   \
+	test_task_priority.$(TEST_EXT)               \
 	test_faf_task.$(TEST_EXT)                    \
 	test_hw_concurrency.$(TEST_EXT)              \
 	test_fp.$(TEST_EXT)                          \
@@ -178,7 +188,8 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(TASK_CPP_DIRECTLY_INCLUDED) $(TEST_TBB_PL
         # Checking TBB version first to make sure the following testing has anything in it
 	$(run_cmd) ./test_assembly.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_atomic.$(TEST_EXT) $(args)
-        # Yes, 4:8 is intended on the next line. 
+	$(run_cmd) ./test_atomic_pic.$(TEST_EXT) $(args)
+        # Yes, 4:8 is intended on the next line.
 	$(run_cmd) ./test_yield.$(TEST_EXT) $(args) 4:8
 	$(run_cmd) ./test_handle_perror.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_task_auto_init.$(TEST_EXT) $(args)
@@ -234,7 +245,9 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(TASK_CPP_DIRECTLY_INCLUDED) $(TEST_TBB_PL
 	$(run_cmd) ./test_tbb_condition_variable.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_intrusive_list.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_cilk_interop.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_cilk_dynamic_load.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_concurrent_priority_queue.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_task_priority.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_faf_task.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_hw_concurrency.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_fp.$(TEST_EXT) $(args)

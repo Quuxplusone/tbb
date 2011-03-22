@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -81,9 +81,9 @@ static XGCValues xgcv;
 static XImage *ximage;
 static int x_error = 0;
 static int vidtype = 3;
-static int g_sizex, g_sizey;
+int g_sizex, g_sizey;
 static video *g_video = 0;
-static unsigned int *g_pImg = 0;
+unsigned int *g_pImg = 0;
 static int g_fps = 0;
 struct timeval g_time;
 static pthread_mutex_t g_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -362,7 +362,7 @@ drawing_area::drawing_area(int x, int y, int sizex, int sizey)
     index = base_index; // current index
 }
 
-drawing_area::~drawing_area()
+void drawing_area::update()
 {
     if(!g_video->updating) return;
 #ifndef X_NOSHMEM

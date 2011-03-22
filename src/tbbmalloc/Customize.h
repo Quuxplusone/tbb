@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -70,18 +70,16 @@ extern "C" void mallocProcessShutdownNotification(void);
     There are no methods "acquire" or "release".  The scoped_lock must be used
     in a strict block-scoped locking pattern.  Omitting these methods permitted
     further simplication. */
-class MallocMutex {
-    unsigned char value;
+class MallocMutex : tbb::internal::no_copy {
+    __TBB_Byte value;
 
-    //! Deny assignment
-    void operator=( MallocMutex& MallocMutex );
 public:
-    class scoped_lock {
-        const unsigned char value;
+    class scoped_lock : tbb::internal::no_copy {
+        const __TBB_Byte unlock_value;
         MallocMutex& mutex;
     public:
-        scoped_lock( MallocMutex& m ) : value( __TBB_LockByte(m.value)), mutex(m) {}
-        ~scoped_lock() { __TBB_store_with_release(mutex.value, value); }
+        scoped_lock( MallocMutex& m ) : unlock_value( __TBB_LockByte(m.value)), mutex(m) {}
+        ~scoped_lock() { __TBB_UnlockByte(mutex.value, unlock_value); }
     };
     friend class scoped_lock;
 };

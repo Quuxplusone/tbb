@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -244,7 +244,8 @@ class RootLauncherTask : public TaskBase {
  
     tbb::task* do_execute () {
         tbb::task_group_context  ctx(m_CtxKind);
-        SimpleRootTask &r = *new( allocate_root(ctx) ) SimpleRootTask;
+        SimpleRootTask &r = *new( allocate_root() ) SimpleRootTask;
+        r.change_group(ctx);
         TRY();
             spawn_root_and_wait(r);
             // Give a child of our siblings a chance to throw the test exception
@@ -553,6 +554,7 @@ void CheckException () {
     a movable exception in a worker or master thread (depending on the global settings).
     The test also checks the correctness of multiple rethrowing of the pending exception. **/
 void TestMovableException () {
+    REMARK( "TestMovableException\n" );
     ResetGlobals();
     bool bUnsupported = false;
     tbb::task_group_context ctx;
@@ -614,7 +616,7 @@ class CtxLauncherTask : public tbb::task {
     tbb::task_group_context &m_Ctx;
 
     tbb::task* execute () {
-        tbb::task::spawn_root_and_wait( *new( tbb::task::allocate_root(m_Ctx) ) T );
+        spawn_root_and_wait( *new( allocate_root(m_Ctx) ) T );
         return NULL;
     }
 public:
@@ -642,7 +644,7 @@ class CtxDestroyerTask : public tbb::task {
     tbb::task* execute () {
         ASSERT ( m_nestingLevel >= 0 && m_nestingLevel < MaxNestingDepth, "Wrong nesting level. The test is broken" );
         tbb::task_group_context  ctx;
-        tbb::task *t = new( tbb::task::allocate_root(ctx) ) tbb::empty_task;
+        tbb::task *t = new( allocate_root(ctx) ) tbb::empty_task;
         int level = ++m_nestingLevel;
         if ( level < MaxNestingDepth ) {
             execute();
@@ -669,6 +671,7 @@ int CtxDestroyerTask::s_numCancelled = 0;
 //! Test for data race between cancellation propagation and context destruction.
 /** If the data race ever occurs, an assertion inside TBB will be triggered. **/
 void TestCtxDestruction () {
+    REMARK( "TestCtxDestruction\n" );
     for ( size_t i = 0; i < 10; ++i ) {
         tbb::task_group_context  ctx;
         tbb::task_list  tl;
@@ -771,7 +774,7 @@ void RunTests () {
 }
 
 int TestMain () {
-    REMARK ("Using %s", TBB_USE_CAPTURED_EXCEPTION ? "tbb:captured_exception" : "exact exception propagation");
+    REMARK ("Using %s\n", TBB_USE_CAPTURED_EXCEPTION ? "tbb:captured_exception" : "exact exception propagation");
     MinThread = min(NUM_ROOTS_IN_GROUP, min(tbb::task_scheduler_init::default_num_threads(), max(2, MinThread)));
     MaxThread = min(NUM_ROOTS_IN_GROUP, max(MinThread, min(tbb::task_scheduler_init::default_num_threads(), MaxThread)));
     ASSERT (NUM_ROOTS_IN_GROUP < NUM_ROOT_TASKS, "Fix defines");

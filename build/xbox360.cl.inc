@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -50,7 +50,7 @@ endif
 
 
 COMPILE_ONLY = /c
-PREPROC_ONLY = /TC /EP
+PREPROC_ONLY = /TP /EP
 INCLUDE_KEY = /I
 DEFINE_KEY = /D
 OUTPUT_KEY = /Fe
@@ -60,22 +60,11 @@ WARNING_KEY = /W3
 DYLIB_KEY = /DLL
 EXPORT_KEY = /DEF:
 
-        OPENMP_FLAG = /openmp
-ifeq ($(runtime),vc8)
-        OPENMP_FLAG = /openmp
-endif
-ifeq ($(runtime),vc9)
-        OPENMP_FLAG = /openmp
-endif
-
 ifeq (em64t,$(arch))
         CPLUS_FLAGS += /GS-
 endif
 
-
-
-CPLUS_FLAGS += /DDO_ITT_NOTIFY /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE \
-        /D_WIN32_WINNT=$(_WIN32_WINNT)
+CPLUS_FLAGS += /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE /D_WIN32_WINNT=$(_WIN32_WINNT)
 C_FLAGS = $(CPLUS_FLAGS) /TC
 #------------------------------------------------------------------------------
 # End of setting compiler flags.
@@ -85,22 +74,7 @@ C_FLAGS = $(CPLUS_FLAGS) /TC
 #------------------------------------------------------------------------------
 # Setting assembler data.
 #------------------------------------------------------------------------------
-ASSEMBLY_SOURCE=$(arch)-masm
-ifeq (XBOX360,$(arch))
-#do nothing for XBOX360
-else
-
-ifeq (em64t,$(arch))
-    ASM=ml64
-    ASM_FLAGS += /DEM64T=1 /c /Zi
-    TBB_ASM.OBJ =
-else
-    ASM=ml
-    ASM_FLAGS += /c /coff /Zi
-    TBB_ASM.OBJ =
-endif
-
-endif
+# nothing for XBOX360
 #------------------------------------------------------------------------------
 # End of setting assembler data.
 #------------------------------------------------------------------------------

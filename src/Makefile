@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -107,7 +107,7 @@ test_debug_no_depends:
 
 .PHONY: tbbmalloc_release tbbmalloc_debug
 .PHONY: tbbmalloc_dll_release tbbmalloc_dll_debug tbbmalloc_proxy_dll_release tbbmalloc_proxy_dll_debug
-.PHONY: tbbmalloc_test_release tbbmalloc_test_debug tbbmalloc_test_release_no_depends tbbmalloc_test_debug_no_depends
+.PHONY: tbbmalloc_test tbbmalloc_test_release tbbmalloc_test_debug tbbmalloc_test_release_no_depends tbbmalloc_test_debug_no_depends
 
 tbbmalloc_release: mkdir_release
 	$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=release malloc tbb_root=$(tbb_root)
@@ -126,6 +126,8 @@ tbbmalloc_dll_debug: mkdir_debug
 
 tbbmalloc_proxy_dll_debug: mkdir_debug
 	$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=debug malloc_proxy_dll tbb_root=$(tbb_root)
+
+tbbmalloc_test: tbbmalloc_test_release tbbmalloc_test_debug
 
 tbbmalloc_test_release: $(call cross_cfg,mkdir_release) $(call cross_cfg,tbbmalloc_release) tbbmalloc_test_release_no_depends
 tbbmalloc_test_release_no_depends:

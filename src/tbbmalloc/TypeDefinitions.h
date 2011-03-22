@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,7 +31,7 @@
 
 // Define preprocessor symbols used to determine architecture
 #if _WIN32||_WIN64
-#   if defined(_M_AMD64)||defined(__MINGW64__) // the latter for MinGW support
+#   if defined(_M_X64)||defined(__x86_64__)  // the latter for MinGW support
 #       define __ARCH_x86_64 1
 #   elif defined(_M_IA64)
 #       define __ARCH_ipf 1

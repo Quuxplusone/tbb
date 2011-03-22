@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -53,7 +53,7 @@
                 "version='" _CRT_ASSEMBLY_VERSION "' "                          \
                 "processorArchitecture='x86' "                                  \
                 "publicKeyToken='" _VC_ASSEMBLY_PUBLICKEYTOKEN "'\"")
-        #elif defined(_M_AMD64)
+        #elif defined(_M_X64)
             #pragma comment(linker,"/manifestdependency:\"type='win32' "            \
                 "name='" __LIBRARIES_ASSEMBLY_NAME_PREFIX ".DebugOpenMP' "         \
                 "version='" _CRT_ASSEMBLY_VERSION "' "                          \
@@ -73,7 +73,7 @@
                 "version='" _CRT_ASSEMBLY_VERSION "' "                          \
                 "processorArchitecture='x86' "                                  \
                 "publicKeyToken='" _VC_ASSEMBLY_PUBLICKEYTOKEN "'\"")
-        #elif defined(_M_AMD64)
+        #elif defined(_M_X64)
             #pragma comment(linker,"/manifestdependency:\"type='win32' "            \
                 "name='" __LIBRARIES_ASSEMBLY_NAME_PREFIX ".OpenMP' "              \
                 "version='" _CRT_ASSEMBLY_VERSION "' "                          \

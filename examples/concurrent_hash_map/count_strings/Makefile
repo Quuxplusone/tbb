@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -27,6 +27,7 @@
 # GNU Makefile that builds and runs example.
 PROG=count_strings
 ARGS=
+PERF_RUN_ARGS=auto 10000000 silent
 
 # The C++ compiler
 ifneq (,$(shell which icc 2>/dev/null))
@@ -46,3 +47,9 @@ clean:
 
 test:
 	./$(PROG) $(ARGS)
+	
+perf_build: release
+	
+perf_run:
+	./$(PROG) $(PERF_RUN_ARGS)
+

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -63,7 +63,7 @@ class __TBB_InitOnce {
     // TBB itself. This imposes a requirement that the global initialization lock 
     // has to support valid static initialization, and does not issue any tool
     // notifications in any build mode.
-    typedef unsigned char mutex_type;
+    typedef __TBB_Byte mutex_type;
 
     // Global initialization lock
     static mutex_type InitializationLock;
@@ -71,7 +71,7 @@ class __TBB_InitOnce {
 public:
     static void lock()   { __TBB_LockByte( InitializationLock ); }
 
-    static void unlock() { __TBB_store_with_release( InitializationLock, 0 ); }
+    static void unlock() { __TBB_UnlockByte( InitializationLock, 0 ); }
 
     static bool initialization_done() { return __TBB_load_with_acquire(InitializationDone); }
 

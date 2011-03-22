@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -46,6 +46,10 @@ ifndef tbb_os
   endif
 
 endif # !tbb_os
+
+ifeq ($(tbb_cpf),1)
+  export CPF_SUFFIX ?=_preview
+endif
 
 ifeq ($(wildcard $(tbb_root)/build/$(tbb_os).inc),)
   $(error "$(tbb_os)" is not supported. Add build/$(tbb_os).inc file with os-specific settings )
@@ -106,3 +110,6 @@ ifneq ($(BUILDING_PHASE),1)
   export tbb_root
  endif # BUILDING_PHASE != 0
 endif  # BUILDING_PHASE != 1
+
+.DELETE_ON_ERROR:    # Make will delete target if error occurred when building it.
+

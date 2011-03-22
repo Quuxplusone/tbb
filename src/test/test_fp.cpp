@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -51,11 +51,13 @@ const int FE_TONEAREST = 0x0000,
 const int NumSseModes = 4;
 const int SseModes[NumSseModes] = { 0, SSE_DAZ, SSE_FTZ, SSE_DAZ | SSE_FTZ };
 
-#if _WIN64
+#if _WIN64 && !__MINGW64__
+// MinGW uses inline implementation from tbb/machine/linux_intel64.h
+
 #include <float.h>
 
 inline void __TBB_get_cpu_ctl_env ( __TBB_cpu_ctl_env_t* fe ) {
-    fe->x87cw = (_control87(0, 0) & _MCW_RC) << 2;
+    fe->x87cw = short(_control87(0, 0) & _MCW_RC) << 2;
     fe->mxcsr = _mm_getcsr();
 }
 inline void __TBB_set_cpu_ctl_env ( const __TBB_cpu_ctl_env_t* fe ) {
@@ -77,7 +79,7 @@ inline void SetRoundingMode ( int mode ) {
     __TBB_cpu_ctl_env_t ctl = { 0, 0 };
     __TBB_get_cpu_ctl_env(&ctl);
     ctl.mxcsr = (ctl.mxcsr & ~SSE_RND_MODE_MASK) | (mode & FE_RND_MODE_MASK) << 3;
-    ctl.x87cw = (ctl.x87cw & ~FE_RND_MODE_MASK) | (mode & FE_RND_MODE_MASK);
+    ctl.x87cw = short((ctl.x87cw & ~FE_RND_MODE_MASK) | (mode & FE_RND_MODE_MASK));
     __TBB_set_cpu_ctl_env(&ctl);
 }
 

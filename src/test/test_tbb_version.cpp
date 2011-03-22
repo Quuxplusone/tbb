@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -213,7 +213,7 @@ int main(int argc, char *argv[] ) {
 void initialize_strings_vector(std::vector <string_pair>* vector)
 {
     vector->push_back(string_pair("TBB: VERSION\t\t3.0", required));          // check TBB_VERSION
-    vector->push_back(string_pair("TBB: INTERFACE VERSION\t5005", required)); // check TBB_INTERFACE_VERSION
+    vector->push_back(string_pair("TBB: INTERFACE VERSION\t5006", required)); // check TBB_INTERFACE_VERSION
     vector->push_back(string_pair("TBB: BUILD_DATE", required));
     vector->push_back(string_pair("TBB: BUILD_HOST", required));
     vector->push_back(string_pair("TBB: BUILD_OS", required));
@@ -241,6 +241,9 @@ void initialize_strings_vector(std::vector <string_pair>* vector)
     vector->push_back(string_pair("TBB: BUILD_COMMAND", required));
     vector->push_back(string_pair("TBB: TBB_USE_DEBUG", required));
     vector->push_back(string_pair("TBB: TBB_USE_ASSERT", required));
+#if __TBB_CPF_BUILD
+    vector->push_back(string_pair("TBB: TBB_PREVIEW_BINARY", required));
+#endif
     vector->push_back(string_pair("TBB: DO_ITT_NOTIFY", required));
     vector->push_back(string_pair("TBB: ITT", not_required)); //#ifdef DO_ITT_NOTIFY
     vector->push_back(string_pair("TBB: ALLOCATOR", required));

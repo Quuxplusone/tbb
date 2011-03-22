@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -120,7 +120,7 @@ namespace tbb {
         inline void itt_store_word_with_release(tbb::atomic<T>& dst, U src) {
 #if TBB_USE_THREADING_TOOLS
             // This assertion should be replaced with static_assert
-            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.");
             itt_store_pointer_with_release_v3(&dst, (void *)uintptr_t(src));
 #else
             dst = src;
@@ -131,7 +131,7 @@ namespace tbb {
         inline T itt_load_word_with_acquire(const tbb::atomic<T>& src) {
 #if TBB_USE_THREADING_TOOLS
             // This assertion should be replaced with static_assert
-            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.");
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
             // Workaround for overzealous compiler warnings 
             #pragma warning (push)
@@ -151,7 +151,7 @@ namespace tbb {
         inline void itt_store_word_with_release(T& dst, T src) {
 #if TBB_USE_THREADING_TOOLS
             // This assertion should be replaced with static_assert
-            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.");
             itt_store_pointer_with_release_v3(&dst, (void *)src);
 #else
             __TBB_store_with_release(dst, src); 
@@ -162,7 +162,7 @@ namespace tbb {
         inline T itt_load_word_with_acquire(const T& src) {
 #if TBB_USE_THREADING_TOOLS
             // This assertion should be replaced with static_assert
-            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized");
             return (T)itt_load_pointer_with_acquire_v3(&src);
 #else
             return __TBB_load_with_acquire(src);
@@ -173,7 +173,7 @@ namespace tbb {
         inline void itt_hide_store_word(T& dst, T src) {
 #if TBB_USE_THREADING_TOOLS
             // This assertion should be replaced with static_assert
-            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized");
             itt_store_pointer_with_release_v3(&dst, (void *)src);
 #else
             dst = src;
@@ -184,7 +184,7 @@ namespace tbb {
         inline T itt_hide_load_word(const T& src) {
 #if TBB_USE_THREADING_TOOLS
             // This assertion should be replaced with static_assert
-            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.\n");
+            __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.");
             return (T)itt_load_pointer_v3(&src);
 #else
             return src;

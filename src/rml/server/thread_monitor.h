@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,6 +35,7 @@
 #include <windows.h>
 #include <process.h>
 #include <malloc.h> //_alloca
+#include "tbb/tbb_misc.h" // NumberOfProcessorGroups, MoveThreadIntoProcessorGroup, FindProcessorGroupIndex
 #elif USE_PTHREAD
 #include <pthread.h>
 #include <string.h>
@@ -104,7 +105,7 @@ public:
     typedef unsigned (WINAPI *thread_routine_type)(void*);
 
     //! Launch a thread
-    static void launch( thread_routine_type thread_routine, void* arg, size_t stack_size, HANDLE* pThreadHandle = NULL );
+    static void launch( thread_routine_type thread_routine, void* arg, size_t stack_size, const size_t* worker_index = NULL );
 
 #elif USE_PTHREAD
     #define __RML_DECL_THREAD_ROUTINE void*
@@ -134,17 +135,21 @@ private:
 #define STACK_SIZE_PARAM_IS_A_RESERVATION 0x00010000
 #endif
 
-inline void thread_monitor::launch( thread_routine_type thread_routine, void* arg, size_t stack_size, HANDLE* pThreadHandle ) {
+inline void thread_monitor::launch( thread_routine_type thread_routine, void* arg, size_t stack_size, const size_t* worker_index ) {
     unsigned thread_id;
-    uintptr_t status = _beginthreadex( NULL, unsigned(stack_size), thread_routine, arg, STACK_SIZE_PARAM_IS_A_RESERVATION, &thread_id );
+    int number_of_processor_groups = ( worker_index ) ? tbb::internal::NumberOfProcessorGroups() : 0;
+    unsigned create_flags = ( number_of_processor_groups > 1 ) ? CREATE_SUSPENDED : 0;
+    uintptr_t status = _beginthreadex( NULL, unsigned(stack_size), thread_routine, arg, STACK_SIZE_PARAM_IS_A_RESERVATION | create_flags, &thread_id );
     if( status==0 ) {
         fprintf(stderr,"thread_monitor::launch: _beginthreadex failed\n");
         exit(1); 
     }
-    if ( pThreadHandle )
-        *pThreadHandle = (HANDLE)status;
-    else
-        CloseHandle( (HANDLE)status );
+    if ( number_of_processor_groups > 1 ) {
+        tbb::internal::MoveThreadIntoProcessorGroup( (HANDLE)status,
+                        tbb::internal::FindProcessorGroupIndex( static_cast<int>(*worker_index) ) );
+        ResumeThread( (HANDLE)status );
+    }
+    CloseHandle( (HANDLE)status );
 }
 
 inline void thread_monitor::yield() {

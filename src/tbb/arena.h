@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -39,23 +39,16 @@
     typedef fenv_t __TBB_cpu_ctl_env_t;
 #endif /* !__TBB_CPU_CTL_ENV_PRESENT */
 
-#if __TBB_ARENA_PER_MASTER
 #include "scheduler_common.h"
-#include "market.h"
 #include "intrusive_list.h"
 #include "task_stream.h"
-#else /* !__TBB_ARENA_PER_MASTER */
 #include "../rml/include/rml_tbb.h"
-#endif /* !__TBB_ARENA_PER_MASTER */
-
 #include "mailbox.h"
 
 namespace tbb {
 
-#if __TBB_ARENA_PER_MASTER
 class task_group_context;
 class allocate_root_with_context_proxy;
-#endif /* __TBB_ARENA_PER_MASTER */
 
 namespace internal {
 
@@ -64,184 +57,11 @@ class arena;
 class generic_scheduler;
 template<typename SchedulerTraits> class custom_scheduler;
 
-#if !__TBB_ARENA_PER_MASTER
-//------------------------------------------------------------------------
-// UnpaddedArenaPrefix
-//------------------------------------------------------------------------
-
-struct WorkerDescriptor {
-    //! NULL until worker is published.  -1 if worker should not be published.
-    generic_scheduler* scheduler;
-};
-
-//! The useful contents of an ArenaPrefix
-class UnpaddedArenaPrefix: no_copy, rml::tbb_client {
-    friend class generic_scheduler;
-    template<typename SchedulerTraits> friend class custom_scheduler;
-    friend class arena;
-    friend class governor;
-    friend struct WorkerDescriptor;
-
-    //! Arena slot to try to acquire first for the next new master.
-    unsigned limit;
-
-    //! Number of masters that own this arena.
-    /** This may be smaller than the number of masters who have entered the arena. */
-    unsigned number_of_masters;
-
-    //! Total number of slots in the arena
-    const unsigned number_of_slots;
-
-    //! Number of workers that belong to this arena
-    const unsigned number_of_workers;
-
-    //! Pointer to the RML server object that services requests for this arena.
-    rml::tbb_server* server;
-
-    //! Counter used to allocate job indices
-    tbb::atomic<size_t> next_job_index;
-
-    //! Stack size of worker threads
-    size_t stack_size;
-
-    //! Array of workers.
-    WorkerDescriptor* worker_list;
-
-#if __TBB_COUNT_TASK_NODES
-    //! Net number of nodes that have been allocated from heap.
-    /** Updated each time a scheduler is destroyed. */
-    atomic<intptr_t> task_node_count;
-#endif /* __TBB_COUNT_TASK_NODES */
-
-    //! Estimate of number of available tasks.  
-    /** The estimate is either 0 (SNAPSHOT_EMPTY), infinity (SNAPSHOT_FULL), or a special value. 
-        The implementation of arena::is_busy_or_empty requires that pool_state_t be unsigned. */
-    typedef uintptr_t pool_state_t;
-
-    //! Current estimate of number of available tasks.  
-    tbb::atomic<pool_state_t> pool_state;
- 
-protected:
-    UnpaddedArenaPrefix( unsigned number_of_slots_, unsigned number_of_workers_ ) :
-        number_of_masters(1),
-        number_of_slots(number_of_slots_),
-        number_of_workers(number_of_workers_)
-    {
-#if __TBB_COUNT_TASK_NODES
-        task_node_count = 0;
-#endif /* __TBB_COUNT_TASK_NODES */
-        limit = number_of_workers_;
-        server = NULL;
-        stack_size = 0;
-        next_job_index = 0;
-    }
-        
-private:
-    //! Return reference to corresponding arena.
-    arena& Arena();
-
-    /*override*/ version_type version() const {
-        return 0;
-    }
-
-    /*override*/ unsigned max_job_count() const {
-        return number_of_workers;
-    }
-
-    /*override*/ size_t min_stack_size() const {
-        return stack_size;
-    }
-
-    /*override*/ policy_type policy() const {
-        return throughput;
-    }
-
-    /*override*/ job* create_one_job();
-
-    /*override*/ void cleanup( job& j );
-
-    /*override*/ void acknowledge_close_connection();
-
-    /*override*/ void process( job& j );
-}; // class UnpaddedArenaPrefix
-
-//------------------------------------------------------------------------
-// ArenaPrefix
-//------------------------------------------------------------------------
-
-//! The prefix to arena with padding.
-class ArenaPrefix: public UnpaddedArenaPrefix {
-    //! Padding to fill out to multiple of cache line size.
-    char pad[(sizeof(UnpaddedArenaPrefix)/NFS_MaxLineSize+1)*NFS_MaxLineSize-sizeof(UnpaddedArenaPrefix)];
-
-public:
-    ArenaPrefix( unsigned number_of_slots_, unsigned number_of_workers_ ) :
-        UnpaddedArenaPrefix(number_of_slots_,number_of_workers_)
-    {
-    }
-}; // class ArenaPrefix
-
-#endif /* !__TBB_ARENA_PER_MASTER */
-
-//------------------------------------------------------------------------
-// arena_slot
-//------------------------------------------------------------------------
-
-struct arena_slot {
-#if __TBB_ARENA_PER_MASTER
-    //! Scheduler of the thread attached to the slot
-    /** Marks the slot as busy, and is used to iterate through the schedulers belonging to this arena **/
-    generic_scheduler* my_scheduler;
-#endif /* __TBB_ARENA_PER_MASTER */
-
-    // Task pool (the deque of task pointers) of the scheduler that owns this slot
-    /** Also is used to specify if the slot is empty or locked:
-         0 - empty
-        -1 - locked **/
-    task** task_pool;
-
-    //! Index of the first ready task in the deque.
-    /** Modified by thieves, and by the owner during compaction/reallocation **/
-    size_t head;
-
-    //! Padding to avoid false sharing caused by the thieves accessing this slot
-    char pad1[NFS_MaxLineSize - sizeof(size_t) - sizeof(task**)
-#if __TBB_ARENA_PER_MASTER
-              - sizeof(generic_scheduler*)
-#endif /* __TBB_ARENA_PER_MASTER */
-             ];
-
-    //! Index of the element following the last ready task in the deque.
-    /** Modified by the owner thread. **/
-    size_t tail;
-
-#if __TBB_ARENA_PER_MASTER
-    //! Hints provided for operations with the container of starvation-resistant tasks.
-    /** Modified by the owner thread (during these operations). **/
-    unsigned hint_for_push, hint_for_pop;
-
-#endif /* __TBB_ARENA_PER_MASTER */
-
-#if __TBB_STATISTICS
-    //! Set of counters to accumulate internal statistics related to this arena
-    statistics_counters *my_counters;
-#endif /* __TBB_STATISTICS */
-    //! Padding to avoid false sharing caused by the thieves accessing the next slot
-    char pad2[NFS_MaxLineSize - sizeof(size_t)
-#if __TBB_ARENA_PER_MASTER
-              - 2*sizeof(unsigned)
-#endif /* __TBB_ARENA_PER_MASTER */
-#if __TBB_STATISTICS
-              - sizeof(statistics_counters*)
-#endif /* __TBB_STATISTICS */
-             ];
-}; // class arena_slot
-
 //------------------------------------------------------------------------
 // arena
 //------------------------------------------------------------------------
 
-#if __TBB_ARENA_PER_MASTER
+class market;
 
 //! arena data except the array of slots
 /** Separated in order to simplify padding. 
@@ -260,7 +80,7 @@ struct arena_base : intrusive_list_node {
     unsigned my_max_num_workers;
 
     //! Number of workers that are currently requested from the resource manager
-    atomic<int> my_num_workers_requested;
+    int my_num_workers_requested;
 
     //! Number of workers that have been marked out by the resource manager to service the arena
     unsigned my_num_workers_allotted;
@@ -273,12 +93,16 @@ struct arena_base : intrusive_list_node {
     //! FPU control settings of arena's master thread captured at the moment of arena instantiation.
     __TBB_cpu_ctl_env_t my_cpu_ctl_env;
 
+#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
+    int my_num_workers_present;
+#endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
+
     //! Current task pool state and estimate of available tasks amount.
     /** The estimate is either 0 (SNAPSHOT_EMPTY) or infinity (SNAPSHOT_FULL). 
         Special state is "busy" (any other unsigned value). 
         Note that the implementation of arena::is_busy_or_empty() requires 
-        pool_state to be unsigned. */
-    tbb::atomic<uintptr_t> pool_state;
+        my_pool_state to be unsigned. */
+    tbb::atomic<uintptr_t> my_pool_state;
 
 #if __TBB_TASK_GROUP_CONTEXT
     //! Default task group context.
@@ -287,33 +111,67 @@ struct arena_base : intrusive_list_node {
     task_group_context* my_master_default_ctx;
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 
-    //! The task pool that guarantees eventual execution even if new tasks are constantly coming.
-    task_stream my_task_stream;
+#if __TBB_TASK_PRIORITY
+    //! Highest priority of recently spawned or enqueued tasks.
+    volatile intptr_t my_top_priority;
 
+    //! Lowest normalized priority of available spawned or enqueued tasks.
+    intptr_t my_bottom_priority;
+
+    //! Tracks events that may bring tasks in offload areas to the top priority level.
+    /** Incremented when arena top priority changes or a task group priority
+        is elevated to the current arena's top level. **/
+    uintptr_t my_reload_epoch;
+
+    //! List of offloaded tasks abandoned by workers revoked by the market
+    task* my_orphaned_tasks;
+
+    //! Counter used to track the occurrence of recent orphaning and re-sharing operations.
+    tbb::atomic<uintptr_t> my_abandonment_epoch;
+
+    //! Task pool for the tasks scheduled via task::enqueue() method
+    /** Such scheduling guarantees eventual execution even if
+        - new tasks are constantly coming (by extracting scheduled tasks in 
+          relaxed FIFO order);
+        - the enqueuing thread does not call any of wait_for_all methods. **/
+    task_stream my_task_stream[num_priority_levels];
+
+    //! Highest priority level containing enqueued tasks
+    /** It being greater than 0 means that high priority enqueued tasks had to be
+        bypassed because all workers were blocked in nested dispatch loops and
+        were unable to progress at then current priority level. **/
+    tbb::atomic<intptr_t> my_skipped_fifo_priority;
+#else /* !__TBB_TASK_PRIORITY */
+
+    //! Task pool for the tasks scheduled via task::enqueue() method
+    /** Such scheduling guarantees eventual execution even if
+        - new tasks are constantly coming (by extracting scheduled tasks in 
+          relaxed FIFO order);
+        - the enqueuing thread does not call any of wait_for_all methods. **/
+    task_stream my_task_stream;
+#endif /* !__TBB_TASK_PRIORITY */
+
+    //! Indicates if there is an oversubscribing worker created to service enqueued tasks.
     bool my_mandatory_concurrency;
 
 #if TBB_USE_ASSERT
+    //! Used to trap accesses to the object after its destruction.
     uintptr_t my_guard;
 #endif /* TBB_USE_ASSERT */
 }; // struct arena_base
 
-#endif /* __TBB_ARENA_PER_MASTER */
-
 class arena
-#if __TBB_ARENA_PER_MASTER
 #if (__GNUC__<4 || __GNUC__==4 && __GNUC_MINOR__==0) && !__INTEL_COMPILER
     : public padded<arena_base>
 #else
     : private padded<arena_base>
 #endif
-#endif /* __TBB_ARENA_PER_MASTER */
 {
 private:
     friend class generic_scheduler;
     template<typename SchedulerTraits> friend class custom_scheduler;
     friend class governor;
 
-#if __TBB_ARENA_PER_MASTER
     friend class market;
     friend class tbb::task_group_context;
     friend class allocate_root_with_context_proxy;
@@ -329,37 +187,28 @@ private:
     //! Allocate an instance of arena.
     static arena& allocate_arena( market&, unsigned max_num_workers );
 
+    static int unsigned num_slots_to_reserve ( unsigned max_num_workers ) {
+        return max(2u, max_num_workers + 1);
+    }
+
+    static int allocation_size ( unsigned max_num_workers ) {
+        return sizeof(base_type) + num_slots_to_reserve(max_num_workers) * (sizeof(mail_outbox) + sizeof(arena_slot));
+    }
+
 #if __TBB_TASK_GROUP_CONTEXT
-    //! Propagates cancellation request to all descendants of the context.
+    //! Finds all contexts affected by the state change and propagates the new state to them.
     /** The propagation is relayed to the market because tasks created by one 
         master thread can be passed to and executed by other masters. This means 
-        that context trees can span several arenas at once and thus cancellation
+        that context trees can span several arenas at once and thus state change
         propagation cannot be generally localized to one arena only. **/
-    void propagate_cancellation ( task_group_context& ctx ) {
-        my_market->propagate_cancellation( ctx );
-    }
+    template <typename T>
+    bool propagate_task_group_state ( T task_group_context::*mptr_state, task_group_context& src, T new_state );
 #endif /* __TBB_TASK_GROUP_CONTEXT */
-
-#else /* !__TBB_ARENA_PER_MASTER */
-
-    friend class UnpaddedArenaPrefix;
-    friend struct WorkerDescriptor;
-
-    //! Get reference to prefix portion
-    ArenaPrefix& prefix() const {return ((ArenaPrefix*)(void*)this)[-1];}
-
-    //! Allocate an instance of arena, and prepare everything to start workers.
-    static arena* allocate_arena( unsigned num_slots, unsigned num_workers, size_t stack_size );
-#endif /* !__TBB_ARENA_PER_MASTER */
 
     //! Get reference to mailbox corresponding to given affinity_id.
     mail_outbox& mailbox( affinity_id id ) {
         __TBB_ASSERT( 0<id, "affinity id must be positive integer" );
-#if __TBB_ARENA_PER_MASTER
         __TBB_ASSERT( id <= my_num_slots, "affinity id out of bounds" );
-#else /* !__TBB_ARENA_PER_MASTER */
-        __TBB_ASSERT( id <= prefix().number_of_slots, "id out of bounds" );
-#endif /* !__TBB_ARENA_PER_MASTER */
 
         return ((mail_outbox*)&prefix())[-(int)id];
     }
@@ -375,27 +224,16 @@ private:
     //! At least one task has been offered for stealing since the last snapshot started
     static const pool_state_t SNAPSHOT_FULL = pool_state_t(-1);
 
-#if __TBB_ARENA_PER_MASTER
     //! No tasks to steal or snapshot is being taken.
     static bool is_busy_or_empty( pool_state_t s ) { return s < SNAPSHOT_FULL; }
 
     //! The number of workers active in the arena.
     unsigned num_workers_active( ) {
-        return my_num_threads_active - (slot[0].my_scheduler? 1 : 0);
+        return my_num_threads_active - (my_slots[0].my_scheduler? 1 : 0);
     }
 
     //! If necessary, raise a flag that there is new job in arena.
     template<bool Spawned> void advertise_new_work();
-#else /* !__TBB_ARENA_PER_MASTER */
-    //! Server is going away and hence further calls to adjust_job_count_estimate are unsafe.
-    static const pool_state_t SNAPSHOT_SERVER_GOING_AWAY = pool_state_t(-2);
-
-    //! No tasks to steal or snapshot is being taken.
-    static bool is_busy_or_empty( pool_state_t s ) { return s < SNAPSHOT_SERVER_GOING_AWAY; }
-
-    //! If necessary, raise a flag that task was added to pool recently.
-    inline void mark_pool_full();
-#endif /* !__TBB_ARENA_PER_MASTER */
 
     //! Check if there is job anywhere in arena.
     /** Return true if no job or if arena is being cleaned up. */
@@ -404,7 +242,6 @@ private:
     //! Initiates arena shutdown.
     void close_arena ();
 
-#if __TBB_ARENA_PER_MASTER
     //! Registers the worker with the arena and enters TBB scheduler dispatch loop
     void process( generic_scheduler& );
 
@@ -415,7 +252,12 @@ private:
     //! Outputs internal statistics accumulated by the arena
     void dump_arena_statistics ();
 #endif /* __TBB_STATISTICS */
-#endif /* __TBB_ARENA_PER_MASTER */
+
+#if __TBB_TASK_PRIORITY
+    //! Check if recent priority changes may bring some tasks to the current priority level soon
+    /** /param tasks_present indicates presence of tasks at any priority level. **/
+    inline bool may_have_tasks ( generic_scheduler*, arena_slot&, bool& tasks_present, bool& dequeuing_possible );
+#endif /* __TBB_TASK_PRIORITY */
 
 #if __TBB_COUNT_TASK_NODES
     //! Returns the number of task objects "living" in worker threads
@@ -423,10 +265,18 @@ private:
 #endif
 
     /** Must be the last data field */
-    arena_slot slot[1];
+    arena_slot my_slots[1];
 }; // class arena
 
-#if __TBB_ARENA_PER_MASTER
+} // namespace internal
+} // namespace tbb
+
+#include "market.h"
+#include "scheduler_common.h"
+
+namespace tbb {
+namespace internal {
+
 inline void arena::on_thread_leaving () {
     // In case of using fire-and-forget tasks (scheduled via task::enqueue()) 
     // master thread is allowed to leave its arena before all its work is executed,
@@ -448,21 +298,20 @@ inline void arena::on_thread_leaving () {
     // arena twice. So a local copy of the outstanding request value must be done
     // before decrementing active threads count.
     //
-    int requested = my_num_workers_requested;
+    int requested = __TBB_load_with_acquire(my_num_workers_requested);
     if ( --my_num_threads_active==0 && !requested ) {
         __TBB_ASSERT( !my_num_workers_requested, NULL );
-        __TBB_ASSERT( pool_state == SNAPSHOT_EMPTY || !my_max_num_workers, NULL );
+        __TBB_ASSERT( my_pool_state == SNAPSHOT_EMPTY || !my_max_num_workers, NULL );
         close_arena();
     }
 }
-
 
 template<bool Spawned> void arena::advertise_new_work() {
     if( !Spawned ) { // i.e. the work was enqueued
         if( my_max_num_workers==0 ) {
             my_max_num_workers = 1;
             my_mandatory_concurrency = true;
-            prefix().pool_state = SNAPSHOT_FULL;
+            prefix().my_pool_state = SNAPSHOT_FULL;
             my_market->adjust_demand( *this, 1 );
             return;
         }
@@ -476,17 +325,17 @@ template<bool Spawned> void arena::advertise_new_work() {
     // fence might hurt overall performance more than it helps, because the fence would be executed 
     // on every task pool release, even when stealing does not occur.  Since TBB allows parallelism, 
     // but never promises parallelism, the missed wakeup is not a correctness problem.
-    pool_state_t snapshot = prefix().pool_state;
+    pool_state_t snapshot = prefix().my_pool_state;
     if( is_busy_or_empty(snapshot) ) {
         // Attempt to mark as full.  The compare_and_swap below is a little unusual because the 
         // result is compared to a value that can be different than the comparand argument.
-        if( prefix().pool_state.compare_and_swap( SNAPSHOT_FULL, snapshot )==SNAPSHOT_EMPTY ) {
+        if( prefix().my_pool_state.compare_and_swap( SNAPSHOT_FULL, snapshot )==SNAPSHOT_EMPTY ) {
             if( snapshot!=SNAPSHOT_EMPTY ) {
                 // This thread read "busy" into snapshot, and then another thread transitioned 
-                // pool_state to "empty" in the meantime, which caused the compare_and_swap above 
-                // to fail.  Attempt to transition pool_state from "empty" to "full".
-                if( prefix().pool_state.compare_and_swap( SNAPSHOT_FULL, SNAPSHOT_EMPTY )!=SNAPSHOT_EMPTY ) {
-                    // Some other thread transitioned pool_state from "empty", and hence became
+                // my_pool_state to "empty" in the meantime, which caused the compare_and_swap above 
+                // to fail.  Attempt to transition my_pool_state from "empty" to "full".
+                if( prefix().my_pool_state.compare_and_swap( SNAPSHOT_FULL, SNAPSHOT_EMPTY )!=SNAPSHOT_EMPTY ) {
+                    // Some other thread transitioned my_pool_state from "empty", and hence became
                     // responsible for waking up workers.
                     return;
                 }
@@ -495,7 +344,7 @@ template<bool Spawned> void arena::advertise_new_work() {
             // telling RML that there is work to do.
             if( Spawned ) {
                 if( my_mandatory_concurrency ) {
-                    __TBB_ASSERT(my_max_num_workers==1, NULL);
+                    __TBB_ASSERT(my_max_num_workers==1, "");
                     // There was deliberate oversubscription on 1 core for sake of starvation-resistant tasks.
                     // Now a single active thread (must be the master) supposedly starts a new parallel region
                     // with relaxed sequential semantics, and oversubscription should be avoided.
@@ -509,36 +358,6 @@ template<bool Spawned> void arena::advertise_new_work() {
         }
     }
 }
-#else /* !__TBB_ARENA_PER_MASTER */
-inline void arena::mark_pool_full()  {
-    // Double-check idiom that is deliberately sloppy about memory fences.
-    // Technically, to avoid missed wakeups, there should be a full memory fence between the point we 
-    // released the task pool (i.e. spawned task) and read the arena's state.  However, adding such a 
-    // fence might hurt overall performance more than it helps, because the fence would be executed 
-    // on every task pool release, even when stealing does not occur.  Since TBB allows parallelism, 
-    // but never promises parallelism, the missed wakeup is not a correctness problem.
-    pool_state_t snapshot = prefix().pool_state;
-    if( is_busy_or_empty(snapshot) ) {
-        // Attempt to mark as full.  The compare_and_swap below is a little unusual because the 
-        // result is compared to a value that can be different than the comparand argument.
-        if( prefix().pool_state.compare_and_swap( SNAPSHOT_FULL, snapshot )==SNAPSHOT_EMPTY ) {
-            if( snapshot!=SNAPSHOT_EMPTY ) {
-                // This thread read "busy" into snapshot, and then another thread transitioned 
-                // pool_state to "empty" in the meantime, which caused the compare_and_swap above 
-                // to fail.  Attempt to transition pool_state from "empty" to "full".
-                if( prefix().pool_state.compare_and_swap( SNAPSHOT_FULL, SNAPSHOT_EMPTY )!=SNAPSHOT_EMPTY ) {
-                    // Some other thread transitioned pool_state from "empty", and hence became
-                    // responsible for waking up workers.
-                    return;
-                }
-            }
-            // This thread transitioned pool from empty to full state, and thus is responsible for
-            // telling RML that there is work to do.
-            prefix().server->adjust_job_count_estimate( int(prefix().number_of_workers) );
-        }
-    }
-}
-#endif /* !__TBB_ARENA_PER_MASTER */
 
 } // namespace internal
 } // namespace tbb

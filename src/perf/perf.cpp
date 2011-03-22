@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -44,7 +44,7 @@
 #include "tbb/task.h"
 #include "tbb/atomic.h"
 
-#if  __linux__ || __APPLE__ || __FreeBSD__
+#if  __linux__ || __APPLE__ || __FreeBSD__ || __NetBSD__
     #include <sys/resource.h>
 #endif
 
@@ -531,7 +531,7 @@ inline bool __TBB_bool( bool b ) { return b; }
             Test::ThreadInfo ti = { tid, NULL };
             durations_t &d = TlsTimings[tid].my_durations;
             bool singleMaster = my_cfg->my_numMasters == 1;
-            START_WORKERS( !singleMaster || (singleMaster && StatisticsMode), 
+            START_WORKERS( (!singleMaster || (singleMaster && StatisticsMode)) && my_fnRun != &Test::RunSerial, 
                             my_cfg->my_numThreads, my_cfg->my_affinityMode, singleMaster, singleMaster );
             for ( uintptr_t k = 0; k < my_numRuns; ++k )  {
                 if ( my_numRepeats > 1 ) {

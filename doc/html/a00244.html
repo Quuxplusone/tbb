@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::null_rw_mutex Class Reference</title>
+<title>tbb::executable_node&lt; Output &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,42 +21,66 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00342.html">tbb</a>::<a class="el" href="a00244.html">null_rw_mutex</a></div>
-<h1>tbb::null_rw_mutex Class Reference<br>
-<small>
-[<a class="el" href="a00352.html">Synchronization</a>]</small>
-</h1><!-- doxytag: class="tbb::null_rw_mutex" -->A rw mutex which does nothing.  
+<a class="el" href="a00362.html">tbb</a>::<a class="el" href="a00244.html">executable_node</a></div>
+<h1>tbb::executable_node&lt; Output &gt; Class Template Reference</h1><!-- doxytag: class="tbb::executable_node" --><!-- doxytag: inherits="tbb::graph_node" -->Implements an executable node that supports <a class="el" href="a00239.html">continue_msg</a> -&gt; Output.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00482.html">null_rw_mutex.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00466.html">graph.h</a>&gt;</code>
 <p>
-<a href="a00075.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<p>Inheritance diagram for tbb::executable_node&lt; Output &gt;:
+<p><center><img src="a00244.png" usemap="#tbb::executable_node< Output >_map" border="0" alt=""></center>
+<map name="tbb::executable_node< Output >_map">
+<area href="a00251.html" alt="tbb::graph_node" shape="rect" coords="0,0,192,24">
+<area href="a00240.html" alt="tbb::continue_node" shape="rect" coords="0,112,192,136">
+</map>
+<a href="a00050.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Static Public Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2f3235cbf63812f72e5755a4c820f523"></a><!-- doxytag: member="tbb::null_rw_mutex::is_rw_mutex" ref="2f3235cbf63812f72e5755a4c820f523" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_rw_mutex</b> = true</td></tr>
+<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2ff2aa9a54056c999963717dcf5e539d"></a><!-- doxytag: member="tbb::executable_node::input_type" ref="2ff2aa9a54056c999963717dcf5e539d" args="" -->
+typedef <a class="el" href="a00239.html">continue_msg</a>&nbsp;</td><td class="memItemRight" valign="bottom"><b>input_type</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e33ac3b047901e69e7997a16e221a330"></a><!-- doxytag: member="tbb::null_rw_mutex::is_recursive_mutex" ref="e33ac3b047901e69e7997a16e221a330" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_recursive_mutex</b> = true</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="09edc2515bc199f58b29b7a54e45f4d5"></a><!-- doxytag: member="tbb::executable_node::output_type" ref="09edc2515bc199f58b29b7a54e45f4d5" args="" -->
+typedef Output&nbsp;</td><td class="memItemRight" valign="bottom"><b>output_type</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e5248faf1412f9283185a0b5d72d7456"></a><!-- doxytag: member="tbb::null_rw_mutex::is_fair_mutex" ref="e5248faf1412f9283185a0b5d72d7456" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_fair_mutex</b> = true</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="85c2d48065a194e75175a5a4e55ea0dd"></a><!-- doxytag: member="tbb::executable_node::predecessor_type" ref="85c2d48065a194e75175a5a4e55ea0dd" args="" -->
+typedef <a class="el" href="a00282.html">sender</a>&lt; <a class="el" href="a00239.html">input_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>predecessor_type</b></td></tr>
 
-<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00245.html">scoped_lock</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f38af33d6c53ca2822af6b739686f6b3"></a><!-- doxytag: member="tbb::executable_node::successor_type" ref="f38af33d6c53ca2822af6b739686f6b3" args="" -->
+typedef <a class="el" href="a00277.html">receiver</a>&lt; output_type &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>successor_type</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Represents acquisition of a mutex.  <a href="a00245.html#_details">More...</a><br></td></tr>
+<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="73d4304b322a25ed0df468e607dd1dac"></a><!-- doxytag: member="tbb::executable_node::executable_node" ref="73d4304b322a25ed0df468e607dd1dac" args="(graph &amp;g, Body body)" -->
+template&lt;typename Body&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00244.html#73d4304b322a25ed0df468e607dd1dac">executable_node</a> (<a class="el" href="a00250.html">graph</a> &amp;g, Body body)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor for executable node with <a class="el" href="a00239.html">continue_msg</a> -&gt; Output. <br></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="c13030111d34feeafd9cdb1dd21584f1"></a><!-- doxytag: member="tbb::executable_node::executable_node" ref="c13030111d34feeafd9cdb1dd21584f1" args="(graph &amp;g, int number_of_predecessors, Body body)" -->
+template&lt;typename Body&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00244.html#c13030111d34feeafd9cdb1dd21584f1">executable_node</a> (<a class="el" href="a00250.html">graph</a> &amp;g, int number_of_predecessors, Body body)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor for executable node with <a class="el" href="a00239.html">continue_msg</a> -&gt; Output. <br></td></tr>
+<tr><td colspan="2"><br><h2>Protected Member Functions</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="bde6744db670181fe37a34decce95c56"></a><!-- doxytag: member="tbb::executable_node::successors" ref="bde6744db670181fe37a34decce95c56" args="()" -->
+internal::broadcast_cache&lt;<br>
+ output_type &gt; &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>successors</b> ()</td></tr>
+
+<tr><td colspan="2"><br><h2>Protected Attributes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1b9b210a5ae77091dd1ed18cc36e6967"></a><!-- doxytag: member="tbb::executable_node::my_successors" ref="1b9b210a5ae77091dd1ed18cc36e6967" args="" -->
+internal::broadcast_cache&lt;<br>
+ output_type &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>my_successors</b></td></tr>
+
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-A rw mutex which does nothing. 
-<p>
-A <a class="el" href="a00244.html">null_rw_mutex</a> is a rw mutex that does nothing and simulates successful operation. 
+<h3>template&lt;typename Output&gt;<br>
+ class tbb::executable_node&lt; Output &gt;</h3>
+
+Implements an executable node that supports <a class="el" href="a00239.html">continue_msg</a> -&gt; Output. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00482.html">null_rw_mutex.h</a></ul>
+<li><a class="el" href="a00466.html">graph.h</a></ul>
 <hr>
 <p></p>
-Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

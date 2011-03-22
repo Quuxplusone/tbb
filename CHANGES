@@ -1,3 +1,36 @@
+TBB 3.0 Update 6 commercial-aligned release
+
+Changes (w.r.t. TBB 3.0 Update 5 commercial-aligned release):
+
+- Added Community Preview feature: task and task group priority, and
+    Fractal example demonstrating it.
+- parallel_pipeline optimized for data items of small and large sizes.
+- Graph's join_node is now parametrized with a tuple of up to 10 types.
+- Improved performance of concurrent_priority_queue.
+
+Open-source contributions integrated:
+
+- Initial NetBSD support by Aleksej Saushev.
+
+Bugs fixed:
+
+- Failure to locate Cilk runtime library to enable Cilk/TBB interop.
+- Data race that could result in concurrent_unordered_map structure
+    corruption after call to clear() method.
+- Crash caused by invoking Cilk/TBB interop after one of the libraries
+    is unloaded.
+- Stack corruption caused by PIC version of 64-bit CAS compiled by Intel
+    compiler on Linux.
+- Inconsistency of exception propagation mode possible when application
+    built with Microsoft* Visual Studio* 2008 or earlier uses TBB built
+    with Microsoft* Visual Studio* 2010.
+- Affinitizing master thread to a subset of available CPUs after TBB
+    scheduler was initialized tied all worker threads to the same CPUs.
+- Method is_stolen_task() always returned 'false' for affinitized tasks.
+- write_once_node and overwrite_node did not immediately send buffered
+    items to successors
+
+------------------------------------------------------------------------
 TBB 3.0 Update 5 commercial-aligned release
 
 Changes (w.r.t. TBB 3.0 Update 4 commercial-aligned release):
@@ -12,6 +45,8 @@ Bugs fixed:
 
 - Data race that could result in scheduler data structures corruption
     when using fire-and-forget tasks.
+- Potential referencing of destroyed concurrent_hash_map element after
+    using erase(accessor&A) method with A acquired as const_accessor.
 - Fixed a correctness bug in the convex hull example.
 
 Open-source contributions integrated:

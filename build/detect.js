@@ -1,4 +1,4 @@
-// Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+// Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 //
 // This file is part of Threading Building Blocks.
 //
@@ -30,23 +30,36 @@ function doWork() {
 		var fso = new ActiveXObject("Scripting.FileSystemObject");
 
 		var tmpExec;
+		tmpExec = WshShell.Run("cmd /c echo int main(){return 0;} >detect.c", 0, true);
 
+		// The next block deals with GCC (MinGW)
 		if ( WScript.Arguments.Count() > 1 && WScript.Arguments(1) == "gcc" ) {
 			if ( WScript.Arguments(0) == "/arch" ) {
-				WScript.Echo( "ia32" );
+				// Get predefined macros
+				tmpExec = WshShell.Run("cmd /C gcc -dM -E detect.c > detect.map", 0, true);
+				var file = fso.OpenTextFile("detect.map", 1, 0);
+				var defs = file.readAll();
+				file.Close();
+
+				//detect target architecture
+				var intel64=/x86_64|amd64/mgi;
+				var ia32=/i386/mgi;
+				if ( defs.match(intel64) ) {
+					WScript.Echo( "intel64" );
+				} else if ( defs.match(ia32) ) {
+					WScript.Echo( "ia32" );
+				} else {
+					WScript.Echo( "unknown" );
+				}
 			}
 			else if ( WScript.Arguments(0) == "/runtime" ) {
-				WScript.Echo( "mingw" );
+				tmpExec = WshShell.Exec("gcc -dumpversion");
+				WScript.Echo( "mingw"+tmpExec.StdOut.ReadLine() );
 			}
 			return;
 		}
 
 		//Compile binary
-		tmpExec = WshShell.Exec("cmd /c echo int main(){return 0;} >detect.c");
-		while ( tmpExec.Status == 0 ) {
-			WScript.Sleep(100);
-		}
-		
 		tmpExec = WshShell.Exec("cl /MD detect.c /link /MAP");
 		while ( tmpExec.Status == 0 ) {
 			WScript.Sleep(100);
@@ -98,7 +111,10 @@ function doWork() {
 				WScript.Echo( "unknown" );
 			}
 		}
+}
 
+function doClean() {
+		var fso = new ActiveXObject("Scripting.FileSystemObject");
 		// delete intermediate files
 		if ( fso.FileExists("detect.c") )
 			fso.DeleteFile ("detect.c", false);
@@ -116,11 +132,10 @@ if ( WScript.Arguments.Count() > 0 ) {
 	
 	try {
 		doWork();
-	} catch( error )
-	{
+	} catch( error ) {
 		WScript.Echo( "unknown" );
-		WScript.Quit( 0 );
 	}
+	doClean();
 
 } else {
 

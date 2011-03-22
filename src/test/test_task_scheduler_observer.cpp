@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -59,9 +59,6 @@ tbb::internal::tls<State*> LocalState;
 void MyObserver::on_scheduler_entry( bool is_worker ) {
     State& state = *LocalState;
     ASSERT( is_worker==!state.IsMaster, NULL );
-#if !__TBB_ARENA_PER_MASTER
-    ASSERT( (state.MyFlags & flags)==0, NULL );
-#endif /* !__TBB_ARENA_PER_MASTER */
     ++EntryCount;
     state.MyFlags |= flags;
 }

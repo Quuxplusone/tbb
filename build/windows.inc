@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -65,8 +65,8 @@ _WIN32_WINNT=0x0501
 
 TBB.LST = $(tbb_root)/src/tbb/$(def_prefix)-tbb-export.lst
 TBB.DEF = $(TBB.LST:.lst=.def)
-TBB.DLL = tbb$(DEBUG_SUFFIX).$(DLL)
-TBB.LIB = tbb$(DEBUG_SUFFIX).$(LIBEXT)
+TBB.DLL = tbb$(CPF_SUFFIX)$(DEBUG_SUFFIX).$(DLL)
+TBB.LIB = tbb$(CPF_SUFFIX)$(DEBUG_SUFFIX).$(LIBEXT)
 TBB.RES = tbb_resource.res
 # On Windows, we use #pragma comment to set the proper TBB lib to link with
 # But for cross-configuration testing, need to link explicitly

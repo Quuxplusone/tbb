@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -65,7 +65,7 @@ typedef concurrent_queue_base_v3 concurrent_queue_base;
 typedef size_t ticket;
 
 //! A queue using simple locking.
-/** For efficient, this class has no constructor.  
+/** For efficiency, this class has no constructor.
     The caller is expected to zero-initialize it. */
 struct micro_queue {
     typedef concurrent_queue_base::page page;
@@ -125,7 +125,7 @@ struct predicate_leq {
 };
 
 //! Internal representation of a ConcurrentQueue.
-/** For efficient, this class has no constructor.  
+/** For efficiency, this class has no constructor.
     The caller is expected to zero-initialize it. */
 class concurrent_queue_rep {
 public:

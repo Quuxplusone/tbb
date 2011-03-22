@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -137,13 +137,13 @@ namespace util {
     };
 
     int random(unsigned int& rseed) {
-#if __linux__ || __APPLE__ || __FreeBSD__ 
+#if __linux__ || __APPLE__ || __FreeBSD__ || __NetBSD__
             return rand_r(&rseed);
 #elif _WIN32 || __sun
             return rand();
 #else
 #error Unknown/unsupported OS?
-#endif // __linux__ || __APPLE__ || __FreeBSD__ 
+#endif // OS selection
     }
 
     template < typename T >

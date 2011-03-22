@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -131,7 +131,7 @@ void AssertExplicitInitIsNotSupplanted () {
 int TestMain () {
     // Do not use tbb::task_scheduler_init directly in the scope of main's body,
     // as a static variable, or as a member of a static variable.
-#if _MSC_VER && !__TBB_NO_IMPLICIT_LINKAGE
+#if _MSC_VER && !__TBB_NO_IMPLICIT_LINKAGE && !defined(__TBB_LIB_NAME)
     #ifdef _DEBUG
         ASSERT(!GetModuleHandle(_T("tbb.dll")) && GetModuleHandle(_T("tbb_debug.dll")),
             "test linked with wrong (non-debug) tbb library");
@@ -139,7 +139,7 @@ int TestMain () {
         ASSERT(!GetModuleHandle(_T("tbb_debug.dll")) && GetModuleHandle(_T("tbb.dll")),
             "test linked with wrong (debug) tbb library");
     #endif
-#endif /* _MSC_VER && !__TBB_NO_IMPLICIT_LINKAGE */
+#endif /* _MSC_VER && !__TBB_NO_IMPLICIT_LINKAGE && !__TBB_LIB_NAME */
     std::srand(2);
     InitializeAndTerminate(MaxThread);
     for( int p=MinThread; p<=MaxThread; ++p ) {

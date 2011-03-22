@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,6 +28,13 @@
 
 #ifndef TBB_PREVIEW_CONCURRENT_PRIORITY_QUEUE
     #define TBB_PREVIEW_CONCURRENT_PRIORITY_QUEUE 1
+#endif
+
+#if __INTEL_COMPILER && _WIN64 && TBB_USE_ASSERT
+// The Intel Compiler has an issue that causes the Microsoft Iterator
+// Debugging code to crash in vector::pop_back when it is called after a
+// vector::push_back throws an exception.
+#define _HAS_ITERATOR_DEBUGGING 0
 #endif
 
 #include "tbb/concurrent_priority_queue.h"

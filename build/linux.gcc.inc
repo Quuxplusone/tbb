@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -25,7 +25,7 @@
 # the GNU General Public License.
 
 COMPILE_ONLY = -c -MMD
-PREPROC_ONLY = -E -x c
+PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
 OUTPUT_KEY = -o #
@@ -44,23 +44,22 @@ TBB_NOSTRICT = 1
 
 CPLUS = g++
 CONLY = gcc
-LIB_LINK_FLAGS = -shared -Wl,-soname=$(BUILDING_LIBRARY)
+LIB_LINK_FLAGS = $(DYLIB_KEY) -Wl,-soname=$(BUILDING_LIBRARY)
 LIBS = -lpthread -lrt
+LINK_FLAGS = -Wl,-rpath-link=.
 C_FLAGS = $(CPLUS_FLAGS)
 
+ITT_NOTIFY = -DDO_ITT_NOTIFY
 ifeq ($(cfg), release)
-        CPLUS_FLAGS = -DDO_ITT_NOTIFY -O2 -DUSE_PTHREAD
+        CPLUS_FLAGS = $(ITT_NOTIFY) -O2 -DUSE_PTHREAD
 endif
 ifeq ($(cfg), debug)
-        CPLUS_FLAGS = -DTBB_USE_DEBUG -DDO_ITT_NOTIFY -g -O0 -DUSE_PTHREAD
+        CPLUS_FLAGS = -DTBB_USE_DEBUG $(ITT_NOTIFY) -g -O0 -DUSE_PTHREAD
 endif
 
 ifneq (0,$(cpp0x))
     CXX_ONLY_FLAGS = -std=c++0x
 endif
-
-ASM=
-ASM_FLAGS=
 
 TBB_ASM.OBJ=
 MALLOC_ASM.OBJ=
@@ -80,6 +79,21 @@ ifeq (ia32,$(arch))
     LIB_LINK_FLAGS += -m32
 endif
 
+ifeq (ppc64,$(arch))
+    CPLUS_FLAGS += -m64
+    LIB_LINK_FLAGS += -m64
+endif
+
+ifeq (ppc32,$(arch))
+    CPLUS_FLAGS += -m32
+    LIB_LINK_FLAGS += -m32
+endif
+
+ifeq (bgp,$(arch))
+    CPLUS = mpicxx
+    CONLY = mpicc
+endif
+
 # for some gcc versions on Solaris, -m64 may imply V9, but perhaps not everywhere (TODO: verify)
 ifeq (sparc,$(arch))
     CPLUS_FLAGS    += -mcpu=v9 -m64
@@ -89,11 +103,21 @@ endif
 #------------------------------------------------------------------------------
 # Setting assembler data.
 #------------------------------------------------------------------------------
+ASM = as
+ifeq (intel64,$(arch))
+    ASM_FLAGS += --64
+endif
+ifeq (ia32,$(arch))
+    ASM_FLAGS += --32
+endif
+ifeq ($(cfg),debug)
+    ASM_FLAGS += -g
+endif
+
 ASSEMBLY_SOURCE=$(arch)-gas
 ifeq (ia64,$(arch))
-    ASM=as
     ASM_FLAGS += -xexplicit
-    TBB_ASM.OBJ = atomic_support.o lock_byte.o log2.o pause.o ia64_misc.o
+    TBB_ASM.OBJ += atomic_support.o lock_byte.o log2.o pause.o ia64_misc.o
     MALLOC_ASM.OBJ += atomic_support.o lock_byte.o pause.o
 endif
 #------------------------------------------------------------------------------

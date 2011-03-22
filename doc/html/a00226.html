@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::executable_node&lt; Output &gt; Class Template Reference</title>
+<title>tbb::cache_aligned_allocator&lt; T &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,66 +21,91 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00342.html">tbb</a>::<a class="el" href="a00226.html">executable_node</a></div>
-<h1>tbb::executable_node&lt; Output &gt; Class Template Reference</h1><!-- doxytag: class="tbb::executable_node" --><!-- doxytag: inherits="tbb::graph_node" -->Implements an executable node that supports <a class="el" href="a00221.html">continue_msg</a> -&gt; Output.  
+<a class="el" href="a00362.html">tbb</a>::<a class="el" href="a00226.html">cache_aligned_allocator</a></div>
+<h1>tbb::cache_aligned_allocator&lt; T &gt; Class Template Reference<br>
+<small>
+[<a class="el" href="a00373.html">Memory Allocation</a>]</small>
+</h1><!-- doxytag: class="tbb::cache_aligned_allocator" -->Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00443.html">graph.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00421.html">cache_aligned_allocator.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::executable_node&lt; Output &gt;:
-<p><center><img src="a00226.png" usemap="#tbb::executable_node< Output >_map" border="0" alt=""></center>
-<map name="tbb::executable_node< Output >_map">
-<area href="a00233.html" alt="tbb::graph_node" shape="rect" coords="0,0,192,24">
-<area href="a00222.html" alt="tbb::continue_node" shape="rect" coords="0,112,192,136">
-</map>
-<a href="a00048.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00009.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2ff2aa9a54056c999963717dcf5e539d"></a><!-- doxytag: member="tbb::executable_node::input_type" ref="2ff2aa9a54056c999963717dcf5e539d" args="" -->
-typedef <a class="el" href="a00221.html">continue_msg</a>&nbsp;</td><td class="memItemRight" valign="bottom"><b>input_type</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8f7128452e3c43b5bf1801b61d971d17"></a><!-- doxytag: member="tbb::cache_aligned_allocator::value_type" ref="8f7128452e3c43b5bf1801b61d971d17" args="" -->
+typedef internal::allocator_type&lt;<br>
+ T &gt;::value_type&nbsp;</td><td class="memItemRight" valign="bottom"><b>value_type</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="09edc2515bc199f58b29b7a54e45f4d5"></a><!-- doxytag: member="tbb::executable_node::output_type" ref="09edc2515bc199f58b29b7a54e45f4d5" args="" -->
-typedef Output&nbsp;</td><td class="memItemRight" valign="bottom"><b>output_type</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b23ef1d76c34fe1c2ebbb2f3df5b5676"></a><!-- doxytag: member="tbb::cache_aligned_allocator::pointer" ref="b23ef1d76c34fe1c2ebbb2f3df5b5676" args="" -->
+typedef value_type *&nbsp;</td><td class="memItemRight" valign="bottom"><b>pointer</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="85c2d48065a194e75175a5a4e55ea0dd"></a><!-- doxytag: member="tbb::executable_node::predecessor_type" ref="85c2d48065a194e75175a5a4e55ea0dd" args="" -->
-typedef <a class="el" href="a00264.html">sender</a>&lt; <a class="el" href="a00221.html">input_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>predecessor_type</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d15affd67eafcabbd12bd1cd07372994"></a><!-- doxytag: member="tbb::cache_aligned_allocator::const_pointer" ref="d15affd67eafcabbd12bd1cd07372994" args="" -->
+typedef const value_type *&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_pointer</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f38af33d6c53ca2822af6b739686f6b3"></a><!-- doxytag: member="tbb::executable_node::successor_type" ref="f38af33d6c53ca2822af6b739686f6b3" args="" -->
-typedef <a class="el" href="a00259.html">receiver</a>&lt; output_type &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>successor_type</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e8c4e0d5867a07b1cea21d4fca2998c8"></a><!-- doxytag: member="tbb::cache_aligned_allocator::reference" ref="e8c4e0d5867a07b1cea21d4fca2998c8" args="" -->
+typedef value_type &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>reference</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d3d77a39f0852c42f80c6505843f450c"></a><!-- doxytag: member="tbb::cache_aligned_allocator::const_reference" ref="d3d77a39f0852c42f80c6505843f450c" args="" -->
+typedef const value_type &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_reference</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="90ca6a2979ebee466be771f4c2f9337e"></a><!-- doxytag: member="tbb::cache_aligned_allocator::size_type" ref="90ca6a2979ebee466be771f4c2f9337e" args="" -->
+typedef size_t&nbsp;</td><td class="memItemRight" valign="bottom"><b>size_type</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b73eba293d042333f343d025c26751a4"></a><!-- doxytag: member="tbb::cache_aligned_allocator::difference_type" ref="b73eba293d042333f343d025c26751a4" args="" -->
+typedef ptrdiff_t&nbsp;</td><td class="memItemRight" valign="bottom"><b>difference_type</b></td></tr>
 
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="73d4304b322a25ed0df468e607dd1dac"></a><!-- doxytag: member="tbb::executable_node::executable_node" ref="73d4304b322a25ed0df468e607dd1dac" args="(graph &amp;g, Body body)" -->
-template&lt;typename Body&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00226.html#73d4304b322a25ed0df468e607dd1dac">executable_node</a> (<a class="el" href="a00232.html">graph</a> &amp;g, Body body)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="74ccd00a29171ddd61a4ea88cfa49c32"></a><!-- doxytag: member="tbb::cache_aligned_allocator::cache_aligned_allocator" ref="74ccd00a29171ddd61a4ea88cfa49c32" args="(const cache_aligned_allocator &amp;)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>cache_aligned_allocator</b> (const <a class="el" href="a00226.html">cache_aligned_allocator</a> &amp;)  throw ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor for executable node with <a class="el" href="a00221.html">continue_msg</a> -&gt; Output. <br></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="c13030111d34feeafd9cdb1dd21584f1"></a><!-- doxytag: member="tbb::executable_node::executable_node" ref="c13030111d34feeafd9cdb1dd21584f1" args="(graph &amp;g, int number_of_predecessors, Body body)" -->
-template&lt;typename Body&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00226.html#c13030111d34feeafd9cdb1dd21584f1">executable_node</a> (<a class="el" href="a00232.html">graph</a> &amp;g, int number_of_predecessors, Body body)</td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="de57e731c36a51bf39b458c9b8adee58"></a><!-- doxytag: member="tbb::cache_aligned_allocator::cache_aligned_allocator" ref="de57e731c36a51bf39b458c9b8adee58" args="(const cache_aligned_allocator&lt; U &gt; &amp;)" -->
+template&lt;typename U&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><b>cache_aligned_allocator</b> (const <a class="el" href="a00226.html">cache_aligned_allocator</a>&lt; U &gt; &amp;)  throw ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor for executable node with <a class="el" href="a00221.html">continue_msg</a> -&gt; Output. <br></td></tr>
-<tr><td colspan="2"><br><h2>Protected Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="bde6744db670181fe37a34decce95c56"></a><!-- doxytag: member="tbb::executable_node::successors" ref="bde6744db670181fe37a34decce95c56" args="()" -->
-internal::broadcast_cache&lt;<br>
- output_type &gt; &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>successors</b> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="023e0cc7cf6ebde69e1f2c12182eb12b"></a><!-- doxytag: member="tbb::cache_aligned_allocator::address" ref="023e0cc7cf6ebde69e1f2c12182eb12b" args="(reference x) const " -->
+pointer&nbsp;</td><td class="memItemRight" valign="bottom"><b>address</b> (reference x) const </td></tr>
 
-<tr><td colspan="2"><br><h2>Protected Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1b9b210a5ae77091dd1ed18cc36e6967"></a><!-- doxytag: member="tbb::executable_node::my_successors" ref="1b9b210a5ae77091dd1ed18cc36e6967" args="" -->
-internal::broadcast_cache&lt;<br>
- output_type &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>my_successors</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="db4f7613b1de12d1e79285c15636cf3b"></a><!-- doxytag: member="tbb::cache_aligned_allocator::address" ref="db4f7613b1de12d1e79285c15636cf3b" args="(const_reference x) const " -->
+const_pointer&nbsp;</td><td class="memItemRight" valign="bottom"><b>address</b> (const_reference x) const </td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4cdeea67af6c1fcd8f1d5e9c4cab61e8"></a><!-- doxytag: member="tbb::cache_aligned_allocator::allocate" ref="4cdeea67af6c1fcd8f1d5e9c4cab61e8" args="(size_type n, const void *hint=0)" -->
+pointer&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00226.html#4cdeea67af6c1fcd8f1d5e9c4cab61e8">allocate</a> (size_type n, const void *hint=0)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Allocate space for n objects, starting on a cache/sector line. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3d4eadf188f7d85d3805ae534e0b8e1c"></a><!-- doxytag: member="tbb::cache_aligned_allocator::deallocate" ref="3d4eadf188f7d85d3805ae534e0b8e1c" args="(pointer p, size_type)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00226.html#3d4eadf188f7d85d3805ae534e0b8e1c">deallocate</a> (pointer p, size_type)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Free block of memory that starts on a cache line. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fb23b687b4c0429dab4c7f8017266cf0"></a><!-- doxytag: member="tbb::cache_aligned_allocator::max_size" ref="fb23b687b4c0429dab4c7f8017266cf0" args="() const " -->
+size_type&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00226.html#fb23b687b4c0429dab4c7f8017266cf0">max_size</a> () const   throw ()</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Largest value for which method allocate might succeed. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="958ee8745c86c275bfc9533af565e017"></a><!-- doxytag: member="tbb::cache_aligned_allocator::construct" ref="958ee8745c86c275bfc9533af565e017" args="(pointer p, const value_type &amp;value)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00226.html#958ee8745c86c275bfc9533af565e017">construct</a> (pointer p, const value_type &amp;value)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Copy-construct value at location pointed to by p. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="cd298895a4f1654b5149ec84b591ecb5"></a><!-- doxytag: member="tbb::cache_aligned_allocator::destroy" ref="cd298895a4f1654b5149ec84b591ecb5" args="(pointer p)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00226.html#cd298895a4f1654b5149ec84b591ecb5">destroy</a> (pointer p)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destroy value at location pointed to by p. <br></td></tr>
+<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>rebind</b></td></tr>
 
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename Output&gt;<br>
- class tbb::executable_node&lt; Output &gt;</h3>
+<h3>template&lt;typename T&gt;<br>
+ class tbb::cache_aligned_allocator&lt; T &gt;</h3>
 
-Implements an executable node that supports <a class="el" href="a00221.html">continue_msg</a> -&gt; Output. 
+Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5. 
+<p>
+The members are ordered the same way they are in section 20.4.1 of the ISO C++ standard. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00443.html">graph.h</a></ul>
+<li><a class="el" href="a00421.html">cache_aligned_allocator.h</a></ul>
 <hr>
 <p></p>
-Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

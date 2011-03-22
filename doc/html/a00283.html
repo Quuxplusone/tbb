@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::thread_bound_filter Class Reference</title>
+<title>tbb::sequencer_node&lt; T &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,100 +21,85 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00342.html">tbb</a>::<a class="el" href="a00283.html">thread_bound_filter</a></div>
-<h1>tbb::thread_bound_filter Class Reference<br>
-<small>
-[<a class="el" href="a00349.html">Algorithms</a>]</small>
-</h1><!-- doxytag: class="tbb::thread_bound_filter" --><!-- doxytag: inherits="tbb::filter" -->A stage in a pipeline served by a user thread.  
+<a class="el" href="a00362.html">tbb</a>::<a class="el" href="a00283.html">sequencer_node</a></div>
+<h1>tbb::sequencer_node&lt; T &gt; Class Template Reference</h1><!-- doxytag: class="tbb::sequencer_node" --><!-- doxytag: inherits="tbb::queue_node" -->Forwards messages in sequence order.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00526.html">pipeline.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00466.html">graph.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::thread_bound_filter:
-<p><center><img src="a00283.png" usemap="#tbb::thread_bound_filter_map" border="0" alt=""></center>
-<map name="tbb::thread_bound_filter_map">
-<area href="a00227.html" alt="tbb::filter" shape="rect" coords="0,0,145,24">
+<p>Inheritance diagram for tbb::sequencer_node&lt; T &gt;:
+<p><center><img src="a00283.png" usemap="#tbb::sequencer_node< T >_map" border="0" alt=""></center>
+<map name="tbb::sequencer_node< T >_map">
+<area href="a00269.html" alt="tbb::queue_node< T >" shape="rect" coords="170,112,330,136">
+<area href="a00225.html" alt="tbb::buffer_node< T >" shape="rect" coords="170,56,330,80">
+<area href="a00251.html" alt="tbb::graph_node" shape="rect" coords="0,0,160,24">
+<area href="a00277.html" alt="tbb::receiver< T >" shape="rect" coords="170,0,330,24">
+<area href="a00282.html" alt="tbb::sender< T >" shape="rect" coords="340,0,500,24">
 </map>
-<a href="a00087.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00059.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="902c4645e624e8f589b89841df5331de0c135a0274225f59d2b2a682d1103f23"></a><!-- doxytag: member="tbb::thread_bound_filter::success" ref="902c4645e624e8f589b89841df5331de0c135a0274225f59d2b2a682d1103f23" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>success</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a73e4a3ae6c430281f08226d448ebfc8"></a><!-- doxytag: member="tbb::sequencer_node::input_type" ref="a73e4a3ae6c430281f08226d448ebfc8" args="" -->
+typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00283.html#a73e4a3ae6c430281f08226d448ebfc8">input_type</a></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="902c4645e624e8f589b89841df5331de5243cf0030982cfa4ac1a8e97acb39f4"></a><!-- doxytag: member="tbb::thread_bound_filter::item_not_available" ref="902c4645e624e8f589b89841df5331de5243cf0030982cfa4ac1a8e97acb39f4" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>item_not_available</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The input type of this receiver. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="0c613bb01103dfcfbc3f9cbe943f95b0"></a><!-- doxytag: member="tbb::sequencer_node::output_type" ref="0c613bb01103dfcfbc3f9cbe943f95b0" args="" -->
+typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00283.html#0c613bb01103dfcfbc3f9cbe943f95b0">output_type</a></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="902c4645e624e8f589b89841df5331ded4085a8b251604b51c0f19602eeef09f"></a><!-- doxytag: member="tbb::thread_bound_filter::end_of_stream" ref="902c4645e624e8f589b89841df5331ded4085a8b251604b51c0f19602eeef09f" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>end_of_stream</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6581686ef0cf8e13c0270687628af5eb"></a><!-- doxytag: member="tbb::sequencer_node::predecessor_type" ref="6581686ef0cf8e13c0270687628af5eb" args="" -->
+typedef <a class="el" href="a00282.html">sender</a>&lt; <a class="el" href="a00283.html#a73e4a3ae6c430281f08226d448ebfc8">input_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00283.html#6581686ef0cf8e13c0270687628af5eb">predecessor_type</a></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><b>result_type</b> { <b>success</b>, 
-<b>item_not_available</b>, 
-<b>end_of_stream</b>
- }</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The predecessor type for this node. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3591313e30d0f485a09106686067411f"></a><!-- doxytag: member="tbb::sequencer_node::successor_type" ref="3591313e30d0f485a09106686067411f" args="" -->
+typedef <a class="el" href="a00277.html">receiver</a>&lt; <a class="el" href="a00283.html#0c613bb01103dfcfbc3f9cbe943f95b0">output_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00283.html#3591313e30d0f485a09106686067411f">successor_type</a></td></tr>
 
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">result_type __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00283.html#c4f90f2c771bce748beb9be734fa286c">try_process_item</a> ()</td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="c3138c1c96b76ae9f13b0abbf7029590"></a><!-- doxytag: member="tbb::sequencer_node::sequencer_node" ref="c3138c1c96b76ae9f13b0abbf7029590" args="(graph &amp;g, const Sequencer &amp;s)" -->
+template&lt;typename Sequencer&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00283.html#c3138c1c96b76ae9f13b0abbf7029590">sequencer_node</a> (<a class="el" href="a00250.html">graph</a> &amp;g, const Sequencer &amp;s)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">If a data item is available, invoke operator() on that item.  <a href="#c4f90f2c771bce748beb9be734fa286c"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">result_type __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00283.html#5e726bdc7fbd924c0b07bd558b1d4d5d">process_item</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c87d80feebaf2bae4af22b5f2459b37e"></a><!-- doxytag: member="tbb::sequencer_node::~sequencer_node" ref="c87d80feebaf2bae4af22b5f2459b37e" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00283.html#c87d80feebaf2bae4af22b5f2459b37e">~sequencer_node</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Wait until a data item becomes available, and invoke operator() on that item.  <a href="#5e726bdc7fbd924c0b07bd558b1d4d5d"></a><br></td></tr>
-<tr><td colspan="2"><br><h2>Protected Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="413fad2ade743d9af5dcabc56aedf4fe"></a><!-- doxytag: member="tbb::thread_bound_filter::thread_bound_filter" ref="413fad2ade743d9af5dcabc56aedf4fe" args="(mode filter_mode)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>thread_bound_filter</b> (mode filter_mode)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destructor. <br></td></tr>
+<tr><td colspan="2"><br><h2>Protected Types</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="cfc1242acfbd4ed1f4f041fdcacccb20"></a><!-- doxytag: member="tbb::sequencer_node::size_type" ref="cfc1242acfbd4ed1f4f041fdcacccb20" args="" -->
+typedef <a class="el" href="a00225.html">buffer_node</a>&lt; T <br>
+&gt;::size_type&nbsp;</td><td class="memItemRight" valign="bottom"><b>size_type</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8b9307a6214b57cabe426833b9f44fb0"></a><!-- doxytag: member="tbb::sequencer_node::sequencer_operation" ref="8b9307a6214b57cabe426833b9f44fb0" args="" -->
+typedef <a class="el" href="a00225.html">buffer_node</a>&lt; T <br>
+&gt;::buffer_operation&nbsp;</td><td class="memItemRight" valign="bottom"><b>sequencer_operation</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="0b4dffb9323be2efc5112aaa853bac219e3998df4805f713bc2839c055678548"></a><!-- doxytag: member="tbb::sequencer_node::WAIT" ref="0b4dffb9323be2efc5112aaa853bac219e3998df4805f713bc2839c055678548" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>WAIT</b> = 0</td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="0b4dffb9323be2efc5112aaa853bac2128dcec463d3112149f813ecd4dfdd956"></a><!-- doxytag: member="tbb::sequencer_node::SUCCEEDED" ref="0b4dffb9323be2efc5112aaa853bac2128dcec463d3112149f813ecd4dfdd956" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>SUCCEEDED</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="0b4dffb9323be2efc5112aaa853bac21a1766b4675effb3b6b03b315b51057ed"></a><!-- doxytag: member="tbb::sequencer_node::FAILED" ref="0b4dffb9323be2efc5112aaa853bac21a1766b4675effb3b6b03b315b51057ed" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>FAILED</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><b>op_stat</b> { <b>WAIT</b> = 0, 
+<b>SUCCEEDED</b>, 
+<b>FAILED</b>
+ }</td></tr>
 
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-A stage in a pipeline served by a user thread. 
-<p>
-<hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="5e726bdc7fbd924c0b07bd558b1d4d5d"></a><!-- doxytag: member="tbb::thread_bound_filter::process_item" ref="5e726bdc7fbd924c0b07bd558b1d4d5d" args="()" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">result_type __TBB_EXPORTED_METHOD tbb::thread_bound_filter::process_item           </td>
-          <td>(</td>
-          <td class="paramname">          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
+<h3>template&lt;typename T&gt;<br>
+ class tbb::sequencer_node&lt; T &gt;</h3>
 
+Forwards messages in sequence order. 
 <p>
-Wait until a data item becomes available, and invoke operator() on that item. 
-<p>
-This interface is blocking. Returns 'success' if an item was processed. Returns 'end_of_stream' if there are no more items to process. Never returns 'item_not_available', as it blocks until another return condition applies. 
-</div>
-</div><p>
-<a class="anchor" name="c4f90f2c771bce748beb9be734fa286c"></a><!-- doxytag: member="tbb::thread_bound_filter::try_process_item" ref="c4f90f2c771bce748beb9be734fa286c" args="()" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">result_type __TBB_EXPORTED_METHOD tbb::thread_bound_filter::try_process_item           </td>
-          <td>(</td>
-          <td class="paramname">          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-If a data item is available, invoke operator() on that item. 
-<p>
-This interface is non-blocking. Returns 'success' if an item was processed. Returns 'item_not_available' if no item can be processed now but more may arrive in the future, or if token limit is reached. Returns 'end_of_stream' if there are no more items to process. 
-</div>
-</div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00526.html">pipeline.h</a></ul>
+<li><a class="el" href="a00466.html">graph.h</a></ul>
 <hr>
 <p></p>
-Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

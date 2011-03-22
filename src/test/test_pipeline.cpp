@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -216,7 +216,7 @@ void TestTrivialPipeline( unsigned nthread, unsigned number_of_filters ) {
         tbb::pipeline pipeline;
         if( do_hacking_tests ) {
             // A private member of pipeline is hacked there for sake of testing wrap-around immunity.
-            ((hacked_pipeline*)(void*)&pipeline)->token_counter = ~tokens_before_wraparound;
+            tbb::internal::punned_cast<hacked_pipeline*>(&pipeline)->token_counter = ~tokens_before_wraparound;
         }
         tbb::filter* filter[MaxFilters];
         unsigned temp = numeral;

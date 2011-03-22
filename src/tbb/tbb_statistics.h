@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -33,15 +33,15 @@
     This file defines parameters of the internal statistics collected by the TBB
     library (currently by the task scheduler only).
     
-    In __TBB_ARENA_PER_MASTER implementation statistics is accumulated in each 
-    thread separately and is dumped when the scheduler instance in the given 
-    thread is destroyed. For apps with multiple master threads or with the same 
-    master repeatedly initializing and then deinitializing task scheduler this 
-    results in TBB workers statistics getting unseparably mixed.
+    Statistics is accumulated separately in each thread and is dumped when 
+    the scheduler instance associated with the given  thread is destroyed.
+    For apps with multiple master threads or with the same master repeatedly
+    initializing and then deinitializing task scheduler this results in TBB
+    workers statistics getting inseparably mixed.
     
-    Therefore in new __TBB_ARENA_PER_MASTER mode statistics is instead accumulated
-    in arena slots, and should be dumped when arena gets destroyed. This separates
-    statistics collected for each scheduler activity region in each master thread.
+    Therefore statistics is accumulated in arena slots, and should be dumped
+    when arena is destroyed. This separates statistics collected for each
+    scheduler activity region in each master thread.
 
     With the current RML implementation (TBB 2.2, 3.0) to avoid complete loss of 
     statistics data during app shutdown (because of lazy workers deinitialization 
@@ -82,6 +82,11 @@
 /** By default statistics counters are written to the file "statistics.txt" only. **/
 #define __TBB_STATISTICS_STDOUT 1
 
+//! Dump only totals for all threads in the given arena
+/** By default statistics counters for each arena slot are dumped separately, as
+    well as the subtotal for workers. **/
+#define __TBB_STATISTICS_TOTALS_ONLY 1
+
 //! Dump statistics for an arena when its master completes
 /** By default (when this macro is not set) the statistics is sent to output when
     arena object is destroyed. But with the current lazy workers termination
@@ -103,12 +108,14 @@ enum statistics_groups {
     sg_affinity = 0x08,
     sg_arena = 0x10,
     sg_market = 0x20,
+    sg_prio = 0x40,
+    sg_prio_ex = 0x80,
     // List end marker. Insert new groups only before it.
     sg_end
 };
 
 //! Groups of counters to output
-const uintptr_t __TBB_ActiveStatisticsGroups = sg_task_execution | sg_stealing | sg_affinity | sg_arena | sg_market;
+const uintptr_t __TBB_ActiveStatisticsGroups = sg_task_execution | sg_stealing | sg_arena | sg_market;
 
 //! A set of various statistics counters that are updated by the library on per thread basis.
 /** All the fields must be of the same type (statistics_counters::counter_type).
@@ -126,7 +133,7 @@ struct statistics_counters {
     //! Number of task corpses stored for future reuse
     counter_type free_list_length;
     //! Number of big tasks allocated during the run
-    /** To find total number of tasks malloc'd, compute (big_tasks+small_task_count) */
+    /** To find total number of tasks malloc'd, compute (big_tasks+my_small_task_count) */
     counter_type big_tasks;
     
     // Group: sg_task_execution
@@ -142,12 +149,14 @@ struct statistics_counters {
     counter_type steals_committed;
     //! Number of failed stealing attempts
     counter_type steals_failed;
-    //! Number of failed stealing attempts
+    //! Number of failed attempts to lock victim's task pool
     counter_type thieves_conflicts;
-    //! Number of tasks received from mailbox
+    //! Number of times thief backed off because of the collision with the owner
+    counter_type thief_backoffs;
 
     // Group: sg_affinity
 
+    //! Number of tasks received from mailbox
     counter_type mails_received;
     //! Number of affinitized tasks executed by the owner
     /** Goes as "revoked" in statistics printout. **/
@@ -165,8 +174,43 @@ struct statistics_counters {
     counter_type gate_switches;
     //! Number of times workers left an arena and returned into the market
     counter_type arena_roundtrips;
+    // !Average concurrency level of this arena
+    counter_type avg_arena_concurrency;
+    //! Average assigned priority
+    counter_type avg_assigned_workers;
+
+    // Group: sg_market
+
     //! Number of times workers left the market and returned into RML
     counter_type market_roundtrips;
+
+    // Group; sg_prio
+
+    //! Number of arena priority switches
+    counter_type arena_prio_switches;
+    //! Number of market priority switches
+    counter_type market_prio_switches;
+    //! Number of arena priority switches
+    counter_type arena_prio_resets;
+    //! Number of reference priority source fixups to avoid deadlock
+    counter_type prio_ref_fixups;
+    //! Average arena priority
+    counter_type avg_arena_prio;
+    //! Average market priority
+    counter_type avg_market_prio;
+
+    // Group; sg_prio_ex
+
+    //! Number of times local task pools were winnowed
+    counter_type prio_winnowings;
+    //! Number of times secondary task pools were searched for top priority tasks
+    counter_type prio_reloads;
+    //! Number of times secondary task pools were abandoned by quitting workers
+    counter_type prio_orphanings;
+    //! Number of tasks offloaded into secondary task pools
+    counter_type prio_tasks_offloaded;
+    //! Number of tasks reloaded from secondary task pools
+    counter_type prio_tasks_reloaded;
 
     // Constructor and helpers
 

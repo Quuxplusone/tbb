@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -52,7 +52,7 @@ namespace internal {
         bool has_right_zombie;
         const reduction_context my_context;
         aligned_space<Body,1> zombie_space;
-        finish_reduce( char context_ ) : 
+        finish_reduce( reduction_context context_ ) : 
             my_body(NULL),
             has_right_zombie(false),
             my_context(context_)
@@ -65,10 +65,10 @@ namespace internal {
                 my_body->join( *s );
                 s->~Body();
             }
-            if( my_context==1 ) 
+            if( my_context==1 )  // left child
                 itt_store_word_with_release( static_cast<finish_reduce*>(parent())->my_body, my_body );
             return NULL;
-        }       
+        }
         template<typename Range,typename Body_, typename Partitioner>
         friend class start_reduce;
     };
@@ -95,7 +95,7 @@ namespace internal {
         {
         }
         //! Splitting constructor used to generate children.
-        /** this becomes left child.  Newly constructed object is right child. */
+        /** parent_ becomes left child.  Newly constructed object is right child. */
         start_reduce( start_reduce& parent_, split ) :
             my_body(parent_.my_body),
             my_range(parent_.my_range,split()),
@@ -133,12 +133,12 @@ public:
 
     template<typename Range, typename Body, typename Partitioner>
     task* start_reduce<Range,Body,Partitioner>::execute() {
-        if( my_context==2 ) {
-            finish_type* p = static_cast<finish_type*>(parent() );
+        if( my_context==2 ) { // right child
+            finish_type* p = static_cast<finish_type*>(parent());
             if( !itt_load_word_with_acquire(p->my_body) ) {
                 my_body = new( p->zombie_space.begin() ) Body(*my_body,split());
                 p->has_right_zombie = true;
-            } 
+            }
         }
         if( !my_range.is_divisible() || my_partition.should_execute_range(*this) ) {
             (*my_body)( my_range );
@@ -154,7 +154,7 @@ public:
             my_partition.spawn_or_delay(delay,b);
             return this;
         }
-    } 
+    }
 
     //! Auxiliary class for parallel_reduce; for internal use only.
     /** The adaptor class that implements \ref parallel_reduce_body_req "parallel_reduce Body"

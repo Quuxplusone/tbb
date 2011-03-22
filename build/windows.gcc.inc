@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -39,7 +39,6 @@ TBB.MANIFEST =
 MALLOC.MANIFEST =
 RML.MANIFEST =
 
-# TODO: do better when/if mingw64 support is added
 ifeq (ia32,$(arch))
     TBB.LST = $(tbb_root)/src/tbb/lin32-tbb-export.lst
 else
@@ -58,7 +57,7 @@ LINK_TBB.LIB = $(TBB.LIB)
 
 CPLUS = g++
 COMPILE_ONLY = -c -MMD
-PREPROC_ONLY = -E -x c
+PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
 OUTPUT_KEY = -o #
@@ -91,7 +90,7 @@ CPLUS_FLAGS += -DUSE_WINTHREAD
 CPLUS_FLAGS += -D_WIN32_WINNT=$(_WIN32_WINNT)
 
 # MinGW specific
-CPLUS_FLAGS += -D__MSVCRT_VERSION__=0x0700 -msse -mthreads
+CPLUS_FLAGS += -DMINGW_HAS_SECURE_API=1 -D__MSVCRT_VERSION__=0x0700 -msse -mthreads
 
 CONLY = gcc
 C_FLAGS = $(CPLUS_FLAGS)

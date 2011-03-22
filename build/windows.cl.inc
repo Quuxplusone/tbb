@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -43,17 +43,17 @@ endif
 EH_FLAGS = /EHsc /GR
               
 ifeq ($(cfg), release)
-        CPLUS_FLAGS = $(MS_CRT_KEY) /O2 /Zi $(EH_FLAGS) /Zc:forScope /Zc:wchar_t
+        CPLUS_FLAGS = $(MS_CRT_KEY) /O2 /Zi $(EH_FLAGS) /Zc:forScope /Zc:wchar_t /D__TBB_LIB_NAME=$(TBB.LIB)
         ASM_FLAGS =
 endif
 ifeq ($(cfg), debug)
-        CPLUS_FLAGS = $(MS_CRT_KEY) /Od /Ob0 /Zi $(EH_FLAGS) /Zc:forScope /Zc:wchar_t /DTBB_USE_DEBUG
+        CPLUS_FLAGS = $(MS_CRT_KEY) /Od /Ob0 /Zi $(EH_FLAGS) /Zc:forScope /Zc:wchar_t /DTBB_USE_DEBUG /D__TBB_LIB_NAME=$(TBB.LIB)
         ASM_FLAGS = /DUSE_FRAME_POINTER
 endif
 
 
 COMPILE_ONLY = /c
-PREPROC_ONLY = /TC /EP
+PREPROC_ONLY = /TP /EP
 INCLUDE_KEY = /I
 DEFINE_KEY = /D
 OUTPUT_KEY = /Fe
@@ -68,6 +68,8 @@ endif
 
 DYLIB_KEY = /DLL
 EXPORT_KEY = /DEF:
+NODEFAULTLIB_KEY = /Zl
+NOINTRINSIC_KEY = /Oi-
 
 ifeq ($(runtime),vc8)
         OPENMP_FLAG = /openmp
@@ -99,7 +101,7 @@ ASSEMBLY_SOURCE=$(arch)-masm
 ifeq (intel64,$(arch))
     ASM=ml64 /nologo
     ASM_FLAGS += /DEM64T=1 /c /Zi
-    TBB_ASM.OBJ = atomic_support.obj inte64_misc.obj
+    TBB_ASM.OBJ = atomic_support.obj intel64_misc.obj
     MALLOC_ASM.OBJ = atomic_support.obj
 else
     ASM=ml /nologo

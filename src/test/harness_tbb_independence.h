@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,7 +29,9 @@
 #ifndef harness_tbb_independence_H
 #define harness_tbb_independence_H
 
+#if __TBB_DYNAMIC_LOAD_ENABLED
 #include "../tbb/tbb_assert_impl.h"
+#endif
 
 #if __linux__  && __ia64__
 
@@ -38,8 +40,7 @@
 
 #include <pthread.h>
 
-/* Can't use Intel compiler intrinsic due to internal error reported by
-   10.1 compiler */
+// Can't use Intel compiler intrinsic due to internal error reported by 10.1 compiler
 pthread_mutex_t counter_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int32_t __TBB_machine_fetchadd4__TBB_full_fence (volatile void *ptr, int32_t value)
@@ -53,15 +54,17 @@ int32_t __TBB_machine_fetchadd4__TBB_full_fence (volatile void *ptr, int32_t val
 
 void __TBB_machine_pause(int32_t /*delay*/) {  __TBB_Yield(); }
 
-#elif (_WIN32||_WIN64) && defined(_M_AMD64) && !__MINGW64__
+#elif _WIN64 && defined(_M_X64) && !__MINGW64__
 
 #define __TBB_NO_IMPLICIT_LINKAGE 1
 #include "tbb/tbb_machine.h"
 
+#if __TBB_DYNAMIC_LOAD_ENABLED
 extern "C" {
 void __TBB_machine_pause(__int32 /*delay*/ ) { __TBB_Yield(); }
 }
-
 #endif
+
+#endif /* _WIN64 */
 
 #endif // harness_tbb_independence_H

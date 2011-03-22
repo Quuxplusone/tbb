@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,16 +29,12 @@
 #include "governor.h"
 #include "tbb_main.h"
 #include "scheduler.h"
-#if __TBB_ARENA_PER_MASTER
 #include "market.h"
-#endif /* __TBB_ARENA_PER_MASTER */
 #include "arena.h"
 
 #include "tbb/task_scheduler_init.h"
 
-#if __TBB_SURVIVE_THREAD_SWITCH
 #include "dynamic_link.h"
-#endif /* __TBB_SURVIVE_THREAD_SWITCH */
 
 namespace tbb {
 namespace internal {
@@ -63,13 +59,17 @@ static __cilk_tbb_retcode (*watch_stack_handler)(struct __cilk_tbb_unwatch_thunk
     #pragma weak __cilkrts_watch_stack
 #endif
 
-//! Table describing the how to link the handlers.
+//! Table describing how to link the handlers.
 static const dynamic_link_descriptor CilkLinkTable[] = {
     DLD(__cilkrts_watch_stack, watch_stack_handler)
 };
 
-void initialize_survive_thread_switch() {
-    dynamic_link( CILKLIB_NAME, CilkLinkTable, 1 );
+static atomic<do_once_state> cilkrts_load_state;
+
+bool initialize_cilk_interop() {
+    // Pinning can fail. This is a normal situation, and means that the current
+    // thread does not use Cilk and consequently does not need interop.
+    return dynamic_link( CILKLIB_NAME, CilkLinkTable, 1 );
 }
 #endif /* __TBB_SURVIVE_THREAD_SWITCH */
 
@@ -99,6 +99,7 @@ void governor::release_resources () {
     int status = theTLS.destroy();
     if( status )
         handle_perror(status, "TBB failed to destroy TLS storage");
+    dynamic_unlink_all();
 }
 
 rml::tbb_server* governor::create_rml_server ( rml::tbb_client& client ) {
@@ -118,53 +119,9 @@ rml::tbb_server* governor::create_rml_server ( rml::tbb_client& client ) {
     return server;
 }
 
-#if !__TBB_ARENA_PER_MASTER
-
-arena* governor::obtain_arena( int number_of_threads, stack_size_type thread_stack_size ) {
-    mutex::scoped_lock lock( theArenaMutex );
-    arena* arena = theArena;
-    if( arena ) {
-        arena->prefix().number_of_masters += 1;
-    } else {
-        __TBB_ASSERT( number_of_threads > 0, NULL );
-        arena = arena::allocate_arena( 2*number_of_threads, number_of_threads-1,
-                                   thread_stack_size ? thread_stack_size : ThreadStackSize );
-        __TBB_ASSERT( arena->prefix().number_of_masters==1, NULL );
-        NumWorkers = arena->prefix().number_of_workers;
-
-        arena->prefix().server = create_rml_server( arena->prefix() );
-
-        // Publish the arena.  
-        // A memory release fence is not required here, because workers have not started yet,
-        // and concurrent masters inspect theArena while holding theArenaMutex.
-        __TBB_ASSERT( !theArena, NULL );
-        theArena = arena;
-    }
-    return arena;
-}
-
-void governor::finish_with_arena() {
-    mutex::scoped_lock lock( theArenaMutex );
-    arena* a = theArena;
-    __TBB_ASSERT( a, "theArena is missing" );
-    if( --(a->prefix().number_of_masters) )
-        a = NULL;
-    else {
-        theArena = NULL;
-        // Must do this while holding lock, otherwise terminate message might reach
-        // RML thread *after* initialize message reaches it for the next arena,
-        // which causes TLS to be set to new value before old one is erased!
-        a->close_arena();
-    }
-}
-#endif /* !__TBB_ARENA_PER_MASTER */
-
 void governor::sign_on(generic_scheduler* s) {
-    __TBB_ASSERT( !s->is_registered, NULL );  
-    s->is_registered = true;
-#if !__TBB_ARENA_PER_MASTER
-    __TBB_InitOnce::add_ref();
-#endif /* !__TBB_ARENA_PER_MASTER */
+    __TBB_ASSERT( !s->my_registered, NULL );  
+    s->my_registered = true;
     theTLS.set(s);
 #if __TBB_SURVIVE_THREAD_SWITCH
     __cilk_tbb_stack_op_thunk o;
@@ -184,18 +141,15 @@ void governor::sign_on(generic_scheduler* s) {
 }
 
 void governor::sign_off(generic_scheduler* s) {
-    if( s->is_registered ) {
+    if( s->my_registered ) {
         __TBB_ASSERT( theTLS.get()==s || (!s->is_worker() && !theTLS.get()), "attempt to unregister a wrong scheduler instance" );
         theTLS.set(NULL);
-        s->is_registered = false;
+        s->my_registered = false;
 #if __TBB_SURVIVE_THREAD_SWITCH
         __cilk_tbb_unwatch_thunk &ut = s->my_cilk_unwatch_thunk;
         if ( ut.routine )
            (*ut.routine)(ut.data);
 #endif /* __TBB_SURVIVE_THREAD_SWITCH */
-#if !__TBB_ARENA_PER_MASTER
-        __TBB_InitOnce::remove_ref();
-#endif /* !__TBB_ARENA_PER_MASTER */
     }
 }
 
@@ -204,32 +158,31 @@ generic_scheduler* governor::init_scheduler( unsigned num_threads, stack_size_ty
         DoOneTimeInitializations();
     generic_scheduler* s = theTLS.get();
     if( s ) {
-        s->ref_count += 1;
+        s->my_ref_count += 1;
         return s;
     }
+#if __TBB_SURVIVE_THREAD_SWITCH
+    atomic_do_once( &initialize_cilk_interop, cilkrts_load_state );
+#endif /* __TBB_SURVIVE_THREAD_SWITCH */
     if( (int)num_threads == task_scheduler_init::automatic )
         num_threads = default_num_threads();
-#if __TBB_ARENA_PER_MASTER
     s = generic_scheduler::create_master( 
             market::create_arena( num_threads - 1, stack_size ? stack_size : ThreadStackSize ) );
-#else /* !__TBB_ARENA_PER_MASTER */
-    s = generic_scheduler::create_master( *obtain_arena(num_threads, stack_size) );
-#endif /* !__TBB_ARENA_PER_MASTER */
     __TBB_ASSERT(s, "Somehow a local scheduler creation for a master thread failed");
-    s->is_auto_initialized = auto_init;
+    s->my_auto_initialized = auto_init;
     return s;
 }
 
 void governor::terminate_scheduler( generic_scheduler* s ) {
     __TBB_ASSERT( s == theTLS.get(), "Attempt to terminate non-local scheduler instance" );
-    if( !--(s->ref_count) )
+    if( !--(s->my_ref_count) )
         s->cleanup_master();
 }
 
 void governor::auto_terminate(void* arg){
     generic_scheduler* s = static_cast<generic_scheduler*>(arg);
-    if( s && s->is_auto_initialized ) {
-        if( !--(s->ref_count) ) {
+    if( s && s->my_auto_initialized ) {
+        if( !--(s->my_ref_count) ) {
             if ( !theTLS.get() && !s->local_task_pool_empty() ) {
                 // This thread's TLS slot is already cleared. But in order to execute
                 // remaining tasks cleanup_master() will need TLS correctly set.
@@ -320,20 +273,49 @@ void task_scheduler_init::initialize( int number_of_threads ) {
 }
 
 void task_scheduler_init::initialize( int number_of_threads, stack_size_type thread_stack_size ) {
+#if __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS
+    uintptr_t new_mode = thread_stack_size & propagation_mode_mask;
+    thread_stack_size &= ~(stack_size_type)propagation_mode_mask;
+#endif
     if( number_of_threads!=deferred ) {
         __TBB_ASSERT( !my_scheduler, "task_scheduler_init already initialized" );
         __TBB_ASSERT( number_of_threads==-1 || number_of_threads>=1,
                     "number_of_threads for task_scheduler_init must be -1 or positive" );
-        my_scheduler = governor::init_scheduler( number_of_threads, thread_stack_size );
+        internal::generic_scheduler *s = governor::init_scheduler( number_of_threads, thread_stack_size );
+#if __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS
+        if ( s->master_outermost_level() ) {
+            uintptr_t &vt = s->default_context()->my_version_and_traits;
+            uintptr_t prev_mode = vt & task_group_context::exact_exception ? propagation_mode_exact : 0;
+            vt = new_mode & propagation_mode_exact ? vt | task_group_context::exact_exception
+                    : new_mode & propagation_mode_captured ? vt & ~task_group_context::exact_exception : vt;
+            // Use least significant bit of the scheduler pointer to store previous mode.
+            // This is necessary when components compiled with different compilers and/or
+            // TBB versions initialize the 
+            my_scheduler = static_cast<scheduler*>((generic_scheduler*)((uintptr_t)s | prev_mode));
+        }
+        else
+#endif /* __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS */
+            my_scheduler = s;
     } else {
         __TBB_ASSERT( !thread_stack_size, "deferred initialization ignores stack size setting" );
     }
 }
 
 void task_scheduler_init::terminate() {
+#if __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS
+    uintptr_t prev_mode = (uintptr_t)my_scheduler & propagation_mode_exact;
+    my_scheduler = (scheduler*)((uintptr_t)my_scheduler & ~(uintptr_t)propagation_mode_exact);
+#endif /* __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS */
     generic_scheduler* s = static_cast<generic_scheduler*>(my_scheduler);
     my_scheduler = NULL;
     __TBB_ASSERT( s, "task_scheduler_init::terminate without corresponding task_scheduler_init::initialize()");
+#if __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS
+    if ( s->master_outermost_level() ) {
+        uintptr_t &vt = s->default_context()->my_version_and_traits;
+        vt = prev_mode & propagation_mode_exact ? vt | task_group_context::exact_exception
+                                        : vt & ~task_group_context::exact_exception;
+    }
+#endif /* __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS */
     governor::terminate_scheduler(s);
 }
 

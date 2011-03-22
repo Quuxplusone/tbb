@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -179,14 +179,12 @@ int TestMain () {
 
 #if _WIN32 || _WIN64
     HMODULE hLib;
-#if __TBB_ARENA_PER_MASTER
     hLib = LoadLibrary("irml.dll");
     if ( !hLib )
         hLib = LoadLibrary("irml_debug.dll");
     if ( !hLib )
         return Harness::Skipped; // No shared RML, skip the test
     FreeLibrary(hLib);
-#endif /* __TBB_ARENA_PER_MASTER */
 #else /* !WIN */
 #if __APPLE__
     #define LIBRARY_NAME(base) base".dylib"

@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::priority_queue_node&lt; T, Compare &gt; Class Template Reference</title>
+<title>tbb::graph Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,67 +21,214 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00342.html">tbb</a>::<a class="el" href="a00250.html">priority_queue_node</a></div>
-<h1>tbb::priority_queue_node&lt; T, Compare &gt; Class Template Reference</h1><!-- doxytag: class="tbb::priority_queue_node" --><!-- doxytag: inherits="tbb::queue_node" -->Forwards messages in priority order.  
+<a class="el" href="a00362.html">tbb</a>::<a class="el" href="a00250.html">graph</a></div>
+<h1>tbb::graph Class Reference</h1><!-- doxytag: class="tbb::graph" -->The graph class.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00443.html">graph.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00466.html">graph.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::priority_queue_node&lt; T, Compare &gt;:
-<p><center><img src="a00250.png" usemap="#tbb::priority_queue_node< T, Compare >_map" border="0" alt=""></center>
-<map name="tbb::priority_queue_node< T, Compare >_map">
-<area href="a00251.html" alt="tbb::queue_node< T >" shape="rect" coords="252,112,494,136">
-<area href="a00207.html" alt="tbb::buffer_node< T >" shape="rect" coords="252,56,494,80">
-<area href="a00233.html" alt="tbb::graph_node" shape="rect" coords="0,0,242,24">
-<area href="a00259.html" alt="tbb::receiver< T >" shape="rect" coords="252,0,494,24">
-<area href="a00264.html" alt="tbb::sender< T >" shape="rect" coords="504,0,746,24">
-</map>
-<a href="a00059.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00045.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="40fdedd4829aeae3ebd1a5fdaf39b23d"></a><!-- doxytag: member="tbb::priority_queue_node::input_type" ref="40fdedd4829aeae3ebd1a5fdaf39b23d" args="" -->
-typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#40fdedd4829aeae3ebd1a5fdaf39b23d">input_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="633b9b55e3248b785efd13264261f0e54431a30e2ba83c24deee35ce1218f08e"></a><!-- doxytag: member="tbb::graph::unlimited" ref="633b9b55e3248b785efd13264261f0e54431a30e2ba83c24deee35ce1218f08e" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>unlimited</b> = 0</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The input type of this receiver. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3b3fa4479416e7cb6d4a6a4b175c2b15"></a><!-- doxytag: member="tbb::priority_queue_node::output_type" ref="3b3fa4479416e7cb6d4a6a4b175c2b15" args="" -->
-typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#3b3fa4479416e7cb6d4a6a4b175c2b15">output_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="633b9b55e3248b785efd13264261f0e57fa790f3b0f0dd6330e4f91ffa85759a"></a><!-- doxytag: member="tbb::graph::serial" ref="633b9b55e3248b785efd13264261f0e57fa790f3b0f0dd6330e4f91ffa85759a" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>serial</b> = 1</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="98900a87758cac05500fcbc74113cebf"></a><!-- doxytag: member="tbb::priority_queue_node::predecessor_type" ref="98900a87758cac05500fcbc74113cebf" args="" -->
-typedef <a class="el" href="a00264.html">sender</a>&lt; <a class="el" href="a00250.html#40fdedd4829aeae3ebd1a5fdaf39b23d">input_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#98900a87758cac05500fcbc74113cebf">predecessor_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#633b9b55e3248b785efd13264261f0e5">concurrency</a> { <b>unlimited</b> =  0, 
+<b>serial</b> =  1
+ }</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The predecessor type for this node. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e01014f2e5ceea292c68f6fe47391c57"></a><!-- doxytag: member="tbb::priority_queue_node::successor_type" ref="e01014f2e5ceea292c68f6fe47391c57" args="" -->
-typedef <a class="el" href="a00259.html">receiver</a>&lt; <a class="el" href="a00250.html#3b3fa4479416e7cb6d4a6a4b175c2b15">output_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#e01014f2e5ceea292c68f6fe47391c57">successor_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5498ab84117f075d66468b0910f80dd3"></a><!-- doxytag: member="tbb::priority_queue_node::size_type" ref="5498ab84117f075d66468b0910f80dd3" args="" -->
-typedef size_t&nbsp;</td><td class="memItemRight" valign="bottom"><b>size_type</b></td></tr>
-
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">An enumeration the provides the two most common concurrency levels: unlimited and serial. <br></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1630f68674c4b201346a391b1e8d3f5d"></a><!-- doxytag: member="tbb::priority_queue_node::priority_queue_node" ref="1630f68674c4b201346a391b1e8d3f5d" args="(graph &amp;g)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#1630f68674c4b201346a391b1e8d3f5d">priority_queue_node</a> (<a class="el" href="a00232.html">graph</a> &amp;g)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1ba8311506558a2419101722f5d49ba9"></a><!-- doxytag: member="tbb::graph::graph" ref="1ba8311506558a2419101722f5d49ba9" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#1ba8311506558a2419101722f5d49ba9">graph</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8835f72311dd67d9d12c3a289e55596c"></a><!-- doxytag: member="tbb::priority_queue_node::~priority_queue_node" ref="8835f72311dd67d9d12c3a289e55596c" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#8835f72311dd67d9d12c3a289e55596c">~priority_queue_node</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructs a graph withy no nodes. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#55332084e7884a26ff288b8fe960030d">~graph</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destructor. <br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destroys the graph.  <a href="#55332084e7884a26ff288b8fe960030d"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#1e5c5ae6538ec714cee107d1004705b9">increment_wait_count</a> ()</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Used to register that an external entity may still interact with the graph.  <a href="#1e5c5ae6538ec714cee107d1004705b9"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#ff3b6a3ef2ae1e661dcdb398c227b43c">decrement_wait_count</a> ()</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Deregisters an external entity that may have interacted with the graph.  <a href="#ff3b6a3ef2ae1e661dcdb398c227b43c"></a><br></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2">template&lt;typename Receiver, typename Body&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00250.html#4c5e8dc5a45e641d534d6206838cfa7f">run</a> (Receiver &amp;r, Body body)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Spawns a task that runs a body and puts its output to a specific receiver.  <a href="#4c5e8dc5a45e641d534d6206838cfa7f"></a><br></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2">template&lt;typename Body&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00250.html#71213dd18099298dc74731e293c8286a">run</a> (Body body)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Spawns a task that runs a function object.  <a href="#71213dd18099298dc74731e293c8286a"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#bafd6349fdc6563ffa02746866e30bec">wait_for_all</a> ()</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Waits until the graph is idle and the number of decrement_wait_count calls equals the number of increment_wait_count calls.  <a href="#bafd6349fdc6563ffa02746866e30bec"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="34d61d8b6560e5b2eb42e0112701db0f"></a><!-- doxytag: member="tbb::graph::root_task" ref="34d61d8b6560e5b2eb42e0112701db0f" args="()" -->
+<a class="el" href="a00291.html">task</a> *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00250.html#34d61d8b6560e5b2eb42e0112701db0f">root_task</a> ()</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Returns the root task of the graph. <br></td></tr>
 <tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>my_prio_agg_t</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>run_and_put_task</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>run_task</b></td></tr>
 
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename T, typename Compare = std::less&lt;T&gt;&gt;<br>
- class tbb::priority_queue_node&lt; T, Compare &gt;</h3>
-
-Forwards messages in priority order. 
+The graph class. 
 <p>
+This class serves as a handle to the graph 
+<p>
+<hr><h2>Constructor &amp; Destructor Documentation</h2>
+<a class="anchor" name="55332084e7884a26ff288b8fe960030d"></a><!-- doxytag: member="tbb::graph::~graph" ref="55332084e7884a26ff288b8fe960030d" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">tbb::graph::~graph           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"><code> [inline]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Destroys the graph. 
+<p>
+Calls wait_for_all on the graph, deletes all of the nodes appended by calls to add, and then destroys the root task of the graph. 
+</div>
+</div><p>
+<hr><h2>Member Function Documentation</h2>
+<a class="anchor" name="ff3b6a3ef2ae1e661dcdb398c227b43c"></a><!-- doxytag: member="tbb::graph::decrement_wait_count" ref="ff3b6a3ef2ae1e661dcdb398c227b43c" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void tbb::graph::decrement_wait_count           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"><code> [inline]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Deregisters an external entity that may have interacted with the graph. 
+<p>
+The graph will not return from wait_for_all until all the number of decrement_wait_count calls matches the number of increment_wait_count calls. 
+</div>
+</div><p>
+<a class="anchor" name="1e5c5ae6538ec714cee107d1004705b9"></a><!-- doxytag: member="tbb::graph::increment_wait_count" ref="1e5c5ae6538ec714cee107d1004705b9" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void tbb::graph::increment_wait_count           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"><code> [inline]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Used to register that an external entity may still interact with the graph. 
+<p>
+The graph will not return from wait_for_all until a matching number of decrement_wait_count calls is made. 
+</div>
+</div><p>
+<a class="anchor" name="71213dd18099298dc74731e293c8286a"></a><!-- doxytag: member="tbb::graph::run" ref="71213dd18099298dc74731e293c8286a" args="(Body body)" -->
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Body&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void tbb::graph::run           </td>
+          <td>(</td>
+          <td class="paramtype">Body&nbsp;</td>
+          <td class="paramname"> <em>body</em>          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"><code> [inline]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Spawns a task that runs a function object. 
+<p>
+The task is spawned as a child of the graph. This is useful for running tasks that need to block a <a class="el" href="a00250.html#bafd6349fdc6563ffa02746866e30bec">wait_for_all()</a> on the graph. For example a one-off source. 
+</div>
+</div><p>
+<a class="anchor" name="4c5e8dc5a45e641d534d6206838cfa7f"></a><!-- doxytag: member="tbb::graph::run" ref="4c5e8dc5a45e641d534d6206838cfa7f" args="(Receiver &amp;r, Body body)" -->
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename Receiver, typename Body&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">void tbb::graph::run           </td>
+          <td>(</td>
+          <td class="paramtype">Receiver &amp;&nbsp;</td>
+          <td class="paramname"> <em>r</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">Body&nbsp;</td>
+          <td class="paramname"> <em>body</em></td><td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td><td width="100%"><code> [inline]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Spawns a task that runs a body and puts its output to a specific receiver. 
+<p>
+The task is spawned as a child of the graph. This is useful for running tasks that need to block a <a class="el" href="a00250.html#bafd6349fdc6563ffa02746866e30bec">wait_for_all()</a> on the graph. For example a one-off source. 
+</div>
+</div><p>
+<a class="anchor" name="bafd6349fdc6563ffa02746866e30bec"></a><!-- doxytag: member="tbb::graph::wait_for_all" ref="bafd6349fdc6563ffa02746866e30bec" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void tbb::graph::wait_for_all           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"><code> [inline]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Waits until the graph is idle and the number of decrement_wait_count calls equals the number of increment_wait_count calls. 
+<p>
+The waiting thread will go off and steal work while it is block in the wait_for_all. 
+</div>
+</div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00443.html">graph.h</a></ul>
+<li><a class="el" href="a00466.html">graph.h</a></ul>
 <hr>
 <p></p>
-Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

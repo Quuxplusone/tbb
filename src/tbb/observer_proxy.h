@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -40,7 +40,7 @@ class observer_proxy {
     friend class task_scheduler_observer_v3;
     //! Reference count used for garbage collection.
     /** 1 for reference from my task_scheduler_observer.
-        1 for each local_last_observer_proxy that points to me. 
+        1 for each my_local_last_observer_proxy that points to me. 
         No accounting for predecessor in the global list. 
         No accounting for global_last_observer_proxy that points to me. */
     atomic<int> gc_ref_count;

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -61,7 +61,7 @@ enum memory_semantics {
 //! @cond INTERNAL
 namespace internal {
 
-#if __GNUC__ || __SUNPRO_CC
+#if __GNUC__ || __SUNPRO_CC || __IBMCPP__
 #define __TBB_DECL_ATOMIC_FIELD(t,f,a) t f  __attribute__ ((aligned(a)));
 #elif defined(__INTEL_COMPILER)||_MSC_VER >= 1300
 #define __TBB_DECL_ATOMIC_FIELD(t,f,a) __declspec(align(a)) t f;
@@ -92,11 +92,13 @@ struct atomic_rep<4> {       // Specialization
 #endif
     __TBB_DECL_ATOMIC_FIELD(int32_t,value,4)
 };
+#if __TBB_64BIT_ATOMICS
 template<>
 struct atomic_rep<8> {       // Specialization
     typedef int64_t word;
     __TBB_DECL_ATOMIC_FIELD(int64_t,value,8)
 };
+#endif
 
 template<size_t Size, memory_semantics M>
 struct atomic_traits;        // Primary template declared, but not defined.
@@ -138,16 +140,20 @@ __TBB_DECL_FENCED_ATOMIC_PRIMITIVES(8,__TBB_full_fence)
 __TBB_DECL_FENCED_ATOMIC_PRIMITIVES(1,acquire)
 __TBB_DECL_FENCED_ATOMIC_PRIMITIVES(2,acquire)
 __TBB_DECL_FENCED_ATOMIC_PRIMITIVES(4,acquire)
-__TBB_DECL_FENCED_ATOMIC_PRIMITIVES(8,acquire)
 __TBB_DECL_FENCED_ATOMIC_PRIMITIVES(1,release)
 __TBB_DECL_FENCED_ATOMIC_PRIMITIVES(2,release)
 __TBB_DECL_FENCED_ATOMIC_PRIMITIVES(4,release)
+#if __TBB_64BIT_ATOMICS
+__TBB_DECL_FENCED_ATOMIC_PRIMITIVES(8,acquire)
 __TBB_DECL_FENCED_ATOMIC_PRIMITIVES(8,release)
+#endif
 #else
 __TBB_DECL_ATOMIC_PRIMITIVES(1)
 __TBB_DECL_ATOMIC_PRIMITIVES(2)
 __TBB_DECL_ATOMIC_PRIMITIVES(4)
+#if __TBB_64BIT_ATOMICS
 __TBB_DECL_ATOMIC_PRIMITIVES(8)
+#endif
 #endif
 
 //! Additive inverse of 1 for type T.
@@ -296,8 +302,11 @@ struct atomic: internal::atomic_impl<T> {
         atomic<T>& operator=( const atomic<T>& rhs ) {store_with_release(rhs); return *this;}  \
     };
 
+#if __TBB_64BIT_ATOMICS
+// otherwise size is verified by test_atomic
 __TBB_DECL_ATOMIC(__TBB_LONG_LONG)
 __TBB_DECL_ATOMIC(unsigned __TBB_LONG_LONG)
+#endif
 __TBB_DECL_ATOMIC(long)
 __TBB_DECL_ATOMIC(unsigned long)
 

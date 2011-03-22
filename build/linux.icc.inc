@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -25,7 +25,7 @@
 # the GNU General Public License.
 
 COMPILE_ONLY = -c -MMD
-PREPROC_ONLY = -E -x c
+PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
 OUTPUT_KEY = -o #
@@ -35,6 +35,7 @@ WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -w1
 DYLIB_KEY = -shared
 EXPORT_KEY = -Wl,--version-script,
+NOINTRINSIC_KEY = -fno-builtin
 LIBDL = -ldl
 
 TBB_NOSTRICT = 1
@@ -59,9 +60,6 @@ LIB_LINK_FLAGS = -shared -i-static -Wl,-soname=$(BUILDING_LIBRARY)
 LIBS = -lpthread -lrt
 C_FLAGS = $(CPLUS_FLAGS)
 
-ASM=
-ASM_FLAGS=
-
 TBB_ASM.OBJ=
 MALLOC_ASM.OBJ=
 
@@ -81,10 +79,21 @@ endif
 #------------------------------------------------------------------------------
 # Setting assembler data.
 #------------------------------------------------------------------------------
+ASM = as
+ifeq (intel64,$(arch))
+    ASM_FLAGS += --64
+endif
+ifeq (ia32,$(arch))
+    ASM_FLAGS += --32
+endif
+ifeq ($(cfg),debug)
+    ASM_FLAGS += -g
+endif
+
 ASSEMBLY_SOURCE=$(arch)-gas
 ifeq (ia64,$(arch))
-    ASM=ias
-    TBB_ASM.OBJ = atomic_support.o lock_byte.o log2.o pause.o ia64_misc.o
+    ASM_FLAGS += -xexplicit
+    TBB_ASM.OBJ += atomic_support.o lock_byte.o log2.o pause.o ia64_misc.o
     MALLOC_ASM.OBJ += atomic_support.o lock_byte.o pause.o
 endif
 #------------------------------------------------------------------------------

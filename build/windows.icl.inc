@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -52,17 +52,19 @@ endif
 EH_FLAGS = /EHsc /GR
 
 ifeq ($(cfg), release)
-    CPLUS_FLAGS = $(MS_CRT_KEY) /O2 /Zi $(EH_FLAGS) /Zc:forScope /Zc:wchar_t
+    CPLUS_FLAGS = $(MS_CRT_KEY) /O2 /Zi $(EH_FLAGS) /Zc:forScope /Zc:wchar_t /D__TBB_LIB_NAME=$(TBB.LIB)
     ASM_FLAGS =
 endif
 ifeq ($(cfg), debug)
-    CPLUS_FLAGS = $(MS_CRT_KEY) /Od /Ob0 /Zi $(EH_FLAGS) /Zc:forScope /Zc:wchar_t /DTBB_USE_DEBUG
+    CPLUS_FLAGS = $(MS_CRT_KEY) /Od /Ob0 /Zi $(EH_FLAGS) /Zc:forScope /Zc:wchar_t /DTBB_USE_DEBUG /D__TBB_LIB_NAME=$(TBB.LIB)
     ASM_FLAGS = /DUSE_FRAME_POINTER
 endif
 
 
 COMPILE_ONLY = /c /QMMD
-PREPROC_ONLY = /EP /Tc
+# PREPROC_ONLY should really use /TP which applies to all files in the command line.
+# But with /TP, ICL does not preprocess *.def files.
+PREPROC_ONLY = /EP /Tp
 INCLUDE_KEY = /I
 DEFINE_KEY = /D
 OUTPUT_KEY = /Fe
@@ -71,6 +73,8 @@ WARNING_AS_ERROR_KEY = /WX
 WARNING_KEY = /W3
 DYLIB_KEY = /DLL
 EXPORT_KEY = /DEF:
+NODEFAULTLIB_KEY = /Zl
+NOINTRINSIC_KEY = /Oi-
 
 ifeq (intel64,$(arch))
     CPLUS_FLAGS += /GS-
@@ -103,7 +107,7 @@ ifeq ($(VCCOMPAT_FLAG),)
         VCCOMPAT_FLAG := $(if $(findstring vc8, $(VCVERSION)),/Qvc8)
 endif
 ifeq ($(VCCOMPAT_FLAG),)
-        VCCOMPAT_FLAG := $(if $(findstring vc_mt, $(VCVERSION)),/Qvc8)
+        VCCOMPAT_FLAG := $(if $(findstring vc_mt, $(VCVERSION)),/Qvc10)
 endif
 ifeq ($(VCCOMPAT_FLAG),)
         VCCOMPAT_FLAG := $(if $(findstring vc9, $(VCVERSION)),/Qvc9)
@@ -127,7 +131,7 @@ ASSEMBLY_SOURCE=$(arch)-masm
 ifeq (intel64,$(arch))
     ASM=ml64 /nologo
     ASM_FLAGS += /DEM64T=1 /c /Zi
-    TBB_ASM.OBJ = atomic_support.obj inte64_misc.obj
+    TBB_ASM.OBJ = atomic_support.obj intel64_misc.obj
     MALLOC_ASM.OBJ = atomic_support.obj
 else
     ASM=ml /nologo

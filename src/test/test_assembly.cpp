@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -43,7 +43,7 @@ static void TestCompareExchange() {
         for( intptr_t b=-10; b<10; ++b )
             for( intptr_t c=-10; c<10; ++c ) {
 // Workaround for a bug in GCC 4.3.0; and one more is below.
-#if __GNUC__==4&&__GNUC_MINOR__==3&&__GNUC_PATCHLEVEL__==0
+#if __TBB_GCC_OPTIMIZER_ORDERING_BROKEN
                 intptr_t x;
                 __TBB_store_with_release( x, a );
 #else
@@ -89,21 +89,24 @@ static void TestAtomicCounter() {
 
 static void TestTinyLock() {
     REMARK("testing __TBB_LockByte\n");
-    unsigned char flags[16];
-    for( int i=0; i<16; ++i )
-        flags[i] = (unsigned char)i;
-#if __GNUC__==4&&__GNUC_MINOR__==3&&__GNUC_PATCHLEVEL__==0
+    __TBB_Byte flags[16];
+    for( unsigned int i=0; i<16; ++i )
+        flags[i] = (__TBB_Byte)i;
+#if __TBB_GCC_OPTIMIZER_ORDERING_BROKEN
     __TBB_store_with_release( flags[8], 0 );
 #else
     flags[8] = 0;
 #endif
     __TBB_LockByte(flags[8]);
-    for( int i=0; i<16; ++i )
+    for( unsigned int i=0; i<16; ++i )
 	#ifdef __sparc
         ASSERT( flags[i]==(i==8?0xff:i), NULL );
 	#else
         ASSERT( flags[i]==(i==8?1:i), NULL );
 	#endif
+    __TBB_UnlockByte(flags[8], 0);
+    for( unsigned int i=0; i<16; ++i )
+        ASSERT( flags[i] == (i==8?0:i), NULL );
 }
 
 static void TestLog2() {
@@ -124,7 +127,6 @@ static void TestPause() {
     REMARK("testing __TBB_Pause\n");
     __TBB_Pause(1);
 }
-
 
 int TestMain () {
     __TBB_TRY {

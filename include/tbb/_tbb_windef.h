@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -72,10 +72,14 @@ namespace std {
 
 #if _MSC_VER
     #if !__TBB_NO_IMPLICIT_LINKAGE
-        #ifdef _DEBUG
-            #pragma comment(lib, "tbb_debug.lib")
+        #ifdef __TBB_LIB_NAME
+	        #pragma comment(lib, __TBB_STRING(__TBB_LIB_NAME))
         #else
-            #pragma comment(lib, "tbb.lib")
+			#ifdef _DEBUG
+				#pragma comment(lib, "tbb_debug.lib")
+			#else
+				#pragma comment(lib, "tbb.lib")
+			#endif
         #endif
     #endif
 #endif

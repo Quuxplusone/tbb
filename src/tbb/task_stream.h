@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,9 +30,6 @@
 #define _TBB_task_stream_H
 
 #include "tbb/tbb_stddef.h"
-
-#if __TBB_ARENA_PER_MASTER
-
 #include <deque>
 #include <climits>
 #include "tbb/atomic.h" // for __TBB_Atomic*
@@ -164,7 +161,5 @@ public:
 
 } // namespace internal
 } // namespace tbb
-
-#endif /* __TBB_ARENA_PER_MASTER */
 
 #endif /* _TBB_task_stream_H */

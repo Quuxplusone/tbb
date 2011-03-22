@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -79,6 +79,11 @@
 #else
     #error Unexpected value for TBB_USE_ASSERT
 #endif
+#ifndef __TBB_CPF_BUILD
+    #define __TBB_VERSION_TBB_PREVIEW_BINARY
+#else
+    #define __TBB_VERSION_TBB_PREVIEW_BINARY "TBB: TBB_PREVIEW_BINARY\t1" ENDL
+#endif
 #ifndef DO_ITT_NOTIFY
     #define __TBB_VERSION_DO_NOTIFY "TBB: DO_ITT_NOTIFY\tundefined" ENDL
 #elif DO_ITT_NOTIFY==1
@@ -89,7 +94,7 @@
     #error Unexpected value for DO_ITT_NOTIFY
 #endif
 
-#define TBB_VERSION_STRINGS __TBB_VERSION_NUMBER __TBB_INTERFACE_VERSION_NUMBER __TBB_VERSION_DATETIME __TBB_VERSION_STRINGS __TBB_VERSION_USE_DEBUG __TBB_VERSION_USE_ASSERT __TBB_VERSION_DO_NOTIFY
+#define TBB_VERSION_STRINGS __TBB_VERSION_NUMBER __TBB_INTERFACE_VERSION_NUMBER __TBB_VERSION_DATETIME __TBB_VERSION_STRINGS __TBB_VERSION_USE_DEBUG __TBB_VERSION_USE_ASSERT __TBB_VERSION_TBB_PREVIEW_BINARY __TBB_VERSION_DO_NOTIFY
 
 // numbers
 #ifndef __TBB_VERSION_YMD

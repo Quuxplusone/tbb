@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -58,6 +58,11 @@ typedef CONDITION_VARIABLE* PCONDITION_VARIABLE;
 #else /* if not _WIN32||_WIN64 */
 #include <errno.h> // some systems need it for ETIMEDOUT
 #include <pthread.h>
+#if __linux__
+#include <ctime>
+#else /* generic Unix */
+#include <sys/time.h>
+#endif
 #endif /* _WIN32||_WIN64 */
 
 #include "../tbb_stddef.h"
@@ -206,6 +211,7 @@ public:
     //! Does this lock own the mutex?
     bool owns_lock() const { return owns; }
 
+    // TODO: Un-comment 'explicit' when the last non-C++0x compiler support is dropped
     //! Does this lock own the mutex?
     /*explicit*/ operator bool() const { return owns; }
 
@@ -246,12 +252,12 @@ union condvar_impl_t {
     condition_variable_using_event cv_event;
     CONDITION_VARIABLE             cv_native;
 };
-
 void __TBB_EXPORTED_FUNC internal_initialize_condition_variable( condvar_impl_t& cv );
 void __TBB_EXPORTED_FUNC internal_destroy_condition_variable(    condvar_impl_t& cv );
 void __TBB_EXPORTED_FUNC internal_condition_variable_notify_one( condvar_impl_t& cv );
 void __TBB_EXPORTED_FUNC internal_condition_variable_notify_all( condvar_impl_t& cv );
 bool __TBB_EXPORTED_FUNC internal_condition_variable_wait( condvar_impl_t& cv, mutex* mtx, const tick_count::interval_t* i = NULL );
+
 #else /* if !(_WIN32||_WIN64), i.e., POSIX threads */
 typedef pthread_cond_t condvar_impl_t;
 #endif
@@ -373,13 +379,8 @@ inline cv_status condition_variable::wait_for( unique_lock<mutex>& lock, const t
     lock.owns = true;
     return rc;
 }
-#else
-#if __linux__
-#include <ctime>
-#else /* generic Unix */
-#include <sys/time.h>
-#endif
 
+#else /* !(_WIN32||_WIN64) */
 inline void condition_variable::wait( unique_lock<mutex>& lock )
 {
     __TBB_ASSERT( lock.owns, NULL );

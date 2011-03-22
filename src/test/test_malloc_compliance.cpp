@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -33,14 +33,14 @@ bool __tbb_test_errno = false;
    because other headers might include <windows.h>
 */
 
-#if _WIN32 || _WIN64 && !__MINGW64__
+#if _WIN32 || _WIN64
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500
 #include "tbb/machine/windows_api.h"
 #include <stdio.h>
 #include "harness_report.h"
 
-#if defined(_MT) && defined(_DLL)
+#if _MSC_VER && defined(_MT) && defined(_DLL)
     #pragma comment(lib, "version.lib")  // to use GetFileVersionInfo*
 #endif
 
@@ -107,6 +107,11 @@ void limitMem( int limit )
 #endif
 #if _WIN32 || _WIN64
 #include <malloc.h> // _aligned_(malloc|free|realloc)
+#if __MINGW64__
+// Workaround a bug in MinGW64 headers with _aligned_(malloc|free) not declared by default
+extern "C" void __cdecl _aligned_free(void *);
+extern "C" void *__cdecl _aligned_malloc(size_t,size_t);
+#endif
 #endif
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
@@ -238,12 +243,12 @@ static void setSystemAllocs()
     Trealloc=realloc;
     Tcalloc=calloc;
     Tfree=free;
-#if (_WIN32 || _WIN64) && !__MINGW64__ && !__MINGW32__
+#if _WIN32 || _WIN64
     Raligned_malloc=_aligned_malloc;
     Raligned_realloc=_aligned_realloc;
     Taligned_free=_aligned_free;
     Rposix_memalign=0;
-#elif  __APPLE__ || __sun || __MINGW64__ || __MINGW32__ //  Max OS X MinGW and Solaris don't have posix_memalign
+#elif  __APPLE__ || __sun //  Mac OS* X and Solaris don't have posix_memalign
     Raligned_malloc=0;
     Raligned_realloc=0;
     Taligned_free=0;

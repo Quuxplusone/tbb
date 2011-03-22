@@ -20,25 +20,19 @@
     <li><a href="hierarchy.html"><span>Class&nbsp;Hierarchy</span></a></li>
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
-<h1>tbb::continue_receiver Member List</h1>This is the complete list of members for <a class="el" href="a00223.html">tbb::continue_receiver</a>, including all inherited members.<p><table>
-  <tr class="memlist"><td><a class="el" href="a00223.html#799d383813261426d881b10247caadba">continue_receiver</a>(int number_of_predecessors=0)</td><td><a class="el" href="a00223.html">tbb::continue_receiver</a></td><td><code> [inline]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00223.html#e6bf1d21e670b78ea00c71fccbe17c78">execute</a>()=0</td><td><a class="el" href="a00223.html">tbb::continue_receiver</a></td><td><code> [protected, pure virtual]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00223.html#21acef0b97b53d92f637619012837b30">input_type</a> typedef</td><td><a class="el" href="a00223.html">tbb::continue_receiver</a></td><td></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>my_current_count</b> (defined in <a class="el" href="a00223.html">tbb::continue_receiver</a>)</td><td><a class="el" href="a00223.html">tbb::continue_receiver</a></td><td><code> [protected]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>my_mutex</b> (defined in <a class="el" href="a00223.html">tbb::continue_receiver</a>)</td><td><a class="el" href="a00223.html">tbb::continue_receiver</a></td><td><code> [protected]</code></td></tr>
-  <tr bgcolor="#f0f0f0"><td><b>my_predecessor_count</b> (defined in <a class="el" href="a00223.html">tbb::continue_receiver</a>)</td><td><a class="el" href="a00223.html">tbb::continue_receiver</a></td><td><code> [protected]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00223.html#52fa92968dd48560d59798ca7ba6a3a2">predecessor_type</a> typedef</td><td><a class="el" href="a00223.html">tbb::continue_receiver</a></td><td></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00223.html#b9fa9290cbb871f8780f9d69e1ec3b4e">register_predecessor</a>(predecessor_type &amp;)</td><td><a class="el" href="a00223.html">tbb::continue_receiver</a></td><td><code> [inline]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00259.html#14ae737c8fca4c8bf8e1a736dfbac444">tbb::receiver::register_predecessor</a>(predecessor_type &amp;)</td><td><a class="el" href="a00259.html">tbb::receiver&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00223.html#02411d8d13b380062548aff133752cc5">remove_predecessor</a>(predecessor_type &amp;)</td><td><a class="el" href="a00223.html">tbb::continue_receiver</a></td><td><code> [inline]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00259.html#d2f23b40b328dc254a7c2a0a30f408e4">tbb::receiver::remove_predecessor</a>(predecessor_type &amp;)</td><td><a class="el" href="a00259.html">tbb::receiver&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00223.html#a7f8b9cc6286eb2cd8d429d6279da64d">try_put</a>(input_type)</td><td><a class="el" href="a00223.html">tbb::continue_receiver</a></td><td><code> [inline]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00259.html#6e5422b03b4570138f227b3d5d0073b8">tbb::receiver::try_put</a>(T t)=0</td><td><a class="el" href="a00259.html">tbb::receiver&lt; T &gt;</a></td><td><code> [pure virtual]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00223.html#9a38edb7e1e3c9be4e3848145c51a617">~continue_receiver</a>()</td><td><a class="el" href="a00223.html">tbb::continue_receiver</a></td><td><code> [inline, virtual]</code></td></tr>
-  <tr class="memlist"><td><a class="el" href="a00259.html#18f74b83abae0ee1e4ce07942797ef27">~receiver</a>()</td><td><a class="el" href="a00259.html">tbb::receiver&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
+<h1>tbb::sender&lt; T &gt; Member List</h1>This is the complete list of members for <a class="el" href="a00282.html">tbb::sender&lt; T &gt;</a>, including all inherited members.<p><table>
+  <tr class="memlist"><td><a class="el" href="a00282.html#d3aa21714dfc464e65a471816e38ea89">output_type</a> typedef</td><td><a class="el" href="a00282.html">tbb::sender&lt; T &gt;</a></td><td></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00282.html#be48ac70174cf8e08e2b0279cd6343d3">register_successor</a>(successor_type &amp;r)=0</td><td><a class="el" href="a00282.html">tbb::sender&lt; T &gt;</a></td><td><code> [pure virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00282.html#3f345427e812e8741370308ff88f30bf">remove_successor</a>(successor_type &amp;r)=0</td><td><a class="el" href="a00282.html">tbb::sender&lt; T &gt;</a></td><td><code> [pure virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00282.html#c0746cda7dfd266f01acaf6cd5d4b77d">successor_type</a> typedef</td><td><a class="el" href="a00282.html">tbb::sender&lt; T &gt;</a></td><td></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00282.html#add46946c4c7330422733432e4032fac">try_consume</a>()</td><td><a class="el" href="a00282.html">tbb::sender&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00282.html#bf8c9235810354f3353a899c982645de">try_get</a>(T &amp;)</td><td><a class="el" href="a00282.html">tbb::sender&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00282.html#28c41df1c0c7ed485b4a691ec8f30098">try_release</a>()</td><td><a class="el" href="a00282.html">tbb::sender&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
+  <tr class="memlist"><td><a class="el" href="a00282.html#3506c7275aeeb2fc3ba5d5f10ee0adac">try_reserve</a>(T &amp;)</td><td><a class="el" href="a00282.html">tbb::sender&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
+  <tr bgcolor="#f0f0f0"><td><b>~sender</b>() (defined in <a class="el" href="a00282.html">tbb::sender&lt; T &gt;</a>)</td><td><a class="el" href="a00282.html">tbb::sender&lt; T &gt;</a></td><td><code> [inline, virtual]</code></td></tr>
 </table><hr>
 <p></p>
-Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

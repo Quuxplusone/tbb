@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -41,7 +41,7 @@
 #define RML_SERVER_NAME "libirml" DEBUG_SUFFIX ".dylib"
 #elif __linux__
 #define RML_SERVER_NAME "libirml" DEBUG_SUFFIX ".so.1"
-#elif __FreeBSD__ || __sun || _AIX
+#elif __FreeBSD__ || __NetBSD__ || __sun || _AIX
 #define RML_SERVER_NAME "libirml" DEBUG_SUFFIX ".so"
 #else
 #error Unknown OS
@@ -75,9 +75,7 @@ const ::rml::versioned_object::version_type CLIENT_VERSION = 2;
         GET_INFO(my_call_with_server_info_routine),
     };
     status_type result;
-    dynamic_link_handle h;
-    if( dynamic_link( RML_SERVER_NAME, server_link_table, 4, 4, &h ) ) {
-        library_handle = h; 
+    if( dynamic_link( RML_SERVER_NAME, server_link_table, 4, 4, &library_handle ) ) {
         version_type server_version;
         result = (*open_factory_routine)( *this, server_version, CLIENT_VERSION );
         // server_version can be checked here for incompatibility here if necessary.
@@ -92,8 +90,7 @@ void FACTORY::close() {
     if( library_handle )
         (*my_wait_to_close_routine)(*this);
     if( (size_t)library_handle>FACTORY::c_dont_unload ) {
-        dynamic_link_handle h = library_handle;
-        dynamic_unlink(h);
+        dynamic_unlink(library_handle);
         library_handle = NULL;
     }
 }

@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -25,7 +25,7 @@
 # the GNU General Public License.
 
 COMPILE_ONLY = -c -MMD
-PREPROC_ONLY = -E -x c
+PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
 OUTPUT_KEY = -o #
@@ -33,6 +33,8 @@ OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -Wall
+TEST_WARNING_KEY = -Wshadow -Wcast-qual -Woverloaded-virtual -Wnon-virtual-dtor $(if $(findstring cc4., $(runtime)),-Wextra)
+WARNING_SUPPRESS = -Wno-parentheses -Wno-non-virtual-dtor
 DYLIB_KEY = -shared
 LIBDL = -ldl
 

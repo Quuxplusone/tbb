@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -123,8 +123,9 @@ void QueuingMutex::ScopedLock::SleepPerhaps()
     internal::concurrent_monitor& mq = mutex->waitq;
     mq.prepare_wait( thr_ctx, this );
     while( going==0ul ) {
-        if( (slept=mq.commit_wait( thr_ctx ))==true )
+        if( (slept=mq.commit_wait( thr_ctx ))==true && going!=0ul )
             break;
+        slept = false;
         mq.prepare_wait( thr_ctx, this );
     }
     if( !slept )

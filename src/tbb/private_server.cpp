@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -287,13 +287,14 @@ void private_worker::run() {
 inline void private_worker::wake_or_launch() {
     if( my_state==st_init && my_state.compare_and_swap( st_starting, st_init )==st_init ) {
 #if USE_WINTHREAD
-        HANDLE hThread = INVALID_HANDLE_VALUE;
-        thread_monitor::launch( thread_routine, this, my_server.my_stack_size, &hThread );
-        if ( NumberOfProcessorGroups() > 1 )
-            MoveThreadIntoProcessorGroup( hThread, FindProcessorGroupIndex(my_index) );
-        CloseHandle( hThread );
+        thread_monitor::launch( thread_routine, this, my_server.my_stack_size, &this->my_index );
 #elif USE_PTHREAD
+        {
+        affinity_helper fpa;
+        fpa.protect_affinity_mask();
         thread_monitor::launch( thread_routine, this, my_server.my_stack_size );
+        // Implicit destruction of fpa resets original affinity mask.
+        }
 #endif /* USE_PTHREAD */
     }
     else

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -61,6 +61,57 @@ namespace internal {
 
 #if __linux__ || __FreeBSD_version >= 701000
 
+static void set_affinity_mask( size_t maskSize, const basic_mask_t* threadMask ) {
+#if __linux__
+    if( sched_setaffinity( 0, maskSize, threadMask ) )
+#else /* FreeBSD */
+    if( cpuset_setaffinity( CPU_LEVEL_WHICH, CPU_WHICH_TID, -1, maskSize, threadMask ) )
+#endif
+        runtime_warning( "setaffinity syscall failed" );
+}
+
+static void get_affinity_mask( size_t maskSize, basic_mask_t* threadMask ) {
+#if __linux__
+    if( sched_getaffinity( 0, maskSize, threadMask ) )
+#else /* FreeBSD */
+    if( cpuset_getaffinity( CPU_LEVEL_WHICH, CPU_WHICH_TID, -1, maskSize, threadMask ) )
+#endif
+        runtime_warning( "getaffinity syscall failed" );
+}
+
+static basic_mask_t* process_mask;
+static int num_masks;
+struct process_mask_cleanup_helper {
+    ~process_mask_cleanup_helper() {
+        if( process_mask ) {
+            delete [] process_mask;
+        }
+     }
+};
+static process_mask_cleanup_helper process_mask_cleanup;
+
+#define curMaskSize sizeof(basic_mask_t) * num_masks
+affinity_helper::~affinity_helper() {
+    if( threadMask ) {
+        if( is_changed ) {
+            set_affinity_mask( curMaskSize, threadMask );
+        }
+        delete [] threadMask;
+    }
+}
+void affinity_helper::protect_affinity_mask() {
+    if( threadMask == NULL && num_masks && process_mask ) {
+        threadMask = new basic_mask_t [num_masks];
+        memset( threadMask, 0, curMaskSize );
+        get_affinity_mask( curMaskSize, threadMask );
+        is_changed = memcmp( process_mask, threadMask, curMaskSize );
+        if( is_changed ) {
+            set_affinity_mask( curMaskSize, process_mask );
+        }
+    }
+}
+#undef curMaskSize
+
 static atomic<do_once_state> hardware_concurrency_info;
 
 static int theNumProcs;
@@ -111,10 +162,13 @@ static void initialize_hardware_concurrency_info () {
                     ++availableProcs;
             }
         }
+        num_masks = numMasks;
+        process_mask = processMask;
     }
-    else
+    else {
         availableProcs = maxProcs;
-    delete[] processMask;
+        delete[] processMask;
+    }
     theNumProcs = availableProcs > 0 ? availableProcs : 1; // Fail safety strap
 }
 

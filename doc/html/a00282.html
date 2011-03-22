@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::tbb_hash_compare&lt; Key &gt; Struct Template Reference</title>
+<title>tbb::sender&lt; T &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,33 +21,70 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00342.html">tbb</a>::<a class="el" href="a00282.html">tbb_hash_compare</a></div>
-<h1>tbb::tbb_hash_compare&lt; Key &gt; Struct Template Reference</h1><!-- doxytag: class="tbb::tbb_hash_compare" -->hash_compare that is default argument for concurrent_hash_map  
+<a class="el" href="a00362.html">tbb</a>::<a class="el" href="a00282.html">sender</a></div>
+<h1>tbb::sender&lt; T &gt; Class Template Reference</h1><!-- doxytag: class="tbb::sender" -->Pure virtual template class that defines a sender of messages of type T.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00400.html">concurrent_hash_map.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00466.html">graph.h</a>&gt;</code>
 <p>
-<a href="a00012.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<p>Inheritance diagram for tbb::sender&lt; T &gt;:
+<p><center><img src="a00282.png" usemap="#tbb::sender< T >_map" border="0" alt=""></center>
+<map name="tbb::sender< T >_map">
+<area href="a00224.html" alt="tbb::broadcast_node< T >" shape="rect" coords="0,56,242,80">
+<area href="a00225.html" alt="tbb::buffer_node< T >" shape="rect" coords="252,56,494,80">
+<area href="a00255.html" alt="tbb::limiter_node< T >" shape="rect" coords="504,56,746,80">
+<area href="a00268.html" alt="tbb::priority_queue_node< T, Compare >" shape="rect" coords="126,112,368,136">
+<area href="a00269.html" alt="tbb::queue_node< T >" shape="rect" coords="378,112,620,136">
+<area href="a00283.html" alt="tbb::sequencer_node< T >" shape="rect" coords="378,168,620,192">
+</map>
+<a href="a00042.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Static Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c35d106ad65aa6ca5ba9008c1c86f80d"></a><!-- doxytag: member="tbb::tbb_hash_compare::hash" ref="c35d106ad65aa6ca5ba9008c1c86f80d" args="(const Key &amp;a)" -->
-static size_t&nbsp;</td><td class="memItemRight" valign="bottom"><b>hash</b> (const Key &amp;a)</td></tr>
+<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d3aa21714dfc464e65a471816e38ea89"></a><!-- doxytag: member="tbb::sender::output_type" ref="d3aa21714dfc464e65a471816e38ea89" args="" -->
+typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#d3aa21714dfc464e65a471816e38ea89">output_type</a></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b4d302049aabea046e392ddfad8b3f06"></a><!-- doxytag: member="tbb::tbb_hash_compare::equal" ref="b4d302049aabea046e392ddfad8b3f06" args="(const Key &amp;a, const Key &amp;b)" -->
-static bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>equal</b> (const Key &amp;a, const Key &amp;b)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c0746cda7dfd266f01acaf6cd5d4b77d"></a><!-- doxytag: member="tbb::sender::successor_type" ref="c0746cda7dfd266f01acaf6cd5d4b77d" args="" -->
+typedef <a class="el" href="a00277.html">receiver</a>&lt; T &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#c0746cda7dfd266f01acaf6cd5d4b77d">successor_type</a></td></tr>
 
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
+<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="be48ac70174cf8e08e2b0279cd6343d3"></a><!-- doxytag: member="tbb::sender::register_successor" ref="be48ac70174cf8e08e2b0279cd6343d3" args="(successor_type &amp;r)=0" -->
+virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#be48ac70174cf8e08e2b0279cd6343d3">register_successor</a> (<a class="el" href="a00277.html">successor_type</a> &amp;r)=0</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Add a new successor to this node. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3f345427e812e8741370308ff88f30bf"></a><!-- doxytag: member="tbb::sender::remove_successor" ref="3f345427e812e8741370308ff88f30bf" args="(successor_type &amp;r)=0" -->
+virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#3f345427e812e8741370308ff88f30bf">remove_successor</a> (<a class="el" href="a00277.html">successor_type</a> &amp;r)=0</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Removes a successor from this node. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="bf8c9235810354f3353a899c982645de"></a><!-- doxytag: member="tbb::sender::try_get" ref="bf8c9235810354f3353a899c982645de" args="(T &amp;)" -->
+virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#bf8c9235810354f3353a899c982645de">try_get</a> (T &amp;)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Request an item from the sender. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3506c7275aeeb2fc3ba5d5f10ee0adac"></a><!-- doxytag: member="tbb::sender::try_reserve" ref="3506c7275aeeb2fc3ba5d5f10ee0adac" args="(T &amp;)" -->
+virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#3506c7275aeeb2fc3ba5d5f10ee0adac">try_reserve</a> (T &amp;)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Reserves an item in the sender. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="28c41df1c0c7ed485b4a691ec8f30098"></a><!-- doxytag: member="tbb::sender::try_release" ref="28c41df1c0c7ed485b4a691ec8f30098" args="()" -->
+virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#28c41df1c0c7ed485b4a691ec8f30098">try_release</a> ()</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Releases the reserved item. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="add46946c4c7330422733432e4032fac"></a><!-- doxytag: member="tbb::sender::try_consume" ref="add46946c4c7330422733432e4032fac" args="()" -->
+virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#add46946c4c7330422733432e4032fac">try_consume</a> ()</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Consumes the reserved item. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename Key&gt;<br>
- struct tbb::tbb_hash_compare&lt; Key &gt;</h3>
+<h3>template&lt;typename T&gt;<br>
+ class tbb::sender&lt; T &gt;</h3>
 
-hash_compare that is default argument for concurrent_hash_map 
+Pure virtual template class that defines a sender of messages of type T. 
 <p>
-<hr>The documentation for this struct was generated from the following file:<ul>
-<li><a class="el" href="a00400.html">concurrent_hash_map.h</a></ul>
+<hr>The documentation for this class was generated from the following file:<ul>
+<li><a class="el" href="a00466.html">graph.h</a></ul>
 <hr>
 <p></p>
-Copyright &copy; 2005-2010 Intel Corporation.  All Rights Reserved.
+Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>
 Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
 registered trademarks or trademarks of Intel Corporation or its

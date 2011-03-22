@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -91,6 +91,17 @@
     #endif
 #endif /* TBB_IMPLEMENT_CPP0X */
 
+#ifndef __TBB_DYNAMIC_LOAD_ENABLED
+    #define __TBB_DYNAMIC_LOAD_ENABLED !__TBB_TASK_CPP_DIRECTLY_INCLUDED
+#elif !__TBB_DYNAMIC_LOAD_ENABLED
+    #if _WIN32||_WIN64
+        #define __TBB_NO_IMPLICIT_LINKAGE 1
+        #define __TBBMALLOC_NO_IMPLICIT_LINKAGE 1
+    #else
+        #define __TBB_WEAK_SYMBOLS 1
+    #endif
+#endif
+
 /** Feature sets **/
 
 #ifndef __TBB_COUNT_TASK_NODES
@@ -105,9 +116,28 @@
     #define __TBB_SCHEDULER_OBSERVER 1
 #endif /* __TBB_SCHEDULER_OBSERVER */
 
-#ifndef __TBB_ARENA_PER_MASTER
-    #define __TBB_ARENA_PER_MASTER 1
-#endif /* __TBB_ARENA_PER_MASTER */
+#ifndef __TBB_TASK_PRIORITY
+    #define __TBB_TASK_PRIORITY __TBB_CPF_BUILD
+#endif /* __TBB_TASK_PRIORITY */
+
+#if __TBB_TASK_PRIORITY && !__TBB_TASK_GROUP_CONTEXT
+    #error __TBB_TASK_PRIORITY requires __TBB_TASK_GROUP_CONTEXT to be enabled
+#endif
+
+#ifdef TBB_PREVIEW_TASK_PRIORITY
+    #if TBB_PREVIEW_TASK_PRIORITY
+        #define __TBB_NO_IMPLICIT_LINKAGE 1
+        #if __TBB_BUILD && !__TBB_TASK_PRIORITY
+            #error TBB_PREVIEW_TASK_PRIORITY requires __TBB_TASK_PRIORITY to be enabled during TBB build
+        #elif !__TBB_TASK_GROUP_CONTEXT
+            #error TBB_PREVIEW_TASK_PRIORITY requires __TBB_TASK_GROUP_CONTEXT to be enabled
+        #endif
+    #endif
+#else
+    #if __TBB_BUILD
+        #define TBB_PREVIEW_TASK_PRIORITY __TBB_TASK_PRIORITY
+    #endif
+#endif /* TBB_PREVIEW_TASK_PRIORITY */
 
 #if !defined(__TBB_SURVIVE_THREAD_SWITCH) && (_WIN32 || _WIN64 || __linux__)
     #define __TBB_SURVIVE_THREAD_SWITCH 1
@@ -187,6 +217,11 @@
     /** MinGW has a bug with stack alignment for routines invoked from MS RTLs.
         Since GCC 4.2, the bug can be worked around via a special attribute. **/
     #define __TBB_SSE_STACK_ALIGNMENT_BROKEN 1
+#endif
+
+#if __GNUC__==4 && __GNUC_MINOR__==3 && __GNUC_PATCHLEVEL__==0
+    // GCC of this version may rashly ignore control dependencies
+    #define __TBB_GCC_OPTIMIZER_ORDERING_BROKEN 1
 #endif
 
 #if __FreeBSD__

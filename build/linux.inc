@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -117,7 +117,7 @@ TBB.DEF = $(TBB.LST:.lst=.def)
 
 TBB.DLL = $(TBB_NO_VERSION.DLL).$(SONAME_SUFFIX)
 TBB.LIB = $(TBB.DLL)
-TBB_NO_VERSION.DLL=libtbb$(DEBUG_SUFFIX).$(DLL)
+TBB_NO_VERSION.DLL=libtbb$(CPF_SUFFIX)$(DEBUG_SUFFIX).$(DLL)
 LINK_TBB.LIB = $(TBB_NO_VERSION.DLL)
 
 MALLOC_NO_VERSION.DLL = libtbbmalloc$(DEBUG_SUFFIX).$(DLL)

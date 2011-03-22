@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -97,7 +97,7 @@ static inline bool isAligned(T arg, uintptr_t alignment) {
     return 0==((uintptr_t)arg &  (alignment-1));
 }
 
-/* Below is part of MemoryAllocator.cpp. */
+/* start of code replicated from src/tbbmalloc */
 
 class BackRefIdx { // composite index to backreference array
 private:
@@ -134,11 +134,21 @@ struct LargeObjectHdr {
 };
 
 /*
- * Objects of this size and larger are considered large objects.
+ * Objects of size minLargeObjectSize and larger are considered large objects.
  */
-const uint32_t minLargeObjectSize = 8065;
+const uintptr_t blockSize = 16*1024;
+#if __powerpc64__ || __ppc64__ || __bgp__
+const int estimatedCacheLineSize = 128;
+#else
+const int estimatedCacheLineSize =  64;
+#endif
+const uint32_t fittingAlignment = estimatedCacheLineSize;
+#define SET_FITTING_SIZE(N) ( (blockSize-2*estimatedCacheLineSize)/N ) & ~(fittingAlignment-1)
+const uint32_t fittingSize5 = SET_FITTING_SIZE(2); // 8128/8064
+#undef SET_FITTING_SIZE
+const uint32_t minLargeObjectSize = fittingSize5 + 1;
 
-/* end of inclusion from MemoryAllocator.cpp */
+/* end of code replicated from src/tbbmalloc */
 
 /* Correct only for large blocks, i.e. not smaller then minLargeObjectSize */
 static bool scalableMallocLargeBlock(void *object, size_t size)

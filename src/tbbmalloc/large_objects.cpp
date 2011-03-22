@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -208,6 +208,9 @@ void* mallocLargeObject (size_t size, size_t alignment, bool startupAlloc)
     LargeMemoryBlock* lmb;
     size_t headersSize = sizeof(LargeMemoryBlock)+sizeof(LargeObjectHdr);
     size_t allocationSize = alignUp(size+headersSize+alignment, largeBlockCacheStep);
+
+    if (allocationSize < size) // allocationSize is wrapped around after alignUp
+        return NULL;
 
     if (startupAlloc || !(lmb = getCachedLargeBlock(allocationSize))) {
         BackRefIdx backRefIdx;

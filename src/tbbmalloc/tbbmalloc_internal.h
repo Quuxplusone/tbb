@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -90,11 +90,6 @@ const uint32_t largeBlockCacheStep = 8*1024;
  * It should be power of 2 for the fast checking.
  */
 const unsigned cacheCleanupFreq = 256;
-
-/*
- * Alignment of large (>= minLargeObjectSize) objects.
- */
-static int largeObjectAlignment = 64; // 64 is common cache line size
 
 /********** End of numeric parameters controlling allocations *********/
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,9 +30,6 @@
 #define _TBB_governor_H
 
 #include "tbb/task_scheduler_init.h"
-#if !__TBB_ARENA_PER_MASTER
-#include "tbb/mutex.h"
-#endif /* !__TBB_ARENA_PER_MASTER */
 #include "../rml/include/rml_tbb.h"
 
 #include "tbb_misc.h" // for AvailableHwConcurrency and ThreadStackSize
@@ -45,11 +42,7 @@
 namespace tbb {
 namespace internal {
 
-#if __TBB_ARENA_PER_MASTER
 class market;
-#else /* !__TBB_ARENA_PER_MASTER */
-class arena;
-#endif /* !__TBB_ARENA_PER_MASTER */
 class generic_scheduler;
 class __TBB_InitOnce;
 
@@ -57,34 +50,15 @@ class __TBB_InitOnce;
 // Class governor
 //------------------------------------------------------------------------
 
-#if __TBB_ARENA_PER_MASTER
 //! The class handles access to the single instance of market, and to TLS to keep scheduler instances.
-#else /* !__TBB_ARENA_PER_MASTER */
-//! The class handles access to the single instance of arena, and to TLS to keep scheduler instances.
-#endif /* !__TBB_ARENA_PER_MASTER */
 /** It also supports automatic on-demand initialization of the TBB scheduler.
     The class contains only static data members and methods.*/
 class governor {
     friend class __TBB_InitOnce;
-#if __TBB_ARENA_PER_MASTER
     friend class market;
-#else /* !__TBB_ARENA_PER_MASTER */
-    friend void ITT_DoUnsafeOneTimeInitialization ();
-#endif /* __TBB_ARENA_PER_MASTER */
 
     //! TLS for scheduler instances associated with individual threads
     static basic_tls<generic_scheduler*> theTLS;
-
-#if !__TBB_ARENA_PER_MASTER
-    //! Currently active arena
-    static arena* theArena;
-
-    //! Mutex guarding creation/destruction of theArena
-    static mutex  theArenaMutex;
-
-    //! Caches the number of workers in the currently active arena
-    static unsigned NumWorkers;
-#endif /* !__TBB_ARENA_PER_MASTER */
 
     //! Caches the maximal level of paralellism supported by the hardware 
     static unsigned DefaultNumberOfThreads;
@@ -100,12 +74,6 @@ class governor {
     static void release_resources ();
 
     static rml::tbb_server* create_rml_server ( rml::tbb_client& );
-
-#if !__TBB_ARENA_PER_MASTER
-    //! Obtain the instance of arena to register a new master thread
-    /** If there is no active arena, create one. */
-    static arena* obtain_arena( int number_of_threads, stack_size_type thread_stack_size );
-#endif /* !__TBB_ARENA_PER_MASTER */
 
     //! The internal routine to undo automatic initialization.
     /** The signature is written with void* so that the routine
@@ -126,20 +94,8 @@ public:
     //! Processes scheduler termination request (possibly nested) in a master thread
     static void terminate_scheduler( generic_scheduler* s );
 
-#if __TBB_ARENA_PER_MASTER
     //! Returns number of worker threads in the currently active arena.
     inline static unsigned max_number_of_workers ();
-
-#else /* !__TBB_ARENA_PER_MASTER */
-    //! Dereference arena when a master thread stops using TBB.
-    /** If no more masters in the arena, terminate workers and destroy it. */
-    static void finish_with_arena();
-
-    static unsigned max_number_of_workers() {
-        __TBB_ASSERT( theArena, "thread did not activate a task_scheduler_init object?" );
-        return NumWorkers;
-    }
-#endif /* !__TBB_ARENA_PER_MASTER */
 
     //! Register TBB scheduler instance in thread local storage.
     static void sign_on(generic_scheduler* s);
@@ -151,13 +107,7 @@ public:
     static bool is_set ( generic_scheduler* s ) { return theTLS.get() == s; }
 
     //! Temporarily set TLS slot to the given scheduler
-    static void assume_scheduler( generic_scheduler* s ) { 
-#if !__TBB_ARENA_PER_MASTER
-        // should be called by a Master
-        __TBB_ASSERT( !s || !theTLS.get(), "should be called by master" );
-#endif
-        theTLS.set( s ); 
-    }
+    static void assume_scheduler( generic_scheduler* s ) { theTLS.set( s ); }
 
     //! Obtain the thread local instance of the TBB scheduler.
     /** If the scheduler has not been initialized yet, initialization is done automatically.
@@ -186,12 +136,10 @@ public:
 } // namespace internal
 } // namespace tbb
 
-#if __TBB_ARENA_PER_MASTER
 #include "scheduler.h"
 
 inline unsigned tbb::internal::governor::max_number_of_workers () {
     return local_scheduler()->number_of_workers_in_my_arena();
 }
-#endif /* __TBB_ARENA_PER_MASTER */
 
 #endif /* _TBB_governor_H */

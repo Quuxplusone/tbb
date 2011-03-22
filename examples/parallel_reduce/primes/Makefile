@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -26,7 +26,8 @@
 
 # GNU Makefile that builds and runs example.
 PROG=primes
-ARGS=100000000 0:4
+ARGS=
+PERF_RUN_ARGS=silent  auto 1000000000 1000 20
 
 # The C++ compiler
 ifneq (,$(shell which icc 2>/dev/null))
@@ -35,14 +36,18 @@ endif # icc
 
 all:	release test
 
-release: *.cpp
+release: main.cpp primes.cpp 
 	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbb $(LIBS)
 
-debug: *.cpp
+debug: main.cpp primes.cpp
 	$(CXX) -O0 -g -DTBB_USE_DEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug $(LIBS)
 
 clean:
 	$(RM) $(PROG) *.o *.d
 
-test:
+test: 
 	./$(PROG) $(ARGS)
+
+perf_build: release
+
+perf_run:

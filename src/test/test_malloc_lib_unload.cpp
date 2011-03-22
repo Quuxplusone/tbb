@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -149,7 +149,7 @@ extern "C" size_t safer_scalable_msize (void *, size_t (*)(void*))
 #define EXT ".dylib"
 #elif __linux__
 #define EXT __TBB_STRING(.so.TBB_COMPATIBLE_INTERFACE_VERSION)
-#elif __FreeBSD__ || __sun || _AIX
+#elif __FreeBSD__ || __NetBSD__ || __sun || _AIX
 #define EXT ".so"
 #else
 #error Unknown OS

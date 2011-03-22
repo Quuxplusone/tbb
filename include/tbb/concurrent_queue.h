@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -226,7 +226,7 @@ public:
     typedef const T& const_reference;
 
     //! Integral type for representing size of the queue.
-    /** Notice that the size_type is a signed integral type.
+    /** Note that the size_type is a signed integral type.
         This is because the size can be negative if there are pending pops without corresponding pushes. */
     typedef std::ptrdiff_t size_type;
 

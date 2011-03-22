@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,12 +29,15 @@
 #ifndef __TBB_dynamic_link
 #define __TBB_dynamic_link
 
-// Support for dynamically linking to a shared library.
-// By default, the symbols defined here go in namespace tbb::internal.
-// The symbols can be put in another namespace by defining the preprocessor
-// symbols OPEN_INTERNAL_NAMESPACE and CLOSE_INTERNAL_NAMESPACE to open and
-// close the other namespace.  See default definition below for an example.
+// Support for dynamic loading entry points from other shared libraries.
 
+#ifndef LIBRARY_ASSERT
+    #include "tbb/tbb_config.h"
+#endif /* !LIBRARY_ASSERT */
+
+/** By default, symbols declared and defined here go into namespace tbb::internal.
+    To put them in other namespace, define macros OPEN_INTERNAL_NAMESPACE
+    and CLOSE_INTERNAL_NAMESPACE to override the following default definitions. **/
 #ifndef OPEN_INTERNAL_NAMESPACE
 #define OPEN_INTERNAL_NAMESPACE namespace tbb { namespace internal {
 #define CLOSE_INTERNAL_NAMESPACE }}
@@ -101,6 +104,10 @@ bool dynamic_link( dynamic_link_handle module,
                    size_t required  = ~(size_t)0 );
 
 void dynamic_unlink( dynamic_link_handle handle );
+
+#if __TBB_BUILD
+void dynamic_unlink_all();
+#endif /* __TBB_BUILD */
 
 enum dynamic_link_error_t {
     dl_success = 0,

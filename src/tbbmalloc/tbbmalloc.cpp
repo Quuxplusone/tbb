@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -103,7 +103,7 @@ void ITT_DoOneTimeInitialization() {
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".dylib"
 #elif __linux__
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX  __TBB_STRING(.so.TBB_COMPATIBLE_INTERFACE_VERSION)
-#elif __FreeBSD__ || __sun || _AIX
+#elif __FreeBSD__ || __NetBSD__ || __sun || _AIX
 #define MALLOCLIB_NAME "libtbbmalloc" DEBUG_SUFFIX ".so"
 #else
 #error Unknown OS
@@ -138,7 +138,7 @@ void init_tbbmalloc() {
 /* Preventing TBB allocator library from unloading to prevent
    resource leak, as memory is not released on the library unload.
 */
-#if USE_WINTHREAD
+#if USE_WINTHREAD && __TBB_DYNAMIC_LOAD_ENABLED
     // Prevent Windows from displaying message boxes if it fails to load library
     UINT prev_mode = SetErrorMode (SEM_FAILCRITICALERRORS);
     LoadLibrary(MALLOCLIB_NAME);
@@ -149,7 +149,7 @@ void init_tbbmalloc() {
 #if !(_WIN32||_WIN64)
 struct RegisterProcessShutdownNotification {
     RegisterProcessShutdownNotification() {
-#if USE_PTHREAD
+#if USE_PTHREAD && __TBB_DYNAMIC_LOAD_ENABLED
         // prevents unloading, POSIX case
         dlopen(MALLOCLIB_NAME, RTLD_NOW);
 #endif

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,6 +31,7 @@
 
 #include "tbb_stddef.h"
 #include "tbb_machine.h"
+#include <climits>
 
 typedef struct ___itt_caller *__itt_caller;
 
@@ -117,11 +118,9 @@ namespace internal {
         //! Pure virtual destructor;
         //  Have to have it just to shut up overzealous compilation warnings
         virtual ~scheduler() = 0;
-#if __TBB_ARENA_PER_MASTER
 
         //! For internal use only
         virtual void enqueue( task& t, void* reserved ) = 0;
-#endif /* __TBB_ARENA_PER_MASTER */
     };
 
     //! A reference count
@@ -132,6 +131,8 @@ namespace internal {
     typedef unsigned short affinity_id;
 
 #if __TBB_TASK_GROUP_CONTEXT
+    class generic_scheduler;
+
     struct context_list_node_t {
         context_list_node_t *my_prev,
                             *my_next;
@@ -197,10 +198,20 @@ namespace internal {
             thread-specific pools. */
         scheduler* origin;
 
+#if TBB_PREVIEW_TASK_PRIORITY
+        union {
+#endif /* TBB_PREVIEW_TASK_PRIORITY */
         //! Obsolete. The scheduler that owns the task.
         /** Retained only for the sake of backward binary compatibility. 
             Still used by inline methods in the task.h header. **/
         scheduler* owner;
+
+#if TBB_PREVIEW_TASK_PRIORITY
+        //! Pointer to the next offloaded lower priority task.
+        /** Used to maintain a list of offloaded tasks inside the scheduler. **/
+        task* next_offloaded;
+        };
+#endif /* TBB_PREVIEW_TASK_PRIORITY */
 
         //! The task whose reference count includes me.
         /** In the "blocking style" of programming, this field points to the parent task.
@@ -246,6 +257,19 @@ namespace internal {
 
 #if __TBB_TASK_GROUP_CONTEXT
 
+#if TBB_PREVIEW_TASK_PRIORITY
+namespace internal {
+    static const int priority_stride_v4 = INT_MAX / 4;
+}
+
+enum priority_t {
+    priority_normal = internal::priority_stride_v4 * 2,
+    priority_low = priority_normal - internal::priority_stride_v4,
+    priority_high = priority_normal + internal::priority_stride_v4
+};
+
+#endif /* TBB_PREVIEW_TASK_PRIORITY */
+
 #if TBB_USE_CAPTURED_EXCEPTION
     class tbb_exception;
 #else
@@ -253,6 +277,8 @@ namespace internal {
         class tbb_exception_ptr;
     }
 #endif /* !TBB_USE_CAPTURED_EXCEPTION */
+
+class task_scheduler_init;
 
 //! Used to form groups of tasks 
 /** @ingroup task_scheduling 
@@ -277,6 +303,9 @@ namespace internal {
     appropriately. See also VERSIONING NOTE at the constructor definition below. **/
 class task_group_context : internal::no_copy {
 private:
+    friend class internal::generic_scheduler;
+    friend class task_scheduler_init;
+
 #if TBB_USE_CAPTURED_EXCEPTION
     typedef tbb_exception exception_container_type;
 #else
@@ -306,6 +335,10 @@ public:
     };
 
 private:
+    enum state {
+        may_have_children = 1
+    };
+
     union {
         //! Flavor of this context: bound or isolated.
         kind_type my_kind;
@@ -327,8 +360,8 @@ private:
     /** Read accesses to the field my_cancellation_requested are on the hot path inside
         the scheduler. This padding ensures that this field never shares the same cache 
         line with a local variable that is frequently written to. **/
-    char _leading_padding[internal::NFS_MaxLineSize - 
-                    2 * sizeof(uintptr_t)- sizeof(void*) - sizeof(internal::context_list_node_t)
+    char _leading_padding[internal::NFS_MaxLineSize
+                          - 2 * sizeof(uintptr_t)- sizeof(void*) - sizeof(internal::context_list_node_t)
                           - sizeof(__itt_caller)];
     
     //! Specifies whether cancellation was request for this task group.
@@ -343,22 +376,32 @@ private:
     //! Pointer to the container storing exception being propagated across this task group.
     exception_container_type *my_exception;
 
-    //! Scheduler that registered this context in its thread specific list.
-    /** This field is not terribly necessary, but it allows to get a small performance 
-        benefit by getting us rid of using thread local storage. We do not care 
-        about extra memory it takes since this data structure is excessively padded anyway. **/
-    void *my_owner;
+    //! Scheduler instance that registered this context in its thread specific list.
+    internal::generic_scheduler *my_owner;
+
+    //! Internal state (combination of state flags).
+    uintptr_t my_state;
+
+#if TBB_PREVIEW_TASK_PRIORITY
+    //! Priority level of the task group (in normalized representation)
+    intptr_t my_priority;
+#endif /* TBB_PREVIEW_TASK_PRIORITY */
 
     //! Trailing padding protecting accesses to frequently used members from false sharing
     /** \sa _leading_padding **/
-    char _trailing_padding[internal::NFS_MaxLineSize - sizeof(intptr_t) - 2 * sizeof(void*)];
+    char _trailing_padding[internal::NFS_MaxLineSize - 2 * sizeof(uintptr_t) - 2 * sizeof(void*)
+#if TBB_PREVIEW_TASK_PRIORITY
+                            - sizeof(intptr_t)
+#endif /* TBB_PREVIEW_TASK_PRIORITY */
+                          ];
 
 public:
     //! Default & binding constructor.
     /** By default a bound context is created. That is this context will be bound 
         (as child) to the context of the task calling task::allocate_root(this_context) 
         method. Cancellation requests passed to the parent context are propagated
-        to all the contexts bound to it.
+        to all the contexts bound to it. Similarly priority change is propagated
+        from the parent context to its children.
 
         If task_group_context::isolated is used as the argument, then the tasks associated
         with this context will never be affected by events in any other context.
@@ -424,6 +467,14 @@ public:
         of the scheduler's dispatch loop exception handler. **/
     void __TBB_EXPORTED_METHOD register_pending_exception ();
 
+#if TBB_PREVIEW_TASK_PRIORITY
+    //! Changes priority of the task grop 
+    void set_priority ( priority_t );
+
+    //! Retrieves current priority of the current task group
+    priority_t priority () const;
+#endif /* TBB_PREVIEW_TASK_PRIORITY */
+
 protected:
     //! Out-of-line part of the constructor. 
     /** Singled out to ensure backward binary compatibility of the future versions. **/
@@ -438,9 +489,20 @@ private:
     static const kind_type detached = kind_type(binding_completed+1);
     static const kind_type dying = kind_type(detached+1);
 
-    //! Checks if any of the ancestors has a cancellation request outstanding, 
-    //! and propagates it back to descendants.
-    void propagate_cancellation_from_ancestors ();
+    //! Propagates state change (if any) from an ancestor
+    /** Checks if one of this object's ancestors is in a new state, and propagates 
+        the new state to all its descendants in this object's heritage line. **/
+    template <typename T>
+    void propagate_state_from_ancestors ( T task_group_context::*mptr_state, T new_state );
+
+    //! Makes sure that the context is registered with a scheduler instance.
+    inline void finish_initialization ( internal::generic_scheduler *local_sched );
+
+    //! Registers this context with the local scheduler and binds it to its parent context
+    void bind_to ( internal::generic_scheduler *local_sched );
+
+    //! Registers this context with the local scheduler
+    void register_with ( internal::generic_scheduler *local_sched );
 
 }; // class task_group_context
 
@@ -635,13 +697,30 @@ public:
         prefix().owner->wait_for_all( *this, NULL );
     }
 
-#if __TBB_ARENA_PER_MASTER
     //! Enqueue task for starvation-resistant execution.
+#if TBB_PREVIEW_TASK_PRIORITY
+    /** The task will be enqueued on the normal priority level disregarding the
+        priority of its task group.
+        
+        The rationale of such semantics is that priority of an enqueued task is
+        statically fixed at the moment of its enqueuing, while task group priority
+        is dynamic. Thus automatic priority inheritance would be generally a subject
+        to the race, which may result in unexpected behavior. 
+        
+        Use enqueue() overload with explicit priority value and task::group_priority()
+        method to implement such priority inheritance when it is really necessary. **/
+#endif /* TBB_PREVIEW_TASK_PRIORITY */
     static void enqueue( task& t ) {
         t.prefix().owner->enqueue( t, NULL );
     }
 
-#endif /* __TBB_ARENA_PER_MASTER */
+#if TBB_PREVIEW_TASK_PRIORITY
+    //! Enqueue task for starvation-resistant execution on the specified priority level.
+    static void enqueue( task& t, priority_t p ) {
+        __TBB_ASSERT( p == priority_low || p == priority_normal || p == priority_high, "Invalid priority level value" );
+        t.prefix().owner->enqueue( t, (void*)p );
+    }
+#endif /* TBB_PREVIEW_TASK_PRIORITY */
 
     //! The innermost task being executed or destroyed by the current thread at the moment.
     static task& __TBB_EXPORTED_FUNC self();
@@ -650,8 +729,12 @@ public:
     task* parent() const {return prefix().parent;}
 
 #if __TBB_TASK_GROUP_CONTEXT
-    //! Shared context that is used to communicate asynchronous state changes
+    //! This method is deprecated and will be removed in the future.
+    /** Use method group() instead. **/
     task_group_context* context() {return prefix().context;}
+
+    //! Pointer to the task group descriptor.
+    task_group_context* group () { return prefix().context; }
 #endif /* __TBB_TASK_GROUP_CONTEXT */   
 
     //! True if task was stolen from the task pool of another thread.
@@ -700,13 +783,35 @@ public:
     virtual void __TBB_EXPORTED_METHOD note_affinity( affinity_id id );
 
 #if __TBB_TASK_GROUP_CONTEXT
+    //! Moves this task from its current group into another one.
+    /** Argument ctx specifies the new group.
+
+        The primary purpose of this method is to associate unique task group context
+        with a task allocated for subsequent enqueuing. In contrast to spawned tasks
+        enqueued ones normally outlive the scope where they were created. This makes
+        traditional usage model where task group context are allocated locally on
+        the stack inapplicable. Dynamic allocation of context objects is performance
+        inefficient. Method change_group() allows to make task group context object
+        a member of the task class, and then associate it with its containing task 
+        object in the latter's constructor. **/
+    void __TBB_EXPORTED_METHOD change_group ( task_group_context& ctx );
+
     //! Initiates cancellation of all tasks in this cancellation group and its subordinate groups.
     /** \return false if cancellation has already been requested, true otherwise. **/
     bool cancel_group_execution () { return prefix().context->cancel_group_execution(); }
 
-    //! Returns true if the context received cancellation request.
+    //! Returns true if the context has received cancellation request.
     bool is_cancelled () const { return prefix().context->is_group_execution_cancelled(); }
 #endif /* __TBB_TASK_GROUP_CONTEXT */
+
+#if TBB_PREVIEW_TASK_PRIORITY
+    //! Changes priority of the task group this task belongs to.
+    void set_group_priority ( priority_t p ) {  prefix().context->set_priority(p); }
+
+    //! Retrieves current priority of the task group this task belongs to.
+    priority_t group_priority () const { return prefix().context->priority(); }
+
+#endif /* TBB_PREVIEW_TASK_PRIORITY */
 
 private:
     friend class interface5::internal::task_base;

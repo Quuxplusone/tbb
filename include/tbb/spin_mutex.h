@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -46,7 +46,7 @@ namespace tbb {
     @ingroup synchronization */
 class spin_mutex {
     //! 0 if lock is released, 1 if lock is acquired.
-    unsigned char flag;
+    __TBB_Byte flag;
 
 public:
     //! Construct unacquired lock.
@@ -122,7 +122,7 @@ public:
 #if TBB_USE_THREADING_TOOLS||TBB_USE_ASSERT
             internal_release();
 #else
-            __TBB_store_with_release(my_mutex->flag, static_cast<unsigned char>(my_unlock_value));
+            __TBB_UnlockByte(my_mutex->flag, static_cast<__TBB_Byte>(my_unlock_value));
             my_mutex = NULL;
 #endif /* TBB_USE_THREADING_TOOLS||TBB_USE_ASSERT */
         }
@@ -133,7 +133,7 @@ public:
 #if TBB_USE_THREADING_TOOLS||TBB_USE_ASSERT
                 internal_release();
 #else
-                __TBB_store_with_release(my_mutex->flag, static_cast<unsigned char>(my_unlock_value));
+                __TBB_UnlockByte(my_mutex->flag, static_cast<__TBB_Byte>(my_unlock_value));
 #endif /* TBB_USE_THREADING_TOOLS||TBB_USE_ASSERT */
             }
         }

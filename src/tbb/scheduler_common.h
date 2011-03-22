@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,13 +35,28 @@
 
 #include "tbb_statistics.h"
 
+#if TBB_USE_ASSERT > 1
+#include <stdio.h>
+#endif /* TBB_USE_ASSERT > 1 */
+
 /* Temporarily change "private" to "public" while including "tbb/task.h".
    This hack allows us to avoid publishing internal types and methods
    in the public header files just for sake of friend declarations. */
-#define private public
+#ifndef private
+    #define private public
+    #define undef_private
+#endif
+
 #include "tbb/task.h"
 #include "tbb/tbb_exception.h"
-#undef private
+
+#ifdef undef_private
+    #undef private
+#endif
+
+#if __TBB_TASK_GROUP_CONTEXT
+#include "tbb/spin_mutex.h"
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 // This macro is an attempt to get rid of ugly ifdefs in the shared parts of the code. 
 // It drops the second argument depending on whether the controlling macro is defined. 
@@ -69,8 +84,42 @@
 namespace tbb {
 namespace internal {
 
-/** Defined in scheduler.cpp **/
-extern uintptr_t global_cancel_count;
+#if __TBB_TASK_PRIORITY
+static const intptr_t num_priority_levels = 3;
+static const intptr_t normalized_normal_priority = (num_priority_levels - 1) / 2;
+
+inline intptr_t normalize_priority ( priority_t p ) {
+    return intptr_t(p - priority_low) / priority_stride_v4;
+}
+
+static const priority_t priority_from_normalized_rep[num_priority_levels] = {
+    priority_low, priority_normal, priority_high
+};
+
+inline void assert_priority_valid ( intptr_t& p ) {
+    __TBB_ASSERT( p >= 0 && p < num_priority_levels, NULL );
+}
+
+inline intptr_t& priority ( task& t ) {
+    return t.prefix().context->my_priority;
+}
+#endif /* __TBB_TASK_PRIORITY */
+
+//! Task group state change propagation global epoch
+/** Together with generic_scheduler::my_context_state_propagation_epoch forms 
+    cross-thread signaling mechanism that allows to avoid locking at the hot path
+    of normal execution flow.
+
+    When a descendant task group context is registered or unregistered, the global 
+    and local epochs are compared. If they differ, a state change is being propagated,
+    and thus registration/deregistration routines take slower branch that may block
+    (at most one thread of the pool can be blocked at any moment). Otherwise the 
+    control path is lock-free and fast. **/
+extern uintptr_t the_context_state_propagation_epoch;
+
+//! Mutex guarding state change propagation across task groups forest.
+/** Also protects modification of related data structures. **/
+extern spin_mutex the_context_state_propagation_mutex;
 
 //! Alignment for a task object
 const size_t task_alignment = 16;
@@ -185,6 +234,48 @@ inline bool CancellationInfoPresent ( task& t ) {
         TbbRegisterCurrentException( context, captured_exception::allocate("...", "Unidentified exception") );\
     }
 #endif /* __TBB_TASK_GROUP_CONTEXT */
+
+//------------------------------------------------------------------------
+// arena_slot
+//------------------------------------------------------------------------
+
+struct arena_slot {
+    //! Scheduler of the thread attached to the slot
+    /** Marks the slot as busy, and is used to iterate through the schedulers belonging to this arena **/
+    generic_scheduler* my_scheduler;
+
+    // Task pool (the deque of task pointers) of the scheduler that owns this slot
+    /** Also is used to specify if the slot is empty or locked:
+         0 - empty
+        -1 - locked **/
+    task** task_pool;
+
+    //! Index of the first ready task in the deque.
+    /** Modified by thieves, and by the owner during compaction/reallocation **/
+    size_t head;
+
+    //! Padding to avoid false sharing caused by the thieves accessing this slot
+    char pad1[NFS_MaxLineSize - sizeof(size_t) - sizeof(task**) - sizeof(generic_scheduler*)];
+
+    //! Index of the element following the last ready task in the deque.
+    /** Modified by the owner thread. **/
+    size_t tail;
+
+    //! Hints provided for operations with the container of starvation-resistant tasks.
+    /** Modified by the owner thread (during these operations). **/
+    unsigned hint_for_push, hint_for_pop;
+
+#if __TBB_STATISTICS
+    //! Set of counters to accumulate internal statistics related to this arena
+    statistics_counters *my_counters;
+#endif /* __TBB_STATISTICS */
+    //! Padding to avoid false sharing caused by the thieves accessing the next slot
+    char pad2[NFS_MaxLineSize - sizeof(size_t) - 2*sizeof(unsigned)
+#if __TBB_STATISTICS
+              - sizeof(statistics_counters*)
+#endif /* __TBB_STATISTICS */
+             ];
+}; // class arena_slot
 
 } // namespace internal
 } // namespace tbb

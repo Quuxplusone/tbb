@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -45,19 +45,21 @@ namespace internal {
 /** The order of this vector elements must correspond to the statistics_counters 
     structure layout. **/
 const char* StatGroupTitles[] = { 
-    "task objects", "tasks executed", "stealing attempts", "task proxies", "arena", "market"
+    "task objects", "tasks executed", "stealing attempts", "task proxies", "arena", "market", "priority ops", "prio ops details"
 };
 
 //! Human readable titles of statistics elements defined by statistics_counters struct.
 /** The order of this vector elements must correspond to the statistics_counters 
     structure layout (with NULLs interspersed to separate groups). **/
 const char* StatFieldTitles[] = {
-    "active", "freed", "big", NULL,
-    "total", "w/o spawn", NULL,
-    "succeeded", "failed", "conflicts", NULL,
-    "mailed", "revoked", "stolen", "bypassed", "ignored", NULL,
-    "switches", "roundtrips", NULL,
-    "roundtrips", NULL,
+    /*task objects*/        "active", "freed", "big", NULL,
+    /*tasks executed*/      "total", "w/o spawn", NULL,
+    /*stealing attempts*/   "succeeded", "failed", "conflicts", "backoffs", NULL,
+    /*task proxies*/        "mailed", "revoked", "stolen", "bypassed", "ignored", NULL,
+    /*arena*/               "switches", "roundtrips", "avg.conc", "avg.allot", NULL,
+    /*market*/              "roundtrips", NULL,
+    /*priority ops*/        "ar.switch", "mkt.switch", "ar.reset", "ref.fixup", "avg.ar.pr", "avg.mkt.pr", NULL,
+    /*prio ops details*/    "winnows", "reloads", "orphaned", "winnowed", "reloaded", NULL
 };
 
 //! Class for logging statistics
@@ -92,6 +94,12 @@ public:
     void record( const statistics_counters& c, size_t id ) {
         spin_mutex::scoped_lock lock(my_mutex);
         counters_to_dump = &c;
+#if __TBB_STATISTICS_TOTALS_ONLY
+        if ( id == arena_counters_total ) {
+            dump( "%-*s", IDColumnWidth, "Tot" );
+            process_groups( &statistics_logger::print_field_values );
+        }
+#else /* !__TBB_STATISTICS_TOTALS_ONLY */
         const char* idString = NULL;
         switch ( id ) {
         case 0:
@@ -101,11 +109,12 @@ public:
         case arena_counters_total:
             idString = "Tot"; break;
         default:
-            dump( "W%-*u", IDColumnWidth - 1, id);
+            dump( "W%-*u", IDColumnWidth - 1, id );
         }
         if ( idString )
-            dump( "%-*s", IDColumnWidth, idString);
+            dump( "%-*s", IDColumnWidth, idString );
         process_groups( &statistics_logger::print_field_values );
+#endif /* !__TBB_STATISTICS_TOTALS_ONLY */
     }
 private:
     static const size_t IDColumnWidth = 5;
@@ -121,6 +130,9 @@ private:
     size_t group_start_field[NumGroups + 1];
     //! Currently processed set of counters.
     const statistics_counters* counters_to_dump;
+
+    static const size_t NumFields = sizeof(StatFieldTitles)/sizeof(*StatFieldTitles) - NumGroups;
+    bool averages_fields[NumFields];
 
     void dump ( char const* fmt, ... ) {
         va_list args;
@@ -150,15 +162,21 @@ private:
     void print_field_titles ( size_t group_idx ) {
         // +group_idx accounts for preceding NULL separators
         size_t i = group_start_field[group_idx] + group_idx;
-        while ( StatFieldTitles[i] )
+        while ( StatFieldTitles[i] ) {
+            averages_fields[i - group_idx] = strncmp(StatFieldTitles[i], "avg.", 4) == 0;
             dump( "%-*s ", StatisticsColumnWidth, StatFieldTitles[i++] );
+        }
     }
 
     void print_field_values ( size_t group_idx ) {
         size_t begin = group_start_field[group_idx],
                end = group_start_field[group_idx + 1];
-        for ( size_t i = begin; i < end; ++i )
-            dump( "%-*ld ", StatisticsColumnWidth, counters_to_dump->field(i) );
+        for ( size_t i = begin; i < end; ++i ) {
+            if ( averages_fields[i] )
+                dump( "%-*.2f ", StatisticsColumnWidth, (double)counters_to_dump->field(i)/counters_to_dump->tasks_executed );
+            else
+                dump( "%-*ld ", StatisticsColumnWidth, counters_to_dump->field(i) );
+        }
     }
 }; // class statistics_logger
 

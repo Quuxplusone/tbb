@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -41,7 +41,6 @@ namespace internal {
 
 class concurrent_queue_rep;
 class concurrent_queue_iterator_rep;
-class concurrent_queue_iterator_base;
 template<typename Container, typename Value> class concurrent_queue_iterator;
 
 //! For internal use only.
@@ -53,8 +52,14 @@ class concurrent_queue_base: no_copy {
 
     friend class concurrent_queue_rep;
     friend struct micro_queue;
+#ifdef __IBMCPP__ 
+    // In C++ 2003, friend micro_queue's rights do not extend to pop_finalizer's
+    // nested class member variable my_page. So, strictly speaking, this assumes C++0x.
+    friend class micro_queue::pop_finalizer;
+#endif
     friend class concurrent_queue_iterator_rep;
     friend class concurrent_queue_iterator_base;
+
 protected:
     //! Prefix on a page
     struct page {
@@ -99,7 +104,7 @@ protected:
 //! Type-independent portion of concurrent_queue_iterator.
 /** @ingroup containers */
 class concurrent_queue_iterator_base {
-    //! Concurrentconcurrent_queue over which we are iterating.
+    //! concurrent_queue over which we are iterating.
     /** NULL if one past last element in queue. */
     concurrent_queue_iterator_rep* my_rep;
 
@@ -240,7 +245,7 @@ public:
     typedef const T& const_reference;
 
     //! Integral type for representing size of the queue.
-    /** Notice that the size_type is a signed integral type.
+    /** Note that the size_type is a signed integral type.
         This is because the size can be negative if there are pending pops without corresponding pushes. */
     typedef std::ptrdiff_t size_type;
 

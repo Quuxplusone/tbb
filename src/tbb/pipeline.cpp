@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -31,6 +31,7 @@
 #include "tbb/cache_aligned_allocator.h"
 #include "itt_notify.h"
 #include "semaphore.h"
+#include "tls.h"  // for parallel filters that do not use NULL as end_of_input
 
 
 namespace tbb {
@@ -99,16 +100,23 @@ class input_buffer {
     //! True for thread-bound filter, false otherwise. 
     bool is_bound;
 
+    //! for parallel filters that accepts NULLs, thread-local flag for reaching end_of_input
+    typedef basic_tls<intptr_t> end_of_input_tls_t;
+    end_of_input_tls_t end_of_input_tls;
+    bool end_of_input_tls_allocated; // no way to test pthread creation of TLS
+
     void create_sema(size_t initial_tokens) { __TBB_ASSERT(!my_sem,NULL); my_sem = new internal::semaphore(initial_tokens); }
     void free_sema() { __TBB_ASSERT(my_sem,NULL); delete my_sem; }
     void sema_P() { __TBB_ASSERT(my_sem,NULL); my_sem->P(); }
     void sema_V() { __TBB_ASSERT(my_sem,NULL); my_sem->V(); }
+
 public:
     //! Construct empty buffer.
     input_buffer( bool is_ordered_, bool is_bound_ ) : 
             array(NULL), my_sem(NULL), array_size(0),
             low_token(0), high_token(0), 
-            is_ordered(is_ordered_), is_bound(is_bound_) {
+            is_ordered(is_ordered_), is_bound(is_bound_),
+            end_of_input_tls_allocated(false) {
         grow(initial_buffer_size);
         __TBB_ASSERT( array, NULL );
         if(is_bound) create_sema(0);
@@ -121,7 +129,9 @@ public:
         poison_pointer( array );
         if(my_sem) {
             free_sema();
-            my_sem = NULL;
+        }
+        if(end_of_input_tls_allocated) {
+            destroy_my_tls();
         }
     }
 
@@ -222,6 +232,12 @@ public:
 
     //! true if the current low_token is valid.
     bool has_item() { spin_mutex::scoped_lock lock(array_mutex); return array[low_token&(array_size -1)].is_valid; }
+
+    // end_of_input signal for parallel_pipeline, parallel input filters with 0 tokens allowed.
+    void create_my_tls() { int status = end_of_input_tls.create(); if(status) handle_perror(status, "TLS not allocated for filter"); end_of_input_tls_allocated = true; }
+    void destroy_my_tls() { int status = end_of_input_tls.destroy(); if(status) handle_perror(status, "Failed to destroy filter TLS"); }
+    bool my_tls_end_of_input() { return end_of_input_tls.get() != 0; }
+    void set_my_tls_end_of_input() { end_of_input_tls.set(1); }
 };
 
 void input_buffer::grow( size_type minimum_size ) {
@@ -300,7 +316,8 @@ task* stage_task::execute() {
     if( my_at_start ) {
         if( my_filter->is_serial() ) {
             my_object = (*my_filter)(my_object);
-            if( my_object ) {
+            if( my_object || ( my_filter->object_may_be_null() && !my_pipeline.end_of_input) ) 
+            {
                 if( my_filter->is_ordered() ) {
                     my_token = my_pipeline.token_counter++; // ideally, with relaxed semantics
                     my_token_ready = true;
@@ -331,7 +348,8 @@ task* stage_task::execute() {
             if( --my_pipeline.input_tokens>0 )
                 spawn( *new( allocate_additional_child_of(*parent()) ) stage_task( my_pipeline ) );
             my_object = (*my_filter)(my_object);
-            if( !my_object ) {
+            if( !my_object && (!my_filter->object_may_be_null() || my_filter->my_input_buffer->my_tls_end_of_input()) )
+            { 
                 my_pipeline.end_of_input = true; 
                 if( (my_filter->my_filter_mode & my_filter->version_mask) >= __TBB_PIPELINE_VERSION(5) ) {
                     if( my_pipeline.has_thread_bound_filters )
@@ -573,9 +591,20 @@ void pipeline::add_filter( filter& filter_ ) {
                 has_thread_bound_filters = true;
             filter_.my_input_buffer = new internal::input_buffer( filter_.is_ordered(), filter_.is_bound() );
         }
-        else {
-            if( filter_.prev_filter_in_pipeline && filter_.prev_filter_in_pipeline->is_bound() )
-                filter_.my_input_buffer = new internal::input_buffer( false, false );
+        else { 
+            if(filter_.prev_filter_in_pipeline) {
+                if(filter_.prev_filter_in_pipeline->is_bound()) {
+                    // successors to bound filters must have an input_buffer
+                    filter_.my_input_buffer = new internal::input_buffer( /*is_ordered*/false, false );
+                }
+            }
+            else {  // input filter
+                if(filter_.object_may_be_null() ) {
+                    //TODO: buffer only needed to hold TLS; could improve
+                    filter_.my_input_buffer = new internal::input_buffer( /*is_ordered*/false, false );
+                    filter_.my_input_buffer->create_my_tls();
+                }
+            }
         }
     } else {
         if( filter_.is_serial() ) {
@@ -674,6 +703,19 @@ filter::~filter() {
             __TBB_ASSERT( prev_filter_in_pipeline == filter::not_in_pipeline(), "probably filter list is broken" );
     } else {
         __TBB_ASSERT( next_filter_in_pipeline==filter::not_in_pipeline(), "cannot destroy filter that is part of pipeline" );
+    }
+}
+
+void
+filter::set_end_of_input() {
+    __TBB_ASSERT(my_input_buffer, NULL);
+    __TBB_ASSERT(object_may_be_null(), NULL);
+    if(is_serial()) {
+        my_pipeline->end_of_input = true;
+    }
+    else {
+        __TBB_ASSERT(my_input_buffer->end_of_input_tls_allocated, NULL);
+        my_input_buffer->set_my_tls_end_of_input();
     }
 }
 

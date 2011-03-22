@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -136,7 +136,7 @@ static void (WINAPI *__TBB_condvar_notify_one)( PCONDITION_VARIABLE ) = (void (W
 static void (WINAPI *__TBB_condvar_notify_all)( PCONDITION_VARIABLE ) = (void (WINAPI *)(PCONDITION_VARIABLE))&wake_all_condition_variable_using_event;
 static void (WINAPI *__TBB_destroy_condvar)( PCONDITION_VARIABLE ) = (void (WINAPI *)(PCONDITION_VARIABLE))&destroy_condvar_using_event;
 
-//! Table describing the how to link the handlers.
+//! Table describing how to link the handlers.
 static const dynamic_link_descriptor CondVarLinkTable[] = {
     DLD(InitializeConditionVariable, __TBB_init_condvar),
     DLD(SleepConditionVariableCS,    __TBB_condvar_wait),

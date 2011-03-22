@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -87,13 +87,29 @@ const unsigned int startupAllocObjSizeMark = ~(unsigned int)0;
 const uint32_t numBlockBinLimit = 31;
 
 /*
+ * Best estimate of cache line size, for the purpose of avoiding false sharing.
+ * Too high causes memory overhead, too low causes false-sharing overhead.
+ * Because, e.g., 32-bit code might run on a 64-bit system with a larger cache line size,
+ * it would probably be better to probe at runtime where possible and/or allow for an environment variable override,
+ * but currently this is still used for compile-time layout of class Block, so the change is not entirely trivial.
+ */
+#if __powerpc64__ || __ppc64__ || __bgp__
+const int estimatedCacheLineSize = 128;
+#else
+const int estimatedCacheLineSize =  64;
+#endif
+
+/*
  * The following constant is used to define the size of struct Block, the block header.
  * The intent is to have the size of a Block multiple of the cache line size, this allows us to
  * get good alignment at the cost of some overhead equal to the amount of padding included in the Block.
  */
+const int blockHeaderAlignment = estimatedCacheLineSize;
 
-const int blockHeaderAlignment = 64; // a common size of a cache line
-
+/*
+ * Alignment of large (>= minLargeObjectSize) objects.
+ */
+const int largeObjectAlignment = estimatedCacheLineSize;
 
 /********* The data structures and global objects        **************/
 
@@ -284,21 +300,22 @@ const uint32_t numSegregatedObjectBins = 16;
 const uint32_t maxSegregatedObjectSize = 1024;
 
 /*
- * And there are 5 bins with the following allocation sizes: 1792, 2688, 3968, 5376, 8064.
- * They selected to fit 9, 6, 4, 3, and 2 sizes per a block, and also are multiples of 128.
- * If sizeof(Block) changes from 128, these sizes require close attention!
+ * And there are 5 bins with allocation sizes that are multiples of estimatedCacheLineSize
+ * and selected to fit 9, 6, 4, 3, and 2 allocations in a block.
  */
 const uint32_t minFittingIndex = minSegregatedObjectIndex+numSegregatedObjectBins;
 const uint32_t numFittingBins = 5;
 
-const uint32_t fittingAlignment = 128;
+const uint32_t fittingAlignment = estimatedCacheLineSize;
 
 #define SET_FITTING_SIZE(N) ( (blockSize-sizeof(Block))/N ) & ~(fittingAlignment-1)
-const uint32_t fittingSize1 = SET_FITTING_SIZE(9);
-const uint32_t fittingSize2 = SET_FITTING_SIZE(6);
-const uint32_t fittingSize3 = SET_FITTING_SIZE(4);
-const uint32_t fittingSize4 = SET_FITTING_SIZE(3);
-const uint32_t fittingSize5 = SET_FITTING_SIZE(2);
+// For blockSize=16*1024, sizeof(Block)=2*estimatedCacheLineSize and fittingAlignment=estimatedCacheLineSize,
+// the comments show the fitting sizes and the amounts left unused for estimatedCacheLineSize=64/128:
+const uint32_t fittingSize1 = SET_FITTING_SIZE(9); // 1792/1792 128/000
+const uint32_t fittingSize2 = SET_FITTING_SIZE(6); // 2688/2688 128/000
+const uint32_t fittingSize3 = SET_FITTING_SIZE(4); // 4032/3968 128/256
+const uint32_t fittingSize4 = SET_FITTING_SIZE(3); // 5376/5376 128/000
+const uint32_t fittingSize5 = SET_FITTING_SIZE(2); // 8128/8064 000/000
 #undef SET_FITTING_SIZE
 
 /*
@@ -412,6 +429,7 @@ ALWAYSINLINE( bool isMallocInitialized() );
  * Given a number return the highest non-zero bit in it. It is intended to work with 32-bit values only.
  * Moreover, on IPF, for sake of simplicity and performance, it is narrowed to only serve for 64 to 1023.
  * This is enough for current algorithm of distribution of sizes among bins.
+ * __TBB_Log2 is not used here to minimize dependencies on TBB specific sources.
  */
 #if _WIN64 && _MSC_VER>=1400 && !__INTEL_COMPILER
 extern "C" unsigned char _BitScanReverse( unsigned long* i, unsigned long w );
@@ -419,10 +437,11 @@ extern "C" unsigned char _BitScanReverse( unsigned long* i, unsigned long w );
 #endif
 static inline unsigned int highestBitPos(unsigned int n)
 {
+    MALLOC_ASSERT( n>=64 && n<1024, ASSERT_TEXT ); // only needed for bsr array lookup, but always true
     unsigned int pos;
 #if __ARCH_x86_32||__ARCH_x86_64
 
-# if __linux__||__APPLE__||__FreeBSD__||__sun||__MINGW32__
+# if __linux__||__APPLE__||__FreeBSD__||__NetBSD__||__sun||__MINGW32__
     __asm__ ("bsr %1,%0" : "=r"(pos) : "r"(n));
 # elif (_WIN32 && (!_WIN64 || __INTEL_COMPILER))
     __asm
@@ -436,12 +455,9 @@ static inline unsigned int highestBitPos(unsigned int n)
 #   error highestBitPos() not implemented for this platform
 # endif
 
-#elif __ARCH_ipf || __ARCH_other
-    static unsigned int bsr[16] = {0,6,7,7,8,8,8,8,9,9,9,9,9,9,9,9};
-    MALLOC_ASSERT( n>=64 && n<1024, ASSERT_TEXT );
-    pos = bsr[ n>>6 ];
 #else
-#   error highestBitPos() not implemented for this platform
+    static unsigned int bsr[16] = {0/*N/A*/,6,7,7,8,8,8,8,9,9,9,9,9,9,9,9};
+    pos = bsr[ n>>6 ];
 #endif /* __ARCH_* */
     return pos;
 }
@@ -1445,9 +1461,11 @@ void Bin::processLessUsedBlock(Block *block)
  *  1. if both request size and alignment are <= maxSegregatedObjectSize,
  *       we just align the size up, and request this amount, because for every size
  *       aligned to some power of 2, the allocated object is at least that aligned.
- * 2. for bigger size, check if already guaranteed fittingAlignment is enough.
+ * 2. for size<minLargeObjectSize, check if already guaranteed fittingAlignment is enough.
  * 3. if size+alignment<minLargeObjectSize, we take an object of fittingSizeN and align
  *       its address up; given such pointer, scalable_free could find the real object.
+ *       Wrapping of size+alignment is impossible because maximal allowed
+ *       alignment plus minLargeObjectSize can't lead to wrapping.
  * 4. otherwise, aligned large object is allocated.
  */
 static void *allocateAligned(size_t size, size_t alignment)
@@ -1457,13 +1475,17 @@ static void *allocateAligned(size_t size, size_t alignment)
     void *result;
     if (size<=maxSegregatedObjectSize && alignment<=maxSegregatedObjectSize)
         result = internalMalloc(alignUp(size? size: sizeof(size_t), alignment));
-    else if (size<minLargeObjectSize && alignment<=fittingAlignment)
-        result = internalMalloc(size);
-    else if (size+alignment < minLargeObjectSize) {
-        void *unaligned = internalMalloc(size+alignment);
-        if (!unaligned) return NULL;
-        result = alignUp(unaligned, alignment);
+    else if (size<minLargeObjectSize) {
+        if (alignment<=fittingAlignment)
+            result = internalMalloc(size);
+        else if (size+alignment < minLargeObjectSize) {
+            void *unaligned = internalMalloc(size+alignment);
+            if (!unaligned) return NULL;
+            result = alignUp(unaligned, alignment);
+        } else
+            goto LargeObjAlloc;
     } else {
+    LargeObjAlloc:
         /* This can be the first allocation call. */
         if (!isMallocInitialized())
             doInitialization();
@@ -1518,7 +1540,7 @@ FreeObject *Block::findAllocatedObject(const void *address) const
 {
     // calculate offset from the end of the block space
     uintptr_t offset = (uintptr_t)this + blockSize - (uintptr_t)address;
-    MALLOC_ASSERT( offset<blockSize-sizeof(Block), ASSERT_TEXT );
+    MALLOC_ASSERT( offset<=blockSize-sizeof(Block), ASSERT_TEXT );
     // find offset difference from a multiple of allocation size
     offset %= objectSize;
     // and move the address down to where the real object starts.

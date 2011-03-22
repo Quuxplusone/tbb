@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -45,21 +45,14 @@ static const char _pad[NFS_MaxLineSize - sizeof(int)] = {};
 //------------------------------------------------------------------------
 // governor data
 basic_tls<generic_scheduler*> governor::theTLS;
-#if !__TBB_ARENA_PER_MASTER
-arena* governor::theArena;
-mutex  governor::theArenaMutex;
-unsigned governor::NumWorkers;
-#endif /* !__TBB_ARENA_PER_MASTER */
 unsigned governor::DefaultNumberOfThreads;
 rml::tbb_factory governor::theRMLServerFactory;
 bool governor::UsePrivateRML;
 
-#if __TBB_ARENA_PER_MASTER
 //------------------------------------------------------------------------
 // market data
 market* market::theMarket;
 market::global_market_mutex_type market::theMarketMutex;
-#endif /* __TBB_ARENA_PER_MASTER */
 
 //------------------------------------------------------------------------
 // One time initialization data
@@ -77,7 +70,7 @@ bool __TBB_InitOnce::InitializationDone;
     static bool ITT_InitializationDone;
 #endif
 
-#if !(_WIN32||_WIN64) || __TBB_TASK_CPP_DIRECTLY_INCLUDED
+#if !(_WIN32||_WIN64) || !__TBB_DYNAMIC_LOAD_ENABLED
     static __TBB_InitOnce __TBB_InitOnceHiddenInstance;
 #endif
 
@@ -144,11 +137,6 @@ void __TBB_InitOnce::remove_ref() {
 //! Defined in cache_aligned_allocator.cpp
 void initialize_cache_aligned_allocator();
 
-#if __TBB_SURVIVE_THREAD_SWITCH
-//! Defined in governor.cpp
-void initialize_survive_thread_switch();
-#endif /* __TBB_SURVIVE_THREAD_SWITCH */
-
 //! Defined in scheduler.cpp
 void Scheduler_OneTimeInitialization ( bool itt_present );
 
@@ -160,11 +148,7 @@ void ITT_DoUnsafeOneTimeInitialization () {
     if ( !ITT_InitializationDone ) {
         ITT_Present = (__TBB_load_ittnotify()!=0);
         ITT_InitializationDone = true;
-#if __TBB_ARENA_PER_MASTER
         ITT_SYNC_CREATE(&market::theMarketMutex, SyncType_GlobalLock, SyncObj_SchedulerInitialization);
-#else /* !__TBB_ARENA_PER_MASTER */
-        ITT_SYNC_CREATE(&governor::theArenaMutex, SyncType_GlobalLock, SyncObj_SchedulerInitialization);
-#endif /* !__TBB_ARENA_PER_MASTER */
     }
 }
 
@@ -192,9 +176,6 @@ void DoOneTimeInitializations() {
         itt_present = ITT_Present;
 #endif /* DO_ITT_NOTIFY */
         initialize_cache_aligned_allocator();
-#if __TBB_SURVIVE_THREAD_SWITCH
-        initialize_survive_thread_switch();
-#endif /* __TBB_SURVIVE_THREAD_SWITCH */
         Scheduler_OneTimeInitialization( itt_present );
         // Force processor groups support detection
         governor::default_num_threads();
@@ -206,7 +187,7 @@ void DoOneTimeInitializations() {
     __TBB_InitOnce::unlock();
 }
 
-#if (_WIN32||_WIN64) && !__TBB_TASK_CPP_DIRECTLY_INCLUDED
+#if (_WIN32||_WIN64) && __TBB_DYNAMIC_LOAD_ENABLED
 //! Windows "DllMain" that handles startup and shutdown of dynamic library.
 extern "C" bool WINAPI DllMain( HANDLE /*hinstDLL*/, DWORD reason, LPVOID /*lpvReserved*/ ) {
     switch( reason ) {
@@ -228,7 +209,7 @@ extern "C" bool WINAPI DllMain( HANDLE /*hinstDLL*/, DWORD reason, LPVOID /*lpvR
     }
     return true;
 }
-#endif /* (_WIN32||_WIN64) && !__TBB_TASK_CPP_DIRECTLY_INCLUDED */
+#endif /* (_WIN32||_WIN64) && __TBB_DYNAMIC_LOAD_ENABLED */
 
 void itt_store_pointer_with_release_v3( void* dst, void* src ) {
     ITT_NOTIFY(sync_releasing, dst);
@@ -251,7 +232,7 @@ void call_itt_notify_v5(int t, void *ptr) {
     }
 }
 #else
-void call_itt_notify_v5(int /*t*/, void */*ptr*/) {}
+void call_itt_notify_v5(int /*t*/, void* /*ptr*/) {}
 #endif
 
 void* itt_load_pointer_v3( const void* src ) {

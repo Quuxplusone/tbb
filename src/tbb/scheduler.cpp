@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,7 +35,6 @@
 #include "arena.h"
 #include "mailbox.h"
 #include "observer_proxy.h"
-#include "itt_notify.h"
 
 namespace tbb {
 namespace internal {
@@ -48,24 +47,9 @@ inline generic_scheduler* allocate_scheduler ( arena* a, size_t index ) {
 }
 
 #if __TBB_TASK_GROUP_CONTEXT
-#if !__TBB_ARENA_PER_MASTER
-//! Head of the list of master thread schedulers.
-static scheduler_list_node_t the_scheduler_list_head;
+spin_mutex the_context_state_propagation_mutex;
 
-//! Mutex protecting access to the list of schedulers.
-static mutex the_scheduler_list_mutex;
-#endif /* !__TBB_ARENA_PER_MASTER */
-
-//! Counter that is incremented whenever new cancellation signal is sent to a task group.
-/** Together with generic_scheduler::local_cancel_count forms cross-thread signaling
-    mechanism that allows to avoid locking at the hot path of normal execution flow.
-
-    When a descendant task group context is being registered or unregistered,
-    the global and local counters are compared. If they differ, it means that 
-    a cancellation signal is being propagated, and registration/deregistration
-    routines take slower branch that may block (at most one thread of the pool
-    can be blocked at any moment). Otherwise the control path is lock-free and fast. **/
-uintptr_t global_cancel_count = 0;
+uintptr_t the_context_state_propagation_epoch = 0;
 
 //! Context to be associated with dummy tasks of worker threads schedulers.
 /** It is never used for its direct purpose, and is introduced solely for the sake 
@@ -76,11 +60,11 @@ static task_group_context dummy_context(task_group_context::isolated);
 void Scheduler_OneTimeInitialization ( bool itt_present ) {
     AllocateSchedulerPtr = itt_present ? &custom_scheduler<DefaultSchedulerTraits>::allocate_scheduler :
                                       &custom_scheduler<IntelSchedulerTraits>::allocate_scheduler;
-#if __TBB_TASK_GROUP_CONTEXT && !__TBB_ARENA_PER_MASTER
-    ITT_SYNC_CREATE(&the_scheduler_list_mutex, SyncType_GlobalLock, SyncObj_SchedulersList);
-    the_scheduler_list_head.my_next = &the_scheduler_list_head;
-    the_scheduler_list_head.my_prev = &the_scheduler_list_head;
-#endif /* __TBB_TASK_GROUP_CONTEXT && !__TBB_ARENA_PER_MASTER */
+#if __TBB_TASK_GROUP_CONTEXT && __TBB_TASK_PRIORITY
+    // There are no tasks belonging to this fake task group. So it should never
+    // prevent tasks from being passed to execution.
+    dummy_context.my_priority = num_priority_levels - 1;
+#endif /* __TBB_TASK_GROUP_CONTEXT && __TBB_TASK_PRIORITY */
 }
 
 //------------------------------------------------------------------------
@@ -101,50 +85,60 @@ scheduler::~scheduler( ) {}
     #pragma warning(disable:4355)
 #endif
 
-generic_scheduler::generic_scheduler( arena* a, size_t index ) :
-    my_stealing_threshold(0),
-    arena_index(index),
-    task_pool_size(0),
-    my_arena_slot(&dummy_slot),
-#if __TBB_ARENA_PER_MASTER
-    my_market(NULL),
-#endif /* __TBB_ARENA_PER_MASTER */
-    my_arena(a),
-    random( unsigned(this-(generic_scheduler*)NULL) ),
-    free_list(NULL),
-    innermost_running_task(NULL),
-    dummy_task(NULL),
-    ref_count(1),
-    my_affinity_id(0),
-    is_registered(false),
-    is_auto_initialized(false),
+generic_scheduler::generic_scheduler( arena* a, size_t index )
+    : my_stealing_threshold(0)
+    , my_arena_index(index)
+    , my_task_pool_size(0)
+    , my_arena_slot(&my_dummy_slot)
+    , my_market(NULL)
+    , my_arena(a)
+    , my_random( unsigned(this-(generic_scheduler*)NULL) )
+    , my_free_list(NULL)
+    , my_innermost_running_task(NULL)
+    , my_dummy_task(NULL)
+    , my_ref_count(1)
+    , my_affinity_id(0)
+    , my_registered(false)
+    , my_auto_initialized(false)
 #if __TBB_SCHEDULER_OBSERVER
-    local_last_observer_proxy(NULL),
+    , my_local_last_observer_proxy(NULL)
 #endif /* __TBB_SCHEDULER_OBSERVER */
 #if __TBB_COUNT_TASK_NODES
-    task_node_count(0),
+    , my_task_node_count(0)
 #endif /* __TBB_COUNT_TASK_NODES */
-    small_task_count(1),   // Extra 1 is a guard reference
-    return_list(NULL),
+    , my_small_task_count(1)   // Extra 1 is a guard reference
+    , my_return_list(NULL)
 #if __TBB_TASK_GROUP_CONTEXT
-    local_ctx_list_update(0),
-    nonlocal_ctx_list_update(0)
+    , my_local_ctx_list_update(0)
+#endif /* __TBB_TASK_GROUP_CONTEXT */
+#if __TBB_TASK_PRIORITY
+    , my_dispatching_task(NULL)
+    , my_ref_top_priority(NULL)
+    , my_offloaded_tasks(NULL)
+    , my_offloaded_task_list_tail_link(NULL)
+    , my_ref_reload_epoch(NULL)
+    , my_local_reload_epoch(0)
+    , my_pool_reshuffling_pending(false)
+#endif /* __TBB_TASK_PRIORITY */
+#if __TBB_TASK_GROUP_CONTEXT
+    , my_nonlocal_ctx_list_update(0)
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 #if __TBB_SURVIVE_THREAD_SWITCH && TBB_USE_ASSERT
-   ,my_cilk_state(cs_none)
+    , my_cilk_state(cs_none)
 #endif /* __TBB_SURVIVE_THREAD_SWITCH && TBB_USE_ASSERT */
 {
-    dummy_slot.task_pool = allocate_task_pool( min_task_pool_size );
-    dummy_slot.head = dummy_slot.tail = 0;
-    dummy_task = &allocate_task( sizeof(task), __TBB_CONTEXT_ARG(NULL, NULL) );
+    my_dummy_slot.task_pool = allocate_task_pool(min_task_pool_size);
+    __TBB_ASSERT( my_task_pool_size == min_task_pool_size, NULL );
+    my_dummy_slot.head = my_dummy_slot.tail = 0;
+    my_dummy_task = &allocate_task( sizeof(task), __TBB_CONTEXT_ARG(NULL, NULL) );
 #if __TBB_TASK_GROUP_CONTEXT
-    context_list_head.my_prev = &context_list_head;
-    context_list_head.my_next = &context_list_head;
-    ITT_SYNC_CREATE(&context_list_mutex, SyncType_Scheduler, SyncObj_ContextsList);
+    my_context_list_head.my_prev = &my_context_list_head;
+    my_context_list_head.my_next = &my_context_list_head;
+    ITT_SYNC_CREATE(&my_context_list_mutex, SyncType_Scheduler, SyncObj_ContextsList);
 #endif /* __TBB_TASK_GROUP_CONTEXT */
-    dummy_task->prefix().ref_count = 2;
-    ITT_SYNC_CREATE(&dummy_task->prefix().ref_count, SyncType_Scheduler, SyncObj_WorkerLifeCycleMgmt);
-    ITT_SYNC_CREATE(&return_list, SyncType_Scheduler, SyncObj_TaskReturnList);
+    my_dummy_task->prefix().ref_count = 2;
+    ITT_SYNC_CREATE(&my_dummy_task->prefix().ref_count, SyncType_Scheduler, SyncObj_WorkerLifeCycleMgmt);
+    ITT_SYNC_CREATE(&my_return_list, SyncType_Scheduler, SyncObj_TaskReturnList);
     assert_task_pool_valid();
 #if __TBB_SURVIVE_THREAD_SWITCH
     my_cilk_unwatch_thunk.routine = NULL;
@@ -156,10 +150,10 @@ generic_scheduler::generic_scheduler( arena* a, size_t index ) :
 #endif // warning 4355 is back
 
 #if TBB_USE_ASSERT > 1
-bool generic_scheduler::assert_task_pool_valid() const {
+void generic_scheduler::assert_task_pool_valid() const {
     acquire_task_pool();
-    task** tp = dummy_slot.task_pool;
-    __TBB_ASSERT( task_pool_size >= min_task_pool_size, NULL );
+    task** tp = my_dummy_slot.task_pool;
+    __TBB_ASSERT( my_task_pool_size >= min_task_pool_size, NULL );
     __TBB_ASSERT( my_arena_slot->head <= my_arena_slot->tail, NULL );
     for ( size_t i = 0; i < my_arena_slot->head; ++i )
         __TBB_ASSERT( tp[i] == poisoned_ptr, "Task pool corrupted" );
@@ -168,77 +162,22 @@ bool generic_scheduler::assert_task_pool_valid() const {
         __TBB_ASSERT( tp[i]->prefix().state == task::ready ||
                       tp[i]->prefix().extra_state == es_task_proxy, "task in the deque has invalid state" );
     }
-    for ( size_t i = my_arena_slot->tail; i < task_pool_size; ++i )
+    for ( size_t i = my_arena_slot->tail; i < my_task_pool_size; ++i )
         __TBB_ASSERT( tp[i] == poisoned_ptr, "Task pool corrupted" );
     release_task_pool();
 }
+
+void generic_scheduler::fill_with_canary_pattern ( task** task_pool, size_t first, size_t last ) {
+    for ( size_t i = first; i < last; ++i )
+        poison_pointer(task_pool[i]);
+}
 #endif /* TBB_USE_ASSERT > 1 */
-
-#if __TBB_TASK_GROUP_CONTEXT
-void generic_scheduler::propagate_cancellation () {
-    spin_mutex::scoped_lock lock(context_list_mutex);
-    // Acquire fence is necessary to ensure that the subsequent node->my_next load 
-    // returned the correct value in case it was just inserted in another thread.
-    // The fence also ensures visibility of the correct my_parent value.
-    context_list_node_t *node = __TBB_load_with_acquire(context_list_head.my_next);
-    while ( node != &context_list_head ) {
-        task_group_context &ctx = __TBB_get_object_ref(task_group_context, my_node, node);
-            // The absence of acquire fence while reading my_cancellation_requested may result 
-            // in repeated traversals of the same parents chain if another group (precedent or 
-            // descendant) belonging to the tree being canceled sends cancellation request of 
-            // its own around the same time.
-        if ( !ctx.my_cancellation_requested )
-            ctx.propagate_cancellation_from_ancestors();
-        node = node->my_next;
-        __TBB_ASSERT( is_alive(ctx.my_version_and_traits), "Walked into a destroyed context while propagating cancellation" );
-    }
-    // Sync up local cancelation epoch with the global one. Release fence prevents 
-    // reordering of possible store to my_cancellation_requested after the sync point.
-    __TBB_store_with_release(local_cancel_count, global_cancel_count);
-}
-
-#if !__TBB_ARENA_PER_MASTER
-/** Propagates cancellation down the tree of dependent contexts by walking each 
-    thread's local list of contexts **/
-void generic_scheduler::propagate_cancellation ( task_group_context& ctx ) {
-    __TBB_ASSERT ( ctx.my_cancellation_requested, "No cancellation request in the context" );
-    // The whole propagation algorithm is under the lock in order to ensure correctness 
-    // in case of parallel cancellations at the different levels of the context tree.
-    // See the note 2 at the bottom of the file.
-    mutex::scoped_lock lock(the_scheduler_list_mutex);
-    // Advance global cancellation state
-    __TBB_FetchAndAddWrelease(&global_cancel_count, 1);
-    // First propagate to workers using arena to access their context lists
-    size_t num_workers = my_arena->prefix().number_of_workers;
-    for ( size_t i = 0; i < num_workers; ++i ) {
-        // No fence is necessary here since the context list of worker's scheduler 
-        // can contain anything of interest only after the first stealing was done
-        // by that worker. And doing it applies the necessary fence
-        generic_scheduler *s = my_arena->prefix().worker_list[i].scheduler;
-        // If the worker is in the middle of its startup sequence, skip it.
-        if ( s )
-            s->propagate_cancellation();
-    }
-    // Then propagate to masters using the global list of master's schedulers
-    scheduler_list_node_t *node = the_scheduler_list_head.my_next;
-    while ( node != &the_scheduler_list_head ) {
-        __TBB_get_object_ref(generic_scheduler, my_node, node).propagate_cancellation();
-        node = node->my_next;
-    }
-}
-#endif /* !__TBB_ARENA_PER_MASTER */
-#endif /* __TBB_TASK_GROUP_CONTEXT */
-
 
 void generic_scheduler::init_stack_info () {
     // Stacks are growing top-down. Highest address is called "stack base", 
     // and the lowest is "stack limit".
-#if __TBB_ARENA_PER_MASTER
     __TBB_ASSERT( !my_stealing_threshold, "Stealing threshold has already been calculated" );
     size_t  stack_size = my_market->worker_stack_size();
-#else /* !__TBB_ARENA_PER_MASTER */
-    size_t  stack_size = my_arena->prefix().stack_size;
-#endif /* !__TBB_ARENA_PER_MASTER */
 #if USE_WINTHREAD
 #if defined(_MSC_VER)&&_MSC_VER<1400 && !_WIN64
     NT_TIB  *pteb = (NT_TIB*)__TBB_machine_get_current_teb();
@@ -271,6 +210,11 @@ void generic_scheduler::init_stack_info () {
     size_t  np_stack_size = 0;
     void    *stack_limit = NULL;
     pthread_attr_t  attr_stack, np_attr_stack;
+    #if __bgp__
+    // Workaround pthread_attr_init() before pthread_getattr_np() prevents subsequent abort() in pthread_attr_destroy() when
+    // freeing an erroneously invalid pointer value for cpuset (refers to the implementation of opaque type pthread_attr_t).
+    if( 0 == pthread_attr_init(&np_attr_stack) )
+    #endif
     if( 0 == pthread_getattr_np(pthread_self(), &np_attr_stack) ) {
         if ( 0 == pthread_attr_getstack(&np_attr_stack, &stack_limit, &np_stack_size) ) {
             if ( 0 == pthread_attr_init(&attr_stack) ) {
@@ -313,21 +257,21 @@ void generic_scheduler::init_stack_info () {
 void generic_scheduler::cleanup_local_context_list () {
     // Detach contexts remaining in the local list
     bool wait_for_concurrent_destroyers_to_leave = false;
-    uintptr_t local_count_snapshot = local_cancel_count;
-    local_ctx_list_update = 1;
+    uintptr_t local_count_snapshot = my_context_state_propagation_epoch;
+    my_local_ctx_list_update = 1;
     {
         // This is just a definition. Actual lock is acquired only in case of conflict.
         spin_mutex::scoped_lock lock;
-        // Full fence prevents reordering of store to local_ctx_list_update with 
-        // load from nonlocal_ctx_list_update.
+        // Full fence prevents reordering of store to my_local_ctx_list_update with 
+        // load from my_nonlocal_ctx_list_update.
         atomic_fence();
         // Check for the conflict with concurrent destroyer or cancelation propagator
-        if ( nonlocal_ctx_list_update || local_count_snapshot != global_cancel_count )
-            lock.acquire(context_list_mutex);
-        // No acquire fence is necessary for loading context_list_head.my_next,
+        if ( my_nonlocal_ctx_list_update || local_count_snapshot != the_context_state_propagation_epoch )
+            lock.acquire(my_context_list_mutex);
+        // No acquire fence is necessary for loading my_context_list_head.my_next,
         // as the list can be updated by this thread only.
-        context_list_node_t *node = context_list_head.my_next;
-        while ( node != &context_list_head ) {
+        context_list_node_t *node = my_context_list_head.my_next;
+        while ( node != &my_context_list_head ) {
             task_group_context &ctx = __TBB_get_object_ref(task_group_context, my_node, node);
             __TBB_ASSERT( ctx.my_kind != task_group_context::binding_required, "Only a context bound to a root task can be detached" );
             node = node->my_next;
@@ -338,10 +282,10 @@ void generic_scheduler::cleanup_local_context_list () {
                 wait_for_concurrent_destroyers_to_leave = true;
         }
     }
-    __TBB_store_with_release( local_ctx_list_update, 0 );
+    __TBB_store_with_release( my_local_ctx_list_update, 0 );
     // Wait until other threads referencing this scheduler object finish with it
     if ( wait_for_concurrent_destroyers_to_leave )
-        spin_wait_until_eq( nonlocal_ctx_list_update, 0u );
+        spin_wait_until_eq( my_nonlocal_ctx_list_update, 0u );
 }
 
 void generic_scheduler::free_scheduler() {
@@ -351,82 +295,62 @@ void generic_scheduler::free_scheduler() {
     }
 #if __TBB_TASK_GROUP_CONTEXT
     cleanup_local_context_list();
-#if !__TBB_ARENA_PER_MASTER
-    task_group_context* default_context = dummy_task->prefix().context;
-    if ( default_context != &dummy_context) {
-        // Only master thread's dummy task has a dynamically allocated context
-        default_context->task_group_context::~task_group_context();
-        NFS_Free(default_context);
-        {
-            mutex::scoped_lock lock(the_scheduler_list_mutex);
-            my_node.my_next->my_prev = my_node.my_prev;
-            my_node.my_prev->my_next = my_node.my_next;
-        }
-    }
-#endif /* !__TBB_ARENA_PER_MASTER */
 #endif /* __TBB_TASK_GROUP_CONTEXT */
-    free_task<small_local_task>( *dummy_task );
+    free_task<small_local_task>( *my_dummy_task );
 
     // k accounts for a guard reference and each task that we deallocate.
     intptr_t k = 1;
     for(;;) {
-        while( task* t = free_list ) {
-            free_list = t->prefix().next;
+        while( task* t = my_free_list ) {
+            my_free_list = t->prefix().next;
             deallocate_task(*t);
             ++k;
         }
-        if( return_list==plugged_return_list() ) 
+        if( my_return_list==plugged_return_list() ) 
             break;
-        free_list = (task*)__TBB_FetchAndStoreW( &return_list, (intptr_t)plugged_return_list() );
+        my_free_list = (task*)__TBB_FetchAndStoreW( &my_return_list, (intptr_t)plugged_return_list() );
     }
 #if __TBB_COUNT_TASK_NODES
-#if __TBB_ARENA_PER_MASTER
-    my_market->update_task_node_count( task_node_count );
-#else /* !__TBB_ARENA_PER_MASTER */
-    my_arena->prefix().task_node_count += task_node_count;
-#endif /* !__TBB_ARENA_PER_MASTER */
+    my_market->update_task_node_count( my_task_node_count );
 #endif /* __TBB_COUNT_TASK_NODES */
-#if !__TBB_ARENA_PER_MASTER && __TBB_STATISTICS
-    dump_statistics(my_counters, arena_index < my_arena->prefix().number_of_workers ? arena_index + 1 : 0 );
-#endif /* !__TBB_ARENA_PER_MASTER && __TBB_STATISTICS */
-    free_task_pool( dummy_slot.task_pool );
-    dummy_slot.task_pool = NULL;
-    // Update small_task_count last.  Doing so sooner might cause another thread to free *this.
-    __TBB_ASSERT( small_task_count>=k, "small_task_count corrupted" );
+    free_task_pool( my_dummy_slot.task_pool );
+    my_dummy_slot.task_pool = NULL;
+    // Update my_small_task_count last.  Doing so sooner might cause another thread to free *this.
+    __TBB_ASSERT( my_small_task_count>=k, "my_small_task_count corrupted" );
     governor::sign_off(this);
-    if( __TBB_FetchAndAddW( &small_task_count, -k )==k )
+    if( __TBB_FetchAndAddW( &my_small_task_count, -k )==k )
         NFS_Free( this );
 }
 
 task& generic_scheduler::allocate_task( size_t number_of_bytes, 
                                             __TBB_CONTEXT_ARG(task* parent, task_group_context* context) ) {
     GATHER_STATISTIC(++my_counters.active_tasks);
-    task* t = free_list;
+    task* t = my_free_list;
     if( number_of_bytes<=quick_task_size ) {
         if( t ) {
             GATHER_STATISTIC(--my_counters.free_list_length);
             __TBB_ASSERT( t->state()==task::freed, "free list of tasks is corrupted" );
-            free_list = t->prefix().next;
-        } else if( return_list ) {
-            // No fence required for read of return_list above, because __TBB_FetchAndStoreW has a fence.
-            t = (task*)__TBB_FetchAndStoreW( &return_list, 0 );
-            __TBB_ASSERT( t, "another thread emptied the return_list" );
-            __TBB_ASSERT( t->prefix().origin==this, "task returned to wrong return_list" );
-            ITT_NOTIFY( sync_acquired, &return_list );
-            free_list = t->prefix().next;
+            my_free_list = t->prefix().next;
+        } else if( my_return_list ) {
+            // No fence required for read of my_return_list above, because __TBB_FetchAndStoreW has a fence.
+            t = (task*)__TBB_FetchAndStoreW( &my_return_list, 0 );
+            __TBB_ASSERT( t, "another thread emptied the my_return_list" );
+            __TBB_ASSERT( t->prefix().origin==this, "task returned to wrong my_return_list" );
+            ITT_NOTIFY( sync_acquired, &my_return_list );
+            my_free_list = t->prefix().next;
         } else {
             t = (task*)((char*)NFS_Allocate( task_prefix_reservation_size+quick_task_size, 1, NULL ) + task_prefix_reservation_size );
 #if __TBB_COUNT_TASK_NODES
-            ++task_node_count;
+            ++my_task_node_count;
 #endif /* __TBB_COUNT_TASK_NODES */
             t->prefix().origin = this;
-            ++small_task_count;
+            ++my_small_task_count;
         }
     } else {
         GATHER_STATISTIC(++my_counters.big_tasks);
         t = (task*)((char*)NFS_Allocate( task_prefix_reservation_size+number_of_bytes, 1, NULL ) + task_prefix_reservation_size );
 #if __TBB_COUNT_TASK_NODES
-        ++task_node_count;
+        ++my_task_node_count;
 #endif /* __TBB_COUNT_TASK_NODES */
         t->prefix().origin = NULL;
     }
@@ -434,9 +358,10 @@ task& generic_scheduler::allocate_task( size_t number_of_bytes,
 #if __TBB_TASK_GROUP_CONTEXT
     p.context = context;
 #endif /* __TBB_TASK_GROUP_CONTEXT */
+    // Obsolete. But still in use, so has to be assigned correct value here.
     p.owner = this;
     p.ref_count = 0;
-    // Assign some not outrageously out-of-place value for a while
+    // Obsolete. Assign some not outrageously out-of-place value for a while.
     p.depth = 0;
     p.parent = parent;
     // In TBB 2.1 and later, the constructor for task sets extra_state to indicate the version of the tbb/task.h header.
@@ -452,50 +377,39 @@ void generic_scheduler::free_nonlocal_small_task( task& t ) {
     generic_scheduler& s = *static_cast<generic_scheduler*>(t.prefix().origin);
     __TBB_ASSERT( &s!=this, NULL );
     for(;;) {
-        task* old = s.return_list;
+        task* old = s.my_return_list;
         if( old==plugged_return_list() ) 
             break;
-        // Atomically insert t at head of s.return_list
+        // Atomically insert t at head of s.my_return_list
         t.prefix().next = old; 
-        ITT_NOTIFY( sync_releasing, &s.return_list );
-        if( __TBB_CompareAndSwapW( &s.return_list, (intptr_t)&t, (intptr_t)old )==(intptr_t)old ) {
+        ITT_NOTIFY( sync_releasing, &s.my_return_list );
+        if( __TBB_CompareAndSwapW( &s.my_return_list, (intptr_t)&t, (intptr_t)old )==(intptr_t)old ) {
             GATHER_STATISTIC(++my_counters.free_list_length);
             return;
         }
     }
     deallocate_task(t);
-    if( __TBB_FetchAndDecrementWrelease( &s.small_task_count )==1 ) {
+    if( __TBB_FetchAndDecrementWrelease( &s.my_small_task_count )==1 ) {
         // We freed the last task allocated by scheduler s, so it's our responsibility
         // to free the scheduler.
         NFS_Free( &s );
     }
 }
 
-task** generic_scheduler::allocate_task_pool( size_t n ) {
-    __TBB_ASSERT( n > task_pool_size, "Cannot shrink the task pool" );
-    size_t byte_size = ((n * sizeof(task*) + NFS_MaxLineSize - 1) / NFS_MaxLineSize) * NFS_MaxLineSize;
-    task_pool_size = byte_size / sizeof(task*);
-    task** new_pool = (task**)NFS_Allocate( byte_size, 1, NULL );
-    // No need to clear the fresh deque since valid items are designated by the head and tail members.
-#if TBB_USE_ASSERT>=2
-    // But clear it in the high vigilance debug mode
-    memset( new_pool, reinterpret_cast<int>(poisoned_ptr), n );
-#endif /* TBB_USE_ASSERT>=2 */
-    return new_pool;
-}
-
 void generic_scheduler::grow_task_pool( size_t new_size ) {
-    assert_task_pool_valid();
-    if ( new_size < 2 * task_pool_size )
-        new_size = 2 * task_pool_size;
-    task** new_pool = allocate_task_pool( new_size ); // updates task_pool_size
-    task** old_pool = dummy_slot.task_pool;
-    acquire_task_pool();    // requires the old dummy_slot.task_pool value
-    my_arena_slot->tail -= my_arena_slot->head;
-    __TBB_ASSERT( my_arena_slot->tail <= task_pool_size, "new task pool is too short" );
-    memcpy( new_pool, old_pool + my_arena_slot->head, my_arena_slot->tail * sizeof(task*) );
+    if ( new_size < 2 * my_task_pool_size )
+        new_size = 2 * my_task_pool_size;
+    task** new_pool = allocate_task_pool( new_size ); // updates my_task_pool_size
+    task** old_pool = my_dummy_slot.task_pool;
+    acquire_task_pool();    // requires the old my_dummy_slot.task_pool value
+    size_t new_tail = my_arena_slot->tail - my_arena_slot->head;
+    __TBB_ASSERT( my_arena_slot->tail <= my_task_pool_size, "new task pool is too short" );
+    memcpy( new_pool, old_pool + my_arena_slot->head, new_tail * sizeof(task*) );
     my_arena_slot->head = 0;
-    dummy_slot.task_pool = new_pool;
+    my_dummy_slot.task_pool = new_pool;
+    // Tail is updated last to minimize probability of a thread making arena 
+    // snapshot being misguided into thinking that this task pool is empty.
+    my_arena_slot->tail = new_tail;
     release_task_pool();    // updates the task pool pointer in our arena slot
     free_task_pool( old_pool );
     assert_task_pool_valid();
@@ -513,15 +427,15 @@ inline void generic_scheduler::acquire_task_pool() const {
     bool sync_prepare_done = false;
     for(;;) {
 #if TBB_USE_ASSERT
-        __TBB_ASSERT( my_arena_slot == my_arena->slot + arena_index, "invalid arena slot index" );
+        __TBB_ASSERT( my_arena_slot == my_arena->my_slots + my_arena_index, "invalid arena slot index" );
         // Local copy of the arena slot task pool pointer is necessary for the next 
         // assertion to work correctly to exclude asynchronous state transition effect.
         task** tp = my_arena_slot->task_pool;
-        __TBB_ASSERT( tp == LockedTaskPool || tp == dummy_slot.task_pool, "slot ownership corrupt?" );
+        __TBB_ASSERT( tp == LockedTaskPool || tp == my_dummy_slot.task_pool, "slot ownership corrupt?" );
 #endif
         if( my_arena_slot->task_pool != LockedTaskPool && 
             __TBB_CompareAndSwapW( &my_arena_slot->task_pool, (intptr_t)LockedTaskPool, 
-                                   (intptr_t)dummy_slot.task_pool ) == (intptr_t)dummy_slot.task_pool )
+                                   (intptr_t)my_dummy_slot.task_pool ) == (intptr_t)my_dummy_slot.task_pool )
         {
             // We acquired our own slot
             ITT_NOTIFY(sync_acquired, my_arena_slot);
@@ -544,7 +458,7 @@ inline void generic_scheduler::release_task_pool() const {
     __TBB_ASSERT( my_arena_slot, "we are not in arena" );
     __TBB_ASSERT( my_arena_slot->task_pool == LockedTaskPool, "arena slot is not locked" );
     ITT_NOTIFY(sync_releasing, my_arena_slot);
-    __TBB_store_with_release( my_arena_slot->task_pool, dummy_slot.task_pool );
+    __TBB_store_with_release( my_arena_slot->task_pool, my_dummy_slot.task_pool );
 }
 
 /** ATTENTION: 
@@ -602,7 +516,6 @@ inline void generic_scheduler::unlock_task_pool( arena_slot* victim_arena_slot,
 
 inline task* generic_scheduler::prepare_for_spawning( task* t ) {
     __TBB_ASSERT( t->state()==task::allocated, "attempt to spawn task that is not in 'allocated' state" );
-    t->prefix().owner = this;
     t->prefix().state = task::ready;
 #if TBB_USE_ASSERT
     if( task* parent = t->parent() ) {
@@ -621,6 +534,9 @@ inline task* generic_scheduler::prepare_for_spawning( task* t ) {
         proxy.prefix().extra_state = es_task_proxy;
         proxy.outbox = &my_arena->mailbox(dst_thread);
         proxy.task_and_tag = intptr_t(t)|3;
+#if __TBB_TASK_PRIORITY
+        proxy.prefix().context = t->prefix().context;
+#endif /* __TBB_TASK_PRIORITY */
         ITT_NOTIFY( sync_releasing, proxy.outbox );
         // Mail the proxy - after this point t may be destroyed by another thread at any moment.
         proxy.outbox->push(proxy);
@@ -636,37 +552,18 @@ void generic_scheduler::local_spawn( task& first, task*& next ) {
     assert_task_pool_valid();
     if ( &first.prefix().next == &next ) {
         // Single task is being spawned
-        if ( my_arena_slot->tail == task_pool_size ) {
-            // If the free space at the beginning of the task pool is too short
-            // we are likely facing a pathological single-producer-multiple-consumers
-            // scenario, and thus it's better to expand the task pool
-            if ( my_arena_slot->head > min_task_pool_size/4 ) {
-                // Move the busy part of the deque to the beginning of the allocated space
-                acquire_task_pool();
-                my_arena_slot->tail -= my_arena_slot->head;
-                memmove( dummy_slot.task_pool, dummy_slot.task_pool + my_arena_slot->head, my_arena_slot->tail * sizeof(task*) );
-                my_arena_slot->head = 0;
-                release_task_pool();
-            }
-            else {
-                grow_task_pool( task_pool_size + 1 );
-            }
-        }
-        dummy_slot.task_pool[my_arena_slot->tail] = prepare_for_spawning( &first );
-        ITT_NOTIFY(sync_releasing, my_arena_slot);
-        // The following store with release is required on ia64 only
-        size_t new_tail = my_arena_slot->tail + 1;
-        __TBB_store_with_release( my_arena_slot->tail, new_tail );
-        __TBB_ASSERT ( my_arena_slot->tail <= task_pool_size, "task deque end was overwritten" );
+        prepare_task_pool( 1 );
+        my_dummy_slot.task_pool[my_arena_slot->tail] = prepare_for_spawning( &first );
+        commit_spawned_tasks( my_arena_slot->tail + 1 );
     }
     else {
         // Task list is being spawned
-        const size_t initial_capacity = 64;
-        task *arr[initial_capacity];
-        fast_reverse_vector<task*> tasks(arr, initial_capacity);
+        task *arr[min_task_pool_size];
+        fast_reverse_vector<task*> tasks(arr, min_task_pool_size);
         task *t_next = NULL;
         for( task* t = &first; ; t = t_next ) {
-            // After prepare_for_spawning returns t may already have been destroyed. 
+            // If t is affinitized to another thread, it may already be executed
+            // and destroyed by the time prepare_for_spawning returns.
             // So milk it while it is alive.
             bool end = &t->prefix().next == &next;
             t_next = t->prefix().next;
@@ -675,47 +572,14 @@ void generic_scheduler::local_spawn( task& first, task*& next ) {
                 break;
         }
         size_t num_tasks = tasks.size();
-        __TBB_ASSERT ( arena_index != null_arena_index, "invalid arena slot index" );
-        if ( my_arena_slot->tail + num_tasks > task_pool_size ) {
-            // 1 compensates for head possibly temporarily incremented by a thief
-            size_t new_size = my_arena_slot->tail - my_arena_slot->head + num_tasks + 1;
-            if ( new_size <= task_pool_size ) {
-                // Move the busy part of the deque to the beginning of the allocated space
-                acquire_task_pool();
-                my_arena_slot->tail -= my_arena_slot->head;
-                memmove( dummy_slot.task_pool, dummy_slot.task_pool + my_arena_slot->head, my_arena_slot->tail * sizeof(task*) );
-                my_arena_slot->head = 0;
-                release_task_pool();
-            }
-            else {
-                grow_task_pool( new_size );
-            }
-        }
-#if DO_ITT_NOTIFY
-        else {
-            // The preceding if-branch issues the same ittnotify inside release_task_pool() or grow_task_pool() methods
-            ITT_NOTIFY(sync_releasing, my_arena_slot);
-        }
-#endif /* DO_ITT_NOTIFY */
-        tasks.copy_memory( dummy_slot.task_pool + my_arena_slot->tail );
-        // The following store with release is required on ia64 only
-        size_t new_tail = my_arena_slot->tail + num_tasks;
-        __TBB_store_with_release( my_arena_slot->tail, new_tail );
-        __TBB_ASSERT ( my_arena_slot->tail <= task_pool_size, "task deque end was overwritten" );
+        prepare_task_pool( num_tasks );
+        assert_task_pool_valid();
+        tasks.copy_memory( my_dummy_slot.task_pool + my_arena_slot->tail );
+        commit_spawned_tasks( my_arena_slot->tail + num_tasks );
     }
-#if __TBB_ARENA_PER_MASTER
     if ( !in_arena() )
         enter_arena();
     my_arena->advertise_new_work</*Spawned=*/true>();
-#else /* !__TBB_ARENA_PER_MASTER */
-    if ( !in_arena() ) {
-        if ( is_worker() )
-            enter_arena();
-        else
-            try_enter_arena();
-    }
-    my_arena->mark_pool_full();
-#endif /* !__TBB_ARENA_PER_MASTER */
     assert_task_pool_valid();
 }
 
@@ -743,14 +607,14 @@ void generic_scheduler::local_spawn_root_and_wait( task& first, task*& next ) {
 inline task* generic_scheduler::get_mailbox_task() {
     __TBB_ASSERT( my_affinity_id>0, "not in arena" );
     task* result = NULL;
-    while( task_proxy* t = inbox.pop() ) {
+    while( task_proxy* t = my_inbox.pop() ) {
         intptr_t tat = __TBB_load_with_acquire(t->task_and_tag);
         __TBB_ASSERT( tat==task_proxy::mailbox_bit || (tat==(tat|3)&&tat!=3), NULL );
         if( tat!=task_proxy::mailbox_bit && __TBB_CompareAndSwapW( &t->task_and_tag, task_proxy::pool_bit, tat )==tat ) {
             // Successfully grabbed the task, and left pool seeker with job of freeing the proxy.
-            ITT_NOTIFY( sync_acquired, inbox.outbox() );
+            ITT_NOTIFY( sync_acquired, my_inbox.outbox() );
             result = (task*)(tat & ~3);
-            result->prefix().owner = this;
+            result->prefix().extra_state |= es_task_is_stolen; // mark task as stolen
             break;
         }
         free_task_proxy( *t );
@@ -782,11 +646,14 @@ inline task* generic_scheduler::strip_proxy( task_proxy* tp ) {
     return NULL;
 }
 
-#if __TBB_ARENA_PER_MASTER
-void generic_scheduler::local_enqueue( task& t ) {
+void generic_scheduler::local_enqueue( task& t
+#if __TBB_TASK_PRIORITY
+                                       , priority_t prio
+#endif /* __TBB_TASK_PRIORITY */
+                                     )
+{
     __TBB_ASSERT( governor::is_set(this), NULL );
     __TBB_ASSERT( t.state()==task::allocated, "attempt to enqueue task that is not in 'allocated' state" );
-    t.prefix().owner = this;
     t.prefix().state = task::ready;
 
 #if TBB_USE_ASSERT
@@ -800,21 +667,216 @@ void generic_scheduler::local_enqueue( task& t ) {
 #endif /* TBB_USE_ASSERT */
 
     __TBB_ASSERT( my_arena, "thread is not in any arena" );
-    ITT_NOTIFY(sync_releasing, &my_arena->my_task_stream);
-    my_arena->my_task_stream.push( &t, my_arena_slot->hint_for_push );
+#if __TBB_TASK_PRIORITY
+    intptr_t p = prio ? normalize_priority(prio) : normalized_normal_priority;
+    assert_priority_valid(p);
+    task_stream &ts = my_arena->my_task_stream[p];
+#else /* !__TBB_TASK_PRIORITY */
+    task_stream &ts = my_arena->my_task_stream;
+#endif /* !__TBB_TASK_PRIORITY */
+    ITT_NOTIFY(sync_releasing, &ts);
+    ts.push( &t, my_arena_slot->hint_for_push );
+#if __TBB_TASK_PRIORITY
+    if ( p != my_arena->my_top_priority )
+        my_market->update_arena_priority( *my_arena, p );
+#endif /* __TBB_TASK_PRIORITY */
     my_arena->advertise_new_work< /*Spawned=*/ false >();
+#if __TBB_TASK_PRIORITY
+    if ( p != my_arena->my_top_priority )
+        my_market->update_arena_priority( *my_arena, p );
+#endif /* __TBB_TASK_PRIORITY */
     assert_task_pool_valid();
 }
 
 inline task* generic_scheduler::dequeue_task() {
     task* result = NULL;
-    my_arena->my_task_stream.pop(result, my_arena_slot->hint_for_pop);
-    if (result) ITT_NOTIFY(sync_acquired, &my_arena->my_task_stream);
+#if __TBB_TASK_PRIORITY
+    task_stream &ts = my_arena->my_task_stream[my_arena->my_top_priority];
+#else /* !__TBB_TASK_PRIORITY */
+    task_stream &ts = my_arena->my_task_stream;
+#endif /* !__TBB_TASK_PRIORITY */
+    ts.pop(result, my_arena_slot->hint_for_pop);
+    if (result)
+        ITT_NOTIFY(sync_acquired, &ts);
     return result;
 }
-#endif /* __TBB_ARENA_PER_MASTER */
+
+#if __TBB_TASK_PRIORITY
+class auto_indicator : no_copy {
+    volatile bool& my_indicator;
+public:
+    auto_indicator ( volatile bool& indicator ) : my_indicator(indicator) { my_indicator = true ;}
+    ~auto_indicator () { my_indicator = false; }
+};
+
+task* generic_scheduler::winnow_task_pool () {
+    GATHER_STATISTIC( ++my_counters.prio_winnowings );
+    __TBB_ASSERT( in_arena(), NULL );
+    __TBB_ASSERT( my_offloaded_tasks, "At least one task is expected to be already offloaded" );
+    // To eliminate possible sinking of the store to the indicator below the subsequent 
+    // store to my_arena_slot->tail, the stores should've either been separated 
+    // by full fence or both use release fences. And resetting indicator should've 
+    // been done with release fence. But since this is just an optimization, and 
+    // the corresponding checking sequence in arena::is_out_of_work() is not atomic 
+    // anyway, fences aren't used, so that not to penalize warmer path.
+    auto_indicator indicator(my_pool_reshuffling_pending);
+    // The purpose of the synchronization algorithm here is for the owner thread
+    // to avoid locking task pool most of the time.
+    size_t orig_tail = my_arena_slot->tail;
+    my_arena_slot->tail = my_arena_slot->head - 1;
+    atomic_fence();
+    size_t h = my_arena_slot->head;
+    __TBB_ASSERT( (intptr_t)my_arena_slot->tail <= (intptr_t)orig_tail, NULL);
+    __TBB_ASSERT( (intptr_t)h >= (intptr_t)my_arena_slot->tail
+                  || (h == orig_tail && my_arena_slot->tail == orig_tail), NULL );
+    bool acquired = false;
+    if ( h == my_arena_slot->tail ) {
+        // Either no contention with thieves during arbitration protocol execution or ...
+        if ( h >= orig_tail ) {
+            // ... the task pool got empty
+            reset_deque_and_leave_arena( /*locked=*/false );
+            return NULL;
+        }
+    }
+    else {
+        // Contention with thieves detected. Now without taking lock it is impossible 
+        // to define the current head value because of its jitter caused by continuing 
+        // stealing attempts (the pool is not locked so far).
+        acquired = true;
+        acquire_task_pool();
+        h = my_arena_slot->head;
+        if ( h >= orig_tail ) {
+            reset_deque_and_leave_arena( /*locked=*/true );
+            return NULL;
+        }
+    }
+    size_t src,
+           dst = orig_tail;
+    // Find the first task to offload. 
+    for ( src = h; src < orig_tail; ++src ) {
+        task &t = *my_dummy_slot.task_pool[src];
+        intptr_t p = priority(t);
+        if ( p < *my_ref_top_priority ) {
+            // Position of the first offloaded task will be the starting point 
+            // for relocation of subsequent tasks that survive winnowing.
+            dst = src;
+            offload_task( t, p );
+            break;
+        }
+    }
+    for ( ++src; src < orig_tail; ++src ) {
+        task &t = *my_dummy_slot.task_pool[src];
+        intptr_t p = priority(t);
+        if ( p < *my_ref_top_priority )
+            offload_task( t, p );
+        else
+            my_dummy_slot.task_pool[dst++] = &t;
+    }
+    __TBB_ASSERT( orig_tail >= dst, NULL );
+    task *t = h < dst ? my_dummy_slot.task_pool[--dst] : NULL;
+    if ( h == dst ) {
+        // No tasks remain the primary pool
+        reset_deque_and_leave_arena( acquired );
+    }
+    else if ( acquired ) {
+        __TBB_ASSERT( !is_poisoned(my_dummy_slot.task_pool[h]), NULL );
+        my_arena_slot->tail = dst;
+        release_task_pool();
+    }
+    else {
+        __TBB_ASSERT( !is_poisoned(my_dummy_slot.task_pool[h]), NULL );
+        // Release fence is necessary to make sure possibly relocated task pointers
+        // become visible to potential thieves
+        __TBB_store_with_release( my_arena_slot->tail, dst );
+    }
+    fill_with_canary_pattern( my_dummy_slot.task_pool, dst, orig_tail );
+    assert_task_pool_valid();
+    return t;
+}
+
+task* generic_scheduler::reload_tasks ( task*& offloaded_tasks, task**& offloaded_task_list_link, intptr_t top_priority ) {
+    GATHER_STATISTIC( ++my_counters.prio_reloads );
+    __TBB_ASSERT( !in_arena(), NULL );
+    task *arr[min_task_pool_size];
+    fast_reverse_vector<task*> tasks(arr, min_task_pool_size);
+    task **link = &offloaded_tasks;
+    task *t;
+    while ( (t = *link) ) {
+        task** next_ptr = &t->prefix().next_offloaded;
+        if ( priority(*t) >= top_priority ) {
+            tasks.push_back( t );
+            // Note that owner is an alias of next_offloaded. Thus the following
+            // assignment overwrites *next_ptr
+            task* next = *next_ptr;
+            t->prefix().owner = this;
+            __TBB_ASSERT( t->prefix().state == task::ready || t->prefix().extra_state == es_task_proxy, NULL );
+            *link = next;
+        }
+        else {
+            link = next_ptr;
+        }
+    }
+    if ( link == &offloaded_tasks ) {
+        offloaded_tasks = NULL;
+#if TBB_USE_ASSERT
+        offloaded_task_list_link = NULL;
+#endif /* TBB_USE_ASSERT */
+    }
+    else {
+        __TBB_ASSERT( link, NULL );
+        // Mark end of list
+        *link = NULL;
+        offloaded_task_list_link = link;
+    }
+    __TBB_ASSERT( link, NULL );
+    size_t num_tasks = tasks.size();
+    if ( num_tasks ) {
+        GATHER_STATISTIC( ++my_counters.prio_tasks_reloaded );
+        prepare_task_pool( num_tasks );
+        tasks.copy_memory( my_dummy_slot.task_pool + my_arena_slot->tail );
+        if ( --num_tasks ) {
+            commit_spawned_tasks( my_arena_slot->tail + num_tasks );
+            enter_arena();
+            my_arena->advertise_new_work</*Spawned=*/true>();
+        }
+        __TBB_ASSERT( my_arena_slot->tail < my_task_pool_size, NULL );
+        t = my_dummy_slot.task_pool[my_arena_slot->tail];
+        poison_pointer(my_dummy_slot.task_pool[my_arena_slot->tail]);
+        assert_task_pool_valid();
+    }
+    return t;
+}
+
+task* generic_scheduler::reload_tasks () {
+    uintptr_t reload_epoch = *my_ref_reload_epoch;
+    __TBB_ASSERT( my_offloaded_tasks, NULL );
+    if ( my_local_reload_epoch == reload_epoch )
+        return NULL;
+    __TBB_ASSERT( my_offloaded_tasks, NULL );
+    intptr_t top_priority = *my_ref_top_priority;
+    __TBB_ASSERT( (uintptr_t)top_priority < (uintptr_t)num_priority_levels, NULL );
+    task *t = reload_tasks( my_offloaded_tasks, my_offloaded_task_list_tail_link, top_priority );
+    if ( my_offloaded_tasks && (my_arena->my_bottom_priority >= top_priority || !my_arena->my_num_workers_requested) ) {
+        // Safeguard against deliberately relaxed synchronization while checking 
+        // for the presence of work in arena (so that not to impact hot paths).
+        // Arena may be reset to empty state when offloaded low priority tasks
+        // are still present. This results in both bottom and top priority bounds
+        // becoming 'normal', which makes offloaded low priority tasks unreachable.
+        // Update arena's bottom priority to accommodate them.
+
+        // First indicate the presence of lower-priority tasks
+        my_market->update_arena_priority( *my_arena, priority(*my_offloaded_tasks) );
+        // Then mark arena as full to unlock arena priority level adjustment
+        // by arena::is_out_of_work(), and ensure worker's presence
+        my_arena->advertise_new_work</*Spawned=*/false>();
+    }
+    my_local_reload_epoch = reload_epoch;
+    return t;
+}
+#endif /* __TBB_TASK_PRIORITY */
 
 inline task* generic_scheduler::get_task() {
+    __TBB_ASSERT( in_arena(), NULL );
     task* result = NULL;
 retry:
     --my_arena_slot->tail;
@@ -823,40 +885,40 @@ retry:
         acquire_task_pool();
         if ( (intptr_t)my_arena_slot->head <= (intptr_t)my_arena_slot->tail ) {
             // The thief backed off - grab the task
-            result = dummy_slot.task_pool[my_arena_slot->tail];
+
+            // Task pool pointer from our arena slot is garbled by just acquired lock.
+            result = my_dummy_slot.task_pool[my_arena_slot->tail];
             __TBB_ASSERT( !is_poisoned(result), NULL );
-            poison_pointer( dummy_slot.task_pool[my_arena_slot->tail] );
+            poison_pointer( my_dummy_slot.task_pool[my_arena_slot->tail] );
         }
-        else {
+        else
             __TBB_ASSERT ( my_arena_slot->head == my_arena_slot->tail + 1, "victim/thief arbitration algorithm failure" );
-        }
-        if ( (intptr_t)my_arena_slot->head < (intptr_t)my_arena_slot->tail ) {
+        if ( (intptr_t)my_arena_slot->head < (intptr_t)my_arena_slot->tail )
             release_task_pool();
-        }
-        else {
-            // In any case the deque is empty now, so compact it
-            my_arena_slot->head = my_arena_slot->tail = 0;
-            if ( in_arena() )
-                leave_arena();
-        }
+        else
+            reset_deque_and_leave_arena( /*locked=*/true );
     }
     else {
-        result = dummy_slot.task_pool[my_arena_slot->tail];
+        result = my_dummy_slot.task_pool[my_arena_slot->tail];
         __TBB_ASSERT( !is_poisoned(result), NULL );
-        poison_pointer( dummy_slot.task_pool[my_arena_slot->tail] );
+        poison_pointer( my_dummy_slot.task_pool[my_arena_slot->tail] );
     }
     if( result && is_proxy(*result) ) {
         result = strip_proxy((task_proxy*)result);
         if( !result ) {
-            goto retry;
+            if ( in_arena() )
+                goto retry;
+            __TBB_ASSERT( my_arena_slot->head == 0 && my_arena_slot->tail == 0, NULL );
+            return NULL;
         }
         GATHER_STATISTIC( ++my_counters.proxies_executed );
         // Following assertion should be true because TBB 2.0 tasks never specify affinity, and hence are not proxied.
         __TBB_ASSERT( is_version_3_task(*result), "backwards compatibility with TBB 2.0 broken" );
         // Task affinity has changed.
-        innermost_running_task = result;
+        my_innermost_running_task = result;
         result->note_affinity(my_affinity_id);
     }
+    __TBB_ASSERT( result || my_arena_slot->head == 0 && my_arena_slot->tail == 0, NULL );
     return result;
 } // generic_scheduler::get_task
 
@@ -871,10 +933,14 @@ retry:
     ++victim_slot.head;
     atomic_fence();
     if ( (intptr_t)victim_slot.head > (intptr_t)victim_slot.tail ) {
+        GATHER_STATISTIC( ++my_counters.thief_backoffs );
         --victim_slot.head;
     }
     else {
-        result = victim_pool[victim_slot.head - 1];
+        // If one of the supported architectures allows speculative execution
+        // of fences (as part of branch prediction mechanics), acquire fence
+        // should go up to the victim_slot.tail load.
+        result = victim_pool[__TBB_load_with_acquire(victim_slot.head) - 1];
         __TBB_ASSERT( !is_poisoned(result), NULL );
         if( is_proxy(*result) ) {
             task_proxy& tp = *static_cast<task_proxy*>(result);
@@ -903,201 +969,95 @@ retry:
 }
 
 inline void generic_scheduler::do_enter_arena() {
-    my_arena_slot = &my_arena->slot[arena_index];
+    my_arena_slot = &my_arena->my_slots[my_arena_index];
     __TBB_ASSERT ( my_arena_slot->head == my_arena_slot->tail, "task deque of a free slot must be empty" );
-    __TBB_ASSERT ( dummy_slot.head < dummy_slot.tail, "entering arena without tasks to share" );
-    my_arena_slot->head = dummy_slot.head;
-    my_arena_slot->tail = dummy_slot.tail;
+    __TBB_ASSERT ( my_dummy_slot.head < my_dummy_slot.tail, "entering arena without tasks to share" );
+    my_arena_slot->head = my_dummy_slot.head;
+    my_arena_slot->tail = my_dummy_slot.tail;
     // Release signal on behalf of previously spawned tasks (when this thread was not in arena yet)
     ITT_NOTIFY(sync_releasing, my_arena_slot);
-    __TBB_store_with_release( my_arena_slot->task_pool, dummy_slot.task_pool );
+    __TBB_store_with_release( my_arena_slot->task_pool, my_dummy_slot.task_pool );
     // We'll leave arena only when it's empty, so clean up local instances of indices.
-    dummy_slot.head = dummy_slot.tail = 0;
+    my_dummy_slot.head = my_dummy_slot.tail = 0;
 }
 
 void generic_scheduler::enter_arena() {
     __TBB_ASSERT ( my_arena, "no arena: initialization not completed?" );
-#if __TBB_ARENA_PER_MASTER
     __TBB_ASSERT ( !in_arena(), "thread is already in arena?" );
-    __TBB_ASSERT ( arena_index < my_arena->my_num_slots, "arena slot index is out-of-bound" );
-#else /* !__TBB_ARENA_PER_MASTER */
-    __TBB_ASSERT ( is_worker(), "only workers should use enter_arena()" );
-    __TBB_ASSERT ( !in_arena(), "worker already in arena?" );
-    __TBB_ASSERT ( arena_index < my_arena->prefix().number_of_workers, "invalid worker arena slot index" );
-#endif /* !__TBB_ARENA_PER_MASTER */
-    __TBB_ASSERT ( my_arena->slot[arena_index].task_pool == EmptyTaskPool, "someone else grabbed my arena slot?" );
+    __TBB_ASSERT ( my_arena_index < my_arena->my_num_slots, "arena slot index is out-of-bound" );
+    __TBB_ASSERT ( my_arena->my_slots[my_arena_index].task_pool == EmptyTaskPool, "someone else grabbed my arena slot?" );
     do_enter_arena();
 }
-
-#if !__TBB_ARENA_PER_MASTER
-void generic_scheduler::try_enter_arena() {
-    __TBB_ASSERT ( !is_worker(), "only masters should use try_enter_arena()" );
-    __TBB_ASSERT ( my_arena, "no arena: initialization not completed?" );
-    __TBB_ASSERT ( !in_arena(), "master already in arena?" );
-    __TBB_ASSERT ( arena_index >= my_arena->prefix().number_of_workers && 
-                   arena_index < my_arena->prefix().number_of_slots, "invalid arena slot hint value" );
-
-    size_t h = arena_index;
-    // We do not lock task pool upon successful entering arena
-    if( my_arena->slot[h].task_pool != EmptyTaskPool || 
-        __TBB_CompareAndSwapW( &my_arena->slot[h].task_pool, (intptr_t)LockedTaskPool, 
-                                                          (intptr_t)EmptyTaskPool ) != (intptr_t)EmptyTaskPool )
-    {
-        // Hinted arena slot is already busy, try some of the others at random
-        unsigned first = my_arena->prefix().number_of_workers,
-                 last = my_arena->prefix().number_of_slots;
-        unsigned n = last - first - 1;
-        /// \todo Is this limit reasonable?
-        size_t max_attempts = last - first;
-        for (;;) {
-            size_t k = first + random.get() % n;
-            if( k >= h )
-                ++k;    // Adjusts random distribution to exclude previously tried slot
-            h = k;
-            if( my_arena->slot[h].task_pool == EmptyTaskPool && 
-                __TBB_CompareAndSwapW( &my_arena->slot[h].task_pool, (intptr_t)LockedTaskPool, 
-                                                                  (intptr_t)EmptyTaskPool ) == (intptr_t)EmptyTaskPool )
-            {
-                break;
-            }
-            if ( --max_attempts == 0 ) {
-                // After so many attempts we are still unable to find a vacant arena slot.
-                // Cease the vain effort and work outside of arena for a while.
-                return;
-            }
-        }
-    }
-    // Successfully claimed a slot in the arena.
-    ITT_NOTIFY(sync_acquired, &my_arena->slot[h]);
-    __TBB_ASSERT ( my_arena->slot[h].task_pool == LockedTaskPool, "arena slot is not actually acquired" );
-    arena_index = h;
-    do_enter_arena();
-    attach_mailbox( affinity_id(h+1) );
-}
-#endif /* !__TBB_ARENA_PER_MASTER */
 
 void generic_scheduler::leave_arena() {
     __TBB_ASSERT( in_arena(), "Not in arena" );
-    // Do not reset arena_index. It will be used to (attempt to) re-acquire the slot next time
-    __TBB_ASSERT( &my_arena->slot[arena_index] == my_arena_slot, "arena slot and slot index mismatch" );
+    // Do not reset my_arena_index. It will be used to (attempt to) re-acquire the slot next time
+    __TBB_ASSERT( &my_arena->my_slots[my_arena_index] == my_arena_slot, "arena slot and slot index mismatch" );
     __TBB_ASSERT ( my_arena_slot->task_pool == LockedTaskPool, "Task pool must be locked when leaving arena" );
-    __TBB_ASSERT ( my_arena_slot->head == my_arena_slot->tail, "Cannot leave arena when the task pool is not empty" );
-#if !__TBB_ARENA_PER_MASTER
-    if ( !is_worker() ) {
-        my_affinity_id = 0;
-        inbox.detach();
-    }
-#endif /* !__TBB_ARENA_PER_MASTER */
-    ITT_NOTIFY(sync_releasing, &my_arena->slot[arena_index]);
-    __TBB_store_with_release( my_arena_slot->task_pool, EmptyTaskPool );
-    my_arena_slot = &dummy_slot;
+    __TBB_ASSERT ( my_arena_slot->tail == my_arena_slot->head, "Cannot leave arena when the task pool is not empty" );
+    ITT_NOTIFY(sync_releasing, &my_arena->my_slots[my_arena_index]);
+    // No release fence is necessary here as this assignment precludes external 
+    // accesses to the local task pool when becomes visible. Thus it is harmless
+    // if it gets hoisted above preceding local bookkeeping manipulations.
+    my_arena_slot->task_pool = EmptyTaskPool;
+    my_arena_slot = &my_dummy_slot;
 }
 
-#if __TBB_ARENA_PER_MASTER
 generic_scheduler* generic_scheduler::create_worker( market& m, size_t index ) {
     generic_scheduler* s = allocate_scheduler( NULL, index );
 #if __TBB_TASK_GROUP_CONTEXT
-    s->dummy_task->prefix().context = &dummy_context;
+    s->my_dummy_task->prefix().context = &dummy_context;
     // Sync up the local cancellation state with the global one. No need for fence here.
-    s->local_cancel_count = global_cancel_count;
+    s->my_context_state_propagation_epoch = the_context_state_propagation_epoch;
 #endif /* __TBB_TASK_GROUP_CONTEXT */
     s->my_market = &m;
     s->init_stack_info();
+#if __TBB_TASK_PRIORITY
+    s->my_ref_top_priority = &s->my_market->my_global_top_priority;
+    s->my_ref_reload_epoch = &s->my_market->my_global_reload_epoch;
+#endif /* __TBB_TASK_PRIORITY */
     return s;
 }
-
-#else /* !__TBB_ARENA_PER_MASTER */
-
-generic_scheduler* generic_scheduler::create_worker( arena& a, size_t index ) {
-    generic_scheduler* s = allocate_scheduler( &a, index );
-
-    // Put myself into the arena
-#if __TBB_TASK_GROUP_CONTEXT
-    s->dummy_task->prefix().context = &dummy_context;
-    // Sync up the local cancellation state with the global one. No need for fence here.
-    s->local_cancel_count = global_cancel_count;
-#endif /* __TBB_TASK_GROUP_CONTEXT */
-    s->attach_mailbox( index+1 );
-    s->init_stack_info();
-
-    __TBB_store_with_release( a.prefix().worker_list[index].scheduler, s );
-    return s;
-}
-#endif /* !__TBB_ARENA_PER_MASTER */
 
 generic_scheduler* generic_scheduler::create_master( arena& a ) {
-    generic_scheduler* s = allocate_scheduler( &a,
-#if __TBB_ARENA_PER_MASTER
-        0                   // Master thread always occupies the first slot
-#else /* !__TBB_ARENA_PER_MASTER */
-        null_arena_index    // Master thread will have to search for a vacant slot
-#endif /* !__TBB_ARENA_PER_MASTER */
-        );
-    task& t = *s->dummy_task;
-    s->innermost_running_task = &t;
+    generic_scheduler* s = allocate_scheduler( &a, 0 /*Master thread always occupies the first slot*/ );
+    task& t = *s->my_dummy_task;
+    s->my_innermost_running_task = &t;
+#if __TBB_TASK_PRIORITY
+    s->my_dispatching_task = &t;
+#endif /* __TBB_TASK_PRIORITY */
     t.prefix().ref_count = 1;
     governor::sign_on(s);
     __TBB_ASSERT( &task::self()==&t, "governor::sign_on failed?" );
-#if __TBB_ARENA_PER_MASTER
 #if __TBB_TASK_GROUP_CONTEXT
     // Context to be used by root tasks by default (if the user has not specified one).
     // Allocation is done by NFS allocator because we cannot reuse memory allocated 
     // for task objects since the free list is empty at the moment.
     t.prefix().context = a.my_master_default_ctx = 
         new ( NFS_Allocate(sizeof(task_group_context), 1, NULL) ) task_group_context(task_group_context::isolated);
-#endif
+#endif /* __TBB_TASK_GROUP_CONTEXT */
     s->my_market = a.my_market;
-    __TBB_ASSERT( s->arena_index == 0, "Master thread must occupy the first slot in its arena" );
+    __TBB_ASSERT( s->my_arena_index == 0, "Master thread must occupy the first slot in its arena" );
     s->attach_mailbox(1);
-    a.slot[0].my_scheduler = s;
+    a.my_slots[0].my_scheduler = s;
 #if _WIN32|_WIN64
     __TBB_ASSERT( s->my_market, NULL );
     s->my_market->register_master( s->master_exec_resource );
 #endif /* _WIN32|_WIN64 */
-#else /* !__TBB_ARENA_PER_MASTER */
-#if _WIN32|_WIN64
-    s->register_master();
-#endif 
-#if __TBB_TASK_GROUP_CONTEXT
-    // Context to be used by root tasks by default (if the user has not specified one).
-    // Allocation is done by NFS allocator because we cannot reuse memory allocated 
-    // for task objects since the free list is empty at the moment.
-    t.prefix().context = new ( NFS_Allocate(sizeof(task_group_context), 1, NULL) ) task_group_context(task_group_context::isolated);
-    scheduler_list_node_t &node = s->my_node;
-    {
-        mutex::scoped_lock lock(the_scheduler_list_mutex);
-        node.my_next = the_scheduler_list_head.my_next;
-        node.my_prev = &the_scheduler_list_head;
-        the_scheduler_list_head.my_next->my_prev = &node;
-        the_scheduler_list_head.my_next = &node;
-#endif /* __TBB_TASK_GROUP_CONTEXT */
-        unsigned last = a.prefix().number_of_slots,
-                 cur_limit = a.prefix().limit;
-        // This slot index assignment is just a hint to ...
-        if ( cur_limit < last ) {
-            // ... to prevent competition between the first few masters.
-            s->arena_index = cur_limit++;
-            // In the absence of exception handling this code is a subject to data 
-            // race in case of multiple masters concurrently entering empty arena.
-            // But it does not affect correctness, and can only result in a few 
-            // masters competing for the same arena slot during the first acquisition.
-            // The cost of competition is low in comparison to that of oversubscription.
-            a.prefix().limit = cur_limit;
-        }
-        else {
-            // ... to minimize the probability of competition between multiple masters.
-            unsigned first = a.prefix().number_of_workers;
-            s->arena_index = first + s->random.get() % (last - first);
-        }
-#if __TBB_TASK_GROUP_CONTEXT
-    }
-#endif
-#endif /* !__TBB_ARENA_PER_MASTER */
     s->init_stack_info();
 #if __TBB_TASK_GROUP_CONTEXT
     // Sync up the local cancellation state with the global one. No need for fence here.
-    s->local_cancel_count = global_cancel_count;
+    s->my_context_state_propagation_epoch = the_context_state_propagation_epoch;
 #endif
+#if __TBB_TASK_PRIORITY
+    // In the current implementation master threads continue processing even when
+    // there are other masters with higher priority. Only TBB worker threads are
+    // redistributed between arenas based on the latters' priority. Thus master 
+    // threads use arena's top priority as a reference point (in contrast to workers 
+    // that use my_market->my_global_top_priority).
+    s->my_ref_top_priority = &s->my_arena->my_top_priority;
+    s->my_ref_reload_epoch = &s->my_arena->my_reload_epoch;
+#endif /* __TBB_TASK_PRIORITY */
 #if __TBB_SCHEDULER_OBSERVER
     // Process any existing observers.
     s->notify_entry_observers();
@@ -1107,7 +1067,7 @@ generic_scheduler* generic_scheduler::create_master( arena& a ) {
 
 void generic_scheduler::cleanup_worker( void* arg, bool is_worker ) {
     generic_scheduler& s = *(generic_scheduler*)arg;
-    __TBB_ASSERT( s.dummy_slot.task_pool, "cleaning up worker with missing task pool" );
+    __TBB_ASSERT( s.my_dummy_slot.task_pool, "cleaning up worker with missing task pool" );
 // APM TODO: Decide how observers should react to each entry/leave to/from arena
 #if __TBB_SCHEDULER_OBSERVER
     s.notify_exit_observers( is_worker );
@@ -1122,25 +1082,33 @@ void generic_scheduler::cleanup_worker( void* arg, bool is_worker ) {
 
 void generic_scheduler::cleanup_master() {
     generic_scheduler& s = *this; // for similarity with cleanup_worker
-    __TBB_ASSERT( s.dummy_slot.task_pool, "cleaning up master with missing task pool" );
+    __TBB_ASSERT( s.my_dummy_slot.task_pool, "cleaning up master with missing task pool" );
 #if __TBB_SCHEDULER_OBSERVER
     s.notify_exit_observers(/*is_worker=*/false);
 #endif /* __TBB_SCHEDULER_OBSERVER */
     if ( !local_task_pool_empty() ) {
         __TBB_ASSERT ( governor::is_set(this), "TLS slot is cleared before the task pool cleanup" );
-        s.local_wait_for_all( *s.dummy_task, NULL );
+        s.local_wait_for_all( *s.my_dummy_task, NULL );
         __TBB_ASSERT ( governor::is_set(this), "Other thread reused our TLS key during the task pool cleanup" );
     }
-#if __TBB_ARENA_PER_MASTER
 #if _WIN32|_WIN64
     __TBB_ASSERT( s.my_market, NULL );
     s.my_market->unregister_master( s.master_exec_resource );
 #endif /* _WIN32|_WIN64 */
     arena* a = s.my_arena;
 #if __TBB_STATISTICS
-    *a->slot[0].my_counters += s.my_counters;
+    *a->my_slots[0].my_counters += s.my_counters;
 #endif /* __TBB_STATISTICS */
-    a->slot[0].my_scheduler = NULL;
+#if __TBB_TASK_PRIORITY
+    __TBB_ASSERT( a->my_slots[0].my_scheduler, NULL );
+    // Master's scheduler may be locked by a worker taking arena snapshot or by 
+    // a thread propagating task group state change across the context tree.
+    while ( __TBB_CompareAndSwapW(&a->my_slots[0].my_scheduler, 0, (intptr_t)this) != (intptr_t)this )
+        __TBB_Yield();
+    __TBB_ASSERT( !a->my_slots[0].my_scheduler, NULL );
+#else /* !__TBB_TASK_PRIORITY */
+    a->my_slots[0].my_scheduler = NULL;
+#endif /* __TBB_TASK_PRIORITY */
     s.free_scheduler();
     // Resetting arena to EMPTY state (as earlier TBB versions did) should not be
     // done here (or anywhere else in the master thread to that matter) because
@@ -1152,22 +1120,15 @@ void generic_scheduler::cleanup_master() {
     GATHER_STATISTIC( a->dump_arena_statistics() );
 #endif
     a->on_thread_leaving();
-#else /* !__TBB_ARENA_PER_MASTER */
-#if _WIN32|_WIN64
-    s.unregister_master();
-#endif /* _WIN32|_WIN64 */
-    s.free_scheduler();
-    governor::finish_with_arena();
-#endif /* !__TBB_ARENA_PER_MASTER */
 }
 
 #if __TBB_SCHEDULER_OBSERVER
     void generic_scheduler::notify_entry_observers() {
-        local_last_observer_proxy = observer_proxy::process_list(local_last_observer_proxy,is_worker(),/*is_entry=*/true);
+        my_local_last_observer_proxy = observer_proxy::process_list(my_local_last_observer_proxy,is_worker(),/*is_entry=*/true);
     }
 
     void generic_scheduler::notify_exit_observers( bool is_worker ) {
-        observer_proxy::process_list(local_last_observer_proxy,is_worker,/*is_entry=*/false);
+        observer_proxy::process_list(my_local_last_observer_proxy,is_worker,/*is_entry=*/false);
     }
 #endif /* __TBB_SCHEDULER_OBSERVER */
 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -421,6 +421,16 @@ public:
 };
 
 template<typename T>
+class AssignBody: NoAssign {
+    T &table;
+public:
+    AssignBody(T &t) : NoAssign(), table(t) {}
+    void operator()(int i) const {
+        table[i] = i;
+    }
+};
+
+template<typename T>
 void test_concurrent(const char *tablename) {
 #if TBB_USE_ASSERT
     int items = 2000;
@@ -429,7 +439,11 @@ void test_concurrent(const char *tablename) {
 #endif
     T table(items/1000);
     tbb::tick_count t0 = tbb::tick_count::now();
+    #if __bgp__
+    NativeParallelFor(  6/*min 6*/, FillTable<T>(table, items) );
+    #else
     NativeParallelFor( 16/*min 6*/, FillTable<T>(table, items) );
+    #endif
     tbb::tick_count t1 = tbb::tick_count::now();
     REMARK( "time for filling '%s' by %d items = %g\n", tablename, items, (t1-t0).seconds() );
     ASSERT( int(table.size()) == items, NULL);
@@ -454,6 +468,11 @@ void test_concurrent(const char *tablename) {
   
     table.clear();
     CheckAllocatorA(table, items+1, items); // one dummy is always allocated
+
+    for(int i=0; i<10000; ++i) {
+        tbb::parallel_for( 0, 8, AssignBody<T>( table ) );
+        table.clear();
+    }
 }
 
 int TestMain () {

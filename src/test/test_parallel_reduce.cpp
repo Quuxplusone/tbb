@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -200,7 +200,7 @@ void FlogWithInterference( int nthread ) {
     }
     // Wait for all tasks in the chain from root to leaf to finish.
     root->wait_for_all();
-    root->destroy( *root );
+    tbb::task::destroy( *root );
 }
 
 #include "tbb/blocked_range.h"

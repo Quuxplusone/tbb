@@ -11,6 +11,7 @@
 		05593AAB0B8F55D500DE73AB /* parallel_preorder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05593AA70B8F55D500DE73AB /* parallel_preorder.cpp */; };
 		A1F593B70B8F06F900073279 /* libtbb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A1F593B30B8F06F900073279 /* libtbb.dylib */; };
 		A1F593BB0B8F072500073279 /* libtbb.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = A1F593B30B8F06F900073279 /* libtbb.dylib */; };
+		EAD808FA13051AB300FE8C7C /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EAD808F913051AB300FE8C7C /* main.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -33,6 +34,7 @@
 		05593AA70B8F55D500DE73AB /* parallel_preorder.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = parallel_preorder.cpp; path = ../parallel_preorder.cpp; sourceTree = SOURCE_ROOT; };
 		8DD76F6C0486A84900D96B5E /* parallel_preorder */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = parallel_preorder; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1F593B30B8F06F900073279 /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = ../../../../lib/libtbb.dylib; sourceTree = SOURCE_ROOT; };
+		EAD808F913051AB300FE8C7C /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = ../main.cpp; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,6 +62,7 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				EAD808F913051AB300FE8C7C /* main.cpp */,
 				05593AA70B8F55D500DE73AB /* parallel_preorder.cpp */,
 				05593AA40B8F55D500DE73AB /* Graph.cpp */,
 				05593AA50B8F55D500DE73AB /* Graph.h */,
@@ -129,6 +132,7 @@
 			files = (
 				05593AA80B8F55D500DE73AB /* Graph.cpp in Sources */,
 				05593AAB0B8F55D500DE73AB /* parallel_preorder.cpp in Sources */,
+				EAD808FA13051AB300FE8C7C /* main.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -230,7 +234,6 @@
 				ARCHS_STANDARD_64_BIT_PRE_XCODE_3_1 = x86_64;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_VERSION = 4.0;
-				INSTALL_PATH = "$(HOME)/bin";
 				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/bin";
 				LIBRARY_SEARCH_PATHS = (

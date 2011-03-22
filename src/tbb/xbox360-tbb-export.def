@@ -1,4 +1,4 @@
-; Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+; Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 ;
 ; This file is part of Threading Building Blocks.
 ;
@@ -92,7 +92,7 @@ EXPORTS
 ?set_assertion_handler@tbb@@YAP6AXPBDH00@ZP6AX0H00@Z@Z @40
 ?runtime_warning@internal@tbb@@YAXPBDZZ @41
 
-; itt_notify.cpp
+; tbb_main.cpp
 ?itt_load_pointer_with_acquire_v3@internal@tbb@@YAPAXPBX@Z @42
 ?itt_store_pointer_with_release_v3@internal@tbb@@YAXPAX0@Z @43
 

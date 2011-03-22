@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -105,7 +105,11 @@ namespace tbb {
 #define ITT_SYNC_CREATE(obj, type, name) __itt_sync_create(obj, type, name, 2)
 #define ITT_SYNC_RENAME(obj, name)      __itt_sync_rename(obj, name)
 #define ITT_STACK_CREATE(obj)           obj = __itt_stack_caller_create()
-#define ITT_STACK(name, obj)            __itt_stack_##name(obj)
+#if __TBB_TASK_GROUP_CONTEXT
+#define ITT_STACK(precond, name, obj)   (precond) ? __itt_stack_##name(obj) : ((void)0);
+#else
+#define ITT_STACK(precond, name, obj)      ((void)0)
+#endif /* !__TBB_TASK_GROUP_CONTEXT */
 
 #else /* !DO_ITT_NOTIFY */
 
@@ -114,7 +118,7 @@ namespace tbb {
 #define ITT_SYNC_CREATE(obj, type, name) ((void)0)
 #define ITT_SYNC_RENAME(obj, name)      ((void)0)
 #define ITT_STACK_CREATE(obj)           ((void)0)
-#define ITT_STACK(name, obj)            ((void)0)
+#define ITT_STACK(precond, name, obj)   ((void)0)
 
 #endif /* !DO_ITT_NOTIFY */
 

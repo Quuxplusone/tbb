@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,6 +30,11 @@
 #define __VIDEO_H__
 
 #include <cassert>
+#if _MSC_VER
+#include <stddef.h> // for uintptr_t
+#else
+#include <stdint.h> // for uintptr_t
+#endif
 #if _WIN32 || _WIN64
 #include <windows.h>
 #else
@@ -39,6 +44,26 @@
 typedef unsigned int color_t;
 typedef unsigned char colorcomp_t;
 typedef signed char depth_t;
+
+//! Class for getting access to drawing memory
+class drawing_memory
+{
+    // The address is kept as uintptr_t since
+    // the compiler could not offload a pointer
+    uintptr_t   my_address;
+public:
+    depth_t     pixel_depth;
+    int         sizex, sizey;
+    //! Get drawing memory
+    inline void* get_address() const { return reinterpret_cast<void*>(my_address); }
+    //! Get drawing memory size
+    inline int get_size() const { return ((pixel_depth>16) ? 4:2) * sizex * sizey; }
+    //! Set drawing memory
+    inline void set_address(void *mem) { my_address = reinterpret_cast<uintptr_t>(mem); }
+
+    friend class drawing_area;
+    friend class video;
+};
 
 //! Simple proxy class for managing of different video systems
 class video
@@ -77,6 +102,8 @@ public:
     void show_title();
     //! translate RGB components into packed type
     inline color_t get_color(colorcomp_t red, colorcomp_t green, colorcomp_t blue) const;
+    //! Get drawing memory descriptor
+    inline drawing_memory get_drawing_memory() const;
 
     //! Mouse events handler.
     virtual void on_mouse(int x, int y, int key) { }
@@ -105,10 +132,13 @@ class drawing_area
     size_t index;
 public:
     const int start_x, start_y, size_x, size_y;
-    //! constructor
+    //! constructors
     drawing_area(int x, int y, int sizex, int sizey);
+    inline drawing_area(int x, int y, int sizex, int sizey, const drawing_memory &dmem);
     //! destructor
-    ~drawing_area();
+    inline ~drawing_area();
+    //! update the image
+    void update();
     //! set current position. local_x could be bigger then size_x
     inline void set_pos(int local_x, int local_y);
     //! put pixel in current position with incremental address calculating to next right pixel
@@ -117,6 +147,20 @@ public:
     void set_pixel(int localx, int localy, color_t color)
         { set_pos(localx, localy); put_pixel(color); }
 };
+
+extern int g_sizex;
+extern int g_sizey;
+extern unsigned int *g_pImg;
+
+inline drawing_memory video::get_drawing_memory() const
+{
+    drawing_memory dmem;
+    dmem.pixel_depth = depth;
+    dmem.my_address = reinterpret_cast<uintptr_t>(g_pImg);
+    dmem.sizex = g_sizex;
+    dmem.sizey = g_sizey;
+    return dmem;
+}
 
 inline color_t video::get_color(colorcomp_t red, colorcomp_t green, colorcomp_t blue) const
 {
@@ -139,6 +183,17 @@ inline color_t video::get_color(colorcomp_t red, colorcomp_t green, colorcomp_t 
     }
 }
 
+inline drawing_area::drawing_area(int x, int y, int sizex, int sizey, const drawing_memory &dmem)
+    : start_x(x), start_y(y), size_x(sizex), size_y(sizey), pixel_depth(dmem.pixel_depth),
+    base_index(y*dmem.sizex + x), max_index(dmem.sizex*dmem.sizey), index_stride(dmem.sizex),
+    ptr32(reinterpret_cast<unsigned int*>(dmem.my_address))
+{
+    assert(x < dmem.sizex); assert(y < dmem.sizey);
+    assert(x+sizex <= dmem.sizex); assert(y+sizey <= dmem.sizey);
+
+    index = base_index; // current index
+}
+
 inline void drawing_area::set_pos(int local_x, int local_y)
 {
     index = base_index + local_x + local_y*index_stride;
@@ -154,6 +209,11 @@ inline void drawing_area::put_pixel(color_t color)
         if(index&1) color >>= 16;
         ((unsigned short*)ptr32)[index++] = (unsigned short)color;
     }
+}
+
+inline drawing_area::~drawing_area()
+{
+    update();
 }
 
 #if defined(_WINDOWS) && (defined(VIDEO_WINMAIN) || defined(VIDEO_WINMAIN_ARGS) )

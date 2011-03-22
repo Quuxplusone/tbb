@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -118,7 +118,7 @@ static unsigned int getCPUid()
 {
     unsigned int id;
 
-#if (__ARCH_x86_32||__ARCH_x86_64) && (__linux__||__APPLE__||__FreeBSD__||__sun||__MINGW32__)
+#if (__ARCH_x86_32||__ARCH_x86_64) && (__linux__||__APPLE__||__FreeBSD__||__NetBSD__||__sun||__MINGW32__)
     int res;
  #if __ARCH_x86_32
     /* EBX used for PIC support. Having EAX in output operands 

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -973,9 +973,7 @@ int TestMain () {
         TestUserThread( p );
         TestStealLimit( p );
         TestRelaxedOwnership( p );
-#if __TBB_ARENA_PER_MASTER
         TestMastersIsolation( p );
-#endif /* __TBB_ARENA_PER_MASTER */
     }
     return Harness::Done;
 }

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -49,7 +49,7 @@ namespace internal {
 class concurrent_queue_rep;
 
 //! A queue using simple locking.
-/** For efficient, this class has no constructor.  
+/** For efficiency, this class has no constructor.  
     The caller is expected to zero-initialize it. */
 struct micro_queue {
     typedef concurrent_queue_base::page page;
@@ -80,7 +80,7 @@ struct micro_queue {
     class pop_finalizer: no_copy {
         ticket my_ticket;
         micro_queue& my_queue;
-        page* my_page; 
+        page* my_page;
     public:
         pop_finalizer( micro_queue& queue, ticket k, page* p ) :
             my_ticket(k), my_queue(queue), my_page(p)
@@ -105,7 +105,7 @@ struct micro_queue {
 };
 
 //! Internal representation of a ConcurrentQueue.
-/** For efficient, this class has no constructor.  
+/** For efficiency, this class has no constructor.  
     The caller is expected to zero-initialize it. */
 class concurrent_queue_rep {
 public:

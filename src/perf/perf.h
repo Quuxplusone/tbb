@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -65,7 +65,7 @@
 
 namespace Perf {
     typedef unsigned __int64 tick_t;
-    #if defined(_M_AMD64)
+    #if defined(_M_X64)
         inline tick_t rdtsc () { return __rdtsc(); }
     #elif _M_IX86
         inline tick_t rdtsc () { __asm { rdtsc } }

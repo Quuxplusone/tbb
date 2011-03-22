@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -32,7 +32,7 @@ echo '"TBB:' "BUILD_HOST\t\t"`hostname -s`" ("`uname -m`")"'" ENDL \'
 # find OS name in *-release and issue* files by filtering blank lines and lsb-release content out
 echo '"TBB:' "BUILD_OS\t\t"`lsb_release -sd 2>/dev/null | grep -ih '[a-z] ' - /etc/*release /etc/issue 2>/dev/null | head -1 | sed -e 's/["\\\\]//g'`'" ENDL \'
 echo '"TBB:' "BUILD_KERNEL\t"`uname -srv`'" ENDL \'
-echo '"TBB:' "BUILD_GCC\t\t"`g++ -v </dev/null 2>&1 | grep 'gcc.*version'`'" ENDL \'
+echo '"TBB:' "BUILD_GCC\t\t"`g++ -v </dev/null 2>&1 | grep 'gcc.*version '`'" ENDL \'
 [ -z "$COMPILER_VERSION" ] || echo '"TBB:' "BUILD_COMPILER\t"$COMPILER_VERSION'" ENDL \'
 echo '"TBB:' "BUILD_GLIBC\t"`getconf GNU_LIBC_VERSION | grep glibc | sed -e 's/^glibc //'`'" ENDL \'
 echo '"TBB:' "BUILD_LD\t\t"`ld -v 2>&1 | grep 'version'`'" ENDL \'

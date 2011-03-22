@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -188,7 +188,7 @@ observer_proxy* observer_proxy::process_list( observer_proxy* local_last, bool i
             // behavior of a master or worker thread.
 #if TBB_USE_ASSERT
             runtime_warning( "%s threw exception\n", is_entry ? "on_scheduler_entry" : "on_scheduler_exit"); 
-#endif /* __TBB_USE_ASSERT */        
+#endif /* TBB_USE_ASSERT */        
         }
         intptr_t bc = --tso->my_busy_count;
         __TBB_ASSERT_EX( bc>=0, "my_busy_count underflowed" );

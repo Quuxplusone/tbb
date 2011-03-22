@@ -1,6 +1,6 @@
 @echo off
 REM
-REM Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+REM Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 REM
 REM This file is part of Threading Building Blocks.
 REM
@@ -61,6 +61,8 @@ copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb%postfix%.dll" "%output_dir
 copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb%postfix%.pdb" "%output_dir%"
 copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbbmalloc%postfix%.dll" "%output_dir%"
 copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbbmalloc%postfix%.pdb" "%output_dir%"
+if exist "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb_preview%postfix%.dll" copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb_preview%postfix%.dll" "%output_dir%"
+if exist "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb_preview%postfix%.pdb" copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb_preview%postfix%.pdb" "%output_dir%"
 
 goto end
 :error

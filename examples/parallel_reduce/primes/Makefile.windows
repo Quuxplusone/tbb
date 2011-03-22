@@ -1,4 +1,4 @@
-# Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -28,7 +28,8 @@
 
 # Just specify your program basename
 PROG=Primes
-ARGS=100000000 0:4
+ARGS=0:auto
+PERF_RUN_ARGS=silent  auto 1000000000 1000 20
 
 # Trying to find if icl.exe is set
 CXX1 = $(TBB_CXX)-
@@ -41,13 +42,19 @@ MYLDFLAGS =/INCREMENTAL:NO /NOLOGO /DEBUG /FIXED:NO $(LDFLAGS)
 
 all: release test
 release: compiler_check
-	$(CXX) *.cpp /MD /O2 /D NDEBUG $(MYCXXFLAGS) /link tbb.lib $(LIBS) $(MYLDFLAGS) /OUT:$(PROG).exe
+	$(CXX) main.cpp primes.cpp /MD /O2 /D NDEBUG $(MYCXXFLAGS) /link tbb.lib $(LIBS) $(MYLDFLAGS) /OUT:$(PROG).exe
 debug: compiler_check
-	$(CXX) *.cpp /MDd /Od /Zi /D TBB_USE_DEBUG /D _DEBUG $(MYCXXFLAGS) /link tbb_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:$(PROG).exe
+	$(CXX) main.cpp primes.cpp /MDd /Od /Zi /D TBB_USE_DEBUG /D _DEBUG $(MYCXXFLAGS) /link tbb_debug.lib $(LIBS) $(MYLDFLAGS) /OUT:$(PROG).exe
 clean:
 	@cmd.exe /C del $(PROG).exe *.obj *.?db *.manifest
 test:
 	$(PROG) $(ARGS)
+
+perf_build: release
+
+perf_run:
+	./$(PROG) $(PERF_RUN_ARGS)
+
 compiler_check:
 	@echo compiler_test>compiler_test && @$(CXX) /E compiler_test >nul 2>&1  || echo "$(CXX) command not found. Check if CXX=$(CXX) is set properly"
 	@cmd.exe /C del compiler_test

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,7 +27,7 @@
 */
 
 class Matrix {
-    static const int n = 10;
+    static const int n = 20;
     float array[n][n];
 public:
     Matrix() {}

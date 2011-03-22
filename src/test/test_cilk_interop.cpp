@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2010 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2011 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,7 +29,12 @@
 #include "tbb/tbb_config.h"
 #include "harness.h"
 
-#if __TBB_SURVIVE_THREAD_SWITCH && __INTEL_COMPILER >= 1200
+// Skip the test if no TBB-Cilk interoperability
+#define __TBB_CILK_INTEROP   (__TBB_SURVIVE_THREAD_SWITCH && __INTEL_COMPILER>=1200)
+// The compiler does not add "-lcilkrts" linker option on some linux systems
+#define CILK_LINKAGE_BROKEN  (__linux__ && __GNUC__<4 && __INTEL_COMPILER_BUILD_DATE <= 20101116)
+
+#if __TBB_CILK_INTEROP && !CILK_LINKAGE_BROKEN
 
 static const int N = 14;
 static const int P_outer = 4;
@@ -52,7 +57,8 @@ enum tbb_sched_injection_mode_t {
 
 tbb_sched_injection_mode_t g_sim = tbbsched_none;
 
-bool g_sandwich = false;
+bool g_sandwich = false; // have to be declare before #include "test_cilk_sandwich.h"
+#include "test_cilk_common.h"
 
 // A time delay routine
 void Delay( int n ) {
@@ -102,68 +108,6 @@ int Fib ( int n ) {
         if ( tsi )
             delete tsi;
         return x+y;
-    }
-}
-
-int TBB_Fib( int n );
-
-class FibCilkSubtask: public tbb::task {
-    int n;
-    int& result;
-    /*override*/ task* execute() {
-        if( n<2 ) {
-            result = n;
-        } else {
-            int x, y;
-            x = cilk_spawn TBB_Fib(n-2);
-            y = cilk_spawn TBB_Fib(n-1);
-            cilk_sync;
-            result = x+y;
-        }
-        return NULL;
-    }
-public:
-    FibCilkSubtask( int& result_, int n_ ) : result(result_), n(n_) {}
-};
-
-class FibTask: public tbb::task {
-    int n;
-    int& result;
-    /*override*/ task* execute() {
-        if( !g_sandwich && n<2 ) {
-            result = n;
-        } else {
-            int x,y;
-            tbb::task_scheduler_init init(P_nested);
-            task* self0 = &task::self();
-            set_ref_count( 3 );
-            if ( g_sandwich ) {
-                spawn (*new( allocate_child() ) FibCilkSubtask(x,n-1));
-                spawn (*new( allocate_child() ) FibCilkSubtask(y,n-2));
-            }
-            else {
-                spawn (*new( allocate_child() ) FibTask(x,n-1));
-                spawn (*new( allocate_child() ) FibTask(y,n-2));
-            }
-            wait_for_all(); 
-            task* self1 = &task::self();
-            ASSERT( self0 == self1, "failed to preserve TBB TLS" );
-            result = x+y;
-        }
-        return NULL;
-    }
-public:
-    FibTask( int& result_, int n_ ) : result(result_), n(n_) {}
-};
-
-int TBB_Fib( int n ) {
-    if( n<2 ) {
-        return n;
-    } else {
-        int result;
-        tbb::task_scheduler_init init(P_nested);
-        tbb::task::spawn_root_and_wait(*new( tbb::task::allocate_root()) FibTask(result,n) );
-        return result;
     }
 }
 
