@@ -54,7 +54,6 @@
 #include<list>
 #include<queue>
 
-
 /** @file
   \brief The graph related classes and functions
 
@@ -340,7 +339,7 @@ namespace tbb {
         //! An empty functor that takes an Input and returns a default constructed Output
         template< typename Input, typename Output >
         struct empty_body {
-           Output operator()( Input & ) const { return Output(); } 
+           Output operator()( const Input & ) const { return Output(); } 
         };
 
         //! A node_cache maintains a std::queue of elements of type T.  Each operation is protected by a lock. 
@@ -810,6 +809,7 @@ namespace tbb {
             typedef sender<Input> predecessor_type;
             enum op_stat {WAIT=0, SUCCEEDED, FAILED};
             enum op_type {reg_pred, rem_pred, app_body, tryput, try_fwd};
+            typedef function_input<Input, Output> my_class;
 
         public:
             //! The input type of this receiver
@@ -824,7 +824,7 @@ namespace tbb {
                   my_body( new internal::function_body_leaf< input_type, output_type, Body>(body) ),
                 forwarder_busy(false) {
                 my_predecessors.set_owner(this);
-                my_aggregator.initialize_handler(my_functor_t(this));
+                my_aggregator.initialize_handler(my_handler(this));
             }
 
             //! Destructor
@@ -883,18 +883,10 @@ namespace tbb {
                 my_operation(op_type t) : type(char(t)), r(NULL) {}
             };
 
-            class my_functor_t {
-                function_input<input_type, output_type> *fi;
-             public:
-                my_functor_t() {}
-                my_functor_t(function_input<input_type, output_type> *fi_) : fi(fi_) {}
-                void operator()(my_operation* op_list) {
-                    fi->handle_operations(op_list);
-                }
-            };
-
             bool forwarder_busy;
-            aggregator< my_functor_t, my_operation > my_aggregator;
+            typedef internal::aggregating_functor<my_class, my_operation> my_handler;
+            friend class internal::aggregating_functor<my_class, my_operation>;
+            aggregator< my_handler, my_operation > my_aggregator;
 
             void handle_operations(my_operation *op_list) {
                 my_operation *tmp;
@@ -931,7 +923,6 @@ namespace tbb {
                     }
                 }
             }
-
 
             //! Put to the node
             void internal_try_put(my_operation *op) {
@@ -1402,32 +1393,24 @@ namespace tbb {
 
     };
 
+#include "_item_buffer.h"
 
     //! Forwards messages in arbitrary order
-    template <typename T>
-    class buffer_node : public graph_node, public receiver<T>, public sender<T>, internal::no_copy {
+    template <typename T, typename A=cache_aligned_allocator<T> >
+        class buffer_node : public graph_node, public reservable_item_buffer<T, A>, public receiver<T>, public sender<T>, internal::no_copy {
     public:
         typedef T input_type;
         typedef T output_type;
         typedef sender< input_type > predecessor_type;
         typedef receiver< output_type > successor_type;
+        typedef buffer_node<T, A> my_class;
     protected:
         typedef size_t size_type;
-        typedef std::pair< T, bool > item_type;
-
         internal::round_robin_cache< T, null_rw_mutex > my_successors;
 
         task *my_parent;
-        item_type *my_array;
-        size_type my_array_size;
-        static const size_type initial_buffer_size = 4;
-        size_type my_head;
-        size_type my_tail;
-        spin_mutex my_mutex;
-        bool my_reserved;
-        size_type my_reserved_id;
 
-        friend class internal::forward_task< buffer_node< T > >;
+        friend class internal::forward_task< buffer_node< T, A > >;
 
         enum op_type {reg_succ, rem_succ, req_item, res_item, rel_res, con_res, put_item, try_fwd};
         enum op_stat {WAIT=0, SUCCEEDED, FAILED};
@@ -1443,18 +1426,10 @@ namespace tbb {
             buffer_operation(op_type t) : type(char(t)), r(NULL) {}
         };
 
-        class my_functor_t {
-            buffer_node<T> *bfr;
-        public:
-            my_functor_t(buffer_node<T> *bfr_) : bfr(bfr_) {}
-            my_functor_t() {}
-            void operator()(buffer_operation* op_list) {
-                bfr->handle_operations(op_list);
-            }
-        };
-
         bool forwarder_busy;
-        internal::aggregator< my_functor_t, buffer_operation> my_aggregator;
+        typedef internal::aggregating_functor<my_class, buffer_operation> my_handler;
+        friend class internal::aggregating_functor<my_class, buffer_operation>;
+        internal::aggregator< my_handler, buffer_operation> my_aggregator;
 
         virtual void handle_operations(buffer_operation *op_list) {
             buffer_operation *tmp;
@@ -1475,7 +1450,7 @@ namespace tbb {
             }
             if (try_forwarding && !forwarder_busy) {
                 forwarder_busy = true;
-                task::enqueue(*new(task::allocate_additional_child_of(*my_parent)) internal::forward_task< buffer_node<input_type> >(*this));
+                task::enqueue(*new(task::allocate_additional_child_of(*my_parent)) internal::forward_task< buffer_node<input_type, A> >(*this));
             }
         }
 
@@ -1506,12 +1481,11 @@ namespace tbb {
             bool success = false; // flagged when a successor accepts
             size_type counter = my_successors.size();
             // Try forwarding, giving each successor a chance
-            while (counter>0 && my_tail>my_head && my_array[ (my_tail-1) & (my_array_size-1)].second == true ) {
-                i_copy = my_array[ (my_tail-1) & (my_array_size-1)].first;
-                bool msg = my_successors.try_put(i_copy);
-                if ( msg == true ) {
-                    my_array[ (my_tail-1) & (my_array_size-1)].second = false;
-                    --my_tail;
+            while (counter>0 && !this->buffer_empty() && this->item_valid(this->my_tail-1)) {
+                this->fetch_back(i_copy);
+                if( my_successors.try_put(i_copy) ) {
+                    this->invalidate_back();
+                    --(this->my_tail);
                     success = true; // found an accepting successor
                 }
                 --counter;
@@ -1525,77 +1499,44 @@ namespace tbb {
         }
 
         virtual void internal_push(buffer_operation *op) {
-            while( my_tail-my_head >= my_array_size ) {
-                grow_my_array( my_tail - my_head + 1 );
-            }
-            my_array[my_tail&(my_array_size-1)] = std::make_pair( *(op->elem), true );
-            ++my_tail;
+            this->push_back(*(op->elem));
             __TBB_store_with_release(op->status, SUCCEEDED);
         }
+
         virtual void internal_pop(buffer_operation *op) {
-            if ( my_array[(my_tail-1) & (my_array_size-1)].second == false ) {
-                __TBB_store_with_release(op->status, FAILED);
-            }
-            else {
-                *(op->elem) = my_array[(my_tail-1) & (my_array_size-1)].first;
-                my_array[(my_tail-1) & (my_array_size-1)].second = false;
-                --my_tail;
+            if(this->pop_back(*(op->elem))) {
                 __TBB_store_with_release(op->status, SUCCEEDED);
             }
+            else {
+                __TBB_store_with_release(op->status, FAILED);
+            }
         }
+
         virtual void internal_reserve(buffer_operation *op) {
-            if (my_reserved == true || my_array[ my_head & (my_array_size-1)].second == false ) {
-                __TBB_store_with_release(op->status, FAILED);
-            }
-            else {
-                my_reserved = true;
-                *(op->elem) = my_array[ my_head & (my_array_size-1)].first;
-                my_array[ my_head & (my_array_size-1)].second = false;
+            if(this->reserve_front(*(op->elem))) {
                 __TBB_store_with_release(op->status, SUCCEEDED);
             }
+            else {
+                __TBB_store_with_release(op->status, FAILED);
+            }
         }
+
         virtual void internal_consume(buffer_operation *op) {
-            my_reserved = false;
-            ++my_head;
+            this->consume_front();
             __TBB_store_with_release(op->status, SUCCEEDED);
         }
 
         virtual void internal_release(buffer_operation *op) {
-            my_array[my_head&(my_array_size-1)].second = true;
-            my_reserved = false;
+            this->release_front();
             __TBB_store_with_release(op->status, SUCCEEDED);
-        }
-
-        //! Grows the internal array
-        void grow_my_array( size_t minimum_size ) {
-            size_type old_size = my_array_size;
-            size_type new_size = old_size ? 2*old_size : initial_buffer_size;
-            while( new_size<minimum_size )
-                new_size*=2;
-
-            item_type* new_array = cache_aligned_allocator<item_type>().allocate(new_size);
-            item_type* old_array = my_array;
-
-            for( size_type i=0; i<new_size; ++i )
-                new_array[i].second = false;
-
-            size_t t=my_head;
-            for( size_type i=0; i<old_size; ++i, ++t )
-                new_array[t&(new_size-1)] = old_array[t&(old_size-1)];
-            my_array = new_array;
-            my_array_size = new_size;
-            if( old_array )
-                cache_aligned_allocator<item_type>().deallocate(old_array,old_size);
         }
 
     public:
         //! Constructor
-        buffer_node( graph &g ) :
-            my_parent( g.root_task() ), my_array(NULL), my_array_size(0),
-            my_head(0), my_tail(0), my_reserved(false), forwarder_busy(false) {
+        buffer_node( graph &g ) : reservable_item_buffer<T>(),
+            my_parent( g.root_task() ), forwarder_busy(false) {
             my_successors.set_owner(this);
-            my_aggregator.initialize_handler(my_functor_t(this));
-            grow_my_array(initial_buffer_size);
+            my_aggregator.initialize_handler(my_handler(this));
         }
 
         virtual ~buffer_node() {}
@@ -1671,11 +1612,11 @@ namespace tbb {
 
 
     //! Forwards messages in FIFO order
-    template <typename T>
-    class queue_node : public buffer_node<T> {
+    template <typename T, typename A=cache_aligned_allocator<T> >
+    class queue_node : public buffer_node<T, A> {
     protected:
-        typedef typename buffer_node<T>::size_type size_type;
-        typedef typename buffer_node<T>::buffer_operation queue_operation;
+    typedef typename buffer_node<T, A>::size_type size_type;
+    typedef typename buffer_node<T, A>::buffer_operation queue_operation;
 
         enum op_stat {WAIT=0, SUCCEEDED, FAILED};
 
@@ -1684,17 +1625,16 @@ namespace tbb {
             T i_copy;
             bool success = false; // flagged when a successor accepts
             size_type counter = this->my_successors.size();
-            if (this->my_reserved || this->my_array[ this->my_head & (this->my_array_size-1)].second == false) {
+            if (this->my_reserved || !this->item_valid(this->my_head)){
                 __TBB_store_with_release(op->status, FAILED);
                 this->forwarder_busy = false;
                 return;
             }
             // Keep trying to send items while there is at least one accepting successor
-            while (counter>0 && this->my_array[ this->my_head & (this->my_array_size-1)].second == true ) {
-                i_copy = this->my_array[ this->my_head & (this->my_array_size-1)].first;
-                bool msg = this->my_successors.try_put(i_copy);
-                if ( msg == true ) {
-                     this->my_array[ this->my_head & (this->my_array_size-1)].second = false;
+            while (counter>0 && this->item_valid(this->my_head)) {
+                this->fetch_front(i_copy);
+                if(this->my_successors.try_put(i_copy)) {
+                     this->invalidate_front();
                      ++(this->my_head);
                     success = true; // found an accepting successor
                 }
@@ -1709,30 +1649,27 @@ namespace tbb {
         }
 
         /* override */ void internal_pop(queue_operation *op) {
-            if ( this->my_reserved == true || this->my_array[ this->my_head & (this->my_array_size-1)].second == false ) {
+            if ( this->my_reserved || !this->item_valid(this->my_head)){
                 __TBB_store_with_release(op->status, FAILED);
             }
             else {
-                *(op->elem) = this->my_array[ this->my_head & (this->my_array_size-1)].first;
-                this->my_array[ this->my_head & (this->my_array_size-1)].second = false;
-                ++(this->my_head);
+                this->pop_front(*(op->elem));
                 __TBB_store_with_release(op->status, SUCCEEDED);
             }
         }
         /* override */ void internal_reserve(queue_operation *op) {
-            if (this->my_reserved == true || this->my_array[ this->my_head & (this->my_array_size-1)].second == false ) {
+            if (this->my_reserved || !this->item_valid(this->my_head)) {
                 __TBB_store_with_release(op->status, FAILED);
             }
             else {
                 this->my_reserved = true;
-                *(op->elem) = this->my_array[ this->my_head & (this->my_array_size-1)].first;
+                this->fetch_front(*(op->elem));
+                this->invalidate_front();
                 __TBB_store_with_release(op->status, SUCCEEDED);
             }
         }
         /* override */ void internal_consume(queue_operation *op) {
-            this->my_reserved = false;
-            this->my_array[ this->my_head & (this->my_array_size-1)].second = false;
-            ++(this->my_head);
+            this->consume_front();
             __TBB_store_with_release(op->status, SUCCEEDED);
         }
 
@@ -1744,12 +1681,12 @@ namespace tbb {
         typedef receiver< output_type > successor_type;
 
         //! Constructor
-        queue_node( graph &g ) : buffer_node<T>(g) {}
+    queue_node( graph &g ) : buffer_node<T, A>(g) {}
     };
 
     //! Forwards messages in sequence order
-    template< typename T >
-    class sequencer_node : public queue_node<T> {
+    template< typename T, typename A=cache_aligned_allocator<T> >
+    class sequencer_node : public queue_node<T, A> {
         internal::function_body< T, size_t > *my_sequencer;
     public:
 
@@ -1760,14 +1697,14 @@ namespace tbb {
 
         //! Constructor
         template< typename Sequencer >
-        sequencer_node( graph &g, const Sequencer& s ) : queue_node<T>(g),
+        sequencer_node( graph &g, const Sequencer& s ) : queue_node<T, A>(g),
             my_sequencer(new internal::function_body_leaf< T, size_t, Sequencer>(s) ) {}
 
         //! Destructor
         ~sequencer_node() { delete my_sequencer; }
     protected:
-        typedef typename buffer_node<T>::size_type size_type;
-        typedef typename buffer_node<T>::buffer_operation sequencer_operation;
+        typedef typename buffer_node<T, A>::size_type size_type;
+        typedef typename buffer_node<T, A>::buffer_operation sequencer_operation;
 
         enum op_stat {WAIT=0, SUCCEEDED, FAILED};
 
@@ -1776,17 +1713,17 @@ namespace tbb {
             size_type tag = (*my_sequencer)(*(op->elem));
 
             this->my_tail = (tag+1 > this->my_tail) ? tag+1 : this->my_tail;
-            while ( this->my_tail - this->my_head >= this->my_array_size ) {
-                this->grow_my_array( this->my_tail - this->my_head  + 1);
-            }
-            this->my_array[tag&(this->my_array_size-1)] = std::make_pair( *(op->elem), true );
+
+            if(this->size() > this->capacity())
+                this->grow_my_array(this->size());  // tail already has 1 added to it
+            this->item(tag) = std::make_pair( *(op->elem), true );
             __TBB_store_with_release(op->status, SUCCEEDED);
         }
     };
 
     //! Forwards messages in priority order
-    template< typename T, typename Compare = std::less<T> >
-    class priority_queue_node : public buffer_node<T> {
+    template< typename T, typename Compare = std::less<T>, typename A=cache_aligned_allocator<T> >
+    class priority_queue_node : public buffer_node<T, A> {
     public:
         typedef T input_type;
         typedef T output_type;
@@ -1794,12 +1731,12 @@ namespace tbb {
         typedef receiver< output_type > successor_type;
 
         //! Constructor
-        priority_queue_node( graph &g ) : buffer_node<T>(g), mark(0) {}
+    priority_queue_node( graph &g ) : buffer_node<T, A>(g), mark(0) {}
 
     protected:
-        typedef typename buffer_node<T>::size_type size_type;
-        typedef typename buffer_node<T>::item_type item_type;
-        typedef typename buffer_node<T>::buffer_operation prio_operation;
+        typedef typename buffer_node<T, A>::size_type size_type;
+        typedef typename buffer_node<T, A>::item_type item_type;
+        typedef typename buffer_node<T, A>::buffer_operation prio_operation;
 
         enum op_stat {WAIT=0, SUCCEEDED, FAILED};
 
@@ -1810,21 +1747,21 @@ namespace tbb {
                 tmp = op_list;
                 op_list = op_list->next;
                 switch (tmp->type) {
-                case buffer_node<T>::reg_succ: this->internal_reg_succ(tmp); try_forwarding = true; break;
-                case buffer_node<T>::rem_succ: this->internal_rem_succ(tmp); break;
-                case buffer_node<T>::put_item: internal_push(tmp); try_forwarding = true; break;
-                case buffer_node<T>::try_fwd: internal_forward(tmp); break;
-                case buffer_node<T>::rel_res: internal_release(tmp); try_forwarding = true; break;
-                case buffer_node<T>::con_res: internal_consume(tmp); try_forwarding = true; break;
-                case buffer_node<T>::req_item: internal_pop(tmp); break;
-                case buffer_node<T>::res_item: internal_reserve(tmp); break;
+                case buffer_node<T, A>::reg_succ: this->internal_reg_succ(tmp); try_forwarding = true; break;
+                case buffer_node<T, A>::rem_succ: this->internal_rem_succ(tmp); break;
+                case buffer_node<T, A>::put_item: internal_push(tmp); try_forwarding = true; break;
+                case buffer_node<T, A>::try_fwd: internal_forward(tmp); break;
+                case buffer_node<T, A>::rel_res: internal_release(tmp); try_forwarding = true; break;
+                case buffer_node<T, A>::con_res: internal_consume(tmp); try_forwarding = true; break;
+                case buffer_node<T, A>::req_item: internal_pop(tmp); break;
+                case buffer_node<T, A>::res_item: internal_reserve(tmp); break;
                 }
             }
             // process pops!  for now, no special pop processing
             if (mark<this->my_tail) heapify();
             if (try_forwarding && !this->forwarder_busy) {
                 this->forwarder_busy = true;
-                task::enqueue(*new(task::allocate_additional_child_of(*(this->my_parent))) internal::forward_task< buffer_node<input_type> >(*this));
+                task::enqueue(*new(task::allocate_additional_child_of(*(this->my_parent))) internal::forward_task< buffer_node<input_type, A> >(*this));
             }
         }
 
@@ -2085,9 +2022,12 @@ namespace tbb {
     namespace internal {
 
     struct forwarding_base {
+        forwarding_base(task *rt) : my_root_task(rt) {}
         virtual ~forwarding_base() {}
         virtual void decrement_port_count() = 0;
         virtual void increment_port_count() = 0;
+        // moved here so input ports can queue tasks
+        task* my_root_task;
     };
 
     template< int N >
@@ -2124,6 +2064,28 @@ namespace tbb {
             }
             return true;
         }
+
+        template<typename InputTuple, typename OutputTuple>
+        static inline bool get_my_item( InputTuple &my_input, OutputTuple &out) {
+            bool res = std::get<N-1>(my_input).get_item(std::get<N-1>(out) ); // may fail
+            return join_helper<N-1>::get_my_item(my_input, out) && res;       // do get on other inputs before returning
+        }
+
+        template<typename InputTuple, typename OutputTuple>
+        static inline bool get_items(InputTuple &my_input, OutputTuple &out) {
+            return get_my_item(my_input, out);
+        }
+
+        template<typename InputTuple>
+        static inline void reset_my_port(InputTuple &my_input) {
+            join_helper<N-1>::reset_my_port(my_input);
+            std::get<N-1>(my_input).reset_port();
+        }
+
+        template<typename InputTuple>
+        static inline void reset_ports(InputTuple& my_input) {
+            reset_my_port(my_input);
+        }
     };
 
     template< >
@@ -2153,95 +2115,290 @@ namespace tbb {
         static inline bool reserve( InputTuple &my_input, OutputTuple &out) {
             return std::get<0>( my_input ).reserve( std::get<0>( out ) );
         }
+
+        template<typename InputTuple, typename OutputTuple>
+        static inline bool get_my_item( InputTuple &my_input, OutputTuple &out) {
+            return std::get<0>(my_input).get_item(std::get<0>(out));
+        }
+
+        template<typename InputTuple, typename OutputTuple>
+        static inline bool get_items(InputTuple &my_input, OutputTuple &out) {
+            return get_my_item(my_input, out);
+        }
+
+        template<typename InputTuple>
+        static inline void reset_my_port(InputTuple &my_input) {
+            std::get<0>(my_input).reset_port();
+        }
+
+        template<typename InputTuple>
+        static inline void reset_ports(InputTuple& my_input) {
+            reset_my_port(my_input);
+        }
     };
 
     namespace join_policy_namespace {
-        enum join_policy { two_phase
+        enum join_policy { reserving
+            , queueing
         };
     }
     using namespace join_policy_namespace;
 
     //! The two-phase join port
     template< typename T >
-    class two_phase_port : public receiver<T> {
+    class reserving_port : public receiver<T> {
     public:
         typedef T input_type;
         typedef sender<T> predecessor_type;
+    private:
+        // ----------- Aggregator ------------
+        enum op_type { reg_pred, rem_pred, res_item, rel_res, con_res };
+        enum op_stat {WAIT=0, SUCCEEDED, FAILED};
+        typedef reserving_port<T> my_class;
+
+        class reserving_port_operation : public aggregated_operation<reserving_port_operation> {
+        public:
+            char type;
+            union {
+                T *my_arg;
+                predecessor_type *my_pred;
+            };
+            reserving_port_operation(const T& e, op_type t) :
+                type(char(t)), my_arg(const_cast<T*>(&e)) {}
+            reserving_port_operation(const predecessor_type &s, op_type t) : type(char(t)), 
+                my_pred(const_cast<predecessor_type *>(&s)) {}
+            reserving_port_operation(op_type t) : type(char(t)) {}
+        };
+
+        typedef internal::aggregating_functor<my_class, reserving_port_operation> my_handler;
+        friend class internal::aggregating_functor<my_class, reserving_port_operation>;
+        aggregator<my_handler, reserving_port_operation> my_aggregator;
+
+        void handle_operations(reserving_port_operation* op_list) {
+            reserving_port_operation *current;
+            bool no_predecessors;
+            while(op_list) {
+                current = op_list;
+                op_list = op_list->next;
+                switch(current->type) {
+                case reg_pred:
+                    no_predecessors = my_predecessors.empty();
+                    my_predecessors.add(*(current->my_pred));
+                    if ( no_predecessors ) {
+                        my_join->decrement_port_count( ); // may try to forward
+                    }
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+                case rem_pred:
+                    my_predecessors.remove(*(current->my_pred));
+                    if(my_predecessors.empty()) my_join->increment_port_count();
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+                case res_item:
+                    if ( reserved ) {
+                        __TBB_store_with_release(current->status, FAILED);
+                    }
+                    else if ( my_predecessors.try_reserve( *(current->my_arg) ) ) {
+                        reserved = true;
+                        __TBB_store_with_release(current->status, SUCCEEDED);
+                    } else {
+                        if ( my_predecessors.empty() ) {
+                            my_join->increment_port_count();
+                        }
+                        __TBB_store_with_release(current->status, FAILED);
+                    }
+                    break;
+                case rel_res:
+                    reserved = false;
+                    my_predecessors.try_release( );
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+                case con_res:
+                    reserved = false;
+                    my_predecessors.try_consume( );
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+                }
+            }
+        }
+
+    public:
 
         //! Constructor
-        two_phase_port() : reserved(false) {
-           my_join = NULL;
-           my_predecessors.set_owner( this );
+        reserving_port() : reserved(false) {
+            my_join = NULL;
+            my_predecessors.set_owner( this );
+            my_aggregator.initialize_handler(my_handler(this));
         }
 
         // copy constructor
-        two_phase_port(const two_phase_port& /* other */) : receiver<T>() {
+        reserving_port(const reserving_port& /* other */) : receiver<T>() {
             reserved = false;
             my_join = NULL;
             my_predecessors.set_owner( this );
+            my_aggregator.initialize_handler(my_handler(this));
         }
 
         void set_join_node_pointer(forwarding_base *join) {
             my_join = join;
         }
 
+        // always rejects, so arc is reversed (and reserves can be done.)
         bool try_put( T ) {
             return false;
         }
 
         //! Add a predecessor
         bool register_predecessor( sender<T> &src ) {
-            spin_mutex::scoped_lock l(my_mutex);
-            bool no_predecessors = my_predecessors.empty();
-            my_predecessors.add(src);
-            if ( no_predecessors ) {
-                my_join->decrement_port_count( );
-            }
-            return true;
+            reserving_port_operation op_data(src, reg_pred);
+            my_aggregator.execute(&op_data);
+            return op_data.status == SUCCEEDED;
         }
 
         //! Remove a predecessor
         bool remove_predecessor( sender<T> &src ) {
-            spin_mutex::scoped_lock l(my_mutex);
-            my_predecessors.remove( src );
-            if(my_predecessors.empty()) my_join->increment_port_count();
-            return true;
+            reserving_port_operation op_data(src, rem_pred);
+            my_aggregator.execute(&op_data);
+            return op_data.status == SUCCEEDED;
         }
 
         //! Reserve an item from the port
         bool reserve( T &v ) {
-            spin_mutex::scoped_lock l(my_mutex);
-            if ( reserved ) {
-                return false;
-            }
-            if ( my_predecessors.try_reserve( v ) ) {
-                reserved = true;
-                return true;
-            } else if ( my_predecessors.empty() ) {
-                my_join->increment_port_count();
-            }
-            return false;
+            reserving_port_operation op_data(v, res_item);
+            my_aggregator.execute(&op_data);
+            return op_data.status == SUCCEEDED;
         }
 
         //! Release the port
         void release( ) {
-            spin_mutex::scoped_lock l(my_mutex);
-            reserved = false;
-            my_predecessors.try_release( );
+            reserving_port_operation op_data(rel_res);
+            my_aggregator.execute(&op_data);
         }
 
         //! Complete use of the port
         void consume( ) {
-            spin_mutex::scoped_lock l(my_mutex);
-            reserved = false;
-            my_predecessors.try_consume( );
+            reserving_port_operation op_data(con_res);
+            my_aggregator.execute(&op_data);
         }
 
     private:
-        spin_mutex my_mutex;
         forwarding_base *my_join;
-        reservable_predecessor_cache< T > my_predecessors;
+        reservable_predecessor_cache< T, null_mutex > my_predecessors;
         bool reserved;
+    };
+
+    //! queueing join_port
+    template<typename T>
+    class queueing_port : public receiver<T>, public item_buffer<T> {
+    public:
+        typedef T input_type;
+        typedef sender<T> predecessor_type;
+        typedef queueing_port<T> my_node_type;
+
+// ----------- Aggregator ------------
+    private:
+        enum op_type { try__put, get__item, res_port };
+        enum op_stat {WAIT=0, SUCCEEDED, FAILED};
+        typedef queueing_port<T> my_class;
+
+        class queueing_port_operation : public aggregated_operation<queueing_port_operation> {
+        public:
+            char type;
+            union {
+                T my_val;
+                T *my_arg;
+            };
+            // constructor for value parameter
+            queueing_port_operation(const T& e, op_type t) :
+                // type(char(t)), my_val(const_cast<T>(e)) {}
+                type(char(t)), my_val(e) {}
+            // constructor for pointer parameter
+            queueing_port_operation(const T* p, op_type t) :
+                type(char(t)), my_arg(const_cast<T*>(p)) {}
+            // constructor with no parameter
+            queueing_port_operation(op_type t) : type(char(t)) {}
+        };
+
+        typedef internal::aggregating_functor<my_class, queueing_port_operation> my_handler;
+        friend class internal::aggregating_functor<my_class, queueing_port_operation>;
+        aggregator<my_handler, queueing_port_operation> my_aggregator;
+
+        void handle_operations(queueing_port_operation* op_list) {
+            queueing_port_operation *current;
+            bool was_empty;
+            while(op_list) {
+                current = op_list;
+                op_list = op_list->next;
+                switch(current->type) {
+                case try__put:
+                    was_empty = this->buffer_empty();
+                    this->push_back(current->my_val);
+                    if (was_empty) my_join->decrement_port_count();
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+                case get__item:
+                    if(!this->buffer_empty()) {
+                        this->fetch_front(*(current->my_arg));
+                        __TBB_store_with_release(current->status, SUCCEEDED);
+                    }
+                    else {
+                        __TBB_store_with_release(current->status, FAILED);
+                    }
+                    break;
+                case res_port:
+                    __TBB_ASSERT(this->item_valid(this->my_head), "No item to reset");
+                    this->invalidate_front(); ++(this->my_head);
+                    if(this->item_valid(this->my_head)) {
+                        my_join->decrement_port_count();
+                    }
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+                }
+            }
+        }
+// ------------ End Aggregator ---------------
+    public:
+
+        //! Constructor
+        queueing_port() : item_buffer<T>() {
+            my_join = NULL;
+            my_aggregator.initialize_handler(my_handler(this));
+        }
+
+        //! copy constructor
+        queueing_port(const queueing_port& /* other */) : receiver<T>(), item_buffer<T>() {
+            my_join = NULL;
+            my_aggregator.initialize_handler(my_handler(this));
+        }
+
+        //! record parent for tallying available items
+        void set_join_node_pointer(forwarding_base *join) {
+            my_join = join;
+        }
+
+        /*override*/bool try_put(T v) {
+            queueing_port_operation op_data(v, try__put);
+            my_aggregator.execute(&op_data);
+            return op_data.status == SUCCEEDED;
+        }
+
+
+        bool get_item( T &v ) {
+            queueing_port_operation op_data(&v, get__item);
+            my_aggregator.execute(&op_data);
+            return op_data.status == SUCCEEDED;
+        }
+
+        // reset_port is called when item is accepted by successor, but
+        // is initiated by join_node.
+        void reset_port() {
+            queueing_port_operation op_data(res_port);
+            my_aggregator.execute(&op_data);
+            return;
+        }
+
+    private:
+        forwarding_base *my_join;
     };
 
     template<join_policy JP, typename InputTuple, typename OutputTuple>
@@ -2252,14 +2409,14 @@ namespace tbb {
     class join_node_FE;
 
     template<typename InputTuple, typename OutputTuple>
-    class join_node_FE<two_phase, InputTuple, OutputTuple> : public forwarding_base {
+    class join_node_FE<reserving, InputTuple, OutputTuple> : public forwarding_base {
     public:
         static const int N = std::tuple_size<OutputTuple>::value;
         typedef OutputTuple output_type;
         typedef InputTuple input_type;
-        typedef join_node_base<two_phase, InputTuple, OutputTuple> my_node_type; // for forwarding
+        typedef join_node_base<reserving, InputTuple, OutputTuple> my_node_type; // for forwarding
 
-        join_node_FE(graph &g) : my_root_task(g.root_task()), my_node(NULL) {
+        join_node_FE(graph &g) : forwarding_base(g.root_task()), my_node(NULL) {
             ports_with_no_inputs = N;
             join_helper<N>::set_join_node_pointer(my_inputs, this);
         }
@@ -2273,14 +2430,14 @@ namespace tbb {
         // if all input_ports have predecessors, spawn forward to try and consume tuples
         void decrement_port_count() {
             if(ports_with_no_inputs.fetch_and_decrement() == 1) {
-                task::enqueue( * new ( task::allocate_additional_child_of( *my_root_task ) )
+                task::enqueue( * new ( task::allocate_additional_child_of( *(this->my_root_task) ) )
                     forward_task<my_node_type>(*my_node) );
             }
         }
 
         input_type &inputs() { return my_inputs; }
     protected:
-        // all methods on input ports should be called under spin lock from join_node_base.
+        // all methods on input ports should be called under mutual exclusion from join_node_base.
 
         bool tuple_build_may_succeed() {
             return !ports_with_no_inputs;
@@ -2299,9 +2456,64 @@ namespace tbb {
         }
 
         input_type my_inputs;
-        task *my_root_task;
         my_node_type *my_node;
         atomic<size_t> ports_with_no_inputs;
+    };
+
+    template<typename InputTuple, typename OutputTuple>
+    class join_node_FE<queueing, InputTuple, OutputTuple> : public forwarding_base {
+    public:
+        static const int N = std::tuple_size<OutputTuple>::value;
+        typedef OutputTuple output_type;
+        typedef InputTuple input_type;
+        typedef join_node_base<queueing, InputTuple, OutputTuple> my_node_type; // for forwarding
+
+        join_node_FE(graph &g) : forwarding_base(g.root_task()), my_node(NULL) {
+            ports_with_no_items = N;
+            join_helper<N>::set_join_node_pointer(my_inputs, this);
+        }
+
+        // needed for forwarding
+        void set_my_node(my_node_type *new_my_node) { my_node = new_my_node; }
+
+        void reset_port_count() {
+            ports_with_no_items = N;
+        }
+
+        // if all input_ports have items, spawn forward to try and consume tuples
+        void decrement_port_count() {
+            if(ports_with_no_items.fetch_and_decrement() == 1) {
+                task::enqueue( * new ( task::allocate_additional_child_of( *(this->my_root_task) ) )
+                    forward_task<my_node_type>(*my_node) );
+            }
+        }
+
+        void increment_port_count() { __TBB_ASSERT(false, NULL); }  // should never be called
+
+        input_type &inputs() { return my_inputs; }
+    protected:
+        // all methods on input ports should be called under mutual exclusion from join_node_base.
+
+        bool tuple_build_may_succeed() {
+            return !ports_with_no_items;
+        }
+
+        bool try_to_make_tuple(output_type &out) {
+            if(ports_with_no_items) return false;
+            return join_helper<N>::get_items(my_inputs, out);
+        }
+
+        void tuple_accepted() {
+            reset_port_count();
+            join_helper<N>::reset_ports(my_inputs);
+        }
+        void tuple_rejected() {
+            // nothing to do.
+        }
+
+        input_type my_inputs;
+        my_node_type *my_node;
+        atomic<size_t> ports_with_no_items;
     };
 
     //! join_node_base
@@ -2318,326 +2530,618 @@ namespace tbb {
         using input_ports_type::tuple_accepted;
         using input_ports_type::tuple_rejected;
 
-        join_node_base(graph &g) : input_ports_type(g),  my_root_task(g.root_task()) {
+    private:
+        // ----------- Aggregator ------------
+        enum op_type { reg_succ, rem_succ, try__get, do_fwrd };
+        enum op_stat {WAIT=0, SUCCEEDED, FAILED};
+        typedef join_node_base<JP,InputTuple,OutputTuple> my_class;
+
+        class join_node_base_operation : public aggregated_operation<join_node_base_operation> {
+        public:
+            char type;
+            union {
+                output_type *my_arg;
+                successor_type *my_succ;
+            };
+            join_node_base_operation(const output_type& e, op_type t) :
+                type(char(t)), my_arg(const_cast<output_type*>(&e)) {}
+            join_node_base_operation(const successor_type &s, op_type t) : type(char(t)), 
+                my_succ(const_cast<successor_type *>(&s)) {}
+            join_node_base_operation(op_type t) : type(char(t)) {}
+        };
+
+        typedef internal::aggregating_functor<my_class, join_node_base_operation> my_handler;
+        friend class internal::aggregating_functor<my_class, join_node_base_operation>;
+        bool forwarder_busy;
+        aggregator<my_handler, join_node_base_operation> my_aggregator;
+
+        void handle_operations(join_node_base_operation* op_list) {
+            join_node_base_operation *current;
+            while(op_list) {
+                current = op_list;
+                op_list = op_list->next;
+                switch(current->type) {
+                case reg_succ:
+                    my_successors.register_successor(*(current->my_succ));
+                    if(tuple_build_may_succeed() && !forwarder_busy) {
+                        task::enqueue( * new ( task::allocate_additional_child_of(*(this->my_root_task)) )
+                                forward_task<join_node_base<JP,InputTuple,OutputTuple> >(*this));
+                        forwarder_busy = true;
+                    }
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+                case rem_succ:
+                    my_successors.remove_successor(*(current->my_succ));
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+                case try__get:
+                    if(tuple_build_may_succeed()) {
+                        if(try_to_make_tuple(*(current->my_arg))) {
+                            tuple_accepted();
+                            __TBB_store_with_release(current->status, SUCCEEDED);
+                        }
+                        else __TBB_store_with_release(current->status, FAILED);
+                    }
+                    else __TBB_store_with_release(current->status, FAILED);
+                    break;
+                case do_fwrd: {
+                        bool build_succeeded;
+                        output_type out;
+                        if(tuple_build_may_succeed()) {
+                            do {
+                                build_succeeded = try_to_make_tuple(out);
+                                if(build_succeeded) {
+                                    if(my_successors.try_put(out)) {
+                                        tuple_accepted();
+                                    }
+                                    else {
+                                        tuple_rejected();
+                                        build_succeeded = false;
+                                    }
+                                }
+                            } while(build_succeeded);
+                        }
+                        __TBB_store_with_release(current->status, SUCCEEDED);
+                        forwarder_busy = false;
+                    }
+                    break;
+                }
+            }
+        }
+        // ---------- end aggregator -----------
+    public:
+
+        join_node_base(graph &g) : input_ports_type(g), forwarder_busy(false) {
             my_successors.set_owner(this);
             input_ports_type::set_my_node(this);
+            my_aggregator.initialize_handler(my_handler(this));
         }
 
         bool register_successor(successor_type &r) {
-            spin_mutex::scoped_lock l(my_mutex);
-            my_successors.register_successor(r);
-            if(tuple_build_may_succeed()) {
-                task::enqueue( * new ( task::allocate_additional_child_of( *my_root_task) )
-                        forward_task<join_node_base<JP,InputTuple,OutputTuple> >( *this ) );
-            }
-            return true;
+            join_node_base_operation op_data(r, reg_succ);
+            my_aggregator.execute(&op_data);
+            return op_data.status == SUCCEEDED;
         }
 
-        template<size_t N>
-        receiver<typename std::tuple_element<N, OutputTuple>::value> & input_port(void) { return std::get<N>(input_ports_type::inputs()); }
-
         bool remove_successor( successor_type &r) {
-            spin_mutex::scoped_lock l(my_mutex);
-            my_successors.remove_successor(r);
-            return true;
+            join_node_base_operation op_data(r, rem_succ);
+            my_aggregator.execute(&op_data);
+            return op_data.status == SUCCEEDED;
         }
 
         bool try_get( output_type &v) {
-            spin_mutex::scoped_lock l(my_mutex);
-            if(tuple_build_may_succeed()) {
-                if(try_to_make_tuple(v)) {
-                    // successor requested, so acceptance guaranteed
-                    tuple_accepted();
-                    return true;
-                }
-            }
-            return false;
+            join_node_base_operation op_data(v, try__get);
+            my_aggregator.execute(&op_data);
+            return op_data.status == SUCCEEDED;
         }
 
     private:
-        task *my_root_task;
         broadcast_cache<output_type, null_rw_mutex> my_successors;
-        spin_mutex my_mutex;
 
         friend class forward_task< join_node_base<JP, InputTuple, OutputTuple> >;
 
         void forward() {
-            spin_mutex::scoped_lock l(my_mutex);
-            output_type out;
-            if(!tuple_build_may_succeed()) return;
-            while(try_to_make_tuple(out)) {
-                if(my_successors.try_put(out)) {
-                    tuple_accepted();
-                }
-                else {
-                    tuple_rejected();
-                    return;
-                }
-            }
+            join_node_base_operation op_data(do_fwrd);
+            my_aggregator.execute(&op_data);
         }
     };
 
-    //! unfolded_join_node : passes input_port_tuple to join_node_base.  We build the input port type
+    //! unfolded_join_node : passes input_ports_tuple_type to join_node_base.  We build the input port type
     //  using tuple_element.
     template<int N, typename OutputTuple, join_policy JP>
     class unfolded_join_node;
 
     template<typename OutputTuple>
-    class unfolded_join_node<2,OutputTuple,two_phase> : public internal::join_node_base<two_phase,
+    class unfolded_join_node<2,OutputTuple,reserving> : public internal::join_node_base<reserving,
         std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type> >,
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type> >,
         OutputTuple
                   >
                   {
-    private:
-        typedef typename std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type> > port_tuple_type;
     public:
+        typedef typename std::tuple<
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type> > input_ports_tuple_type;
         typedef OutputTuple output_type;
     private:
-        typedef join_node_base<two_phase, port_tuple_type, output_type > base_type;
+        typedef join_node_base<reserving, input_ports_tuple_type, output_type > base_type;
     public:
         unfolded_join_node(graph &g) : base_type(g) {}
     };
 
     template<typename OutputTuple>
-    class unfolded_join_node<3,OutputTuple,two_phase> : public internal::join_node_base<two_phase,
+    class unfolded_join_node<3,OutputTuple,reserving> : public internal::join_node_base<reserving,
         std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type> >,
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type> >,
         OutputTuple
                     >
                     {
-    private:
-        typedef typename std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type> > port_tuple_type;
     public:
+        typedef typename std::tuple<
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type> > input_ports_tuple_type;
         typedef OutputTuple output_type;
     private:
-        typedef join_node_base<two_phase, port_tuple_type, output_type > base_type;
+        typedef join_node_base<reserving, input_ports_tuple_type, output_type > base_type;
     public:
         unfolded_join_node(graph &g) : base_type(g) {}
     };
 
     template<typename OutputTuple>
-    class unfolded_join_node<4,OutputTuple,two_phase> : public internal::join_node_base<two_phase,
+    class unfolded_join_node<4,OutputTuple,reserving> : public internal::join_node_base<reserving,
         std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type> >,
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type> >,
         OutputTuple
                     > {
-    private:
-        typedef typename std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type> > port_tuple_type;
     public:
+        typedef typename std::tuple<
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type> > input_ports_tuple_type;
         typedef OutputTuple output_type;
     private:
-        typedef join_node_base<two_phase, port_tuple_type, output_type > base_type;
+        typedef join_node_base<reserving, input_ports_tuple_type, output_type > base_type;
     public:
         unfolded_join_node(graph &g) : base_type(g) {}
     };
 
     template<typename OutputTuple>
-    class unfolded_join_node<5,OutputTuple,two_phase> : public internal::join_node_base<two_phase,
+    class unfolded_join_node<5,OutputTuple,reserving> : public internal::join_node_base<reserving,
         std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type> >,
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type> >,
         OutputTuple
                 > {
-    private:
-        typedef typename std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type> > port_tuple_type;
     public:
+        typedef typename std::tuple<
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type> > input_ports_tuple_type;
         typedef OutputTuple output_type;
     private:
-        typedef join_node_base<two_phase, port_tuple_type, output_type > base_type;
+        typedef join_node_base<reserving, input_ports_tuple_type, output_type > base_type;
     public:
         unfolded_join_node(graph &g) : base_type(g) {}
     };
 
     template<typename OutputTuple>
-    class unfolded_join_node<6,OutputTuple,two_phase> : public internal::join_node_base<two_phase,
+    class unfolded_join_node<6,OutputTuple,reserving> : public internal::join_node_base<reserving,
         std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<5,OutputTuple>::type> >,
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<5,OutputTuple>::type> >,
         OutputTuple
                     > {
-    private:
-        typedef typename std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<5,OutputTuple>::type> > port_tuple_type;
     public:
+        typedef typename std::tuple<
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<5,OutputTuple>::type> > input_ports_tuple_type;
         typedef OutputTuple output_type;
     private:
-        typedef join_node_base<two_phase, port_tuple_type, output_type > base_type;
+        typedef join_node_base<reserving, input_ports_tuple_type, output_type > base_type;
     public:
         unfolded_join_node(graph &g) : base_type(g) {}
     };
 
     template<typename OutputTuple>
-    class unfolded_join_node<7,OutputTuple,two_phase> : public internal::join_node_base<two_phase,
+    class unfolded_join_node<7,OutputTuple,reserving> : public internal::join_node_base<reserving,
         std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<5,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<6,OutputTuple>::type> >,
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<5,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<6,OutputTuple>::type> >,
         OutputTuple
                 > {
-    private:
-        typedef typename std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<5,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<6,OutputTuple>::type> > port_tuple_type;
     public:
+        typedef typename std::tuple<
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<5,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<6,OutputTuple>::type> > input_ports_tuple_type;
         typedef OutputTuple output_type;
     private:
-        typedef join_node_base<two_phase, port_tuple_type, output_type > base_type;
+        typedef join_node_base<reserving, input_ports_tuple_type, output_type > base_type;
     public:
         unfolded_join_node(graph &g) : base_type(g) {}
     };
 
     template<typename OutputTuple>
-    class unfolded_join_node<8,OutputTuple,two_phase> : public internal::join_node_base<two_phase,
+    class unfolded_join_node<8,OutputTuple,reserving> : public internal::join_node_base<reserving,
         std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<5,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<6,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<7,OutputTuple>::type> >,
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<5,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<6,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<7,OutputTuple>::type> >,
         OutputTuple
                 > {
-    private:
-        typedef typename std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<5,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<6,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<7,OutputTuple>::type> > port_tuple_type;
     public:
+        typedef typename std::tuple<
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<5,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<6,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<7,OutputTuple>::type> > input_ports_tuple_type;
         typedef OutputTuple output_type;
     private:
-        typedef join_node_base<two_phase, port_tuple_type, output_type > base_type;
+        typedef join_node_base<reserving, input_ports_tuple_type, output_type > base_type;
     public:
         unfolded_join_node(graph &g) : base_type(g) {}
     };
 
     template<typename OutputTuple>
-    class unfolded_join_node<9,OutputTuple,two_phase> : public internal::join_node_base<two_phase,
+    class unfolded_join_node<9,OutputTuple,reserving> : public internal::join_node_base<reserving,
         std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<5,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<6,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<7,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<8,OutputTuple>::type> >,
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<5,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<6,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<7,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<8,OutputTuple>::type> >,
         OutputTuple
                 > {
-    private:
-        typedef typename std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<5,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<6,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<7,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<8,OutputTuple>::type> > port_tuple_type;
     public:
+        typedef typename std::tuple<
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<5,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<6,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<7,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<8,OutputTuple>::type> > input_ports_tuple_type;
         typedef OutputTuple output_type;
     private:
-        typedef join_node_base<two_phase, port_tuple_type, output_type > base_type;
+        typedef join_node_base<reserving, input_ports_tuple_type, output_type > base_type;
     public:
         unfolded_join_node(graph &g) : base_type(g) {}
     };
 
     template<typename OutputTuple>
-    class unfolded_join_node<10,OutputTuple,two_phase> : public internal::join_node_base<two_phase,
+    class unfolded_join_node<10,OutputTuple,reserving> : public internal::join_node_base<reserving,
         std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<5,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<6,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<7,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<8,OutputTuple>::type>,
-                two_phase_port<typename std::tuple_element<9,OutputTuple>::type> >,
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<5,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<6,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<7,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<8,OutputTuple>::type>,
+                reserving_port<typename std::tuple_element<9,OutputTuple>::type> >,
         OutputTuple
                 > {
-    private:
-        typedef typename std::tuple<
-                two_phase_port<typename std::tuple_element<0,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<1,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<2,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<3,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<4,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<5,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<6,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<7,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<8,OutputTuple>::type>, 
-                two_phase_port<typename std::tuple_element<9,OutputTuple>::type> > port_tuple_type;
     public:
+        typedef typename std::tuple<
+                reserving_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<4,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<5,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<6,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<7,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<8,OutputTuple>::type>, 
+                reserving_port<typename std::tuple_element<9,OutputTuple>::type> > input_ports_tuple_type;
         typedef OutputTuple output_type;
     private:
-        typedef join_node_base<two_phase, port_tuple_type, output_type > base_type;
+        typedef join_node_base<reserving, input_ports_tuple_type, output_type > base_type;
     public:
         unfolded_join_node(graph &g) : base_type(g) {}
     };
+
+    template<typename OutputTuple>
+    class unfolded_join_node<2,OutputTuple,queueing> : public internal::join_node_base<queueing,
+        std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type> >,
+        OutputTuple
+                  >
+                  {
+    public:
+        typedef typename std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type> > input_ports_tuple_type;
+        typedef OutputTuple output_type;
+    private:
+        typedef join_node_base<queueing, input_ports_tuple_type, output_type > base_type;
+    public:
+        unfolded_join_node(graph &g) : base_type(g) {}
+    };
+
+    template<typename OutputTuple>
+    class unfolded_join_node<3,OutputTuple,queueing> : public internal::join_node_base<queueing,
+        std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type> >,
+        OutputTuple
+                    >
+                    {
+    public:
+        typedef typename std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type> > input_ports_tuple_type;
+        typedef OutputTuple output_type;
+    private:
+        typedef join_node_base<queueing, input_ports_tuple_type, output_type > base_type;
+    public:
+        unfolded_join_node(graph &g) : base_type(g) {}
+    };
+
+    template<typename OutputTuple>
+    class unfolded_join_node<4,OutputTuple,queueing> : public internal::join_node_base<queueing,
+        std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type> >,
+        OutputTuple
+                    > {
+    public:
+        typedef typename std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type> > input_ports_tuple_type;
+        typedef OutputTuple output_type;
+    private:
+        typedef join_node_base<queueing, input_ports_tuple_type, output_type > base_type;
+    public:
+        unfolded_join_node(graph &g) : base_type(g) {}
+    };
+
+    template<typename OutputTuple>
+    class unfolded_join_node<5,OutputTuple,queueing> : public internal::join_node_base<queueing,
+        std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type> >,
+        OutputTuple
+                > {
+    public:
+        typedef typename std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type> > input_ports_tuple_type;
+        typedef OutputTuple output_type;
+    private:
+        typedef join_node_base<queueing, input_ports_tuple_type, output_type > base_type;
+    public:
+        unfolded_join_node(graph &g) : base_type(g) {}
+    };
+
+    template<typename OutputTuple>
+    class unfolded_join_node<6,OutputTuple,queueing> : public internal::join_node_base<queueing,
+        std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<5,OutputTuple>::type> >,
+        OutputTuple
+                    > {
+    public:
+        typedef typename std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<5,OutputTuple>::type> > input_ports_tuple_type;
+        typedef OutputTuple output_type;
+    private:
+        typedef join_node_base<queueing, input_ports_tuple_type, output_type > base_type;
+    public:
+        unfolded_join_node(graph &g) : base_type(g) {}
+    };
+
+    template<typename OutputTuple>
+    class unfolded_join_node<7,OutputTuple,queueing> : public internal::join_node_base<queueing,
+        std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<5,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<6,OutputTuple>::type> >,
+        OutputTuple
+                > {
+    public:
+        typedef typename std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<5,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<6,OutputTuple>::type> > input_ports_tuple_type;
+        typedef OutputTuple output_type;
+    private:
+        typedef join_node_base<queueing, input_ports_tuple_type, output_type > base_type;
+    public:
+        unfolded_join_node(graph &g) : base_type(g) {}
+    };
+
+    template<typename OutputTuple>
+    class unfolded_join_node<8,OutputTuple,queueing> : public internal::join_node_base<queueing,
+        std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<5,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<6,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<7,OutputTuple>::type> >,
+        OutputTuple
+                > {
+    public:
+        typedef typename std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<5,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<6,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<7,OutputTuple>::type> > input_ports_tuple_type;
+        typedef OutputTuple output_type;
+    private:
+        typedef join_node_base<queueing, input_ports_tuple_type, output_type > base_type;
+    public:
+        unfolded_join_node(graph &g) : base_type(g) {}
+    };
+
+    template<typename OutputTuple>
+    class unfolded_join_node<9,OutputTuple,queueing> : public internal::join_node_base<queueing,
+        std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<5,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<6,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<7,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<8,OutputTuple>::type> >,
+        OutputTuple
+                > {
+    public:
+        typedef typename std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<5,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<6,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<7,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<8,OutputTuple>::type> > input_ports_tuple_type;
+        typedef OutputTuple output_type;
+    private:
+        typedef join_node_base<queueing, input_ports_tuple_type, output_type > base_type;
+    public:
+        unfolded_join_node(graph &g) : base_type(g) {}
+    };
+
+    template<typename OutputTuple>
+    class unfolded_join_node<10,OutputTuple,queueing> : public internal::join_node_base<queueing,
+        std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<5,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<6,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<7,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<8,OutputTuple>::type>,
+                queueing_port<typename std::tuple_element<9,OutputTuple>::type> >,
+        OutputTuple
+                > {
+    public:
+        typedef typename std::tuple<
+                queueing_port<typename std::tuple_element<0,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<1,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<2,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<3,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<4,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<5,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<6,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<7,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<8,OutputTuple>::type>, 
+                queueing_port<typename std::tuple_element<9,OutputTuple>::type> > input_ports_tuple_type;
+        typedef OutputTuple output_type;
+    private:
+        typedef join_node_base<queueing, input_ports_tuple_type, output_type > base_type;
+    public:
+        unfolded_join_node(graph &g) : base_type(g) {}
+    };
+
+    //! templated function to refer to input ports of the join node
+    template<size_t N, typename JNT>
+    typename std::tuple_element<N, typename JNT::input_ports_tuple_type>::type &input_port(JNT &jn) {
+        return std::get<N>(jn.inputs());
+    }
 
     } // namespace internal
 
 using namespace internal::join_policy_namespace;
+using internal::input_port;
 
-template<typename OutputTuple, join_policy JP=two_phase>
+template<typename OutputTuple, join_policy JP=reserving>
 class join_node: public internal::unfolded_join_node<std::tuple_size<OutputTuple>::value, OutputTuple, JP> {
 private:
     static const int N = std::tuple_size<OutputTuple>::value;
     typedef typename internal::unfolded_join_node<N, OutputTuple, JP> unfolded_type;
 public:
     typedef OutputTuple output_type;
+    typedef typename unfolded_type::input_ports_tuple_type input_ports_tuple_type;
     join_node(graph &g) : unfolded_type(g) { }
 };
 

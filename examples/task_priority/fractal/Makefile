@@ -28,6 +28,7 @@
 NAME=Fractal
 ARGS=auto
 PERF_RUN_ARGS=auto 1 1000000 silent
+LIGHT_ARGS=auto 1 1000
 
 # The C++ compiler
 ifneq (,$(shell which icc 2>/dev/null))
@@ -68,6 +69,14 @@ else
 	./$(EXE) $(ARGS)
 endif
 
+light_test:
+ifeq ($(UI),mac)
+	export DYLD_LIBRARY_PATH="$(DYLD_LIBRARY_PATH):$(TBBLIBSPATH)"; ./$(EXE) $(LIGHT_ARGS)
+else
+	./$(EXE) $(LIGHT_ARGS)
+endif
+
 perf_build: release
 
 perf_run:
+	./$(EXE) $(PERF_RUN_ARGS)

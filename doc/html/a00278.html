@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::recursive_mutex Class Reference</title>
+<title>tbb::deprecated::concurrent_queue&lt; T, A &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,77 +21,88 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00362.html">tbb</a>::<a class="el" href="a00278.html">recursive_mutex</a></div>
-<h1>tbb::recursive_mutex Class Reference<br>
+<a class="el" href="a00407.html">tbb</a>::<b>deprecated</b>::<a class="el" href="a00278.html">concurrent_queue</a></div>
+<h1>tbb::deprecated::concurrent_queue&lt; T, A &gt; Class Template Reference<br>
 <small>
-[<a class="el" href="a00374.html">Synchronization</a>]</small>
-</h1><!-- doxytag: class="tbb::recursive_mutex" -->Mutex that allows recursive mutex acquisition.  
+[<a class="el" href="a00417.html">Containers</a>]</small>
+</h1><!-- doxytag: class="tbb::deprecated::concurrent_queue" --><!-- doxytag: inherits="tbb::concurrent_bounded_queue" -->A high-performance thread-safe blocking concurrent bounded queue.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00563.html">recursive_mutex.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00483.html">concurrent_queue.h</a>&gt;</code>
 <p>
-<a href="a00105.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<p>Inheritance diagram for tbb::deprecated::concurrent_queue&lt; T, A &gt;:
+<p><center><img src="a00278.png" usemap="#tbb::deprecated::concurrent_queue< T, A >_map" border="0" alt=""></center>
+<map name="tbb::deprecated::concurrent_queue< T, A >_map">
+<area href="a00271.html" alt="tbb::concurrent_bounded_queue< T, A >" shape="rect" coords="0,0,257,24">
+</map>
+<a href="a00030.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="889fa8cc32dd707eef7c0f52dda09c0d"></a><!-- doxytag: member="tbb::recursive_mutex::native_handle_type" ref="889fa8cc32dd707eef7c0f52dda09c0d" args="" -->
-typedef LPCRITICAL_SECTION&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#889fa8cc32dd707eef7c0f52dda09c0d">native_handle_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8861a9cdf232a20b5f2569754a281871"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::iterator" ref="8861a9cdf232a20b5f2569754a281871" args="" -->
+typedef <a class="el" href="a00271.html">concurrent_bounded_queue</a>&lt;<br>
+ T, A &gt;::iterator&nbsp;</td><td class="memItemRight" valign="bottom"><b>iterator</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Return native_handle. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="26a40fae42bf6cd9f3f77ee7482d6164"></a><!-- doxytag: member="tbb::recursive_mutex::native_handle_type" ref="26a40fae42bf6cd9f3f77ee7482d6164" args="" -->
-typedef pthread_mutex_t *&nbsp;</td><td class="memItemRight" valign="bottom"><b>native_handle_type</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="7117842ce3ed7c5147d3c886922e64d0"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::const_iterator" ref="7117842ce3ed7c5147d3c886922e64d0" args="" -->
+typedef <a class="el" href="a00271.html">concurrent_bounded_queue</a>&lt;<br>
+ T, A &gt;::const_iterator&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_iterator</b></td></tr>
 
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d2fceb7f95c24a8cd1457d4527e4b8c6"></a><!-- doxytag: member="tbb::recursive_mutex::recursive_mutex" ref="d2fceb7f95c24a8cd1457d4527e4b8c6" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#d2fceb7f95c24a8cd1457d4527e4b8c6">recursive_mutex</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="aaf19bd7337b72f3131ece60f7315ef7"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::concurrent_queue" ref="aaf19bd7337b72f3131ece60f7315ef7" args="(const A &amp;a=A())" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#aaf19bd7337b72f3131ece60f7315ef7">concurrent_queue</a> (const A &amp;a=A())</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct unacquired <a class="el" href="a00278.html">recursive_mutex</a>. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4c342c69d47f4bb0b393535dee4015d6"></a><!-- doxytag: member="tbb::recursive_mutex::lock" ref="4c342c69d47f4bb0b393535dee4015d6" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#4c342c69d47f4bb0b393535dee4015d6">lock</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct empty queue. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fc092b9082f233482f3513fc3bb670f7"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::concurrent_queue" ref="fc092b9082f233482f3513fc3bb670f7" args="(const concurrent_queue &amp;src, const A &amp;a=A())" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#fc092b9082f233482f3513fc3bb670f7">concurrent_queue</a> (const <a class="el" href="a00278.html">concurrent_queue</a> &amp;src, const A &amp;a=A())</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire lock. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#86e719b0afee25704af11ab97694d240">try_lock</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Copy constructor. <br></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="9102b897776bd2d9e908e6604ff16b5f"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::concurrent_queue" ref="9102b897776bd2d9e908e6604ff16b5f" args="(InputIterator b, InputIterator e, const A &amp;a=A())" -->
+template&lt;typename InputIterator&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00278.html#9102b897776bd2d9e908e6604ff16b5f">concurrent_queue</a> (InputIterator b, InputIterator e, const A &amp;a=A())</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Try acquiring lock (non-blocking).  <a href="#86e719b0afee25704af11ab97694d240"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f0a96e26b7f074588dc31e32524856ae"></a><!-- doxytag: member="tbb::recursive_mutex::unlock" ref="f0a96e26b7f074588dc31e32524856ae" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#f0a96e26b7f074588dc31e32524856ae">unlock</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">[begin,end) constructor <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#7c45561bafe71107d09b2bc1b8f4e681">push_if_not_full</a> (const T &amp;source)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6baa9ce4b394c39622456fd8a68f8bd8"></a><!-- doxytag: member="tbb::recursive_mutex::native_handle" ref="6baa9ce4b394c39622456fd8a68f8bd8" args="()" -->
-<a class="el" href="a00278.html#889fa8cc32dd707eef7c0f52dda09c0d">native_handle_type</a>&nbsp;</td><td class="memItemRight" valign="bottom"><b>native_handle</b> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Enqueue an item at tail of queue if queue is not already full.  <a href="#7c45561bafe71107d09b2bc1b8f4e681"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#48da3536245318af6cb5fd58bac78039">pop_if_present</a> (T &amp;destination)</td></tr>
 
-<tr><td colspan="2"><br><h2>Static Public Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="718cc53f6b33d8c396ccca0e4ebc5606"></a><!-- doxytag: member="tbb::recursive_mutex::is_rw_mutex" ref="718cc53f6b33d8c396ccca0e4ebc5606" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_rw_mutex</b> = false</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Attempt to dequeue an item from head of queue.  <a href="#48da3536245318af6cb5fd58bac78039"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ed7202cd273ae36463e6ac57e9472670"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::begin" ref="ed7202cd273ae36463e6ac57e9472670" args="()" -->
+iterator&nbsp;</td><td class="memItemRight" valign="bottom"><b>begin</b> ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f6149d7541063d8b35afd98df6f0f89d"></a><!-- doxytag: member="tbb::recursive_mutex::is_recursive_mutex" ref="f6149d7541063d8b35afd98df6f0f89d" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_recursive_mutex</b> = true</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="35fbb0d7e135545eb1daec2b4ae894cd"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::end" ref="35fbb0d7e135545eb1daec2b4ae894cd" args="()" -->
+iterator&nbsp;</td><td class="memItemRight" valign="bottom"><b>end</b> ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f01aacad6b9b9d51573c0803323182fe"></a><!-- doxytag: member="tbb::recursive_mutex::is_fair_mutex" ref="f01aacad6b9b9d51573c0803323182fe" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_fair_mutex</b> = false</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="62f31fe653e1158e64ddb0e163d0335c"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::begin" ref="62f31fe653e1158e64ddb0e163d0335c" args="() const " -->
+const_iterator&nbsp;</td><td class="memItemRight" valign="bottom"><b>begin</b> () const </td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3d42ddc4a6fe42350750a930302863d1"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::end" ref="3d42ddc4a6fe42350750a930302863d1" args="() const " -->
+const_iterator&nbsp;</td><td class="memItemRight" valign="bottom"><b>end</b> () const </td></tr>
 
 <tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a36f15b770a1bb0b56e33d7fa75ebd1a"></a><!-- doxytag: member="tbb::recursive_mutex::scoped_lock" ref="a36f15b770a1bb0b56e33d7fa75ebd1a" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>scoped_lock</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="05bffad9626d51abbd4bb82ae2a1cceb"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::internal::concurrent_queue_iterator" ref="05bffad9626d51abbd4bb82ae2a1cceb" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::concurrent_queue_iterator</b></td></tr>
 
-<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00279.html">scoped_lock</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The scoped locking pattern.  <a href="a00279.html#_details">More...</a><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Mutex that allows recursive mutex acquisition. 
+<h3>template&lt;typename T, class A = cache_aligned_allocator&lt;T&gt;&gt;<br>
+ class tbb::deprecated::concurrent_queue&lt; T, A &gt;</h3>
+
+A high-performance thread-safe blocking concurrent bounded queue. 
 <p>
-Mutex that allows recursive mutex acquisition. 
+This is the pre-PPL TBB concurrent queue which support boundedness and blocking semantics. Note that method names agree with the PPL-style concurrent queue. Multiple threads may each push and pop concurrently. Assignment construction is not allowed. 
 <p>
 <hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="86e719b0afee25704af11ab97694d240"></a><!-- doxytag: member="tbb::recursive_mutex::try_lock" ref="86e719b0afee25704af11ab97694d240" args="()" -->
+<a class="anchor" name="48da3536245318af6cb5fd58bac78039"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::pop_if_present" ref="48da3536245318af6cb5fd58bac78039" args="(T &amp;destination)" -->
 <div class="memitem">
 <div class="memproto">
+<div class="memtemplate">
+template&lt;typename T, class A = cache_aligned_allocator&lt;T&gt;&gt; </div>
       <table class="memname">
         <tr>
-          <td class="memname">bool tbb::recursive_mutex::try_lock           </td>
+          <td class="memname">bool <a class="el" href="a00278.html">tbb::deprecated::concurrent_queue</a>&lt; T, A &gt;::pop_if_present           </td>
           <td>(</td>
-          <td class="paramname">          </td>
+          <td class="paramtype">T &amp;&nbsp;</td>
+          <td class="paramname"> <em>destination</em>          </td>
           <td>&nbsp;)&nbsp;</td>
           <td width="100%"><code> [inline]</code></td>
         </tr>
@@ -100,13 +111,38 @@ Mutex that allows recursive mutex acquisition.
 <div class="memdoc">
 
 <p>
-Try acquiring lock (non-blocking). 
+Attempt to dequeue an item from head of queue. 
 <p>
-Return true if lock acquired; false otherwise. 
+Does not wait for item to become available. Returns true if successful; false otherwise. <dl compact><dt><b><a class="el" href="deprecated.html#_deprecated000001">Deprecated:</a></b></dt><dd>Use <a class="el" href="a00271.html#0ca487019bbb00a196442aff78a1e4f7">try_pop()</a> </dd></dl>
+
+</div>
+</div><p>
+<a class="anchor" name="7c45561bafe71107d09b2bc1b8f4e681"></a><!-- doxytag: member="tbb::deprecated::concurrent_queue::push_if_not_full" ref="7c45561bafe71107d09b2bc1b8f4e681" args="(const T &amp;source)" -->
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename T, class A = cache_aligned_allocator&lt;T&gt;&gt; </div>
+      <table class="memname">
+        <tr>
+          <td class="memname">bool <a class="el" href="a00278.html">tbb::deprecated::concurrent_queue</a>&lt; T, A &gt;::push_if_not_full           </td>
+          <td>(</td>
+          <td class="paramtype">const T &amp;&nbsp;</td>
+          <td class="paramname"> <em>source</em>          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"><code> [inline]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Enqueue an item at tail of queue if queue is not already full. 
+<p>
+Does not wait for queue to become not full. Returns true if item is pushed; false if queue was already full. 
 </div>
 </div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00563.html">recursive_mutex.h</a></ul>
+<li><a class="el" href="a00483.html">concurrent_queue.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

@@ -27,9 +27,6 @@
 */
 
 #include "harness.h"
-
-#if !__SUNPRO_CC
-
 #define TBB_PREVIEW_GRAPH 1
 #include "tbb/graph.h"
 #include "tbb/task_scheduler_init.h"
@@ -38,7 +35,7 @@
 // Tests
 //
 
-const int Count = 300;
+const int Count = 150;
 const int MaxPorts = 10;
 const int MaxNSources = 5; // max # of source_nodes to register for each join_node input in parallel test
 bool outputCheck[MaxPorts][Count];  // for checking output
@@ -132,7 +129,7 @@ public:
     static void add_source_nodes(join_node_type &my_join, tbb::graph &g, int nInputs) {
         for(int i=0; i < nInputs; ++i) {
             my_source_node_type *new_node = new my_source_node_type(g, source_body<IT>((IT)(ELEM+1), i, nInputs));
-            ASSERT(new_node->register_successor(std::get<ELEM-1>(my_join.inputs() )), NULL);
+            ASSERT(new_node->register_successor(tbb::input_port<ELEM-1>(my_join)), NULL);
             all_source_nodes[ELEM-1][i] = (void *)new_node;
         }
         // add the next source_node
@@ -152,7 +149,7 @@ public:
     static void remove_source_nodes(join_node_type& my_join, int nInputs) {
         for(int i=0; i< nInputs; ++i) {
             my_source_node_type *dp = reinterpret_cast<my_source_node_type *>(all_source_nodes[ELEM-1][i]);
-            dp->remove_successor(std::get<ELEM-1>(my_join.inputs()));
+            dp->remove_successor(tbb::input_port<ELEM-1>(my_join));
             delete dp;
         }
         source_node_helper<ELEM-1, JNT>::remove_source_nodes(my_join, nInputs);
@@ -172,7 +169,7 @@ public:
     static void add_source_nodes(join_node_type &my_join, tbb::graph &g, int nInputs) {
         for(int i=0; i < nInputs; ++i) {
             my_source_node_type *new_node = new my_source_node_type(g, source_body<IT>((IT)2, i, nInputs));
-            ASSERT(new_node->register_successor(std::get<0>(my_join.inputs() )), NULL);
+            ASSERT(new_node->register_successor(tbb::input_port<0>(my_join)), NULL);
             all_source_nodes[0][i] = (void *)new_node;
         }
     }
@@ -187,7 +184,7 @@ public:
     static void remove_source_nodes(join_node_type& my_join, int nInputs) {
         for(int i=0; i < nInputs; ++i) {
             my_source_node_type *dp = reinterpret_cast<my_source_node_type *>(all_source_nodes[0][i]);
-            dp->remove_successor(std::get<0>(my_join.inputs()));
+            dp->remove_successor(tbb::input_port<0>(my_join));
             delete dp;
         }
     }
@@ -380,40 +377,201 @@ public:
     }
 };
 
+template<tbb::join_policy JP>
+void test_input_port_policies();
+
+// join_node (reserving) does not consume inputs until an item is available at
+// every input.  It tries to reserve each input, and if any fails it releases the
+// reservation.  When it builds a tuple it broadcasts to all its successors and
+// consumes all the inputs.
+//
+// So our test will put an item at one input port, then attach another node to the
+// same node (a queue node in this case).  The second successor should receive the
+// item in the queue, emptying it.
+//
+// We then place an item in the second input queue, and check the output queues; they
+// should still be empty.  Then we place an item in the first queue; the output queues
+// should then receive a tuple.
+//
+// we then attach another function node to the second input.  It should not receive
+// an item, verifying that the item in the queue is consumed.
+template<>
+void test_input_port_policies<tbb::reserving>() {
+    tbb::graph g;
+    typedef tbb::join_node<std::tuple<int, int> > JType; // two-phase is the default policy
+    // create join_node<type0,type1> jn
+    JType jn(g);
+    // create output_queue oq0, oq1
+    typedef JType::output_type OQType;
+    tbb::queue_node<OQType> oq0(g);
+    tbb::queue_node<OQType> oq1(g);
+    // create iq0, iq1
+    typedef tbb::queue_node<int> IQType;
+    IQType iq0(g);
+    IQType iq1(g);
+    // create qnp, qnq
+    IQType qnp(g);
+    IQType qnq(g);
+    REMARK("Testing policies of join_node<reserving> input ports\n");
+    // attach jn to oq0, oq1
+    ASSERT(jn.register_successor(oq0), "Error attaching oq0");
+    ASSERT(jn.register_successor(oq1), "Error attaching oq1");
+    // attach iq0, iq1 to jn
+    ASSERT(iq0.register_successor(std::get<0>(jn.inputs())), "Error attaching iq0");
+    ASSERT(iq1.register_successor(std::get<1>(jn.inputs())), "Error attaching iq1");
+    for(int loop = 0; loop < 3; ++loop) {
+        // place one item in iq0
+        ASSERT(iq0.try_put(1), "Error putting to iq1");
+        // attach iq0 to qnp
+        ASSERT(iq0.register_successor(qnp), "Error attaching qnp to iq0");
+        // qnp should have an item in it.
+        g.wait_for_all();
+        {
+            int i;
+            ASSERT(qnp.try_get(i) && i == 1, "Error in item fetched by qnp");
+        }
+        // place item in iq1
+        ASSERT(iq1.try_put(2), "Error putting to iq1");
+        // oq0, oq1 should be empty
+        g.wait_for_all();
+        {
+            OQType t1;
+            ASSERT(!oq0.try_get(t1) && !oq1.try_get(t1), "oq0 and oq1 not empty");
+        }
+        // detach qnp from iq0
+        iq0.remove_successor(qnp); // if we don't remove qnp it will gobble any values we put in iq0
+        // place item in iq0
+        ASSERT(iq0.try_put(3), "Error on second put to iq0");
+        // oq0, oq1 should have items in them
+        g.wait_for_all();
+        {
+            OQType t0;
+            OQType t1;
+            ASSERT(oq0.try_get(t0) && std::get<0>(t0) == 3 && std::get<1>(t0) == 2, "Error in oq0 output");
+            ASSERT(oq1.try_get(t1) && std::get<0>(t1) == 3 && std::get<1>(t1) == 2, "Error in oq1 output");
+        }
+        // attach qnp to iq0, qnq to iq1
+        // qnp and qnq should be empty
+        iq0.register_successor(qnp);
+        iq1.register_successor(qnq);
+        g.wait_for_all();
+        {
+            int i;
+            ASSERT(!qnp.try_get(i), "iq0 still had value in it");
+            ASSERT(!qnq.try_get(i), "iq1 still had value in it");
+        }
+        iq0.remove_successor(qnp);
+        iq1.remove_successor(qnq);
+    } // for ( int loop ...
+}
+
+// join_node (queueing) consumes inputs as soon as they are available at
+// any input.  When it builds a tuple it broadcasts to all its successors and
+// discards the broadcast values.
+//
+// So our test will put an item at one input port, then attach another node to the
+// same node (a queue node in this case).  The second successor should not receive
+// an item (because the join consumed it).
+//
+// We then place an item in the second input queue, and check the output queues; they
+// should each have a tuple.
+//
+// we then attach another function node to the second input.  It should not receive
+// an item, verifying that the item in the queue is consumed.
+template<>
+void test_input_port_policies<tbb::queueing>() {
+    tbb::graph g;
+    typedef tbb::join_node<std::tuple<int, int>, tbb::queueing > JType;
+    // create join_node<type0,type1> jn
+    JType jn(g);
+    // create output_queue oq0, oq1
+    typedef JType::output_type OQType;
+    tbb::queue_node<OQType> oq0(g);
+    tbb::queue_node<OQType> oq1(g);
+    // create iq0, iq1
+    typedef tbb::queue_node<int> IQType;
+    IQType iq0(g);
+    IQType iq1(g);
+    // create qnp, qnq
+    IQType qnp(g);
+    IQType qnq(g);
+    REMARK("Testing policies of join_node<queueing> input ports\n");
+    // attach jn to oq0, oq1
+    ASSERT(jn.register_successor(oq0), "Error attaching oq0");
+    ASSERT(jn.register_successor(oq1), "Error attaching oq1");
+    // attach iq0, iq1 to jn
+    ASSERT(iq0.register_successor(std::get<0>(jn.inputs())), "Error attaching iq0");
+    ASSERT(iq1.register_successor(std::get<1>(jn.inputs())), "Error attaching iq1");
+    for(int loop = 0; loop < 3; ++loop) {
+        // place one item in iq0
+        ASSERT(iq0.try_put(1), "Error putting to iq1");
+        // attach iq0 to qnp
+        ASSERT(iq0.register_successor(qnp), "Error attaching qnp to iq0");
+        // qnp should have an item in it.
+        g.wait_for_all();
+        {
+            int i;
+            ASSERT(!qnp.try_get(i), "Item was received by qnp");
+        }
+        // place item in iq1
+        ASSERT(iq1.try_put(2), "Error putting to iq1");
+        // oq0, oq1 should have items
+        g.wait_for_all();
+        {
+            OQType t0;
+            OQType t1;
+            ASSERT(oq0.try_get(t0) && std::get<0>(t0) == 1 && std::get<1>(t0) == 2, "Error in oq0 output");
+            ASSERT(oq1.try_get(t1) && std::get<0>(t1) == 1 && std::get<1>(t1) == 2, "Error in oq1 output");
+        }
+        // attach qnq to iq1
+        // qnp and qnq should be empty
+        iq1.register_successor(qnq);
+        g.wait_for_all();
+        {
+            int i;
+            ASSERT(!qnp.try_get(i), "iq0 still had value in it");
+            ASSERT(!qnq.try_get(i), "iq1 still had value in it");
+        }
+        iq0.remove_successor(qnp);
+        iq1.remove_successor(qnq);
+    } // for ( int loop ...
+}
+
 int TestMain() {
 #if __TBB_USE_TBB_TUPLE
-    REMARK("  Using TBB tuple");
+    REMARK("  Using TBB tuple\n");
 #else
-    REMARK("  Using platform tuple");
+    REMARK("  Using platform tuple\n");
 #endif
-#if __TBB_USE_VARIADIC_TEMPLATE
-    REMARK(" with variadic template\n");
-#else
-    REMARK(" with explicit template\n");
-#endif
+
+    test_input_port_policies<tbb::reserving>();
+    test_input_port_policies<tbb::queueing>();
+
    for (int p = 0; p < 2; ++p) {
 
-       REMARK("two_phase\n");
-       generate_test<serial_test, std::tuple<float, double>, tbb::two_phase >::do_test();
-       generate_test<serial_test, std::tuple<float, double, int, long>, tbb::two_phase >::do_test();
-       generate_test<serial_test, std::tuple<double, double, int, long, int, short>, tbb::two_phase >::do_test();
-       generate_test<serial_test, std::tuple<float, double, double, double, float, int, float, long>, tbb::two_phase >::do_test();
-       generate_test<serial_test, std::tuple<float, double, int, double, double, float, long, int, float, long>, tbb::two_phase >::do_test();
-       generate_test<parallel_test, std::tuple<float, double>, tbb::two_phase >::do_test();
-       generate_test<parallel_test, std::tuple<float, int, long>, tbb::two_phase >::do_test();
-       generate_test<parallel_test, std::tuple<double, double, int, int, short>, tbb::two_phase >::do_test();
-       generate_test<parallel_test, std::tuple<float, int, double, float, long, float, long>, tbb::two_phase >::do_test();
-       generate_test<parallel_test, std::tuple<float, double, int, double, double, long, int, float, long>, tbb::two_phase >::do_test();
-
+       REMARK("reserving\n");
+       generate_test<serial_test, std::tuple<float, double>, tbb::reserving >::do_test();
+       generate_test<serial_test, std::tuple<float, double, int, long>, tbb::reserving >::do_test();
+       generate_test<serial_test, std::tuple<double, double, int, long, int, short>, tbb::reserving >::do_test();
+       generate_test<serial_test, std::tuple<float, double, double, double, float, int, float, long>, tbb::reserving >::do_test();
+       generate_test<serial_test, std::tuple<float, double, int, double, double, float, long, int, float, long>, tbb::reserving >::do_test();
+       generate_test<parallel_test, std::tuple<float, double>, tbb::reserving >::do_test();
+       generate_test<parallel_test, std::tuple<float, int, long>, tbb::reserving >::do_test();
+       generate_test<parallel_test, std::tuple<double, double, int, int, short>, tbb::reserving >::do_test();
+       generate_test<parallel_test, std::tuple<float, int, double, float, long, float, long>, tbb::reserving >::do_test();
+       generate_test<parallel_test, std::tuple<float, double, int, double, double, long, int, float, long>, tbb::reserving >::do_test();
+       REMARK("queueing\n");
+       generate_test<serial_test, std::tuple<float, double>, tbb::queueing >::do_test();
+       generate_test<serial_test, std::tuple<float, double, int, long>, tbb::queueing >::do_test();
+       generate_test<serial_test, std::tuple<double, double, int, long, int, short>, tbb::queueing >::do_test();
+       generate_test<serial_test, std::tuple<float, double, double, double, float, int, float, long>, tbb::queueing >::do_test();
+       generate_test<serial_test, std::tuple<float, double, int, double, double, float, long, int, float, long>, tbb::queueing >::do_test();
+       generate_test<parallel_test, std::tuple<float, double>, tbb::queueing >::do_test();
+       generate_test<parallel_test, std::tuple<float, int, long>, tbb::queueing >::do_test();
+       generate_test<parallel_test, std::tuple<double, double, int, int, short>, tbb::queueing >::do_test();
+       generate_test<parallel_test, std::tuple<float, int, double, float, long, float, long>, tbb::queueing >::do_test();
+       generate_test<parallel_test, std::tuple<float, double, int, double, double, long, int, float, long>, tbb::queueing >::do_test();
    }
+
    return Harness::Done;
 }
-
-#else /* __SUNPRO_CC */
-
-int TestMain() { 
-    REPORT("Known issue: test skipped because of the compiler (CC %X) bug.\n", __SUNPRO_CC);
-    return Harness::Skipped;
-}
-
-#endif /* __SUNPRO_CC */

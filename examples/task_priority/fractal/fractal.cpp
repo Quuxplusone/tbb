@@ -79,7 +79,7 @@ color_t fractal::calc_one_pixel(int x0, int y0) {
         iter++;
     }
 
-    int b = 256*mu;
+    int b = (int)(256*mu);
     int g = (b/8);
     int r = (g/16);
 

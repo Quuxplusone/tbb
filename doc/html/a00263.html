@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::null_rw_mutex::scoped_lock Class Reference</title>
+<title>tbb::blocked_range2d&lt; RowValue, ColValue &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,39 +21,60 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00362.html">tbb</a>::<a class="el" href="a00262.html">null_rw_mutex</a>::<a class="el" href="a00263.html">scoped_lock</a></div>
-<h1>tbb::null_rw_mutex::scoped_lock Class Reference</h1><!-- doxytag: class="tbb::null_rw_mutex::scoped_lock" -->Represents acquisition of a mutex.  
+<a class="el" href="a00407.html">tbb</a>::<a class="el" href="a00263.html">blocked_range2d</a></div>
+<h1>tbb::blocked_range2d&lt; RowValue, ColValue &gt; Class Template Reference<br>
+<small>
+[<a class="el" href="a00416.html">Algorithms</a>]</small>
+</h1><!-- doxytag: class="tbb::blocked_range2d" -->A 2-dimensional range that models the Range concept.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00502.html">null_rw_mutex.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00466.html">blocked_range2d.h</a>&gt;</code>
 <p>
-<a href="a00083.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00010.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
+<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a807a22fe658ec38b8edfd69521d0383"></a><!-- doxytag: member="tbb::blocked_range2d::row_range_type" ref="a807a22fe658ec38b8edfd69521d0383" args="" -->
+typedef <a class="el" href="a00262.html">blocked_range</a>&lt; RowValue &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00263.html#a807a22fe658ec38b8edfd69521d0383">row_range_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Type for size of an iteation range. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="750d5c6ac9915443df477a30031c07fd"></a><!-- doxytag: member="tbb::blocked_range2d::col_range_type" ref="750d5c6ac9915443df477a30031c07fd" args="" -->
+typedef <a class="el" href="a00262.html">blocked_range</a>&lt; ColValue &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>col_range_type</b></td></tr>
+
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e11281a13a7b6243c6c9ab243c5ad5a8"></a><!-- doxytag: member="tbb::null_rw_mutex::scoped_lock::scoped_lock" ref="e11281a13a7b6243c6c9ab243c5ad5a8" args="(null_rw_mutex &amp;, bool=true)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>scoped_lock</b> (<a class="el" href="a00262.html">null_rw_mutex</a> &amp;, bool=true)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4180bc35d4f8ed9f20045dba4f2a1bdc"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="4180bc35d4f8ed9f20045dba4f2a1bdc" args="(RowValue row_begin, RowValue row_end, typename row_range_type::size_type row_grainsize, ColValue col_begin, ColValue col_end, typename col_range_type::size_type col_grainsize)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (RowValue row_begin, RowValue row_end, typename <a class="el" href="a00262.html#f5707bffea38eee5c9680f37358afb8e">row_range_type::size_type</a> row_grainsize, ColValue col_begin, ColValue col_end, typename <a class="el" href="a00262.html#f5707bffea38eee5c9680f37358afb8e">col_range_type::size_type</a> col_grainsize)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="72c4c302fdfc20187a650348e432b0a7"></a><!-- doxytag: member="tbb::null_rw_mutex::scoped_lock::acquire" ref="72c4c302fdfc20187a650348e432b0a7" args="(null_rw_mutex &amp;, bool=true)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>acquire</b> (<a class="el" href="a00262.html">null_rw_mutex</a> &amp;, bool=true)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="485434db1609b2074d86cb604f3c674e"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="485434db1609b2074d86cb604f3c674e" args="(RowValue row_begin, RowValue row_end, ColValue col_begin, ColValue col_end)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (RowValue row_begin, RowValue row_end, ColValue col_begin, ColValue col_end)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fa1e2a5592ee2672470ea44d98f1c498"></a><!-- doxytag: member="tbb::null_rw_mutex::scoped_lock::upgrade_to_writer" ref="fa1e2a5592ee2672470ea44d98f1c498" args="()" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>upgrade_to_writer</b> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d144cb2d88cef553420311aca8667a44"></a><!-- doxytag: member="tbb::blocked_range2d::empty" ref="d144cb2d88cef553420311aca8667a44" args="() const " -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00263.html#d144cb2d88cef553420311aca8667a44">empty</a> () const </td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="efcb7948649e1652d59aaff9c8ea40f1"></a><!-- doxytag: member="tbb::null_rw_mutex::scoped_lock::downgrade_to_reader" ref="efcb7948649e1652d59aaff9c8ea40f1" args="()" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>downgrade_to_reader</b> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if range is empty. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ad36a9b38e4fef26d376f99552ce2d92"></a><!-- doxytag: member="tbb::blocked_range2d::is_divisible" ref="ad36a9b38e4fef26d376f99552ce2d92" args="() const " -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00263.html#ad36a9b38e4fef26d376f99552ce2d92">is_divisible</a> () const </td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="56686c4dfe4a32a1d9bd8e7e729130e6"></a><!-- doxytag: member="tbb::null_rw_mutex::scoped_lock::try_acquire" ref="56686c4dfe4a32a1d9bd8e7e729130e6" args="(null_rw_mutex &amp;, bool=true)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>try_acquire</b> (<a class="el" href="a00262.html">null_rw_mutex</a> &amp;, bool=true)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if range is divisible into two pieces. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4f80e6db02bfa4e90e2a219de9f17461"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="4f80e6db02bfa4e90e2a219de9f17461" args="(blocked_range2d &amp;r, split)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (<a class="el" href="a00263.html">blocked_range2d</a> &amp;r, <a class="el" href="a00335.html">split</a>)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6146c803a4ad2f14263fdc019a72b5a9"></a><!-- doxytag: member="tbb::null_rw_mutex::scoped_lock::release" ref="6146c803a4ad2f14263fdc019a72b5a9" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>release</b> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f496e7348a82652fba581203477cc07c"></a><!-- doxytag: member="tbb::blocked_range2d::rows" ref="f496e7348a82652fba581203477cc07c" args="() const " -->
+const <a class="el" href="a00262.html">row_range_type</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00263.html#f496e7348a82652fba581203477cc07c">rows</a> () const </td></tr>
 
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The rows of the iteration space. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="392a46759af2c884957115771affa7f4"></a><!-- doxytag: member="tbb::blocked_range2d::cols" ref="392a46759af2c884957115771affa7f4" args="() const " -->
+const <a class="el" href="a00262.html">col_range_type</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00263.html#392a46759af2c884957115771affa7f4">cols</a> () const </td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The columns of the iteration space. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Represents acquisition of a mutex. 
+<h3>template&lt;typename RowValue, typename ColValue = RowValue&gt;<br>
+ class tbb::blocked_range2d&lt; RowValue, ColValue &gt;</h3>
+
+A 2-dimensional range that models the Range concept. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00502.html">null_rw_mutex.h</a></ul>
+<li><a class="el" href="a00466.html">blocked_range2d.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

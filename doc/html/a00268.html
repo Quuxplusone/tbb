@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::priority_queue_node&lt; T, Compare &gt; Class Template Reference</title>
+<title>tbb::cache_aligned_allocator&lt; void &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,103 +21,39 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00362.html">tbb</a>::<a class="el" href="a00268.html">priority_queue_node</a></div>
-<h1>tbb::priority_queue_node&lt; T, Compare &gt; Class Template Reference</h1><!-- doxytag: class="tbb::priority_queue_node" --><!-- doxytag: inherits="tbb::buffer_node" -->Forwards messages in priority order.  
+<a class="el" href="a00407.html">tbb</a>::<a class="el" href="a00268.html">cache_aligned_allocator&lt; void &gt;</a></div>
+<h1>tbb::cache_aligned_allocator&lt; void &gt; Class Template Reference<br>
+<small>
+[<a class="el" href="a00418.html">Memory Allocation</a>]</small>
+</h1><!-- doxytag: class="tbb::cache_aligned_allocator&lt; void &gt;" -->Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00466.html">graph.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00468.html">cache_aligned_allocator.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::priority_queue_node&lt; T, Compare &gt;:
-<p><center><img src="a00268.png" usemap="#tbb::priority_queue_node< T, Compare >_map" border="0" alt=""></center>
-<map name="tbb::priority_queue_node< T, Compare >_map">
-<area href="a00225.html" alt="tbb::buffer_node< T >" shape="rect" coords="252,56,494,80">
-<area href="a00251.html" alt="tbb::graph_node" shape="rect" coords="0,0,242,24">
-<area href="a00277.html" alt="tbb::receiver< T >" shape="rect" coords="252,0,494,24">
-<area href="a00282.html" alt="tbb::sender< T >" shape="rect" coords="504,0,746,24">
-</map>
-<a href="a00060.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00014.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="40fdedd4829aeae3ebd1a5fdaf39b23d"></a><!-- doxytag: member="tbb::priority_queue_node::input_type" ref="40fdedd4829aeae3ebd1a5fdaf39b23d" args="" -->
-typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00268.html#40fdedd4829aeae3ebd1a5fdaf39b23d">input_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ce89776145998f0685a767b4f195272d"></a><!-- doxytag: member="tbb::cache_aligned_allocator&lt; void &gt;::pointer" ref="ce89776145998f0685a767b4f195272d" args="" -->
+typedef void *&nbsp;</td><td class="memItemRight" valign="bottom"><b>pointer</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The input type of this receiver. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3b3fa4479416e7cb6d4a6a4b175c2b15"></a><!-- doxytag: member="tbb::priority_queue_node::output_type" ref="3b3fa4479416e7cb6d4a6a4b175c2b15" args="" -->
-typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00268.html#3b3fa4479416e7cb6d4a6a4b175c2b15">output_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4431fbbe1a8cfeb19c48ad0072078f45"></a><!-- doxytag: member="tbb::cache_aligned_allocator&lt; void &gt;::const_pointer" ref="4431fbbe1a8cfeb19c48ad0072078f45" args="" -->
+typedef const void *&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_pointer</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="98900a87758cac05500fcbc74113cebf"></a><!-- doxytag: member="tbb::priority_queue_node::predecessor_type" ref="98900a87758cac05500fcbc74113cebf" args="" -->
-typedef <a class="el" href="a00282.html">sender</a>&lt; <a class="el" href="a00268.html#40fdedd4829aeae3ebd1a5fdaf39b23d">input_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00268.html#98900a87758cac05500fcbc74113cebf">predecessor_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2ab296f4ecdd75f8e193ff92004a697d"></a><!-- doxytag: member="tbb::cache_aligned_allocator&lt; void &gt;::value_type" ref="2ab296f4ecdd75f8e193ff92004a697d" args="" -->
+typedef void&nbsp;</td><td class="memItemRight" valign="bottom"><b>value_type</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The predecessor type for this node. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e01014f2e5ceea292c68f6fe47391c57"></a><!-- doxytag: member="tbb::priority_queue_node::successor_type" ref="e01014f2e5ceea292c68f6fe47391c57" args="" -->
-typedef <a class="el" href="a00277.html">receiver</a>&lt; <a class="el" href="a00268.html#3b3fa4479416e7cb6d4a6a4b175c2b15">output_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00268.html#e01014f2e5ceea292c68f6fe47391c57">successor_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
-<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1630f68674c4b201346a391b1e8d3f5d"></a><!-- doxytag: member="tbb::priority_queue_node::priority_queue_node" ref="1630f68674c4b201346a391b1e8d3f5d" args="(graph &amp;g)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00268.html#1630f68674c4b201346a391b1e8d3f5d">priority_queue_node</a> (<a class="el" href="a00250.html">graph</a> &amp;g)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor. <br></td></tr>
-<tr><td colspan="2"><br><h2>Protected Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="de11b7abff98005607d7fa7466faf7b0"></a><!-- doxytag: member="tbb::priority_queue_node::size_type" ref="de11b7abff98005607d7fa7466faf7b0" args="" -->
-typedef <a class="el" href="a00225.html">buffer_node</a>&lt; T <br>
-&gt;::size_type&nbsp;</td><td class="memItemRight" valign="bottom"><b>size_type</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9e233a0b91aa4622406999f82f275658"></a><!-- doxytag: member="tbb::priority_queue_node::item_type" ref="9e233a0b91aa4622406999f82f275658" args="" -->
-typedef <a class="el" href="a00225.html">buffer_node</a>&lt; T <br>
-&gt;::item_type&nbsp;</td><td class="memItemRight" valign="bottom"><b>item_type</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9da8c5e1d88446a861aaaf833dff9563"></a><!-- doxytag: member="tbb::priority_queue_node::prio_operation" ref="9da8c5e1d88446a861aaaf833dff9563" args="" -->
-typedef <a class="el" href="a00225.html">buffer_node</a>&lt; T <br>
-&gt;::buffer_operation&nbsp;</td><td class="memItemRight" valign="bottom"><b>prio_operation</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d735772d27a4946170769b4a44fc62c2164d37794dce6b5f579b76189b6c0021"></a><!-- doxytag: member="tbb::priority_queue_node::WAIT" ref="d735772d27a4946170769b4a44fc62c2164d37794dce6b5f579b76189b6c0021" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>WAIT</b> = 0</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d735772d27a4946170769b4a44fc62c2b65b5f4fbcf64463d6db76340f7813b6"></a><!-- doxytag: member="tbb::priority_queue_node::SUCCEEDED" ref="d735772d27a4946170769b4a44fc62c2b65b5f4fbcf64463d6db76340f7813b6" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>SUCCEEDED</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d735772d27a4946170769b4a44fc62c211ee259c9aa9cc587e0e16386f14ce31"></a><!-- doxytag: member="tbb::priority_queue_node::FAILED" ref="d735772d27a4946170769b4a44fc62c211ee259c9aa9cc587e0e16386f14ce31" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>FAILED</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><b>op_stat</b> { <b>WAIT</b> = 0, 
-<b>SUCCEEDED</b>, 
-<b>FAILED</b>
- }</td></tr>
-
-<tr><td colspan="2"><br><h2>Protected Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="89ea37a545db6d58f0efba624c5478e5"></a><!-- doxytag: member="tbb::priority_queue_node::handle_operations" ref="89ea37a545db6d58f0efba624c5478e5" args="(prio_operation *op_list)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>handle_operations</b> (prio_operation *op_list)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="79161e73f79cc43b2c2b08367504dfda"></a><!-- doxytag: member="tbb::priority_queue_node::internal_forward" ref="79161e73f79cc43b2c2b08367504dfda" args="(prio_operation *op)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00268.html#79161e73f79cc43b2c2b08367504dfda">internal_forward</a> (prio_operation *op)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Tries to forward valid items to successors. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="baf920c99c8b5cdb3274e69180d38721"></a><!-- doxytag: member="tbb::priority_queue_node::internal_push" ref="baf920c99c8b5cdb3274e69180d38721" args="(prio_operation *op)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_push</b> (prio_operation *op)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9ad1406abcb8944fce20fdffc536b802"></a><!-- doxytag: member="tbb::priority_queue_node::internal_pop" ref="9ad1406abcb8944fce20fdffc536b802" args="(prio_operation *op)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_pop</b> (prio_operation *op)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2679c01cb715be0fa27daef8ca7abcd6"></a><!-- doxytag: member="tbb::priority_queue_node::internal_reserve" ref="2679c01cb715be0fa27daef8ca7abcd6" args="(prio_operation *op)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_reserve</b> (prio_operation *op)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f622ca82a370e324131d129007989f17"></a><!-- doxytag: member="tbb::priority_queue_node::internal_consume" ref="f622ca82a370e324131d129007989f17" args="(prio_operation *op)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_consume</b> (prio_operation *op)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b72aaba1fed1691779f695b6aa052073"></a><!-- doxytag: member="tbb::priority_queue_node::internal_release" ref="b72aaba1fed1691779f695b6aa052073" args="(prio_operation *op)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_release</b> (prio_operation *op)</td></tr>
+<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>rebind</b></td></tr>
 
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename T, typename Compare = std::less&lt;T&gt;&gt;<br>
- class tbb::priority_queue_node&lt; T, Compare &gt;</h3>
+<h3>template&lt;&gt;<br>
+ class tbb::cache_aligned_allocator&lt; void &gt;</h3>
 
-Forwards messages in priority order. 
+Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00466.html">graph.h</a></ul>
+<li><a class="el" href="a00468.html">cache_aligned_allocator.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

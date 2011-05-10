@@ -35,7 +35,8 @@ DYLIB_KEY = -G
 LIBDL = -ldl
 # WARNING_AS_ERROR_KEY = -errwarn=%all
 WARNING_AS_ERROR_KEY = Warning as error
-WARNING_SUPPRESS = -erroff=unassigned,attrskipunsup,badargtype2w,badbinaryopw,wbadasg,wvarhidemem
+# Supported Solaris Studio* 12.2 and above, remove ',inlasmpnu' in the line below to build by compiler prior Solaris Studio* 12.2 
+WARNING_SUPPRESS = -erroff=unassigned,attrskipunsup,badargtype2w,badbinaryopw,wbadasg,wvarhidemem,inlasmpnu
 tbb_strict=0
 
 TBB_NOSTRICT = 1

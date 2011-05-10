@@ -37,21 +37,23 @@
 #pragma managed(push, off)
 #endif
 
-#if __MINGW64__
-#include "machine/linux_intel64.h"
-extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
-#define __TBB_Yield()  SwitchToThread()
-#elif __MINGW32__
-#include "machine/linux_ia32.h"
-extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
-#define __TBB_Yield()  SwitchToThread()
-#elif defined(_M_IX86)
-#include "machine/windows_ia32.h"
-#elif defined(_M_AMD64) 
-#include "machine/windows_intel64.h"
-#elif _XBOX 
-#include "machine/xbox360_ppc.h"
-#endif
+    #if __MINGW64__ || __MINGW32__
+        extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
+        #define __TBB_Yield()  SwitchToThread()
+        #if (TBB_USE_GCC_BUILTINS && __TBB_GCC_BUILTIN_ATOMICS_PRESENT)
+            #include "machine/gcc_generic.h"
+        #elif __MINGW64__
+            #include "machine/linux_intel64.h"
+        #elif __MINGW32__
+            #include "machine/linux_ia32.h"
+        #endif
+    #elif defined(_M_IX86)
+        #include "machine/windows_ia32.h"
+    #elif defined(_M_AMD64) 
+        #include "machine/windows_intel64.h"
+    #elif _XBOX 
+        #include "machine/xbox360_ppc.h"
+    #endif
 
 #ifdef _MANAGED
 #pragma managed(pop)
@@ -59,49 +61,53 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 
 #elif __linux__ || __FreeBSD__ || __NetBSD__
 
-#if __i386__
-#include "machine/linux_ia32.h"
-#elif __x86_64__
-#include "machine/linux_intel64.h"
-#elif __ia64__
-#include "machine/linux_ia64.h"
-#elif __powerpc__
-#include "machine/mac_ppc.h"
-#endif
-#include "machine/linux_common.h"
+    #if (TBB_USE_GCC_BUILTINS && __TBB_GCC_BUILTIN_ATOMICS_PRESENT)
+        #include "machine/gcc_generic.h"
+    #elif __i386__
+        #include "machine/linux_ia32.h"
+    #elif __x86_64__
+        #include "machine/linux_intel64.h"
+    #elif __ia64__
+        #include "machine/linux_ia64.h"
+    #elif __powerpc__
+        #include "machine/mac_ppc.h"
+    #elif __TBB_GCC_BUILTIN_ATOMICS_PRESENT
+        #include "machine/gcc_generic.h"
+    #endif
+    #include "machine/linux_common.h"
 
 #elif __APPLE__
 
-#if __i386__
-#include "machine/linux_ia32.h"
-#elif __x86_64__
-#include "machine/linux_intel64.h"
-#elif __POWERPC__
-#include "machine/mac_ppc.h"
-#endif
-#include "machine/macos_common.h"
+    #if __i386__
+        #include "machine/linux_ia32.h"
+    #elif __x86_64__
+        #include "machine/linux_intel64.h"
+    #elif __POWERPC__
+        #include "machine/mac_ppc.h"
+    #endif
+    #include "machine/macos_common.h"
 
 #elif _AIX
 
-#include "machine/ibm_aix51.h"
+    #include "machine/ibm_aix51.h"
 
 #elif __sun || __SUNPRO_CC
 
-#define __asm__ asm 
-#define __volatile__ volatile
+    #define __asm__ asm 
+    #define __volatile__ volatile
+    
+    #if __i386  || __i386__
+        #include "machine/linux_ia32.h"
+    #elif __x86_64__
+        #include "machine/linux_intel64.h"
+    #elif __sparc
+        #include "machine/sunos_sparc.h"
+    #endif
+    #include <sched.h>
 
-#if __i386  || __i386__
-#include "machine/linux_ia32.h"
-#elif __x86_64__
-#include "machine/linux_intel64.h"
-#elif __sparc
-#include "machine/sunos_sparc.h"
-#endif
-#include <sched.h>
+    #define __TBB_Yield() sched_yield()
 
-#define __TBB_Yield() sched_yield()
-
-#endif /* Sun */
+#endif /* OS selection */
 
 #ifndef __TBB_64BIT_ATOMICS
 #define __TBB_64BIT_ATOMICS 1

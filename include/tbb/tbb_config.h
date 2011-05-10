@@ -240,4 +240,14 @@
     #define __TBB_ICC_ASM_VOLATILE_BROKEN 1
 #endif
 
+#define __TBB_GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+
+/* #if more recent gcc than 4.1.2 */
+#if (__TBB_GCC_VERSION > 40102 ) && !defined(__INTEL_COMPILER)
+    #define __TBB_GCC_BUILTIN_ATOMICS_PRESENT 1
+#endif
+
+#if (TBB_USE_GCC_BUILTINS && !__TBB_GCC_BUILTIN_ATOMICS_PRESENT)
+    #error "generic gcc port is not supported for this os/architecture."
+#endif
 #endif /* __TBB_tbb_config_H */

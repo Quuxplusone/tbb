@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::queuing_mutex Class Reference</title>
+<title>tbb::combinable&lt; T &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,49 +21,58 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00362.html">tbb</a>::<a class="el" href="a00270.html">queuing_mutex</a></div>
-<h1>tbb::queuing_mutex Class Reference<br>
+<a class="el" href="a00407.html">tbb</a>::<a class="el" href="a00270.html">combinable</a></div>
+<h1>tbb::combinable&lt; T &gt; Class Template Reference<br>
 <small>
-[<a class="el" href="a00374.html">Synchronization</a>]</small>
-</h1><!-- doxytag: class="tbb::queuing_mutex" -->Queuing lock with local-only spinning.  
+[<a class="el" href="a00417.html">Containers</a>]</small>
+</h1><!-- doxytag: class="tbb::combinable" -->Thread-local storage with optional reduction.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00560.html">queuing_mutex.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00470.html">combinable.h</a>&gt;</code>
 <p>
-<a href="a00098.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00016.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b389ad9c4db7293e4bdb5b8cda69ec04"></a><!-- doxytag: member="tbb::queuing_mutex::queuing_mutex" ref="b389ad9c4db7293e4bdb5b8cda69ec04" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00270.html#b389ad9c4db7293e4bdb5b8cda69ec04">queuing_mutex</a> ()</td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="d03619e90e62555aa5634fcc8adadcc9"></a><!-- doxytag: member="tbb::combinable::combinable" ref="d03619e90e62555aa5634fcc8adadcc9" args="(finit _finit)" -->
+template&lt;typename finit&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><b>combinable</b> (finit _finit)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct unacquired mutex. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="96c1fe92760dcd1c5a7ed52c6599a72f"></a><!-- doxytag: member="tbb::queuing_mutex::internal_construct" ref="96c1fe92760dcd1c5a7ed52c6599a72f" args="()" -->
-void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_construct</b> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2c87e79ae98588a5780f708773388843"></a><!-- doxytag: member="tbb::combinable::~combinable" ref="2c87e79ae98588a5780f708773388843" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00270.html#2c87e79ae98588a5780f708773388843">~combinable</a> ()</td></tr>
 
-<tr><td colspan="2"><br><h2>Static Public Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="420932f70ff3b85f7280ff11a133938d"></a><!-- doxytag: member="tbb::queuing_mutex::is_rw_mutex" ref="420932f70ff3b85f7280ff11a133938d" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_rw_mutex</b> = false</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">destructor <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="57012803b7bc7416452cb930121ff210"></a><!-- doxytag: member="tbb::combinable::combinable" ref="57012803b7bc7416452cb930121ff210" args="(const combinable &amp;other)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>combinable</b> (const <a class="el" href="a00270.html">combinable</a> &amp;other)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="dc0c749f3a4e6ea75418677cb8f9205f"></a><!-- doxytag: member="tbb::queuing_mutex::is_recursive_mutex" ref="dc0c749f3a4e6ea75418677cb8f9205f" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_recursive_mutex</b> = false</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c9650d59f65b1042afa232ede57dfca9"></a><!-- doxytag: member="tbb::combinable::operator=" ref="c9650d59f65b1042afa232ede57dfca9" args="(const combinable &amp;other)" -->
+<a class="el" href="a00270.html">combinable</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>operator=</b> (const <a class="el" href="a00270.html">combinable</a> &amp;other)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="55d5339e4ca04b759f90c0c1ef966539"></a><!-- doxytag: member="tbb::queuing_mutex::is_fair_mutex" ref="55d5339e4ca04b759f90c0c1ef966539" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_fair_mutex</b> = true</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f09233cccb9b5e8a58874e43a703cac2"></a><!-- doxytag: member="tbb::combinable::clear" ref="f09233cccb9b5e8a58874e43a703cac2" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><b>clear</b> ()</td></tr>
 
-<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a36f15b770a1bb0b56e33d7fa75ebd1a"></a><!-- doxytag: member="tbb::queuing_mutex::scoped_lock" ref="a36f15b770a1bb0b56e33d7fa75ebd1a" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>scoped_lock</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2d7550204bcb88fa8810b5a39e9cad24"></a><!-- doxytag: member="tbb::combinable::local" ref="2d7550204bcb88fa8810b5a39e9cad24" args="()" -->
+T &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>local</b> ()</td></tr>
 
-<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00271.html">scoped_lock</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="93a42052881ecccdd8ddff16a1b1cca1"></a><!-- doxytag: member="tbb::combinable::local" ref="93a42052881ecccdd8ddff16a1b1cca1" args="(bool &amp;exists)" -->
+T &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>local</b> (bool &amp;exists)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The scoped locking pattern.  <a href="a00271.html#_details">More...</a><br></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="9be306b4a073066dcac4043dc189c514"></a><!-- doxytag: member="tbb::combinable::combine" ref="9be306b4a073066dcac4043dc189c514" args="(combine_func_t f_combine)" -->
+template&lt;typename combine_func_t&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">T&nbsp;</td><td class="memTemplItemRight" valign="bottom"><b>combine</b> (combine_func_t f_combine)</td></tr>
+
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="dcd23283834149c87c345c0e476dfee8"></a><!-- doxytag: member="tbb::combinable::combine_each" ref="dcd23283834149c87c345c0e476dfee8" args="(combine_func_t f_combine)" -->
+template&lt;typename combine_func_t&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><b>combine_each</b> (combine_func_t f_combine)</td></tr>
+
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Queuing lock with local-only spinning. 
+<h3>template&lt;typename T&gt;<br>
+ class tbb::combinable&lt; T &gt;</h3>
+
+Thread-local storage with optional reduction. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00560.html">queuing_mutex.h</a></ul>
+<li><a class="el" href="a00470.html">combinable.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

@@ -45,7 +45,7 @@
 #define __TBB_VOLATILE volatile
 #endif
 
-#define __MACHINE_DECL_ATOMICS(S,T,X) \
+#define __MACHINE_DECL_ATOMICS(S,T,X,R) \
 static inline T __TBB_machine_cmpswp##S (volatile void *ptr, T value, T comparand )  \
 {                                                                                    \
     T result;                                                                        \
@@ -61,7 +61,7 @@ static inline T __TBB_machine_fetchadd##S(volatile void *ptr, T addend)         
 {                                                                                    \
     T result;                                                                        \
     __asm__ __volatile__("lock\nxadd" X " %0,%1"                                     \
-                          : "=r"(result), "=m"(*(__TBB_VOLATILE T*)ptr)              \
+                          : R (result), "=m"(*(__TBB_VOLATILE T*)ptr)            \
                           : "0"(addend), "m"(*(__TBB_VOLATILE T*)ptr)                \
                           : "memory");                                               \
     return result;                                                                   \
@@ -71,15 +71,15 @@ static inline  T __TBB_machine_fetchstore##S(volatile void *ptr, T value)       
 {                                                                                    \
     T result;                                                                        \
     __asm__ __volatile__("lock\nxchg" X " %0,%1"                                     \
-                          : "=r"(result), "=m"(*(__TBB_VOLATILE T*)ptr)              \
+                          : R (result), "=m"(*(__TBB_VOLATILE T*)ptr)            \
                           : "0"(value), "m"(*(__TBB_VOLATILE T*)ptr)                 \
                           : "memory");                                               \
     return result;                                                                   \
 }                                                                                    \
                                                                                      
-__MACHINE_DECL_ATOMICS(1,int8_t,"")
-__MACHINE_DECL_ATOMICS(2,int16_t,"")
-__MACHINE_DECL_ATOMICS(4,int32_t,"l")
+__MACHINE_DECL_ATOMICS(1,int8_t,"","=q")
+__MACHINE_DECL_ATOMICS(2,int16_t,"","=r")
+__MACHINE_DECL_ATOMICS(4,int32_t,"l","=r")
 
 static inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t comparand )
 {

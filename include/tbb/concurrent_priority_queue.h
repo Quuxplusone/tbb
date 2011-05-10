@@ -85,7 +85,7 @@ class concurrent_priority_queue {
     template<typename InputIterator>
     concurrent_priority_queue(InputIterator begin, InputIterator end, const allocator_type& a = allocator_type()) : data(begin, end, a)
     {
-        mark = data.size();
+        mark = 0;
         my_aggregator.initialize_handler(my_functor_t(this));
         heapify();
     }

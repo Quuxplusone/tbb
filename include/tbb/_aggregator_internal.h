@@ -57,7 +57,9 @@ class aggregated_operation {
 class aggregator {
  public:
     aggregator() : handler_busy(false) { pending_operations = NULL; }
-    ~aggregator() {}
+    explicit aggregator(handler_type h) : handler_busy(false), handle_operations(h) {
+        pending_operations = NULL; 
+    }
 
     void initialize_handler(handler_type h) { handle_operations = h; }
 
@@ -135,12 +137,24 @@ class aggregator {
     }
 };
 
+// the most-compatible friend declaration (vs, gcc, icc) is
+//    template<class U, class V> friend class aggregating_functor;
+template<typename aggregating_class, typename operation_list>
+class aggregating_functor {
+    aggregating_class *fi;
+public:
+    aggregating_functor() {}
+    aggregating_functor(aggregating_class *fi_) : fi(fi_) {}
+    void operator()(operation_list* op_list) { fi->handle_operations(op_list); }
+};
+
 } // namespace internal
 } // namespace interface6
 
 namespace internal {
     using interface6::internal::aggregated_operation;
     using interface6::internal::aggregator;
+    using interface6::internal::aggregating_functor;
 } // namespace internal
 
 } // namespace tbb

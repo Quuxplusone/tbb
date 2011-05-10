@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::parallel_while&lt; Body &gt; Class Template Reference</title>
+<title>tbb::broadcast_node&lt; T &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,114 +21,60 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00362.html">tbb</a>::<a class="el" href="a00265.html">parallel_while</a></div>
-<h1>tbb::parallel_while&lt; Body &gt; Class Template Reference<br>
-<small>
-[<a class="el" href="a00371.html">Algorithms</a>]</small>
-</h1><!-- doxytag: class="tbb::parallel_while" -->Parallel iteration over a stream, with optional addition of more work.  
+<a class="el" href="a00407.html">tbb</a>::<a class="el" href="a00265.html">broadcast_node</a></div>
+<h1>tbb::broadcast_node&lt; T &gt; Class Template Reference</h1><!-- doxytag: class="tbb::broadcast_node" --><!-- doxytag: inherits="tbb::graph_node,tbb::receiver,tbb::sender" -->Forwards messages of type T to all successors.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00537.html">parallel_while.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00513.html">graph.h</a>&gt;</code>
 <p>
-<a href="a00087.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<p>Inheritance diagram for tbb::broadcast_node&lt; T &gt;:
+<p><center><img src="a00265.png" usemap="#tbb::broadcast_node< T >_map" border="0" alt=""></center>
+<map name="tbb::broadcast_node< T >_map">
+<area href="a00292.html" alt="tbb::graph_node" shape="rect" coords="0,0,157,24">
+<area href="a00320.html" alt="tbb::receiver< T >" shape="rect" coords="167,0,324,24">
+<area href="a00327.html" alt="tbb::sender< T >" shape="rect" coords="334,0,491,24">
+</map>
+<a href="a00057.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fa297e53d3af2a101e712bc200233e9c"></a><!-- doxytag: member="tbb::parallel_while::value_type" ref="fa297e53d3af2a101e712bc200233e9c" args="" -->
-typedef Body::argument_type&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html#fa297e53d3af2a101e712bc200233e9c">value_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="59ea89dbeab816742e6dc6af467e6c3f"></a><!-- doxytag: member="tbb::broadcast_node::input_type" ref="59ea89dbeab816742e6dc6af467e6c3f" args="" -->
+typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html#59ea89dbeab816742e6dc6af467e6c3f">input_type</a></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Type of items. <br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The input type of this receiver. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b844ca1ee578a54bc11ff28467b12e7d"></a><!-- doxytag: member="tbb::broadcast_node::output_type" ref="b844ca1ee578a54bc11ff28467b12e7d" args="" -->
+typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html#b844ca1ee578a54bc11ff28467b12e7d">output_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4dd13b81f6361fc244abe7cbcacd048c"></a><!-- doxytag: member="tbb::broadcast_node::predecessor_type" ref="4dd13b81f6361fc244abe7cbcacd048c" args="" -->
+typedef <a class="el" href="a00327.html">sender</a>&lt; <a class="el" href="a00265.html#59ea89dbeab816742e6dc6af467e6c3f">input_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html#4dd13b81f6361fc244abe7cbcacd048c">predecessor_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The predecessor type for this node. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="453928c367d813cb481f1b9aa1e1742a"></a><!-- doxytag: member="tbb::broadcast_node::successor_type" ref="453928c367d813cb481f1b9aa1e1742a" args="" -->
+typedef <a class="el" href="a00320.html">receiver</a>&lt; <a class="el" href="a00265.html#b844ca1ee578a54bc11ff28467b12e7d">output_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html#453928c367d813cb481f1b9aa1e1742a">successor_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="36e26ba3880c7bcf804a97ba0cbe133f"></a><!-- doxytag: member="tbb::parallel_while::parallel_while" ref="36e26ba3880c7bcf804a97ba0cbe133f" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html#36e26ba3880c7bcf804a97ba0cbe133f">parallel_while</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3f4149fa6b984b2138cb5ed40a2ddc6c"></a><!-- doxytag: member="tbb::broadcast_node::register_successor" ref="3f4149fa6b984b2138cb5ed40a2ddc6c" args="(receiver&lt; T &gt; &amp;r)" -->
+virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html#3f4149fa6b984b2138cb5ed40a2ddc6c">register_successor</a> (<a class="el" href="a00320.html">receiver</a>&lt; T &gt; &amp;r)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct empty non-running parallel while. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6fcfc973cc56b79c6d0fbb8a31be7e84"></a><!-- doxytag: member="tbb::parallel_while::~parallel_while" ref="6fcfc973cc56b79c6d0fbb8a31be7e84" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html#6fcfc973cc56b79c6d0fbb8a31be7e84">~parallel_while</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Adds a successor. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="eefb3210bb9727765ea7385ba163c2a6"></a><!-- doxytag: member="tbb::broadcast_node::remove_successor" ref="eefb3210bb9727765ea7385ba163c2a6" args="(receiver&lt; T &gt; &amp;r)" -->
+virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html#eefb3210bb9727765ea7385ba163c2a6">remove_successor</a> (<a class="el" href="a00320.html">receiver</a>&lt; T &gt; &amp;r)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destructor cleans up data members before returning. <br></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2">template&lt;typename Stream&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00265.html#b32a0a6e5e09ebb7fad3e6652c19afe5">run</a> (Stream &amp;stream, const Body &amp;body)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Removes s as a successor. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9b211e02554d6b39dc04f7e7f4e00073"></a><!-- doxytag: member="tbb::broadcast_node::try_put" ref="9b211e02554d6b39dc04f7e7f4e00073" args="(T t)" -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html#9b211e02554d6b39dc04f7e7f4e00073">try_put</a> (T t)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Apply body.apply to each item in the stream.  <a href="#b32a0a6e5e09ebb7fad3e6652c19afe5"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00265.html#e131c560057a58229992b61eb8dba4c6">add</a> (const <a class="el" href="a00265.html#fa297e53d3af2a101e712bc200233e9c">value_type</a> &amp;item)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Add a work item while running.  <a href="#e131c560057a58229992b61eb8dba4c6"></a><br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Put an item to the receiver. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename Body&gt;<br>
- class tbb::parallel_while&lt; Body &gt;</h3>
+<h3>template&lt;typename T&gt;<br>
+ class tbb::broadcast_node&lt; T &gt;</h3>
 
-Parallel iteration over a stream, with optional addition of more work. 
+Forwards messages of type T to all successors. 
 <p>
-The Body b has the requirement: <br>
- "b(v)" <br>
- "b.argument_type" <br>
- where v is an argument_type 
-<p>
-<hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="e131c560057a58229992b61eb8dba4c6"></a><!-- doxytag: member="tbb::parallel_while::add" ref="e131c560057a58229992b61eb8dba4c6" args="(const value_type &amp;item)" -->
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename Body&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">void <a class="el" href="a00265.html">tbb::parallel_while</a>&lt; Body &gt;::add           </td>
-          <td>(</td>
-          <td class="paramtype">const <a class="el" href="a00265.html#fa297e53d3af2a101e712bc200233e9c">value_type</a> &amp;&nbsp;</td>
-          <td class="paramname"> <em>item</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Add a work item while running. 
-<p>
-Should be executed only by body.apply or a thread spawned therefrom. 
-</div>
-</div><p>
-<a class="anchor" name="b32a0a6e5e09ebb7fad3e6652c19afe5"></a><!-- doxytag: member="tbb::parallel_while::run" ref="b32a0a6e5e09ebb7fad3e6652c19afe5" args="(Stream &amp;stream, const Body &amp;body)" -->
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename Body&gt; </div>
-<div class="memtemplate">
-template&lt;typename Stream&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">void <a class="el" href="a00265.html">tbb::parallel_while</a>&lt; Body &gt;::run           </td>
-          <td>(</td>
-          <td class="paramtype">Stream &amp;&nbsp;</td>
-          <td class="paramname"> <em>stream</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">const Body &amp;&nbsp;</td>
-          <td class="paramname"> <em>body</em></td><td>&nbsp;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td><td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Apply body.apply to each item in the stream. 
-<p>
-A Stream s has the requirements <br>
- "S::value_type" <br>
- "s.pop_if_present(value) is convertible to bool 
-</div>
-</div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00537.html">parallel_while.h</a></ul>
+<li><a class="el" href="a00513.html">graph.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::internal::join_node_base&lt; JP, InputTuple, OutputTuple &gt; Class Template Reference</title>
+<title>tbb::interface6::internal::aggregated_operation&lt; Derived &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,65 +21,30 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00362.html">tbb</a>::<b>internal</b>::<a class="el" href="a00254.html">join_node_base</a></div>
-<h1>tbb::internal::join_node_base&lt; JP, InputTuple, OutputTuple &gt; Class Template Reference</h1><!-- doxytag: class="tbb::internal::join_node_base" --><!-- doxytag: inherits="tbb::graph_node,tbb::sender&lt; OutputTuple &gt;" --><a class="el" href="a00254.html">join_node_base</a>  
+<a class="el" href="a00407.html">tbb</a>::<b>interface6</b>::<b>internal</b>::<a class="el" href="a00254.html">aggregated_operation</a></div>
+<h1>tbb::interface6::internal::aggregated_operation&lt; Derived &gt; Class Template Reference</h1><!-- doxytag: class="tbb::interface6::internal::aggregated_operation" --><a class="el" href="a00254.html">aggregated_operation</a> base class  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00466.html">graph.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00422.html">_aggregator_internal.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::internal::join_node_base&lt; JP, InputTuple, OutputTuple &gt;:
-<p><center><img src="a00254.png" usemap="#tbb::internal::join_node_base< JP, InputTuple, OutputTuple >_map" border="0" alt=""></center>
-<map name="tbb::internal::join_node_base< JP, InputTuple, OutputTuple >_map">
-<area href="a00251.html" alt="tbb::graph_node" shape="rect" coords="0,0,355,24">
-<area href="a00282.html" alt="tbb::sender< OutputTuple >" shape="rect" coords="365,0,720,24">
-</map>
-<a href="a00067.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00001.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="578893d923f91b7e44a15dea8b0d7082"></a><!-- doxytag: member="tbb::internal::join_node_base::output_type" ref="578893d923f91b7e44a15dea8b0d7082" args="" -->
-typedef OutputTuple&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00254.html#578893d923f91b7e44a15dea8b0d7082">output_type</a></td></tr>
+<tr><td colspan="2"><br><h2>Public Attributes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="57a1b5d43be94cd9e4c3c59081736638"></a><!-- doxytag: member="tbb::interface6::internal::aggregated_operation::status" ref="57a1b5d43be94cd9e4c3c59081736638" args="" -->
+uintptr_t&nbsp;</td><td class="memItemRight" valign="bottom"><b>status</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1212cbaa293a93c3bf334da1539556bd"></a><!-- doxytag: member="tbb::internal::join_node_base::successor_type" ref="1212cbaa293a93c3bf334da1539556bd" args="" -->
-typedef <a class="el" href="a00277.html">receiver</a>&lt; <a class="el" href="a00254.html#578893d923f91b7e44a15dea8b0d7082">output_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00254.html#1212cbaa293a93c3bf334da1539556bd">successor_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="caa4c6d62f43e839024d99fb49ff4d25"></a><!-- doxytag: member="tbb::internal::join_node_base::input_ports_type" ref="caa4c6d62f43e839024d99fb49ff4d25" args="" -->
-typedef join_node_FE&lt; JP,<br>
- InputTuple, OutputTuple &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>input_ports_type</b></td></tr>
-
-<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="74c044c29d83c8b70496ea2d40a3e8cf"></a><!-- doxytag: member="tbb::internal::join_node_base::join_node_base" ref="74c044c29d83c8b70496ea2d40a3e8cf" args="(graph &amp;g)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>join_node_base</b> (<a class="el" href="a00250.html">graph</a> &amp;g)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4fe2bd006dbd111d1f1785ee6571dde6"></a><!-- doxytag: member="tbb::internal::join_node_base::register_successor" ref="4fe2bd006dbd111d1f1785ee6571dde6" args="(successor_type &amp;r)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>register_successor</b> (<a class="el" href="a00277.html">successor_type</a> &amp;r)</td></tr>
-
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="c3902ed788ea0c808de846b23d661548"></a><!-- doxytag: member="tbb::internal::join_node_base::input_port" ref="c3902ed788ea0c808de846b23d661548" args="(void)" -->
-template&lt;size_t N&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top"><a class="el" href="a00277.html">receiver</a>&lt; typename std::tuple_element&lt;<br>
- N, OutputTuple &gt;::value &gt; &amp;&nbsp;</td><td class="memTemplItemRight" valign="bottom"><b>input_port</b> (void)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="46a9a783464d2739bb9dadfe794d8098"></a><!-- doxytag: member="tbb::internal::join_node_base::remove_successor" ref="46a9a783464d2739bb9dadfe794d8098" args="(successor_type &amp;r)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>remove_successor</b> (<a class="el" href="a00277.html">successor_type</a> &amp;r)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="50c0e6465ac929a2e94d4e62a13ebeff"></a><!-- doxytag: member="tbb::internal::join_node_base::try_get" ref="50c0e6465ac929a2e94d4e62a13ebeff" args="(output_type &amp;v)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00254.html#50c0e6465ac929a2e94d4e62a13ebeff">try_get</a> (<a class="el" href="a00254.html#578893d923f91b7e44a15dea8b0d7082">output_type</a> &amp;v)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Request an item from the sender. <br></td></tr>
-<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d7392be41db39cc27f6b52b4809c5f75"></a><!-- doxytag: member="tbb::internal::join_node_base::forward_task&lt; join_node_base&lt; JP, InputTuple, OutputTuple &gt; &gt;" ref="d7392be41db39cc27f6b52b4809c5f75" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>forward_task&lt; join_node_base&lt; JP, InputTuple, OutputTuple &gt; &gt;</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="0bd4c85d1b47b2a410bfe1a266f22dee"></a><!-- doxytag: member="tbb::interface6::internal::aggregated_operation::next" ref="0bd4c85d1b47b2a410bfe1a266f22dee" args="" -->
+Derived *&nbsp;</td><td class="memItemRight" valign="bottom"><b>next</b></td></tr>
 
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;join_policy JP, typename InputTuple, typename OutputTuple&gt;<br>
- class tbb::internal::join_node_base&lt; JP, InputTuple, OutputTuple &gt;</h3>
+<h3>template&lt;typename Derived&gt;<br>
+ class tbb::interface6::internal::aggregated_operation&lt; Derived &gt;</h3>
 
-<a class="el" href="a00254.html">join_node_base</a> 
+<a class="el" href="a00254.html">aggregated_operation</a> base class 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00466.html">graph.h</a></ul>
+<li><a class="el" href="a00422.html">_aggregator_internal.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
