@@ -103,6 +103,31 @@ public:
     RandomIterator operator+ (difference_type n) {return RandomIterator(my_ptr + n);}
 };
 
+template <class T>
+class ConstRandomIterator {
+    const T * my_ptr;
+#if !HARNESS_EXTENDED_STD_COMPLIANCE
+    typedef typename std::allocator<T>::difference_type difference_type;
+#endif
+
+public:
+#if HARNESS_EXTENDED_STD_COMPLIANCE
+    typedef std::random_access_iterator_tag iterator_category;
+    typedef T value_type;
+    typedef typename std::allocator<T>::const_pointer pointer;
+    typedef typename std::allocator<T>::const_reference reference;
+    typedef typename std::allocator<T>::difference_type difference_type;
+#endif /* HARNESS_EXTENDED_STD_COMPLIANCE */
+
+    explicit ConstRandomIterator ( const T * ptr ) : my_ptr(ptr){}
+    ConstRandomIterator ( const ConstRandomIterator& r ) : my_ptr(r.my_ptr){}
+    const T& operator* () { return *my_ptr; }
+    ConstRandomIterator& operator++ () { ++my_ptr; return *this; }
+    bool operator== ( const ConstRandomIterator& r ) { return my_ptr == r.my_ptr; }
+    difference_type operator- (const ConstRandomIterator &r) {return my_ptr - r.my_ptr;}
+    ConstRandomIterator operator+ (difference_type n) {return ConstRandomIterator(my_ptr + n);}
+};
+
 } // namespace Harness
 
 #if !HARNESS_EXTENDED_STD_COMPLIANCE
@@ -111,18 +136,28 @@ namespace std {
     struct iterator_traits< Harness::InputIterator<T> > {
         typedef std::input_iterator_tag iterator_category;
         typedef T value_type;
+        typedef value_type& reference;
     };
 
     template<typename T>
     struct iterator_traits< Harness::ForwardIterator<T> > {
         typedef std::forward_iterator_tag iterator_category;
         typedef T value_type;
+        typedef value_type& reference;
     };
 
     template<typename T>
     struct iterator_traits< Harness::RandomIterator<T> > {
         typedef std::random_access_iterator_tag iterator_category;
         typedef T value_type;
+        typedef value_type& reference;
+    };
+
+    template<typename T>
+    struct iterator_traits< Harness::ConstRandomIterator<T> > {
+        typedef std::random_access_iterator_tag iterator_category;
+        typedef T value_type;
+        typedef const value_type& reference;
     };
 } // namespace std
 #endif /* !HARNESS_EXTENDED_STD_COMPLIANCE */

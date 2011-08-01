@@ -26,7 +26,6 @@
     the GNU General Public License.
 */
 
-
 #ifndef __tbb_perf_h__
 #define __tbb_perf_h__
 

@@ -28,7 +28,7 @@
 
 #include "harness.h"
 #define TBB_PREVIEW_GRAPH 1
-#include "tbb/graph.h"
+#include "tbb/flow_graph.h"
 #include "tbb/atomic.h"
 #include "tbb/task_scheduler_init.h"
 
@@ -36,44 +36,44 @@ const int L = 10;
 const int N = 1000;
 
 template< typename T >
-struct serial_receiver : public tbb::receiver<T> {
+struct serial_receiver : public tbb::flow::receiver<T> {
    T next_value;
 
    serial_receiver() : next_value(T(0)) {}
 
-   /* override */ bool try_put( T v ) {
+   /* override */ bool try_put( const T &v ) {
        ASSERT( next_value++  == v, NULL );
        return true;
    }
 };
 
 template< typename T >
-struct parallel_receiver : public tbb::receiver<T> {
+struct parallel_receiver : public tbb::flow::receiver<T> {
 
    tbb::atomic<int> my_count;
 
    parallel_receiver() { my_count = 0; }
 
-   /* override */ bool try_put( T ) {
+   /* override */ bool try_put( const T & ) {
        ++my_count;
        return true;
    }
 };
 
 template< typename T >
-struct empty_sender : public tbb::sender<T> {
-        /* override */ bool register_successor( tbb::receiver<T> & ) { return false; }
-        /* override */ bool remove_successor( tbb::receiver<T> & ) { return false; }
+struct empty_sender : public tbb::flow::sender<T> {
+        /* override */ bool register_successor( tbb::flow::receiver<T> & ) { return false; }
+        /* override */ bool remove_successor( tbb::flow::receiver<T> & ) { return false; }
 };
 
 
 template< typename T >
 struct put_body : NoAssign {
 
-    tbb::limiter_node<T> &my_lim;
+    tbb::flow::limiter_node<T> &my_lim;
     tbb::atomic<int> &my_accept_count;
 
-    put_body( tbb::limiter_node<T> &lim, tbb::atomic<int> &accept_count ) : 
+    put_body( tbb::flow::limiter_node<T> &lim, tbb::atomic<int> &accept_count ) : 
         my_lim(lim), my_accept_count(accept_count) {}
 
     void operator()( int ) const {
@@ -88,10 +88,10 @@ struct put_body : NoAssign {
 template< typename T >
 struct put_dec_body : NoAssign {
 
-    tbb::limiter_node<T> &my_lim;
+    tbb::flow::limiter_node<T> &my_lim;
     tbb::atomic<int> &my_accept_count;
 
-    put_dec_body( tbb::limiter_node<T> &lim, tbb::atomic<int> &accept_count ) : 
+    put_dec_body( tbb::flow::limiter_node<T> &lim, tbb::atomic<int> &accept_count ) : 
         my_lim(lim), my_accept_count(accept_count) {}
 
     void operator()( int ) const {
@@ -101,12 +101,27 @@ struct put_dec_body : NoAssign {
             if ( msg == true ) {
                 ++local_accept_count;
                 ++my_accept_count;
-                my_lim.decrement.try_put( tbb::continue_msg() );
+                my_lim.decrement.try_put( tbb::flow::continue_msg() );
             } 
         }
     }
 
 };
+
+template< typename T >
+void test_puts_with_decrements( int num_threads, tbb::flow::limiter_node< T >& lim ) {
+    parallel_receiver<T> r;
+    empty_sender< tbb::flow::continue_msg > s;
+    tbb::atomic<int> accept_count;
+    accept_count = 0;
+    tbb::flow::make_edge( lim, r );
+    lim.decrement.register_predecessor( s );
+    // test puts with decrements
+    NativeParallelFor( num_threads, put_dec_body<T>(lim, accept_count) );
+    int c = accept_count;
+    ASSERT( c == N*num_threads, NULL );
+    ASSERT( r.my_count == N*num_threads, NULL );
+}
 
 //
 // Tests
@@ -120,12 +135,12 @@ int test_parallel(int num_threads) {
  
    // test puts with no decrements
    for ( int i = 0; i < L; ++i ) {
-       tbb::graph g;
-       tbb::limiter_node< T > lim(g, i);
+       tbb::flow::graph g;
+       tbb::flow::limiter_node< T > lim(g, i);
        parallel_receiver<T> r;
        tbb::atomic<int> accept_count;
        accept_count = 0;
-       lim.register_successor( r );
+       tbb::flow::make_edge( lim, r );
        // test puts with no decrements
        NativeParallelFor( num_threads, put_body<T>(lim, accept_count) );
        g.wait_for_all();
@@ -135,19 +150,11 @@ int test_parallel(int num_threads) {
 
    // test puts with decrements
    for ( int i = 1; i < L; ++i ) {
-       tbb::graph g;
-       tbb::limiter_node< T > lim(g, i);
-       parallel_receiver<T> r;
-       empty_sender< tbb::continue_msg > s;
-       tbb::atomic<int> accept_count;
-       accept_count = 0;
-       lim.register_successor( r );
-       lim.decrement.register_predecessor( s );
-       // test puts with no decrements
-       NativeParallelFor( num_threads, put_dec_body<T>(lim, accept_count) );
-       int c = accept_count;
-       ASSERT( c == N*num_threads, NULL );
-       ASSERT( r.my_count == N*num_threads, NULL );
+       tbb::flow::graph g;
+       tbb::flow::limiter_node< T > lim(g, i);
+       test_puts_with_decrements(num_threads, lim);
+       tbb::flow::limiter_node< T > lim_copy( lim );
+       test_puts_with_decrements(num_threads, lim_copy);
    }
 
    return 0;
@@ -164,10 +171,10 @@ int test_serial() {
  
    // test puts with no decrements
    for ( int i = 0; i < L; ++i ) {
-       tbb::graph g;
-       tbb::limiter_node< T > lim(g, i);
+       tbb::flow::graph g;
+       tbb::flow::limiter_node< T > lim(g, i);
        serial_receiver<T> r;
-       lim.register_successor( r );
+       tbb::flow::make_edge( lim, r );
        for ( int j = 0; j < L; ++j ) {
            bool msg = lim.try_put( T(j) );
            ASSERT( ( j < i && msg == true ) || ( j >= i && msg == false ), NULL );
@@ -177,17 +184,17 @@ int test_serial() {
 
    // test puts with decrements
    for ( int i = 1; i < L; ++i ) {
-       tbb::graph g;
-       tbb::limiter_node< T > lim(g, i);
+       tbb::flow::graph g;
+       tbb::flow::limiter_node< T > lim(g, i);
        serial_receiver<T> r;
-       empty_sender< tbb::continue_msg > s;
-       lim.register_successor( r );
+       empty_sender< tbb::flow::continue_msg > s;
+       tbb::flow::make_edge( lim, r );
        lim.decrement.register_predecessor( s );
        for ( int j = 0; j < N; ++j ) {
            bool msg = lim.try_put( T(j) );
            ASSERT( ( j < i && msg == true ) || ( j >= i && msg == false ), NULL );
            if ( msg == false ) {
-               lim.decrement.try_put( tbb::continue_msg() );
+               lim.decrement.try_put( tbb::flow::continue_msg() );
                msg = lim.try_put( T(j) );
                ASSERT( msg == true, NULL );
            }

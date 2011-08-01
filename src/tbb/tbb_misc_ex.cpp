@@ -43,6 +43,7 @@
 #include <sys/sysinfo.h>
 #include <string.h>
 #include <sched.h>
+#include <errno.h>
 #elif __sun
 #include <sys/sysinfo.h>
 #include <unistd.h>

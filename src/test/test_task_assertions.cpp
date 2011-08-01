@@ -26,6 +26,21 @@
     the GNU General Public License.
 */
 
+#if HARNESS_USE_PROXY
+
+// The test includes injects scheduler directly, so skip it when proxy tested.
+
+#undef HARNESS_USE_PROXY
+#include "harness.h"
+#undef __TBB_DYNAMIC_LOAD_ENABLED
+#include "harness_tbb_independence.h"
+
+int TestMain () {
+    return Harness::Skipped;
+}
+
+#else // HARNESS_USE_PROXY
+
 // Test correctness of forceful TBB initialization before any dynamic initialization
 // of static objects inside the library took place.
 namespace tbb { 
@@ -84,7 +99,7 @@ void TestTaskAssertions() {
     AbusedTask = new( tbb::task::allocate_root() ) tbb::empty_task;
     NativeParallelFor( 1, AbuseOneTask() );
     ASSERT( AbuseOneTaskRan==1, NULL );
-    AbusedTask->destroy(*AbusedTask);
+    tbb::task::destroy(*AbusedTask);
     // Restore normal assertion handling
     tbb::set_assertion_handler( NULL );
 }
@@ -101,3 +116,5 @@ int TestMain () {
 }
 
 #endif /* !TRY_BAD_EXPR_ENABLED */
+
+#endif // HARNESS_USE_PROXY

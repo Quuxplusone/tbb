@@ -68,6 +68,7 @@
 
 #endif /* !TBBTEST_USE_TBB */
 
+#if __TBB_TASK_GROUP_CONTEXT
 
 #include "tbb/atomic.h"
 #include "harness_concurrency_tracker.h"
@@ -134,7 +135,7 @@ class  SharedGroupBodyImpl : NoCopy, Harness::NoAfterlife {
             __TBB_Yield();
         const uint_t numSpawned = c_numTasks0 + c_numTasks1 * (m_numThreads - 1);
         ASSERT ( m_tasksSpawned == numSpawned, "Wrong number of spawned tasks. The test is broken" );
-        REMARK("Max spawning parallelism is %u out of %u", Harness::ConcurrencyTracker::PeakParallelism(), g_MaxConcurrency);
+        REMARK("Max spawning parallelism is %u out of %u\n", Harness::ConcurrencyTracker::PeakParallelism(), g_MaxConcurrency);
         if ( m_sharingMode & ParallelWait ) {
             m_barrier.wait( &Harness::ConcurrencyTracker::Reset );
             {
@@ -203,7 +204,7 @@ atomic_t SharedGroupBodyImpl::s_tasksExecuted;
 
 class  SharedGroupBody : NoAssign, Harness::NoAfterlife {
     bool m_bOwner;
-    mutable SharedGroupBodyImpl *m_pImpl;
+    SharedGroupBodyImpl *m_pImpl;
 public:
     SharedGroupBody ( uint_t numThreads, uint_t sharingMode = 0 )
         : m_bOwner(true)
@@ -250,7 +251,7 @@ atomic_t g_Sum;
 
 #define FIB_TEST_EPILOGUE(sum) \
     ASSERT( sum == numRepeats * F, NULL ); \
-    REMARK("Realized parallelism in Fib test is %u out of %u", Harness::ConcurrencyTracker::PeakParallelism(), g_MaxConcurrency)
+    REMARK("Realized parallelism in Fib test is %u out of %u\n", Harness::ConcurrencyTracker::PeakParallelism(), g_MaxConcurrency)
 
 //------------------------------------------------------------------------
 // Test for a complex tree of task groups
@@ -484,7 +485,7 @@ void TestFibWithLambdas () {
 //------------------------------------------------------------------------
 
 void TestFibWithMakeTask () {
-    REMARK ("Make_task test");
+    REMARK ("Make_task test\n");
     atomic_t sum;
     sum = 0;
     Concurrency::task_group rg;
@@ -679,12 +680,12 @@ void StructuredLaunchChildren () {
     count = 0;
     Concurrency::structured_task_group g;
     bool exceptionCaught = false;
-    typedef Concurrency::task_handle<ThrowingTask> handle_type;
-    static const unsigned hSize = sizeof(handle_type);
+    typedef Concurrency::task_handle<ThrowingTask> throwing_handle_type;
+    static const unsigned hSize = sizeof(throwing_handle_type);
     char handles[NUM_CHORES * hSize];
     for( unsigned i = 0; i < NUM_CHORES; ++i ) {
-        handle_type *h = (handle_type*)(handles + i * hSize);
-        new ( h ) handle_type( ThrowingTask(count) );
+        throwing_handle_type *h = (throwing_handle_type*)(handles + i * hSize);
+        new ( h ) throwing_handle_type( ThrowingTask(count) );
         g.run( *h );
     }
     __TBB_TRY {
@@ -704,7 +705,7 @@ void StructuredLaunchChildren () {
     } CATCH_ANY();
     ASSERT( !g_Throw || exceptionCaught, "No exception in the child task group" );
     for( unsigned i = 0; i < NUM_CHORES; ++i )
-        ((handle_type*)(handles + i * hSize))->~handle_type();
+        ((throwing_handle_type*)(handles + i * hSize))->~throwing_handle_type();
     if ( g_Rethrow && g_ExceptionCount > SKIP_GROUPS ) {
 #if __TBB_SILENT_CANCELLATION_BROKEN
         g_CancellationPropagationInProgress = true;
@@ -846,3 +847,13 @@ int TestMain () {
 #endif
     return Harness::Done;
 }
+
+#else /* !__TBB_TASK_GROUP_CONTEXT */
+
+#include "harness.h"
+
+int TestMain () {
+    return Harness::Skipped;
+}
+
+#endif /* !__TBB_TASK_GROUP_CONTEXT */

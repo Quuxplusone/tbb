@@ -214,6 +214,8 @@ void Run( int nthread ) {
         TestIterator<Harness::InputIterator<value_t> >(nthread, depth);
         // Test for forward iterators
         TestIterator<Harness::ForwardIterator<value_t> >(nthread, depth);
+        // Test for const random access iterators
+        TestIterator_RvalueOnly<Harness::ConstRandomIterator<value_t> >(nthread, depth);
     }
 }
 

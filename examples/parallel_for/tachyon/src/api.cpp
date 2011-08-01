@@ -87,7 +87,7 @@
 #include "imap.h"
 #include "global.h"
 
-#include "video.h"
+#include "tachyon_video.h"
 
 typedef void * SceneHandle;
 #include "api.h"
@@ -113,7 +113,7 @@ color rt_color(apiflt r, apiflt g, apiflt b) {
   return c;
 }
 
-void rt_initialize(int * argc, char ***argv) {
+void rt_initialize() {
   rpcmsg msg;
 
   reset_object();

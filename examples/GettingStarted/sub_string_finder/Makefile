@@ -27,11 +27,16 @@
 # GNU Makefile that builds and runs example.
 PROG=sub_string_finder_extended
 ARGS=
+LIGHT_PROG=sub_string_finder
 
 # The C++ compiler
 ifneq (,$(shell which icc 2>/dev/null))
 CXX=icc
 endif # icc
+
+ifeq ($(shell uname), Linux)
+LIBS+= -lrt 
+endif
 
 all:	release test
 
@@ -50,3 +55,6 @@ clean:
 
 test:
 	./$(PROG) $(ARGS)
+
+light_test:
+	./$(LIGHT_PROG) $(ARGS)

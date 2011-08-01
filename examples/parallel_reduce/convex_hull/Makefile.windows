@@ -27,6 +27,8 @@
 # Common Makefile that builds and runs example.
 PROG=convex_hull_bench
 ARGS=
+PERF_RUN_ARGS = silent auto 40000000
+LIGHT_ARGS = 4 400
 
 # Trying to find if icl.exe is set
 CXX1 = $(TBB_CXX)-
@@ -34,7 +36,7 @@ CXX2 = $(CXX1:icl.exe-=icl.exe)
 CXX  = $(CXX2:-=cl.exe)
 
 # The C++ compiler options
-MYCXXFLAGS = /TP /EHsc /W3 /nologo /D _CONSOLE /D _MBCS /D WIN32 /D _SCL_SECURE_NO_DEPRECATE $(CXXFLAGS)
+MYCXXFLAGS = /TP /EHsc /W3 /nologo $(TBB_SECURITY_SWITCH) /D _CONSOLE /D _MBCS /D WIN32 /D _SCL_SECURE_NO_DEPRECATE /D _SECURE_SCL=0 $(CXXFLAGS)
 MYLDFLAGS =/INCREMENTAL:NO /NOLOGO /DEBUG /FIXED:NO $(LDFLAGS)
 
 all: release test
@@ -48,6 +50,14 @@ clean:
 	@cmd.exe /C del convex_hull*.exe *.obj *.?db *.manifest
 test:
 	$(PROG) $(ARGS)
+perf_build: release
+
+perf_run:
+	./convex_hull_sample $(PERF_RUN_ARGS)
+
+light_test:
+	./$(PROG) $(LIGHT_ARGS)
+
 compiler_check:
 	@echo compiler_test>compiler_test && @$(CXX) /E compiler_test >nul 2>&1  || echo "$(CXX) command not found. Check if CXX=$(CXX) is set properly"
 	@cmd.exe /C del compiler_test

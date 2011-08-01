@@ -30,6 +30,7 @@
 
 #define __TBB_EXTRA_DEBUG 1
 #include "tbb/concurrent_unordered_map.h"
+#include "tbb/concurrent_unordered_set.h"
 #include "tbb/parallel_for.h"
 #include "tbb/tick_count.h"
 #include <stdio.h>
@@ -39,9 +40,8 @@
 using namespace std;
 
 typedef local_counting_allocator<debug_allocator<std::pair<const int,int>,std::allocator> > MyAllocator;
-typedef tbb::concurrent_unordered_map<int, int, tbb::tbb_hash<int>, std::equal_to<int>, MyAllocator> Mycumap;
-//typedef tbb::concurrent_unordered_map<int, int> Mycumap;
-//typedef concurrent_unordered_multimap<int, int> Mycummap;
+typedef tbb::concurrent_unordered_map<int, int, tbb::tbb_hash<int>, std::equal_to<int>, MyAllocator> MyMap;
+typedef tbb::concurrent_unordered_set<int, tbb::tbb_hash<int>, std::equal_to<int>, MyAllocator> MySet;
 
 #define CheckAllocatorE(t,a,f) CheckAllocator(t,a,f,true,__LINE__)
 #define CheckAllocatorA(t,a,f) CheckAllocator(t,a,f,false,__LINE__)
@@ -59,15 +59,19 @@ inline void CheckAllocator(MyTable &table, size_t expected_allocs, size_t expect
     }
 }
 
+// value generator for cumap
 template <typename K, typename V = std::pair<const K, K> >
 struct ValueFactory {
     static V make(const K &value) { return V(value, value); }
+    static K key(const V &value) { return value.first; }
     static K get(const V& value) { return value.second; }
 };
 
+// generator for cuset
 template <typename T>
 struct ValueFactory<T, T> {
     static T make(const T &value) { return value; }
+    static T key(const T &value) { return value; }
     static T get(const T &value) { return value; }
 };
 
@@ -79,16 +83,16 @@ struct Value : ValueFactory<typename T::key_type, typename T::value_type> {};
 #pragma warning(disable: 4127) // warning 4127 -- while (true) has a constant expression in it
 #endif
 
-template<typename Iterator, typename RangeType>
+template<typename ContainerType, typename Iterator, typename RangeType>
 std::pair<int,int> CheckRecursiveRange(RangeType range) {
     std::pair<int,int> sum(0, 0); // count, sum
     for( Iterator i = range.begin(), e = range.end(); i != e; ++i ) {
-        ++sum.first; sum.second += i->second;
+        ++sum.first; sum.second += Value<ContainerType>::get(*i);
     }
     if( range.is_divisible() ) {
         RangeType range2( range, tbb::split() );
-        std::pair<int,int> sum1 = CheckRecursiveRange<Iterator, RangeType>( range );
-        std::pair<int,int> sum2 = CheckRecursiveRange<Iterator, RangeType>( range2 );
+        std::pair<int,int> sum1 = CheckRecursiveRange<ContainerType,Iterator, RangeType>( range );
+        std::pair<int,int> sum2 = CheckRecursiveRange<ContainerType,Iterator, RangeType>( range2 );
         sum1.first += sum2.first; sum1.second += sum2.second;
         ASSERT( sum == sum1, "Mismatched ranges after division");
     }
@@ -97,16 +101,16 @@ std::pair<int,int> CheckRecursiveRange(RangeType range) {
 
 template <typename T>
 struct SpecialTests {
-    static void Test() {}
+    static void Test(const char *str) {REMARK("skipped -- specialized %s tests\n", str);}
 };
 
 template <>
-struct SpecialTests <Mycumap>
+struct SpecialTests <MyMap>
 {
-    static void Test()
+    static void Test(const char *str)
     {
-        Mycumap cont(0);
-        const Mycumap &ccont(cont);
+        MyMap cont(0);
+        const MyMap &ccont(cont);
 
         // mapped_type& operator[](const key_type& k);
         cont[1] = 2;
@@ -125,10 +129,10 @@ struct SpecialTests <Mycumap>
         ASSERT(ccont.at(1) == 2, "Concurrent container size incorrect");
 
         // iterator find(const key_type& k);
-        Mycumap::const_iterator it = cont.find(1);
-        ASSERT(it != cont.end() && Value<Mycumap>::get(*(it)) == 2, "Element with key 1 not properly found");
+        MyMap::const_iterator it = cont.find(1);
+        ASSERT(it != cont.end() && Value<MyMap>::get(*(it)) == 2, "Element with key 1 not properly found");
 
-        REMARK("passed -- specialized concurrent unordered map tests\n");
+        REMARK("passed -- specialized %s tests\n", str);
     }
 };
 
@@ -273,8 +277,8 @@ void test_basic(const char * str)
         ASSERT(ins3.second == true && Value<T>::get(*(ins3.first)) == i, "Element 1 not properly inserted");
     }
     ASSERT(cont.size() == 256, "Wrong number of elements inserted");
-    ASSERT(256 == CheckRecursiveRange<typename T::iterator>(cont.range()).first, NULL);
-    ASSERT(256 == CheckRecursiveRange<typename T::const_iterator>(ccont.range()).first, NULL);
+    ASSERT((256 == CheckRecursiveRange<T,typename T::iterator>(cont.range()).first), NULL);
+    ASSERT((256 == CheckRecursiveRange<T,typename T::const_iterator>(ccont.range()).first), NULL);
 
     // size_type unsafe_bucket_count() const;
     ASSERT(ccont.unsafe_bucket_count() == 16, "Wrong number of buckets");
@@ -327,7 +331,7 @@ void test_basic(const char * str)
     REMARK("\n");
 #endif
 
-    SpecialTests<T>::Test();
+    SpecialTests<T>::Test(str);
 }
 
 void test_machine() {
@@ -383,7 +387,7 @@ public:
 
 typedef tbb::atomic<unsigned char> AtomicByte;
 
-template<typename RangeType>
+template<typename ContainerType, typename RangeType>
 struct ParallelTraverseBody: NoAssign {
     const int n;
     AtomicByte* const array;
@@ -392,8 +396,8 @@ struct ParallelTraverseBody: NoAssign {
     {}
     void operator()( const RangeType& range ) const {
         for( typename RangeType::iterator i = range.begin(); i!=range.end(); ++i ) {
-            int k = i->first;
-            ASSERT( k == i->second, NULL );
+            int k = Value<ContainerType>::key(*i);
+            ASSERT( k == Value<ContainerType>::get(*i), NULL );
             ASSERT( 0<=k && k<n, NULL ); 
             array[k]++;
         }
@@ -430,6 +434,16 @@ public:
     }
 };
 
+template<>
+class AssignBody<MySet>: NoAssign {
+    MySet &table;
+public:
+    AssignBody(MySet &t) : NoAssign(), table(t) {}
+    void operator()(int i) const {
+        table.insert(i);
+    }
+};
+
 template<typename T>
 void test_concurrent(const char *tablename) {
 #if TBB_USE_ASSERT
@@ -452,15 +466,15 @@ void test_concurrent(const char *tablename) {
     memset( array, 0, items*sizeof(AtomicByte) );
 
     typename T::range_type r = table.range();
-    ASSERT(items == CheckRecursiveRange<typename T::iterator>(r).first, NULL);
-    tbb::parallel_for( r, ParallelTraverseBody<typename T::const_range_type>( array, items ));
+    ASSERT((items == CheckRecursiveRange<T,typename T::iterator>(r).first), NULL);
+    tbb::parallel_for( r, ParallelTraverseBody<T, typename T::const_range_type>( array, items ));
     CheckRange( array, items );
 
     const T &const_table = table;
     memset( array, 0, items*sizeof(AtomicByte) );
     typename T::const_range_type cr = const_table.range();
-    ASSERT(items == CheckRecursiveRange<typename T::const_iterator>(cr).first, NULL);
-    tbb::parallel_for( cr, ParallelTraverseBody<typename T::const_range_type>( array, items ));
+    ASSERT((items == CheckRecursiveRange<T,typename T::const_iterator>(cr).first), NULL);
+    tbb::parallel_for( cr, ParallelTraverseBody<T, typename T::const_range_type>( array, items ));
     CheckRange( array, items );
     delete[] array;
 
@@ -477,7 +491,9 @@ void test_concurrent(const char *tablename) {
 
 int TestMain () {
     test_machine();
-    test_basic<Mycumap>("concurrent unordered map");
-    test_concurrent<Mycumap>("concurrent unordered map");
+    test_basic<MyMap>("concurrent unordered map");
+    test_concurrent<MyMap>("concurrent unordered map");
+    test_basic<MySet>("concurrent unordered set");
+    test_concurrent<MySet>("concurrent unordered set");
     return Harness::Done;
 }

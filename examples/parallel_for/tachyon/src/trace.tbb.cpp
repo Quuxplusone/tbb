@@ -68,7 +68,7 @@
 #include "intersect.h"
 #include "global.h"
 #include "ui.h"
-#include "video.h"
+#include "tachyon_video.h"
 
 // shared but read-only so could be private too
 static thr_parms *all_parms;

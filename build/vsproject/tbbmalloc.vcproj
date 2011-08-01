@@ -261,7 +261,7 @@
 			</File>
 			<File RelativePath="..\..\src\tbbmalloc\frontend.cpp"/><File RelativePath="..\..\src\tbbmalloc\backend.cpp"/><File RelativePath="..\..\src\tbbmalloc\large_objects.cpp"/><File RelativePath="..\..\src\tbbmalloc\backref.cpp"/><File RelativePath="..\..\src\tbb\itt_notify.cpp"/><File RelativePath="..\..\src\tbbmalloc\tbbmalloc.cpp"/></Filter>
 		<Filter Name="Header Files" Filter="h;hpp;hxx;hm;inl;inc;xsd" UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
-			<File RelativePath="..\..\include\tbb\_concurrent_queue_internal.h">
+			<File RelativePath="..\..\include\tbb\internal\_concurrent_queue_impl.h">
 			</File>
 			<File RelativePath="..\..\include\tbb\_tbb_windef.h">
 			</File>

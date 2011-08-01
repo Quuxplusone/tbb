@@ -79,7 +79,7 @@ CONLY ?= $(CPLUS)
 
 # TODO Rule for generating .asm file if needed for visual inspection
 %.asm: %.cpp
-	$(CPLUS) /c /Fa $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(INCLUDES) $<
+	$(CPLUS) /c /FAs /Fa $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(INCLUDES) $<
 
 # TODO Rule for generating .s file if needed for visual inspection
 %.s: %.cpp

@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::interface5::reader_writer_lock::scoped_lock_read Class Reference</title>
+<title>flow_graph.h File Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -10,51 +10,126 @@
     <li><a href="index.html"><span>Main&nbsp;Page</span></a></li>
     <li><a href="modules.html"><span>Modules</span></a></li>
     <li><a href="namespaces.html"><span>Namespaces</span></a></li>
-    <li id="current"><a href="annotated.html"><span>Classes</span></a></li>
-    <li><a href="files.html"><span>Files</span></a></li>
+    <li><a href="annotated.html"><span>Classes</span></a></li>
+    <li id="current"><a href="files.html"><span>Files</span></a></li>
     <li><a href="pages.html"><span>Related&nbsp;Pages</span></a></li>
   </ul></div>
 <div class="tabs">
   <ul>
-    <li><a href="annotated.html"><span>Class&nbsp;List</span></a></li>
-    <li><a href="hierarchy.html"><span>Class&nbsp;Hierarchy</span></a></li>
-    <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
+    <li><a href="files.html"><span>File&nbsp;List</span></a></li>
+    <li><a href="globals.html"><span>File&nbsp;Members</span></a></li>
   </ul></div>
-<div class="nav">
-<a class="el" href="a00407.html">tbb</a>::<b>interface5</b>::<a class="el" href="a00317.html">reader_writer_lock</a>::<a class="el" href="a00319.html">scoped_lock_read</a></div>
-<h1>tbb::interface5::reader_writer_lock::scoped_lock_read Class Reference</h1><!-- doxytag: class="tbb::interface5::reader_writer_lock::scoped_lock_read" -->The scoped lock pattern for read locks.  
-<a href="#_details">More...</a>
+<h1>flow_graph.h File Reference</h1>The graph related classes and functions. <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00612.html">reader_writer_lock.h</a>&gt;</code>
+
 <p>
-<a href="a00123.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00440.html">Go to the source code of this file.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="87ab0dc8f7216e6ba0f7acd6aec33064"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::scoped_lock_read::scoped_lock_read" ref="87ab0dc8f7216e6ba0f7acd6aec33064" args="(reader_writer_lock &amp;lock)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00319.html#87ab0dc8f7216e6ba0f7acd6aec33064">scoped_lock_read</a> (<a class="el" href="a00317.html">reader_writer_lock</a> &amp;lock)</td></tr>
+<tr><td colspan="2"><br><h2>Namespaces</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00357.html">tbb</a></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct with blocking attempt to acquire read lock on the passed-in lock. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="bd21c5f3d555d64d1de8658e15bf4966"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::scoped_lock_read::~scoped_lock_read" ref="bd21c5f3d555d64d1de8658e15bf4966" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00319.html#bd21c5f3d555d64d1de8658e15bf4966">~scoped_lock_read</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destructor, releases the read lock. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f09e1817dddf97cc2182a573945eef91"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::scoped_lock_read::operator new" ref="f09e1817dddf97cc2182a573945eef91" args="(size_t s)" -->
-void *&nbsp;</td><td class="memItemRight" valign="bottom"><b>operator new</b> (size_t s)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4f9e148ec33895c0d2669ff6820cf164"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::scoped_lock_read::operator delete" ref="4f9e148ec33895c0d2669ff6820cf164" args="(void *p)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>operator delete</b> (void *p)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::graph_policy_namespace</b></td></tr>
 
-<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="38eb53abbe72543f5967c63aa95b403e"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::scoped_lock_read::reader_writer_lock" ref="38eb53abbe72543f5967c63aa95b403e" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>reader_writer_lock</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><b>interface6::internal::graph_policy_namespace</b></td></tr>
 
+<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00245.html">tbb::flow::interface6::graph_node</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The base of all graph nodes. Allows them to be stored in a collection for deletion.  <a href="a00245.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00233.html">tbb::flow::interface6::continue_msg</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">An empty class used for messages that mean "I'm done".  <a href="a00233.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html">tbb::flow::interface6::sender&lt; T &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Pure virtual template class that defines a sender of messages of type T.  <a href="a00278.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00272.html">tbb::flow::interface6::receiver&lt; T &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Pure virtual template class that defines a receiver of messages of type T.  <a href="a00272.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00235.html">tbb::flow::interface6::continue_receiver</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Base class for receivers of completion messages.  <a href="a00235.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00244.html">tbb::flow::interface6::graph</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The graph class.  <a href="a00244.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::graph::run_task&lt; Body &gt;</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::graph::run_and_put_task&lt; Receiver, Body &gt;</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00281.html">tbb::flow::interface6::source_node&lt; Output &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">An executable node that acts as a source, i.e. it has no predecessors.  <a href="a00281.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00242.html">tbb::flow::interface6::function_node&lt; Input, Output,, Allocator &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Implements a function node that supports Input -&gt; Output.  <a href="a00242.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00243.html">tbb::flow::interface6::function_node&lt; Input, Output, queueing, Allocator &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Implements a function node that supports Input -&gt; Output.  <a href="a00243.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00234.html">tbb::flow::interface6::continue_node&lt; Output &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Implements an executable node that supports <a class="el" href="a00233.html">continue_msg</a> -&gt; Output.  <a href="a00234.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::overwrite_node&lt; T &gt;</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::write_once_node&lt; T &gt;</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00218.html">tbb::flow::interface6::broadcast_node&lt; T &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages of type T to all successors.  <a href="a00218.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00219.html">tbb::flow::interface6::buffer_node&lt; T, A &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in arbitrary order.  <a href="a00219.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::buffer_node&lt; T, A &gt;::buffer_operation</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html">tbb::flow::interface6::queue_node&lt; T, A &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in FIFO order.  <a href="a00264.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00279.html">tbb::flow::interface6::sequencer_node&lt; T, A &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in sequence order.  <a href="a00279.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00263.html">tbb::flow::interface6::priority_queue_node&lt; T, Compare, A &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in priority order.  <a href="a00263.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html">tbb::flow::interface6::limiter_node&lt; T &gt;</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages only if the threshold has not been reached.  <a href="a00248.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::join_node&lt; OutputTuple, reserving &gt;</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::join_node&lt; OutputTuple, queueing &gt;</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::join_node&lt; OutputTuple, tag_matching &gt;</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::or_node&lt; InputTuple &gt;</b></td></tr>
+
+<tr><td colspan="2"><br><h2>Enumerations</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><b>concurrency</b> { <b>unlimited</b> =  0, 
+<b>serial</b> =  1
+ }</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">An enumeration the provides the two most common concurrency levels: unlimited and serial. <br></td></tr>
+<tr><td colspan="2"><br><h2>Functions</h2></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="511941e0793451ab18c6ccf489a67e47"></a><!-- doxytag: member="flow_graph.h::make_edge" ref="511941e0793451ab18c6ccf489a67e47" args="(sender&lt; T &gt; &amp;p, receiver&lt; T &gt; &amp;s)" -->
+template&lt;typename T&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00360.html#511941e0793451ab18c6ccf489a67e47">tbb::flow::interface6::make_edge</a> (sender&lt; T &gt; &amp;p, receiver&lt; T &gt; &amp;s)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Makes an edge between a single predecessor and a single successor. <br></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="15f0356fd7bcade4868d3b083ea671c2"></a><!-- doxytag: member="flow_graph.h::remove_edge" ref="15f0356fd7bcade4868d3b083ea671c2" args="(sender&lt; T &gt; &amp;p, receiver&lt; T &gt; &amp;s)" -->
+template&lt;typename T&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00360.html#15f0356fd7bcade4868d3b083ea671c2">tbb::flow::interface6::remove_edge</a> (sender&lt; T &gt; &amp;p, receiver&lt; T &gt; &amp;s)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Makes an edge between a single predecessor and a single successor. <br></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="c8a3ee78426f0aa4df0c5a5e4bcd53e1"></a><!-- doxytag: member="flow_graph.h::copy_body" ref="c8a3ee78426f0aa4df0c5a5e4bcd53e1" args="(Node &amp;n)" -->
+template&lt;typename Body, typename Node&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">Body&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00360.html#c8a3ee78426f0aa4df0c5a5e4bcd53e1">tbb::flow::interface6::copy_body</a> (Node &amp;n)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Returns a copy of the body from a function or continue node. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-The scoped lock pattern for read locks. 
+The graph related classes and functions. 
 <p>
-<hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00612.html">reader_writer_lock.h</a></ul>
-<hr>
+There are some applications that best express dependencies as messages passed between nodes in a graph. These messages may contain data or simply act as signals that a predecessors has completed. The graph class and its associated node classes can be used to express such applcations. <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>

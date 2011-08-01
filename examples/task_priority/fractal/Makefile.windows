@@ -51,13 +51,11 @@ XARCH = $(ARCH2:-=x86)
 MAKEINC = ../../common/gui/Makefile.win
 SOURCES = fractal.cpp main.cpp 
 
-CXXFLAGS += /DTBB_PREVIEW_TASK_PRIORITY
- 
 all: release test
 release: compiler_check
-	@$(MAKE) -f $(MAKEINC) UI=$(UI) CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS)" LFLAGS="$(LDFLAGS) tbb_preview.lib $(LIBS)" XARCH=$(XARCH) RCNAME=gui SOURCE="$(SOURCES)" EXE=$(PROG).exe build_one
+	@$(MAKE) -f $(MAKEINC) UI=$(UI) CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS)" LFLAGS="$(LDFLAGS) tbb.lib $(LIBS)" XARCH=$(XARCH) RCNAME=gui SOURCE="$(SOURCES)" EXE=$(PROG).exe build_one
 debug: compiler_check
-	@$(MAKE) -f $(MAKEINC) UI=$(UI) DEBUG=_debug CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS) /D TBB_USE_DEBUG" LFLAGS="$(LDFLAGS) tbb_preview_debug.lib $(LIBS)" XARCH=$(XARCH) RCNAME=gui SOURCE="$(SOURCES)" EXE=$(PROG).exe build_one
+	@$(MAKE) -f $(MAKEINC) UI=$(UI) DEBUG=_debug CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS) /D TBB_USE_DEBUG" LFLAGS="$(LDFLAGS) tbb_debug.lib $(LIBS)" XARCH=$(XARCH) RCNAME=gui SOURCE="$(SOURCES)" EXE=$(PROG).exe build_one
 clean:
 	@cmd.exe /C del $(PROG).exe *.obj *.?db *.manifest msvs\gui.res
 test:
@@ -66,7 +64,7 @@ light_test:
 	$(PROG) $(LIGHT_ARGS)
 
 perf_build: compiler_check
-	@$(MAKE) -f $(MAKEINC) UI=con CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS)" LFLAGS="$(LDFLAGS) tbb_preview.lib $(LIBS)" XARCH=$(XARCH) RCNAME=gui SOURCE="$(SOURCES) " EXE=$(PROG).exe build_one
+	@$(MAKE) -f $(MAKEINC) UI=con CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS)" LFLAGS="$(LDFLAGS) tbb.lib $(LIBS)" XARCH=$(XARCH) RCNAME=gui SOURCE="$(SOURCES) " EXE=$(PROG).exe build_one
 perf_run:
 	$(PROG) $(PERF_RUN_ARGS)
 

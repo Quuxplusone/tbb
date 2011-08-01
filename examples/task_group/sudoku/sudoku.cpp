@@ -26,12 +26,15 @@
     the GNU General Public License.
 */
 
+
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 #include "tbb/atomic.h"
 #include "tbb/tick_count.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/task_group.h"
+#include "../../common/utility/utility.h"
 
 #pragma warning(disable: 4996)
 
@@ -44,17 +47,18 @@ using namespace tbb;
 using namespace std;
 
 atomic<unsigned> nSols;
-unsigned NThreads, NSolutions;
-bool Verbose=false;
+bool find_one = false;
+bool verbose = false;
 unsigned short init_values[BOARD_SIZE] = {1,0,0,9,0,0,0,8,0,0,8,0,2,0,0,0,0,0,0,0,5,0,0,0,7,0,0,0,5,2,1,0,0,4,0,0,0,0,0,0,0,5,0,0,7,4,0,0,7,0,0,0,3,0,0,3,0,0,0,2,0,0,5,0,0,0,0,0,0,1,0,0,5,0,0,0,1,0,0,0,0};
 task_group *g;
+double solve_time;
 
 typedef struct {
     unsigned short solved_element;
     unsigned potential_set;
 } board_element;
 
-void read_board(char *filename) {
+void read_board(const char *filename) {
     FILE *fp;
     int input;
     fp = fopen(filename, "r");
@@ -211,9 +215,9 @@ public:
 
 void partial_solve(board_element *b, unsigned first_potential_set) {
     if (fixed_board(b)) {
-        if (NSolutions == 1)
+        if ( find_one )
             g->cancel();
-        if (++nSols==1 && Verbose) {
+        if (++nSols==1 && verbose) {
             print_board(b);
         }
         free(b);
@@ -246,50 +250,72 @@ void partial_solve(board_element *b, unsigned first_potential_set) {
     }
 }
 
-void ParseCommandLine(int argc, char *argv[]) {
-    NThreads = 4;
-    Verbose = true;
-    NSolutions = 2;
-    if (argc != 4 && argc != 5 && argc != 2 && argc != 1) {
-        fprintf(stderr, 
-                "Usage: sudoku [<nthreads>]\n"
-                "       sudoku <inputfilename> <nthreads> <nSolutions> [-p]\n"
-                "  where: nSolutions=1 stops after finding first solution\n"
-                "           and any other value finds all solutions; \n"
-                "         -p prints the first solution.\n");
-        exit(1);
-    }
-    if (argc == 2) {
-        sscanf(argv[1], "%d", &NThreads);
-    }
-    else if (argc > 3) {
-        sscanf(argv[2], "%d", &NThreads);
-        sscanf(argv[3], "%d", &NSolutions);
-        if (argc!=5) Verbose = false;
-        read_board(argv[1]);
-    }
-}
-
-int main(int argc, char *argv[]) {
-    board_element *start_board;
-    start_board = (board_element *)malloc(BOARD_SIZE*sizeof(board_element));
-    NThreads = 1;
+unsigned solve(int p) {
+    task_scheduler_init init(p);
     nSols = 0;
-    ParseCommandLine(argc, argv);
+    board_element *start_board = (board_element *)malloc(BOARD_SIZE*sizeof(board_element));
     init_board(start_board, init_values);
-    task_scheduler_init init(NThreads);
     g = new task_group;
     tick_count t0 = tick_count::now();
     partial_solve(start_board, 0);
     g->wait();
-    tick_count t1 = tick_count::now();
+    solve_time = (tick_count::now() - t0).seconds();
     delete g;
+    return nSols;
+}
 
-    if (NSolutions == 1) {
-        printf("Sudoku: Time to find first solution on %d threads: %6.6f seconds.\n", NThreads, (t1 - t0).seconds());
+
+int get_default_num_threads() {
+    static int threads = 0;
+    if ( threads == 0 )
+        threads = tbb::task_scheduler_init::default_num_threads();
+    return threads;
+}
+
+int main(int argc, char *argv[]) {
+    try {
+        tbb::tick_count mainStartTime = tbb::tick_count::now();
+
+        utility::thread_number_range threads(get_default_num_threads);
+        string filename = "";
+        bool silent = false;
+
+        utility::parse_cli_arguments(argc,argv,
+            utility::cli_argument_pack()
+            //"-h" option for for displaying help is present implicitly
+            .positional_arg(threads,"n-of-threads","number of threads to use; a range of the form low[:high], where low and optional high are non-negative integers or 'auto' for the TBB default.")
+            .positional_arg(filename,"filename","input filename")
+
+            .arg(verbose,"verbose","prints the first solution")
+            .arg(silent,"silent","no output except elapsed time")
+            .arg(find_one,"find-one","stops after finding first solution\n")
+        );
+
+        if ( silent ) verbose = false;
+
+        if ( !filename.empty() )
+            read_board( filename.c_str() );
+        // otherwise (if file name not specified), the default statically initialized board will be used.
+        for(int p = threads.first; p <= threads.last; ++p ) {
+            unsigned number;
+            number = solve(p);
+
+            if ( !silent ) {
+                if ( find_one ) {
+                    printf("Sudoku: Time to find first solution on %d threads: %6.6f seconds.\n", p, solve_time);
+                }
+                else {
+                    printf("Sudoku: Time to find all %u solutions on %d threads: %6.6f seconds.\n", number, p, solve_time);
+                }
+            }
+        }
+
+        utility::report_elapsed_time((tbb::tick_count::now() - mainStartTime).seconds());
+
+        return 0;
+    } catch(std::exception& e) {
+        std::cerr<<"error occurred. error text is :\"" <<e.what()<<"\"\n";
+        return 1;
     }
-    else {
-        printf("Sudoku: Time to find all %d solutions on %d threads: %6.6f seconds.\n", (int)nSols, NThreads, (t1 - t0).seconds());
-  }
 };
 

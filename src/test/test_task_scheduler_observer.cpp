@@ -81,8 +81,8 @@ public:
         ASSERT( !(~LocalState->MyFlags & flags), NULL );
         if( n>=2 ) {
             set_ref_count(3);
-            spawn(*new( tbb::task::allocate_child() ) FibTask(n-1,flags));
-            spawn_and_wait_for_all(*new( tbb::task::allocate_child() ) FibTask(n-2,flags));
+            spawn(*new( allocate_child() ) FibTask(n-1,flags));
+            spawn_and_wait_for_all(*new( allocate_child() ) FibTask(n-2,flags));
         }
         return NULL;
     }

@@ -26,20 +26,12 @@
     the GNU General Public License.
 */
 
-#include "tbb/task.h"
+#include "harness_task.h"
 #include "tbb/atomic.h"
 #include "tbb/tbb_thread.h"
-#include "harness_assert.h"
+#include "tbb/task_scheduler_init.h"
 #include <cstdlib>
 
-//------------------------------------------------------------------------
-// Helper for verifying that old use cases of spawn syntax still work.
-//------------------------------------------------------------------------
-tbb::task* GetTaskPtr( int& counter ) {
-    ++counter;
-    return NULL;
-}
- 
 //------------------------------------------------------------------------
 // Test for task::spawn_children and task_list
 //------------------------------------------------------------------------
@@ -133,9 +125,6 @@ static int Expected( int child_count, int depth ) {
     return depth<=0 ? 1 : 1+child_count*Expected(child_count/2,depth-1);
 }
 
-#include "tbb/task_scheduler_init.h"
-#include "harness.h"
-
 void TestStealLimit( int nthread ) {
     REMARK( "testing steal limiting heuristics for %d threads\n", nthread );
     tbb::task_scheduler_init init(nthread);
@@ -175,33 +164,6 @@ void TestSpawnRootList( int nthread ) {
 //------------------------------------------------------------------------
 // Test for task::recycle_as_safe_continuation
 //------------------------------------------------------------------------
-
-class TaskGenerator: public tbb::task {
-    int m_ChildCount;
-    int m_Depth;
-    
-public:
-    TaskGenerator( int child_count, int _depth ) : m_ChildCount(child_count), m_Depth(_depth) {}
-    ~TaskGenerator( ) { m_ChildCount = m_Depth = -125; }
-
-    /*override*/ tbb::task* execute() {
-        ASSERT( m_ChildCount>=0 && m_Depth>=0, NULL );
-        if( m_Depth>0 ) {
-            recycle_as_safe_continuation();
-            set_ref_count( m_ChildCount+1 );
-            int k=0; 
-            for( int j=0; j<m_ChildCount; ++j ) {
-                tbb::task& t = *new( allocate_child() ) TaskGenerator(m_ChildCount/2,m_Depth-1);
-                GetTaskPtr(k)->spawn(t);
-            }
-            ASSERT(k==m_ChildCount,NULL);
-            --m_Depth;
-            __TBB_Yield();
-            ASSERT( state()==recycle && ref_count()>0, NULL);
-        }
-        return NULL;
-    }
-};
 
 void TestSafeContinuation( int nthread ) {
     REMARK("testing task::recycle_as_safe_continuation for %d threads\n",nthread);
@@ -429,7 +391,10 @@ void TestAlignment() {
     TestAlignmentOfOneClass<double>();
 #if HAVE_m128
     TestAlignmentOfOneClass<__m128>();
-#endif /* HAVE_m128 */
+#endif
+#if HAVE_m256
+    if (have_AVX()) TestAlignmentOfOneClass<__m256>();
+#endif
 }
 
 //------------------------------------------------------------------------
@@ -625,7 +590,6 @@ void TestUserThread( int p ) {
     }
 }
 
-
 class TaskWithChildToSteal : public tbb::task {
     const int m_Depth; 
     volatile bool m_GoAhead;
@@ -657,6 +621,7 @@ public:
     }
 }; // TaskWithChildToSteal
 
+// Success criterion of this test is not hanging
 void TestDispatchLoopResponsiveness() {
     REMARK("testing that dispatch loops do not go into eternal sleep when all remaining children are stolen\n");
     // Recursion depth values test the following sorts of dispatch loops
@@ -670,7 +635,6 @@ void TestDispatchLoopResponsiveness() {
         t.SpawnAndWaitOnParent();
     }
     r.destroy(r);
-    // The success criteria of this test is not hanging
 }
 
 void TestWaitDiscriminativenessWithoutStealing() {
@@ -815,143 +779,6 @@ void TestMastersIsolation ( int p ) {
     }
 }
 
-//------------------------------------------------------------------------
-// Test for tbb::task::enqueue
-//------------------------------------------------------------------------
-
-const int PairsPerTrack = 100;
-
-class EnqueuedTask : public tbb::task {
-    task* my_successor;
-    int my_enqueue_order;
-    int* my_track;
-    tbb::task* execute() {
-        // Capture execution order in the very beginning
-        int execution_order = 2 - my_successor->decrement_ref_count();
-        // Create some local work.
-        TaskGenerator& p = *new( allocate_root() ) TaskGenerator(2,2);
-        spawn_root_and_wait(p);
-        if( execution_order==2 ) { // the "slower" of two peer tasks
-            ++nCompletedPairs;
-            // Of course execution order can differ from dequeue order.
-            // But there is no better approximation at hand; and a single worker
-            // will execute in dequeue order, which is enough for our check.
-            if (my_enqueue_order==execution_order)
-                ++nOrderedPairs;
-            FireTwoTasks(my_track);
-            destroy(*my_successor);
-        }
-        return NULL;
-    }
-public:
-    EnqueuedTask( task* successor, int enq_order, int* track )
-    : my_successor(successor), my_enqueue_order(enq_order), my_track(track) {}
-
-    // Create and enqueue two tasks
-    static void FireTwoTasks( int* track ) {
-        int progress = ++*track;
-        if( progress < PairsPerTrack ) {
-            task* successor = new (allocate_root()) tbb::empty_task;
-            successor->set_ref_count(2);
-            enqueue( *new (allocate_root()) EnqueuedTask(successor, 1, track) );
-            enqueue( *new (allocate_root()) EnqueuedTask(successor, 2, track) );
-        }
-    }
-
-    static tbb::atomic<int> nCompletedPairs;
-    static tbb::atomic<int> nOrderedPairs;
-};
-
-tbb::atomic<int> EnqueuedTask::nCompletedPairs;
-tbb::atomic<int> EnqueuedTask::nOrderedPairs;
-
-const int nTracks = 10;
-static int TaskTracks[nTracks];
-const int stall_threshold = 100000;
-
-void TimedYield( double pause_time );
-
-class ProgressMonitor {
-public:
-    void operator() ( ) {
-        int track_snapshot[nTracks];
-        int stall_count = 0, uneven_progress_count = 0, last_progress_mask = 0;
-        for(int i=0; i<nTracks; ++i)
-            track_snapshot[i]=0;
-        bool completed;
-        do {
-            // Yield repeatedly for at least 1 usec
-            TimedYield( 1E-6 );
-            int overall_progress = 0, progress_mask = 0;
-            const int all_progressed = (1<<nTracks) - 1;
-            completed = true;
-            for(int i=0; i<nTracks; ++i) {
-                int ti = TaskTracks[i];
-                int pi = ti-track_snapshot[i];
-                if( pi ) progress_mask |= 1<<i;
-                overall_progress += pi;
-                completed = completed && ti==PairsPerTrack;
-                track_snapshot[i]=ti;
-            }
-            // The constants in the next asserts are subjective and may need correction.
-            if( overall_progress )
-                stall_count=0;
-            else {
-                ++stall_count;
-                // no progress for at least 0.1 s; consider it dead.
-                ASSERT(stall_count < stall_threshold, "no progress on enqueued tasks; deadlock, or the machine is oversubsribed?");
-            }
-            if( progress_mask==all_progressed || progress_mask^last_progress_mask ) {
-                uneven_progress_count = 0;
-                last_progress_mask = progress_mask;
-            }
-            else if ( overall_progress > 2 ) {
-                ++uneven_progress_count;
-                ASSERT(uneven_progress_count < 5, "some enqueued tasks seem stalling; no simultaneous progress?");
-            }
-        } while( !completed );
-    }
-};
-
-void TestEnqueue( int p ) {
-    REMARK("testing task::enqueue for %d threads\n", p);
-    for(int mode=0;mode<3;++mode) {
-        tbb::task_scheduler_init init(p);
-        EnqueuedTask::nCompletedPairs = EnqueuedTask::nOrderedPairs = 0;
-        for(int i=0; i<nTracks; ++i) {
-            TaskTracks[i] = -1; // to accomodate for the starting call
-            EnqueuedTask::FireTwoTasks(TaskTracks+i);
-        }
-        ProgressMonitor pm;
-        tbb::tbb_thread thr( pm );
-        if(mode==1) {
-            // do some parallel work in the meantime
-            for(int i=0; i<10; i++) {
-                TaskGenerator& g = *new( tbb::task::allocate_root() ) TaskGenerator(2,5);
-                tbb::task::spawn_root_and_wait(g);
-                TimedYield( 1E-6 );
-            }
-        }
-        if( mode==2 ) {
-            // Additionally enqueue a bunch of empty tasks. The goal is to test that tasks
-            // allocated and enqueued by a thread are safe to use after the thread leaves TBB.
-            tbb::task* root = new (tbb::task::allocate_root()) tbb::empty_task;
-            root->set_ref_count(100);
-            for( int i=0; i<100; ++i )
-                tbb::task::enqueue( *new (root->allocate_child()) tbb::empty_task );
-            init.terminate(); // master thread deregistered
-        }
-        thr.join();
-        ASSERT(EnqueuedTask::nCompletedPairs==nTracks*PairsPerTrack, NULL);
-        ASSERT(EnqueuedTask::nOrderedPairs<EnqueuedTask::nCompletedPairs,
-            "all task pairs executed in enqueue order; de facto guarantee is too strong?");
-    }
-}
-
-//------------------------------------------------------------------------
-// Run all tests.
-//------------------------------------------------------------------------
-
 int TestMain () {
 #if TBB_USE_EXCEPTIONS
     TestUnconstructibleTask<1>();
@@ -966,7 +793,6 @@ int TestMain () {
         TestSpawnChildren( p );
         TestSpawnRootList( p );
         TestSafeContinuation( p );
-        TestEnqueue( p );
         TestLeftRecursion( p );
         TestDag( p );
         TestAffinity( p );
@@ -977,11 +803,3 @@ int TestMain () {
     }
     return Harness::Done;
 }
-
-#include "tbb/tick_count.h"
-void TimedYield( double pause_time ) {
-    tbb::tick_count start = tbb::tick_count::now();
-    while( (tbb::tick_count::now()-start).seconds() < pause_time )
-        __TBB_Yield();
-}
-

@@ -1,10 +1,38 @@
+TBB 3.0 Update 8 commercial-aligned release
+
+- Task priorities become an official feature of TBB,
+    not community preview as before.
+- Atomics API extended, and implementation refactored.
+- Added task::set_parent() method.
+- Added concurrent_unordered_set container.
+
+Open-source contributions integrated:
+
+- PowerPC support by Raf Schietekat.
+- Fix of potential task pool overrun and other improvements
+    in the task scheduler by Raf Schietekat.
+- Fix in parallel_for_each to work with std::set in Visual* C++ 2010.
+
+Community Preview Features:
+
+- Graph community preview feature was renamed to flow graph.
+    Multiple improvements in the implementation.
+    Binpack example of the feature was added.
+- A number of improvements to concurrent_priority_queue.
+    Shortpath example was added for the feature.
+- TBB runtime loaded functionality was added (Windows*-only).
+    This allows set exact versions of TBB library to be used in run-time,
+    while setting directories for the library search.
+- parallel_deterministic_reduce template function was added.
+
+------------------------------------------------------------------------
 TBB 3.0 Update 7 commercial-aligned release
 
 Changes (w.r.t. TBB 3.0 Update 6 commercial-aligned release):
 
 - Added implementation of the platform isolation layer based on 
   GCC atomic built-ins; it is supposed to work on any platform 
-  where GCC has these built-ins. 
+  where GCC has these built-ins.
 
 Community Preview Features:
 

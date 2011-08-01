@@ -38,7 +38,6 @@
 		A1F590C90B8DF81800073279 /* coordsys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A40B8DF81800073279 /* coordsys.cpp */; };
 		A1F590CA0B8DF81800073279 /* cylinder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A50B8DF81800073279 /* cylinder.cpp */; };
 		A1F590CB0B8DF81800073279 /* extvol.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A60B8DF81800073279 /* extvol.cpp */; };
-		A1F590CC0B8DF81800073279 /* getargs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A70B8DF81800073279 /* getargs.cpp */; };
 		A1F590CD0B8DF81800073279 /* global.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A80B8DF81800073279 /* global.cpp */; };
 		A1F590CE0B8DF81800073279 /* grid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A90B8DF81800073279 /* grid.cpp */; };
 		A1F590CF0B8DF81800073279 /* imageio.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590AA0B8DF81800073279 /* imageio.cpp */; };
@@ -62,7 +61,6 @@
 		A1F590E30B8DF81800073279 /* ui.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590BE0B8DF81800073279 /* ui.cpp */; };
 		A1F590E40B8DF81800073279 /* util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590BF0B8DF81800073279 /* util.cpp */; };
 		A1F590E50B8DF81800073279 /* vector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590C00B8DF81800073279 /* vector.cpp */; };
-		A1F590E60B8DF81800073279 /* video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590C10B8DF81800073279 /* video.cpp */; };
 		A1F590E70B8DF81800073279 /* vol.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590C20B8DF81800073279 /* vol.cpp */; };
 		A1F5910D0B8DF81800073279 /* api.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F5909E0B8DF81800073279 /* api.cpp */; };
 		A1F5910E0B8DF81800073279 /* apigeom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F5909F0B8DF81800073279 /* apigeom.cpp */; };
@@ -73,7 +71,6 @@
 		A1F591130B8DF81800073279 /* coordsys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A40B8DF81800073279 /* coordsys.cpp */; };
 		A1F591140B8DF81800073279 /* cylinder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A50B8DF81800073279 /* cylinder.cpp */; };
 		A1F591150B8DF81800073279 /* extvol.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A60B8DF81800073279 /* extvol.cpp */; };
-		A1F591160B8DF81800073279 /* getargs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A70B8DF81800073279 /* getargs.cpp */; };
 		A1F591170B8DF81800073279 /* global.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A80B8DF81800073279 /* global.cpp */; };
 		A1F591180B8DF81800073279 /* grid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A90B8DF81800073279 /* grid.cpp */; };
 		A1F591190B8DF81800073279 /* imageio.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590AA0B8DF81800073279 /* imageio.cpp */; };
@@ -97,7 +94,6 @@
 		A1F5912D0B8DF81800073279 /* ui.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590BE0B8DF81800073279 /* ui.cpp */; };
 		A1F5912E0B8DF81800073279 /* util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590BF0B8DF81800073279 /* util.cpp */; };
 		A1F5912F0B8DF81800073279 /* vector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590C00B8DF81800073279 /* vector.cpp */; };
-		A1F591300B8DF81800073279 /* video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590C10B8DF81800073279 /* video.cpp */; };
 		A1F591310B8DF81800073279 /* vol.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590C20B8DF81800073279 /* vol.cpp */; };
 		A1F591320B8DF81800073279 /* api.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F5909E0B8DF81800073279 /* api.cpp */; };
 		A1F591330B8DF81800073279 /* apigeom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F5909F0B8DF81800073279 /* apigeom.cpp */; };
@@ -108,7 +104,6 @@
 		A1F591380B8DF81800073279 /* coordsys.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A40B8DF81800073279 /* coordsys.cpp */; };
 		A1F591390B8DF81800073279 /* cylinder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A50B8DF81800073279 /* cylinder.cpp */; };
 		A1F5913A0B8DF81800073279 /* extvol.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A60B8DF81800073279 /* extvol.cpp */; };
-		A1F5913B0B8DF81800073279 /* getargs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A70B8DF81800073279 /* getargs.cpp */; };
 		A1F5913C0B8DF81800073279 /* global.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A80B8DF81800073279 /* global.cpp */; };
 		A1F5913D0B8DF81800073279 /* grid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590A90B8DF81800073279 /* grid.cpp */; };
 		A1F5913E0B8DF81800073279 /* imageio.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590AA0B8DF81800073279 /* imageio.cpp */; };
@@ -132,11 +127,16 @@
 		A1F591520B8DF81800073279 /* ui.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590BE0B8DF81800073279 /* ui.cpp */; };
 		A1F591530B8DF81800073279 /* util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590BF0B8DF81800073279 /* util.cpp */; };
 		A1F591540B8DF81800073279 /* vector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590C00B8DF81800073279 /* vector.cpp */; };
-		A1F591550B8DF81800073279 /* video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590C10B8DF81800073279 /* video.cpp */; };
 		A1F591560B8DF81800073279 /* vol.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F590C20B8DF81800073279 /* vol.cpp */; };
 		A1F5915D0B8DF94400073279 /* macvideo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F5915C0B8DF94400073279 /* macvideo.cpp */; };
 		A1F5915E0B8DF94400073279 /* macvideo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F5915C0B8DF94400073279 /* macvideo.cpp */; };
 		A1F591600B8DF94400073279 /* macvideo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F5915C0B8DF94400073279 /* macvideo.cpp */; };
+		EA135ECB13123E2200807847 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EA135EC813123E2200807847 /* main.cpp */; };
+		EA135ECC13123E2200807847 /* tachyon_video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EA135EC913123E2200807847 /* tachyon_video.cpp */; };
+		EA135ECD13123E2200807847 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EA135EC813123E2200807847 /* main.cpp */; };
+		EA135ECE13123E2200807847 /* tachyon_video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EA135EC913123E2200807847 /* tachyon_video.cpp */; };
+		EA135ECF13123E2200807847 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EA135EC813123E2200807847 /* main.cpp */; };
+		EA135ED013123E2200807847 /* tachyon_video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EA135EC913123E2200807847 /* tachyon_video.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -187,7 +187,6 @@
 		A1F590370B8DF7D100073279 /* coordsys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = coordsys.h; path = ../src/coordsys.h; sourceTree = SOURCE_ROOT; };
 		A1F590380B8DF7D100073279 /* cylinder.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = cylinder.h; path = ../src/cylinder.h; sourceTree = SOURCE_ROOT; };
 		A1F590390B8DF7D100073279 /* extvol.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = extvol.h; path = ../src/extvol.h; sourceTree = SOURCE_ROOT; };
-		A1F5903A0B8DF7D100073279 /* getargs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = getargs.h; path = ../src/getargs.h; sourceTree = SOURCE_ROOT; };
 		A1F5903B0B8DF7D100073279 /* global.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = global.h; path = ../src/global.h; sourceTree = SOURCE_ROOT; };
 		A1F5903C0B8DF7D100073279 /* grid.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = grid.h; path = ../src/grid.h; sourceTree = SOURCE_ROOT; };
 		A1F5903D0B8DF7D100073279 /* imageio.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = imageio.h; path = ../src/imageio.h; sourceTree = SOURCE_ROOT; };
@@ -213,7 +212,6 @@
 		A1F590510B8DF7D100073279 /* ui.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ui.h; path = ../src/ui.h; sourceTree = SOURCE_ROOT; };
 		A1F590520B8DF7D100073279 /* util.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = util.h; path = ../src/util.h; sourceTree = SOURCE_ROOT; };
 		A1F590530B8DF7D100073279 /* vector.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = vector.h; path = ../src/vector.h; sourceTree = SOURCE_ROOT; };
-		A1F590540B8DF7D100073279 /* video.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = video.h; path = ../src/video.h; sourceTree = SOURCE_ROOT; };
 		A1F590550B8DF7D100073279 /* vol.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = vol.h; path = ../src/vol.h; sourceTree = SOURCE_ROOT; };
 		A1F5909E0B8DF81800073279 /* api.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = api.cpp; path = ../src/api.cpp; sourceTree = SOURCE_ROOT; };
 		A1F5909F0B8DF81800073279 /* apigeom.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = apigeom.cpp; path = ../src/apigeom.cpp; sourceTree = SOURCE_ROOT; };
@@ -224,7 +222,6 @@
 		A1F590A40B8DF81800073279 /* coordsys.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = coordsys.cpp; path = ../src/coordsys.cpp; sourceTree = SOURCE_ROOT; };
 		A1F590A50B8DF81800073279 /* cylinder.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = cylinder.cpp; path = ../src/cylinder.cpp; sourceTree = SOURCE_ROOT; };
 		A1F590A60B8DF81800073279 /* extvol.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = extvol.cpp; path = ../src/extvol.cpp; sourceTree = SOURCE_ROOT; };
-		A1F590A70B8DF81800073279 /* getargs.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = getargs.cpp; path = ../src/getargs.cpp; sourceTree = SOURCE_ROOT; };
 		A1F590A80B8DF81800073279 /* global.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = global.cpp; path = ../src/global.cpp; sourceTree = SOURCE_ROOT; };
 		A1F590A90B8DF81800073279 /* grid.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = grid.cpp; path = ../src/grid.cpp; sourceTree = SOURCE_ROOT; };
 		A1F590AA0B8DF81800073279 /* imageio.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = imageio.cpp; path = ../src/imageio.cpp; sourceTree = SOURCE_ROOT; };
@@ -248,11 +245,13 @@
 		A1F590BE0B8DF81800073279 /* ui.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ui.cpp; path = ../src/ui.cpp; sourceTree = SOURCE_ROOT; };
 		A1F590BF0B8DF81800073279 /* util.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = util.cpp; path = ../src/util.cpp; sourceTree = SOURCE_ROOT; };
 		A1F590C00B8DF81800073279 /* vector.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = vector.cpp; path = ../src/vector.cpp; sourceTree = SOURCE_ROOT; };
-		A1F590C10B8DF81800073279 /* video.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = video.cpp; path = ../src/video.cpp; sourceTree = SOURCE_ROOT; };
 		A1F590C20B8DF81800073279 /* vol.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = vol.cpp; path = ../src/vol.cpp; sourceTree = SOURCE_ROOT; };
 		A1F5915A0B8DF8FA00073279 /* triangle.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = triangle.h; path = ../src/triangle.h; sourceTree = SOURCE_ROOT; };
 		A1F5915C0B8DF94400073279 /* macvideo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = macvideo.cpp; path = ../../../common/gui/macvideo.cpp; sourceTree = SOURCE_ROOT; };
 		A1F591610B8DF96500073279 /* video.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = video.h; path = ../../../common/gui/video.h; sourceTree = SOURCE_ROOT; };
+		EA135EC813123E2200807847 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = ../src/main.cpp; sourceTree = SOURCE_ROOT; };
+		EA135EC913123E2200807847 /* tachyon_video.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = tachyon_video.cpp; path = ../src/tachyon_video.cpp; sourceTree = SOURCE_ROOT; };
+		EA135ECA13123E2200807847 /* tachyon_video.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tachyon_video.h; path = ../src/tachyon_video.h; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -353,6 +352,7 @@
 		A1F5902E0B8DF71200073279 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				EA135EC913123E2200807847 /* tachyon_video.cpp */,
 				A1F5915C0B8DF94400073279 /* macvideo.cpp */,
 				A1F5909E0B8DF81800073279 /* api.cpp */,
 				A1F5909F0B8DF81800073279 /* apigeom.cpp */,
@@ -363,7 +363,6 @@
 				A1F590A40B8DF81800073279 /* coordsys.cpp */,
 				A1F590A50B8DF81800073279 /* cylinder.cpp */,
 				A1F590A60B8DF81800073279 /* extvol.cpp */,
-				A1F590A70B8DF81800073279 /* getargs.cpp */,
 				A1F590A80B8DF81800073279 /* global.cpp */,
 				A1F590A90B8DF81800073279 /* grid.cpp */,
 				A1F590AA0B8DF81800073279 /* imageio.cpp */,
@@ -387,7 +386,6 @@
 				A1F590BE0B8DF81800073279 /* ui.cpp */,
 				A1F590BF0B8DF81800073279 /* util.cpp */,
 				A1F590C00B8DF81800073279 /* vector.cpp */,
-				A1F590C10B8DF81800073279 /* video.cpp */,
 				A1F590C20B8DF81800073279 /* vol.cpp */,
 			);
 			name = Sources;
@@ -399,6 +397,7 @@
 				A1F591610B8DF96500073279 /* video.h */,
 				A1F5915A0B8DF8FA00073279 /* triangle.h */,
 				A1F590320B8DF7D100073279 /* api.h */,
+				EA135ECA13123E2200807847 /* tachyon_video.h */,
 				A1F590330B8DF7D100073279 /* apitrigeom.h */,
 				A1F590340B8DF7D100073279 /* bndbox.h */,
 				A1F590350B8DF7D100073279 /* box.h */,
@@ -406,7 +405,6 @@
 				A1F590370B8DF7D100073279 /* coordsys.h */,
 				A1F590380B8DF7D100073279 /* cylinder.h */,
 				A1F590390B8DF7D100073279 /* extvol.h */,
-				A1F5903A0B8DF7D100073279 /* getargs.h */,
 				A1F5903B0B8DF7D100073279 /* global.h */,
 				A1F5903C0B8DF7D100073279 /* grid.h */,
 				A1F5903D0B8DF7D100073279 /* imageio.h */,
@@ -432,7 +430,6 @@
 				A1F590510B8DF7D100073279 /* ui.h */,
 				A1F590520B8DF7D100073279 /* util.h */,
 				A1F590530B8DF7D100073279 /* vector.h */,
-				A1F590540B8DF7D100073279 /* video.h */,
 				A1F590550B8DF7D100073279 /* vol.h */,
 			);
 			name = Headers;
@@ -441,6 +438,7 @@
 		A1F590310B8DF75E00073279 /* Tachyon */ = {
 			isa = PBXGroup;
 			children = (
+				EA135EC813123E2200807847 /* main.cpp */,
 				A1F58D8C0B8DEFE900073279 /* trace.serial.cpp */,
 				A1F58D3D0B8DEB8E00073279 /* trace.threads.cpp */,
 				A1F58D8B0B8DEFD900073279 /* trace.tbb1d.cpp */,
@@ -572,7 +570,6 @@
 				A1F591380B8DF81800073279 /* coordsys.cpp in Sources */,
 				A1F591390B8DF81800073279 /* cylinder.cpp in Sources */,
 				A1F5913A0B8DF81800073279 /* extvol.cpp in Sources */,
-				A1F5913B0B8DF81800073279 /* getargs.cpp in Sources */,
 				A1F5913C0B8DF81800073279 /* global.cpp in Sources */,
 				A1F5913D0B8DF81800073279 /* grid.cpp in Sources */,
 				A1F5913E0B8DF81800073279 /* imageio.cpp in Sources */,
@@ -596,9 +593,10 @@
 				A1F591520B8DF81800073279 /* ui.cpp in Sources */,
 				A1F591530B8DF81800073279 /* util.cpp in Sources */,
 				A1F591540B8DF81800073279 /* vector.cpp in Sources */,
-				A1F591550B8DF81800073279 /* video.cpp in Sources */,
 				A1F591560B8DF81800073279 /* vol.cpp in Sources */,
 				A1F5915D0B8DF94400073279 /* macvideo.cpp in Sources */,
+				EA135ECF13123E2200807847 /* main.cpp in Sources */,
+				EA135ED013123E2200807847 /* tachyon_video.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -616,7 +614,6 @@
 				A1F591130B8DF81800073279 /* coordsys.cpp in Sources */,
 				A1F591140B8DF81800073279 /* cylinder.cpp in Sources */,
 				A1F591150B8DF81800073279 /* extvol.cpp in Sources */,
-				A1F591160B8DF81800073279 /* getargs.cpp in Sources */,
 				A1F591170B8DF81800073279 /* global.cpp in Sources */,
 				A1F591180B8DF81800073279 /* grid.cpp in Sources */,
 				A1F591190B8DF81800073279 /* imageio.cpp in Sources */,
@@ -640,9 +637,10 @@
 				A1F5912D0B8DF81800073279 /* ui.cpp in Sources */,
 				A1F5912E0B8DF81800073279 /* util.cpp in Sources */,
 				A1F5912F0B8DF81800073279 /* vector.cpp in Sources */,
-				A1F591300B8DF81800073279 /* video.cpp in Sources */,
 				A1F591310B8DF81800073279 /* vol.cpp in Sources */,
 				A1F5915E0B8DF94400073279 /* macvideo.cpp in Sources */,
+				EA135ECD13123E2200807847 /* main.cpp in Sources */,
+				EA135ECE13123E2200807847 /* tachyon_video.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -660,7 +658,6 @@
 				A1F590C90B8DF81800073279 /* coordsys.cpp in Sources */,
 				A1F590CA0B8DF81800073279 /* cylinder.cpp in Sources */,
 				A1F590CB0B8DF81800073279 /* extvol.cpp in Sources */,
-				A1F590CC0B8DF81800073279 /* getargs.cpp in Sources */,
 				A1F590CD0B8DF81800073279 /* global.cpp in Sources */,
 				A1F590CE0B8DF81800073279 /* grid.cpp in Sources */,
 				A1F590CF0B8DF81800073279 /* imageio.cpp in Sources */,
@@ -684,9 +681,10 @@
 				A1F590E30B8DF81800073279 /* ui.cpp in Sources */,
 				A1F590E40B8DF81800073279 /* util.cpp in Sources */,
 				A1F590E50B8DF81800073279 /* vector.cpp in Sources */,
-				A1F590E60B8DF81800073279 /* video.cpp in Sources */,
 				A1F590E70B8DF81800073279 /* vol.cpp in Sources */,
 				A1F591600B8DF94400073279 /* macvideo.cpp in Sources */,
+				EA135ECB13123E2200807847 /* main.cpp in Sources */,
+				EA135ECC13123E2200807847 /* tachyon_video.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

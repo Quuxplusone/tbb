@@ -53,9 +53,14 @@ MD=cmd /c mkdir
 SLASH=\\
 NUL = nul
 
+AR=lib
+AR_OUTPUT_KEY=/out:
+AR_FLAGS=/nologo /nodefaultlib
+
 OBJ = obj
 DLL = dll
 LIBEXT = lib
+ASMEXT = asm
 
 def_prefix = $(if $(findstring ia32,$(arch)),win32,win64)
 
@@ -88,6 +93,8 @@ LINK_MALLOC.LIB = $(MALLOC.LIB)
 
 MALLOCPROXY.DLL = tbbmalloc_proxy$(DEBUG_SUFFIX).$(DLL)
 MALLOCPROXY.LIB = tbbmalloc_proxy$(DEBUG_SUFFIX).$(LIBEXT)
+
+PROXY.LIB = tbbproxy$(DEBUG_SUFFIX).$(LIBEXT)
 
 RML.DEF = $(RML_SERVER_ROOT)/$(def_prefix)-rml-export.def
 RML.DLL = irml$(DEBUG_SUFFIX).$(DLL)

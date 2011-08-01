@@ -26,15 +26,15 @@
 
 tbb_root?=.
 include $(tbb_root)/build/common.inc
-.PHONY: default all tbb tbbmalloc test examples
+.PHONY: default all tbb tbbmalloc tbbproxy test examples
 
 #workaround for non-depend targets tbb and tbbmalloc which both depend on version_string.tmp
 #According to documentation submakes should run in parallel
-.NOTPARALLEL: tbb tbbmalloc
+.NOTPARALLEL: tbb tbbmalloc tbbproxy
 
-default: tbb tbbmalloc
+default: tbb tbbmalloc $(if $(use_proxy),tbbproxy)
 
-all: tbb tbbmalloc test examples
+all: tbb tbbmalloc tbbproxy test examples
 
 tbb: mkdir
 	$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.tbb cfg=debug tbb_root=$(tbb_root)
@@ -44,7 +44,11 @@ tbbmalloc: mkdir
 	$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=debug malloc tbb_root=$(tbb_root)
 	$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=release malloc tbb_root=$(tbb_root)
 
-test: tbb tbbmalloc
+tbbproxy: mkdir
+	$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.tbbproxy cfg=debug tbbproxy tbb_root=$(tbb_root)
+	$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.tbbproxy cfg=release tbbproxy tbb_root=$(tbb_root)
+
+test: tbb tbbmalloc $(if $(use_proxy),tbbproxy)
 	-$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=debug malloc_test tbb_root=$(tbb_root)
 	-$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.test cfg=debug tbb_root=$(tbb_root)
 	-$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=release malloc_test tbb_root=$(tbb_root)

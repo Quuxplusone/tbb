@@ -189,11 +189,13 @@ void TestLocks( const char* name, int nthread ) {
     Counter<M> counter;
     counter.value = 0;
     Order = 0;
-    const long test_size = 100000;
-    NativeParallelFor( nthread, WorkForLocks<Counter<M>, test_size>(counter) );
+    // use the macro because of a seeming gcc 4.6 bug
+#define TEST_SIZE 100000
+    NativeParallelFor( nthread, WorkForLocks<Counter<M>, TEST_SIZE>(counter) );
 
-    if( counter.value!=2*test_size )
-        REPORT("ERROR for %s in TestLocks: counter.value=%ld != 2 * %ld=test_size\n",name,counter.value,test_size);
+    if( counter.value!=2*TEST_SIZE )
+        REPORT("ERROR for %s in TestLocks: counter.value=%ld != 2 * %ld=test_size\n",name,counter.value,TEST_SIZE);
+#undef TEST_SIZE
 }
 
 static tbb::atomic<int> barrier;

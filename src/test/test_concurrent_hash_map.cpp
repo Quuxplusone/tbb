@@ -77,6 +77,13 @@ namespace tbb {
     };
 }
 
+#if HARNESS_USE_PROXY
+    #define TBB_PREVIEW_RUNTIME_LOADER 1
+    #include "tbb/runtime_loader.h"
+    static char const * test_path[] = { ".", NULL };
+    static tbb::runtime_loader test_runtime_loader( test_path );
+#endif // HARNESS_USE_PROXY
+
 tbb::concurrent_hash_map<UserDefinedKeyType,int> TestInstantiationWithUserDefinedKeyType;
 
 // Test whether a sufficient set of headers were included to instantiate a concurernt_hash_map. OSS Bug #120 (& #130):

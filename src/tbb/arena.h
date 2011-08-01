@@ -54,7 +54,6 @@ namespace internal {
 
 class governor;
 class arena;
-class generic_scheduler;
 template<typename SchedulerTraits> class custom_scheduler;
 
 //------------------------------------------------------------------------
@@ -182,8 +181,6 @@ private:
     //! Constructor
     arena ( market&, unsigned max_num_workers );
 
-    arena& prefix() const { return const_cast<arena&>(*this); }
-
     //! Allocate an instance of arena.
     static arena& allocate_arena( market&, unsigned max_num_workers );
 
@@ -210,7 +207,7 @@ private:
         __TBB_ASSERT( 0<id, "affinity id must be positive integer" );
         __TBB_ASSERT( id <= my_num_slots, "affinity id out of bounds" );
 
-        return ((mail_outbox*)&prefix())[-(int)id];
+        return ((mail_outbox*)this)[-(int)id];
     }
 
     //! Completes arena shutdown, destructs and deallocates it.
@@ -311,7 +308,7 @@ template<bool Spawned> void arena::advertise_new_work() {
         if( my_max_num_workers==0 ) {
             my_max_num_workers = 1;
             my_mandatory_concurrency = true;
-            prefix().my_pool_state = SNAPSHOT_FULL;
+            my_pool_state = SNAPSHOT_FULL;
             my_market->adjust_demand( *this, 1 );
             return;
         }
@@ -325,16 +322,16 @@ template<bool Spawned> void arena::advertise_new_work() {
     // fence might hurt overall performance more than it helps, because the fence would be executed 
     // on every task pool release, even when stealing does not occur.  Since TBB allows parallelism, 
     // but never promises parallelism, the missed wakeup is not a correctness problem.
-    pool_state_t snapshot = prefix().my_pool_state;
+    pool_state_t snapshot = my_pool_state;
     if( is_busy_or_empty(snapshot) ) {
         // Attempt to mark as full.  The compare_and_swap below is a little unusual because the 
         // result is compared to a value that can be different than the comparand argument.
-        if( prefix().my_pool_state.compare_and_swap( SNAPSHOT_FULL, snapshot )==SNAPSHOT_EMPTY ) {
+        if( my_pool_state.compare_and_swap( SNAPSHOT_FULL, snapshot )==SNAPSHOT_EMPTY ) {
             if( snapshot!=SNAPSHOT_EMPTY ) {
                 // This thread read "busy" into snapshot, and then another thread transitioned 
                 // my_pool_state to "empty" in the meantime, which caused the compare_and_swap above 
                 // to fail.  Attempt to transition my_pool_state from "empty" to "full".
-                if( prefix().my_pool_state.compare_and_swap( SNAPSHOT_FULL, SNAPSHOT_EMPTY )!=SNAPSHOT_EMPTY ) {
+                if( my_pool_state.compare_and_swap( SNAPSHOT_FULL, SNAPSHOT_EMPTY )!=SNAPSHOT_EMPTY ) {
                     // Some other thread transitioned my_pool_state from "empty", and hence became
                     // responsible for waking up workers.
                     return;

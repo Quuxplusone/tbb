@@ -81,6 +81,9 @@ int main(int argc, char *argv[] ) {
     ASSERT(tbb::TBB_runtime_interface_version()==TBB_INTERFACE_VERSION,
            "Running with the library of different version than the test was compiled against");
 #endif
+#if __TBB_MPI_INTEROP
+    REPORT("skip\n");
+#else
     __TBB_TRY {
         FILE *stream_out;
         FILE *stream_err;   
@@ -205,6 +208,7 @@ int main(int argc, char *argv[] ) {
         ASSERT( 0,"unexpected exception" );
     }
     REPORT("done\n");
+#endif //__TBB_MPI_INTEROP
     return 0;
 }
 
@@ -213,7 +217,7 @@ int main(int argc, char *argv[] ) {
 void initialize_strings_vector(std::vector <string_pair>* vector)
 {
     vector->push_back(string_pair("TBB: VERSION\t\t3.0", required));          // check TBB_VERSION
-    vector->push_back(string_pair("TBB: INTERFACE VERSION\t5006", required)); // check TBB_INTERFACE_VERSION
+    vector->push_back(string_pair("TBB: INTERFACE VERSION\t5008", required)); // check TBB_INTERFACE_VERSION
     vector->push_back(string_pair("TBB: BUILD_DATE", required));
     vector->push_back(string_pair("TBB: BUILD_HOST", required));
     vector->push_back(string_pair("TBB: BUILD_OS", required));

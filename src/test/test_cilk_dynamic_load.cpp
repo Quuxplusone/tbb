@@ -28,12 +28,12 @@
 
 #include "tbb/tbb_config.h"
 
-// Skip the test if no TBB-Cilk interoperability
+// Skip the test if no interoperability with cilkrts
 #define __TBB_CILK_INTEROP   (__TBB_SURVIVE_THREAD_SWITCH && __INTEL_COMPILER>=1200)
-// Skip the test until Cilk will have dlopen()/dlclose() start up feature
+// Skip the test when cilkrts did not have dlopen()/dlclose() start up feature
 #define CILK_SYMBOLS_VISIBLE (_WIN32||_WIN64)
 // The compiler does not add "-lcilkrts" linker option on some linux systems
-#define CILK_LINKAGE_BROKEN  (__linux__ && __GNUC__<4 && __INTEL_COMPILER_BUILD_DATE <= 20101116)
+#define CILK_LINKAGE_BROKEN  (__linux__ && __GNUC__<4 && __INTEL_COMPILER_BUILD_DATE <= 20110427)
 
 #if __TBB_CILK_INTEROP && CILK_SYMBOLS_VISIBLE && !CILK_LINKAGE_BROKEN
 
@@ -63,7 +63,7 @@ static const int P_nested = 2;
 #define CILK_TEST_EXPORT extern "C"
 #endif /* _WIN32 || _WIN64 */
 
-bool g_sandwich = true; // have to be declare before #include "test_cilk_sandwich.h"
+bool g_sandwich = true; // have to be declare before #include "test_cilk_common.h"
 #include "test_cilk_common.h"
 
 CILK_TEST_EXPORT int CilkFib( int n )
@@ -175,7 +175,7 @@ int TestMain () {
 
 #endif /* _USRDLL */
 
-#else /* No Cilk interop */
+#else /* !__TBB_CILK_INTEROP */
 
 #include "harness.h"
 
@@ -183,4 +183,4 @@ int TestMain () {
     return Harness::Skipped;
 }
 
-#endif /* No Cilk interop */
+#endif /* !__TBB_CILK_INTEROP */

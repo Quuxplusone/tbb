@@ -361,6 +361,10 @@
 				RelativePath="..\SimpleParallelSumTree.cpp"
 				>
 			</File>
+			<File
+				RelativePath="..\TreeMaker.h"
+				>
+			</File>
 		</Filter>
 		<File
 			RelativePath="..\index.html"

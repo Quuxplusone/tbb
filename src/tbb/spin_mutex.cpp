@@ -46,7 +46,7 @@ void spin_mutex::scoped_lock::internal_release() {
     __TBB_ASSERT( !(my_unlock_value&1), "corrupted scoped_lock?" );
 
     ITT_NOTIFY(sync_releasing, my_mutex);
-    __TBB_UnlockByte(my_mutex->flag, static_cast<__TBB_Byte>(my_unlock_value));
+    __TBB_UnlockByte(my_mutex->flag, my_unlock_value);
     my_mutex = NULL;
 }
 

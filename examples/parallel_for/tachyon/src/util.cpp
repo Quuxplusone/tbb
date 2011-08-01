@@ -71,7 +71,7 @@
 
 void rt_finalize(void);
 
-#ifndef _WIN32
+#if !defined( _WIN32 )
 #include <sys/time.h>
 #include <unistd.h>
 
@@ -90,22 +90,15 @@ void rt_sleep(int msec) {
     Sleep(msec);
 }
 
-DWORD starttime;
-DWORD stoptime;
-
-void timerstart(void) {
-    starttime = GetTickCount ();
+timer gettimer(void) {
+    return GetTickCount ();
 }
 
-void timerstop(void) {
-    stoptime = GetTickCount ();
-}
-
-flt timertime(void) {
+flt timertime(timer st, timer fn) {
    double ttime, start, end;
 
-   start = ((double) starttime) / ((double) 1000.00);
-     end = ((double) stoptime) / ((double) 1000.00);
+   start = ((double) st) / ((double) 1000.00);
+     end = ((double) fn) / ((double) 1000.00);
    ttime = end - start;
 
    return ttime;
@@ -113,23 +106,20 @@ flt timertime(void) {
 #endif  /*  _WIN32  */
 
 /* if we're on a Unix with gettimeofday() we'll use newer timers */
-#ifdef STDTIME 
-  struct timeval starttime, endtime;
+#if defined( STDTIME )
   struct timezone tz;
- 
-void timerstart(void) {
-  gettimeofday(&starttime, &tz);
+
+timer gettimer(void) {
+  timer t;
+  gettimeofday(&t, &tz);
+  return t;
 } 
   
-void timerstop(void) {
-  gettimeofday(&endtime, &tz);
-} 
-  
-flt timertime(void) {
+flt timertime(timer st, timer fn) {
    double ttime, start, end;
 
-   start = (starttime.tv_sec+1.0*starttime.tv_usec / 1000000.0);
-     end = (endtime.tv_sec+1.0*endtime.tv_usec / 1000000.0);
+   start = (st.tv_sec+1.0*st.tv_usec / 1000000.0);
+     end = (fn.tv_sec+1.0*fn.tv_usec / 1000000.0);
    ttime = end - start;
 
    return ttime;
@@ -139,22 +129,13 @@ flt timertime(void) {
 
 
 /* use the old fashioned Unix time functions */
-#ifdef OLDUNIXTIME
-time_t starttime;
-time_t stoptime;
-
-void timerstart(void) {
-  starttime=time(NULL);
+#if defined( OLDUNIXTIME )
+timer gettimer(void) {
+  return time(NULL);
 }
 
-void timerstop(void) {
-  stoptime=time(NULL);
-}
-
-flt timertime(void) {
-  flt a;
-  a = difftime(stoptime, starttime);
-  return a;
+flt timertime(timer st, timer fn) {
+  return difftime(fn, st);;
 }
 #endif  /*  OLDUNIXTIME  */
 

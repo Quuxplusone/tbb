@@ -60,7 +60,7 @@ market::global_market_mutex_type market::theMarketMutex;
 //! Counter of references to global shared resources such as TLS.
 atomic<int> __TBB_InitOnce::count;
 
-__TBB_InitOnce::mutex_type __TBB_InitOnce::InitializationLock;
+__TBB_atomic_flag __TBB_InitOnce::InitializationLock;
 
 //! Flag that is set to true after one-time initializations are done.
 bool __TBB_InitOnce::InitializationDone;

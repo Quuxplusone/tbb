@@ -27,11 +27,17 @@
 # GNU Makefile that builds and runs example.
 PROG=convex_hull_bench
 ARGS=
+PERF_RUN_ARGS = silent auto 40000000
+LIGHT_ARGS = 4 400
 
 # The C++ compiler
 ifneq (,$(shell which icc 2>/dev/null))
 CXX=icc
 endif # icc
+
+ifeq ($(shell uname), Linux)
+LIBS+= -lrt 
+endif
 
 all:	release test
 
@@ -46,5 +52,13 @@ debug: *.cpp
 clean:
 	$(RM) convex_hull_bench convex_hull_sample *.o *.d
 
+perf_build: release
+
+perf_run:
+	./convex_hull_sample $(PERF_RUN_ARGS)
+	
 test:
 	./$(PROG) $(ARGS)
+
+light_test:
+	./$(PROG) $(LIGHT_ARGS)

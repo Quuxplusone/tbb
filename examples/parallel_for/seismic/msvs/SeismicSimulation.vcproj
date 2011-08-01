@@ -353,7 +353,7 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="DD Release|Win32"
+			Name="DDRelease|Win32"
 			OutputDirectory="$(TEMP)\tbb_examples\$(ConfigurationName)"
 			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(ConfigurationName)"
 			ConfigurationType="1"
@@ -439,7 +439,7 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="DD Release|x64"
+			Name="DDRelease|x64"
 			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
@@ -525,7 +525,7 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="DD Debug|Win32"
+			Name="DDDebug|Win32"
 			OutputDirectory="$(TEMP)\tbb_examples\$(ConfigurationName)"
 			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(ConfigurationName)"
 			ConfigurationType="1"
@@ -608,7 +608,7 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="DD Debug|x64"
+			Name="DDDebug|x64"
 			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
@@ -700,7 +700,23 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath="..\SeismicSimulation.cpp"
+				RelativePath="..\main.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\seismic_video.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\seismic_video.h"
+				>
+			</File>
+			<File
+				RelativePath="..\universe.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\universe.h"
 				>
 			</File>
 		</Filter>
@@ -769,7 +785,7 @@
 				RelativePath="..\..\..\common\gui\gdivideo.cpp"
 				>
 				<FileConfiguration
-					Name="DD Release|Win32"
+					Name="DDRelease|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -777,7 +793,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="DD Release|x64"
+					Name="DDRelease|x64"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -785,7 +801,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="DD Debug|Win32"
+					Name="DDDebug|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -793,7 +809,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="DD Debug|x64"
+					Name="DDDebug|x64"
 					ExcludedFromBuild="true"
 					>
 					<Tool

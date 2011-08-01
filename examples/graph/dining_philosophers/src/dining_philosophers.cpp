@@ -27,7 +27,7 @@
 */
 
 #define TBB_PREVIEW_GRAPH 1
-#include "tbb/graph.h"
+#include "tbb/flow_graph.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tick_count.h"
 #include "tbb/atomic.h"
@@ -51,8 +51,11 @@ const int num_times = 10;
 tbb::tick_count t0;
 bool verbose = false;
 
-const char *names[] = { "Archimedes", "Aristotle", "Democratus", "Epicurus", "Euclid"
-                      , "Heraclitus", "Plato", "Pythagoras", "Socrates", "Thales"
+const char *names[] = { "Archimedes", "Bakunin", "Confucius", "Democritus", "Euclid"
+                      , "Favorinus", "Geminus", "Heraclitus", "Ichthyas", "Jason of Nysa",
+                          "Kant", "Lavrov", "Metrocles", "Nausiphanes", "Onatas", "Phaedrus",
+                          "Quillot", "Russell", "Socrates", "Thales", "Udayana",
+                          "Vernadsky", "Wittgenstein", "Xenophilus", "Yen Yuan", "Zenodotus"
 };
 const int NumPhilosophers = sizeof(names) / sizeof(char*);
 
@@ -76,7 +79,7 @@ RunOptions ParseCommandLine(int argc, char *argv[]) {
     int auto_threads = get_default_num_threads();
     utility::thread_number_range threads(get_default_num_threads, auto_threads, auto_threads);
     int nPhilosophers = 5;
-    bool silent = false;
+    bool verbose = false;
     char charbuf[100];
     std::sprintf(charbuf, "%d", NumPhilosophers);
     std::string pCount = "how many philosophers, from 2-";
@@ -85,14 +88,14 @@ RunOptions ParseCommandLine(int argc, char *argv[]) {
     utility::cli_argument_pack cli_pack;
     cli_pack.positional_arg(threads, "n-of_threads", "number of threads to use, a range of the form low[:high], where low and high are non-negative integers or 'auto' for the TBB default.")
             .positional_arg(nPhilosophers, "n-of-philosophers", pCount)
-            .arg(silent,"silent","no output except elapsed time");
+            .arg(verbose,"verbose","verbose output");
     utility::parse_cli_arguments(argc, argv, cli_pack);
     if(nPhilosophers < 2 || nPhilosophers > NumPhilosophers) {
         std::cout << "Number of philosophers (" << nPhilosophers << ") out of range [2:" << NumPhilosophers << "]\n";
         std::cout << cli_pack.usage_string(argv[0]) << std::flush;
         std::exit(1);
     }
-    return RunOptions(threads, nPhilosophers,silent);
+    return RunOptions(threads, nPhilosophers,!verbose);
 }
 
 
@@ -103,10 +106,10 @@ class chopstick {};
 class philosopher {
 public:
 
-    typedef tbb::queue_node< chopstick > chopstick_buffer;
-    typedef tbb::join_node< std::tuple<chopstick, chopstick>, tbb::reserving > join_type;
+    typedef tbb::flow::queue_node< chopstick > chopstick_buffer;
+    typedef tbb::flow::join_node< std::tuple<chopstick, chopstick>, tbb::flow::reserving > join_type;
 
-    philosopher( const char *name, tbb::graph &the_graph, chopstick_buffer *left, chopstick_buffer *right ) : 
+    philosopher( const char *name, tbb::flow::graph &the_graph, chopstick_buffer *left, chopstick_buffer *right ) : 
         my_name(name), my_graph(&the_graph), my_left_chopstick(left), my_right_chopstick(right),
 		my_join(new join_type(the_graph)), my_function_node(NULL), my_count(new int(num_times)) { }
 
@@ -115,17 +118,18 @@ public:
 
     void link_left_chopstick() { my_left_chopstick->register_successor( std::get<0>(my_join->inputs()) ); }
     void link_right_chopstick() { my_right_chopstick->register_successor( std::get<1>(my_join->inputs()) ); }
+    const char *name() const { return my_name; }
 
 private:
 
   friend std::ostream& operator<<(std::ostream& o, philosopher const &p);
 
   const char *my_name;
-  tbb::graph *my_graph;
+  tbb::flow::graph *my_graph;
   chopstick_buffer *my_left_chopstick;
   chopstick_buffer *my_right_chopstick;
   join_type *my_join;
-  tbb::function_node< join_type::output_type, tbb::continue_msg > *my_function_node;
+  tbb::flow::function_node< join_type::output_type, tbb::flow::continue_msg, tbb::flow::rejecting > *my_function_node;
   int *my_count;
 
   friend class node_body;
@@ -138,15 +142,15 @@ private:
 };
 
 std::ostream& operator<<(std::ostream& o, philosopher const &p) {
-    o << "< philosopher[" << reinterpret_cast<uintptr_t>(const_cast<philosopher *>(&p)) << "] " << p.my_name 
+    o << "< philosopher[" << reinterpret_cast<uintptr_t>(const_cast<philosopher *>(&p)) << "] " << p.name() 
         << ", my_count=" << *(p.my_count);
     return o;
 }
 
 class node_body {
-  philosopher &my_philosopher;
+  philosopher my_philosopher;
 public:
-  node_body( philosopher &p ) : my_philosopher(p) { }  // stores ref to philosopher
+  node_body( philosopher &p ) : my_philosopher(p) { }
   void operator()( philosopher::join_type::output_type ) {
     my_philosopher.eat_and_think();
   } 
@@ -159,10 +163,10 @@ void philosopher::operator()() {
 
 void philosopher::check() {
   if ( *my_count != 0 ) {
-    std::printf("ERROR: philosopher %s still had to run %d more times\n", my_name, *my_count);
+    std::printf("ERROR: philosopher %s still had to run %d more times\n", name(), *my_count);
     std::exit(1);
   } else {
-    if(verbose) std::printf("%s done.\n", my_name);
+    if(verbose) std::printf("%s done.\n", name());
   }
   delete my_function_node;
   delete my_join;
@@ -171,6 +175,7 @@ void philosopher::check() {
 
 void philosopher::eat_and_think( ) { 
   eat();
+  if(*my_count < 0) abort();
   --(*my_count);
 
   if (*my_count > 0) {
@@ -184,7 +189,7 @@ void philosopher::eat_and_think( ) {
     my_right_chopstick->try_put( chopstick() );
     if(verbose) {
       tbb::spin_mutex::scoped_lock lock(my_mutex);
-      std::printf("%s has left the building\n", my_name);
+      std::printf("%s has left the building\n", name());
     }
  
   }
@@ -193,24 +198,24 @@ void philosopher::eat_and_think( ) {
 void philosopher::eat() { 
   if(verbose) {
     tbb::spin_mutex::scoped_lock lock(my_mutex);
-    std::printf("%s eating\n", my_name);
+    std::printf("%s eating\n", name());
   }
   SLEEP(eat_time); 
   if(verbose) {
     tbb::spin_mutex::scoped_lock lock(my_mutex);
-    std::printf("%s done eating\n", my_name);
+    std::printf("%s done eating\n", name());
   }
 }
 
 void philosopher::think() { 
   if(verbose) {
     tbb::spin_mutex::scoped_lock lock(my_mutex);
-    std::printf("%s thinking\n", my_name);
+    std::printf("%s thinking\n", name());
   }
   SLEEP(think_time); 
   if(verbose) {
     tbb::spin_mutex::scoped_lock lock(my_mutex);
-    std::printf("%s done thinking\n", my_name);
+    std::printf("%s done thinking\n", name());
   }
 }
 
@@ -218,10 +223,10 @@ void philosopher::make_my_node() {
   link_left_chopstick();
   link_right_chopstick();
   my_function_node = 
-    new tbb::function_node< join_type::output_type, tbb::continue_msg >( *my_graph, 
-                                                                         tbb::graph::serial, 
+    new tbb::flow::function_node< join_type::output_type, tbb::flow::continue_msg , tbb::flow::rejecting >( *my_graph, 
+                                                                         tbb::flow::serial, 
                                                                          node_body( *this ) );
-  tbb::make_edge( *my_join, *my_function_node );
+  tbb::flow::make_edge( *my_join, *my_function_node );
 }
 
 int main(int argc, char *argv[]) {
@@ -236,7 +241,7 @@ int main(int argc, char *argv[]) {
     
         tbb::task_scheduler_init init(num_threads);
 
-        tbb::graph g;
+        tbb::flow::graph g;
 
         if(verbose) std::printf("\n%d philosophers with %d threads", num_philosophers, num_threads);
 
@@ -244,9 +249,9 @@ int main(int argc, char *argv[]) {
         t0 = tbb::tick_count::now();
 
         // create queues of (one) chopstick
-        std::vector< tbb::queue_node< chopstick > * > places;
+        std::vector< tbb::flow::queue_node< chopstick > * > places;
         for ( int i = 0; i < num_philosophers; ++i ) {
-            tbb::queue_node< chopstick > *qn_ptr = new tbb::queue_node<chopstick>(g);
+            tbb::flow::queue_node< chopstick > *qn_ptr = new tbb::flow::queue_node<chopstick>(g);
             qn_ptr->try_put(chopstick());
             places.push_back( qn_ptr );
         }

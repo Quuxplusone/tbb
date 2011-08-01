@@ -189,16 +189,19 @@ arena* market::arena_in_need ( arena_list_type &arenas, arena_list_type::iterato
 }
 
 void market::update_allotment ( arena_list_type& arenas, int workers_demand, int max_workers ) {
-    if ( !workers_demand )
-        return;
+    __TBB_ASSERT( workers_demand, NULL );
+    max_workers = min(workers_demand, max_workers);
     int carry = 0;
 #if TBB_USE_ASSERT
     int assigned = 0;
 #endif /* TBB_USE_ASSERT */
-    max_workers = min( max_workers, workers_demand );
     arena_list_type::iterator it = arenas.begin();
     for ( ; it != arenas.end(); ++it ) {
         arena& a = *it;
+        if ( a.my_num_workers_requested <= 0 ) {
+            __TBB_ASSERT( !a.my_num_workers_allotted, NULL );
+            continue;
+        }
         int tmp = a.my_num_workers_requested * max_workers + carry;
         int allotted = tmp / workers_demand;
         carry = tmp % workers_demand;
@@ -216,7 +219,15 @@ inline void market::update_global_top_priority ( intptr_t newPriority ) {
     GATHER_STATISTIC( ++governor::local_scheduler_if_initialized()->my_counters.market_prio_switches );
     my_global_top_priority = newPriority;
     my_priority_levels[newPriority].workers_available = my_max_num_workers;
-    __TBB_store_with_release( my_global_reload_epoch, my_global_reload_epoch + 1 );
+    advance_global_reload_epoch();
+}
+
+inline void market::reset_global_priority () {
+    my_global_bottom_priority = normalized_normal_priority;
+    update_global_top_priority(normalized_normal_priority);
+#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
+    my_lowest_populated_level = normalized_normal_priority;
+#endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
 }
 
 arena* market::arena_in_need (
@@ -254,84 +265,96 @@ arena* market::arena_in_need (
 }
 
 void market::update_allotment ( intptr_t highest_affected_priority ) {
-    intptr_t i = highest_affected_priority; 
-    while ( i >= my_global_bottom_priority ) {
-        priority_level_info &pl = my_priority_levels[i];
-        update_allotment( pl.arenas, pl.workers_requested, pl.workers_available );
-        int available = pl.workers_available - pl.workers_requested;
+    intptr_t i = highest_affected_priority;
+    int available = my_priority_levels[i].workers_available;
 #if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
-        if ( available <= 0 && pl.workers_available )
-            my_lowest_populated_level = i;
+    my_lowest_populated_level = my_global_bottom_priority;
 #endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
-        if ( --i >= 0 )
-            my_priority_levels[i].workers_available = available;
+    for ( ; i >= my_global_bottom_priority; --i ) {
+        priority_level_info &pl = my_priority_levels[i];
+        pl.workers_available = available;
+        if ( pl.workers_requested ) {
+            update_allotment( pl.arenas, pl.workers_requested, available );
+            available -= pl.workers_requested;
+            if ( available < 0 ) {
+                available = 0;
+#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
+                my_lowest_populated_level = i;
+#endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
+                break;
+            }
+        }
+    }
+    __TBB_ASSERT( i <= my_global_bottom_priority || !available, NULL );
+    for ( --i; i >= my_global_bottom_priority; --i ) {
+        priority_level_info &pl = my_priority_levels[i];
+        pl.workers_available = 0;
+        arena_list_type::iterator it = pl.arenas.begin();
+        for ( ; it != pl.arenas.end(); ++it ) {
+            __TBB_ASSERT( it->my_num_workers_requested || !it->my_num_workers_allotted, NULL );
+            it->my_num_workers_allotted = 0;
+        }
     }
 }
 #endif /* __TBB_TASK_PRIORITY */
 
-/** The balancing algorithm may be liable to data races. However the aberrations 
-    caused by the races are not fatal and generally only temporarily affect fairness 
-    of the workers distribution among arenas. **/
 void market::adjust_demand ( arena& a, int delta ) {
     __TBB_ASSERT( theMarket, "market instance was destroyed prematurely?" );
     if ( !delta )
         return;
     my_arenas_list_mutex.lock();
+    int prev_req = a.my_num_workers_requested;
     a.my_num_workers_requested += delta;
-    if ( a.my_num_workers_requested == 0 )
+    if ( a.my_num_workers_requested <= 0 ) {
         a.my_num_workers_allotted = 0;
+        if ( prev_req <= 0 ) {
+            my_arenas_list_mutex.unlock();
+            return;
+        }
+        delta = -prev_req;
+    }
+    __TBB_ASSERT( prev_req >= 0, "Part-size request to RML?" );
 #if __TBB_TASK_PRIORITY
     intptr_t p = a.my_top_priority;
     priority_level_info &pl = my_priority_levels[p];
     pl.workers_requested += delta;
-    if ( a.my_num_workers_requested == 0 ) {
+    __TBB_ASSERT( pl.workers_requested >= 0, NULL );
+    __TBB_ASSERT( a.my_num_workers_requested >= 0, NULL );
+    if ( a.my_num_workers_requested <= 0 ) {
         if ( a.my_top_priority != normalized_normal_priority ) {
             GATHER_STATISTIC( ++governor::local_scheduler_if_initialized()->my_counters.arena_prio_resets );
             update_arena_top_priority( a, normalized_normal_priority );
         }
         a.my_bottom_priority = normalized_normal_priority;
     }
-    if ( p > my_global_top_priority ) {
-        __TBB_ASSERT( a.my_num_workers_requested > 0, NULL );
-        update_global_top_priority(p);
-        a.my_num_workers_allotted = min( (int)my_max_num_workers, a.my_num_workers_requested );
-        my_priority_levels[p - 1].workers_available = my_max_num_workers - a.my_num_workers_allotted;
-        update_allotment( p - 1 );
-    }
-    else if ( p == my_global_top_priority ) {
-        // Requested number of workers may transitory drop below zero
-        if ( pl.workers_requested <= 0 ) {
+    if ( p == my_global_top_priority ) {
+        if ( !pl.workers_requested ) {
             while ( --p >= my_global_bottom_priority && !my_priority_levels[p].workers_requested )
                 continue;
-            if ( p < my_global_bottom_priority ) {
-                my_global_bottom_priority = normalized_normal_priority;
-                update_global_top_priority(normalized_normal_priority);
-#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
-                my_lowest_populated_level = normalized_normal_priority;
-#endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
-            }
+            if ( p < my_global_bottom_priority )
+                reset_global_priority();
             else
                 update_global_top_priority(p);
         }
         update_allotment( my_global_top_priority );
     }
+    else if ( p > my_global_top_priority ) {
+        __TBB_ASSERT( pl.workers_requested > 0, NULL );
+        update_global_top_priority(p);
+        a.my_num_workers_allotted = min( (int)my_max_num_workers, a.my_num_workers_requested );
+        my_priority_levels[p - 1].workers_available = my_max_num_workers - a.my_num_workers_allotted;
+        update_allotment( p - 1 );
+    }
     else if ( p == my_global_bottom_priority ) {
-        // Requested number of workers may transitory drop below zero
-        if ( pl.workers_requested <= 0 ) {
+        if ( !pl.workers_requested ) {
             while ( ++p <= my_global_top_priority && !my_priority_levels[p].workers_requested )
                 continue;
-            if ( p < num_priority_levels ) {
-                TBB_TRACE(( "adjust_demand(%p, %d): change global bottom prio %ld -> %ld\n", &a, delta, (long)my_global_bottom_priority, (long)p ));
+            if ( p > my_global_top_priority )
+                reset_global_priority();
+            else {
                 my_global_bottom_priority = p;
 #if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
                 my_lowest_populated_level = max( my_lowest_populated_level, p );
-#endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
-            }
-            else {
-                my_global_bottom_priority = normalized_normal_priority;
-                update_global_top_priority(normalized_normal_priority);
-#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
-                my_lowest_populated_level = normalized_normal_priority;
 #endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
             }
         }
@@ -340,27 +363,9 @@ void market::adjust_demand ( arena& a, int delta ) {
     }
     else if ( p < my_global_bottom_priority ) {
         __TBB_ASSERT( a.my_num_workers_requested > 0, NULL );
-        int available = my_priority_levels[my_global_bottom_priority].workers_available
-                        - my_priority_levels[my_global_bottom_priority].workers_requested;
-        if ( available > 0 ) {
-            do {
-                __TBB_ASSERT( (my_global_bottom_priority - 1 == p) || !my_priority_levels[my_global_bottom_priority - 1].workers_requested, NULL );
-                my_priority_levels[my_global_bottom_priority - 1].workers_available = available;
-            } while ( --my_global_bottom_priority > p );
-            __TBB_ASSERT( pl.workers_requested == a.my_num_workers_requested, NULL );
-            a.my_num_workers_allotted = min(available, pl.workers_requested);
-#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
-            my_lowest_populated_level = p;
-#endif
-        }
-        else {
-            __TBB_ASSERT( !a.my_num_workers_allotted, NULL );
-            do {
-                __TBB_ASSERT( !my_priority_levels[my_global_bottom_priority].workers_requested, NULL );
-                my_priority_levels[my_global_bottom_priority].workers_available = 0;
-            } while ( --my_global_bottom_priority > p );
-        }
-        __TBB_ASSERT( p == my_global_bottom_priority, NULL );
+        int prev_bottom = my_global_bottom_priority;
+        my_global_bottom_priority = p;
+        update_allotment( prev_bottom );
     }
     else {
         __TBB_ASSERT( my_global_bottom_priority < p && p < my_global_top_priority, NULL );
@@ -440,6 +445,7 @@ void market::update_arena_top_priority ( arena& a, intptr_t new_priority ) {
 #endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
     prev_level.workers_requested -= a.my_num_workers_requested;
     new_level.workers_requested += a.my_num_workers_requested;
+    __TBB_ASSERT( prev_level.workers_requested >= 0 && new_level.workers_requested >= 0, NULL );
 }
 
 bool market::lower_arena_priority ( arena& a, intptr_t new_priority, intptr_t old_priority ) {
@@ -449,23 +455,20 @@ bool market::lower_arena_priority ( arena& a, intptr_t new_priority, intptr_t ol
         return false;
     }
     __TBB_ASSERT( a.my_top_priority > new_priority, NULL );
+    __TBB_ASSERT( my_global_top_priority >= a.my_top_priority, NULL );
     intptr_t p = a.my_top_priority;
     update_arena_top_priority( a, new_priority );
-    if ( a.my_num_workers_requested ) {
+    if ( a.my_num_workers_requested > 0 ) {
         if ( my_global_bottom_priority > new_priority ) {
-            TBB_TRACE(( "    -> global bottom prio %ld -> %ld\n", (long)my_global_bottom_priority, (long)new_priority ));
             my_global_bottom_priority = new_priority;
         }
-        if ( p == my_global_top_priority && my_priority_levels[p].workers_requested <= 0 ) {
-            while ( --p >= my_global_bottom_priority && my_priority_levels[p].workers_requested <= 0 )
-                continue;
+        if ( p == my_global_top_priority && !my_priority_levels[p].workers_requested ) {
+            // Global top level became empty
+            for ( --p; !my_priority_levels[p].workers_requested; --p ) continue;
             __TBB_ASSERT( p >= my_global_bottom_priority, NULL );
             update_global_top_priority(p);
         }
-#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
-        if ( p >= my_lowest_populated_level )
-#endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
-            update_allotment( p );
+        update_allotment( p );
     }
     assert_market_valid();
     return true;
@@ -478,32 +481,43 @@ bool market::update_arena_priority ( arena& a, intptr_t new_priority ) {
         return false;
     }
     else if ( a.my_top_priority > new_priority ) {
-        if ( a.my_bottom_priority > new_priority ) {
-            TBB_TRACE(( "    -> bottom prio %ld -> %ld)\n", (long)a.my_bottom_priority, (long)new_priority ));
+        if ( a.my_bottom_priority > new_priority )
             a.my_bottom_priority = new_priority;
-        }
         assert_market_valid();
         return false;
     }
+    intptr_t p = a.my_top_priority;
+    intptr_t highest_affected_level = max(p, new_priority);
     update_arena_top_priority( a, new_priority );
-    if ( a.my_num_workers_requested ) {
+    if ( a.my_num_workers_requested > 0 ) {
         if ( my_global_top_priority < new_priority ) {
             update_global_top_priority(new_priority);
         }
+        else if ( my_global_top_priority == new_priority ) {
+            advance_global_reload_epoch();
+        }
         else {
-            if ( my_global_top_priority == new_priority )
-                ++my_global_reload_epoch;
-            // Previous arena priority may have been at my_global_bottom_priority level,
-            // thus check if my_global_bottom_priority needs to be updated.
-            while ( !my_priority_levels[my_global_bottom_priority].workers_requested ) {
-                TBB_TRACE(( "    -> global bottom prio %ld -> %ld)\n", (long)my_global_bottom_priority, (long)my_global_bottom_priority + 1 ));
-                ++my_global_bottom_priority;
+            __TBB_ASSERT( new_priority < my_global_top_priority, NULL );
+            __TBB_ASSERT( new_priority > my_global_bottom_priority, NULL );
+            if ( p == my_global_top_priority && !my_priority_levels[p].workers_requested ) {
+                // Global top level became empty
+                __TBB_ASSERT( my_global_bottom_priority < p, NULL );
+                for ( --p; !my_priority_levels[p].workers_requested; --p ) continue;
+                __TBB_ASSERT( p >= new_priority, NULL );
+                update_global_top_priority(p);
+                highest_affected_level = p;
             }
         }
-#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
-        if ( new_priority >= my_lowest_populated_level )
-#endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
-            update_allotment( new_priority );
+        if ( p == my_global_bottom_priority ) {
+            // Arena priority was increased from the global bottom level.
+            __TBB_ASSERT( p < new_priority, NULL );                     // n
+            __TBB_ASSERT( new_priority <= my_global_top_priority, NULL );
+            while ( !my_priority_levels[my_global_bottom_priority].workers_requested )
+                ++my_global_bottom_priority;
+            __TBB_ASSERT( my_global_bottom_priority <= new_priority, NULL );
+            __TBB_ASSERT( my_priority_levels[my_global_bottom_priority].workers_requested > 0, NULL );
+        }
+        update_allotment( highest_affected_level );
     }
     assert_market_valid();
     return true;

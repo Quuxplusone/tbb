@@ -28,7 +28,9 @@
 
 # Just specify your program basename
 PROG=Seismic
-ARGS=- 300
+ARGS=0:4 300
+PERF_RUN_ARGS=auto 10000 silent
+LIGHT_ARGS=1:2 100
 
 # Trying ot find if icl.exe is set
 CXX1 = $(TBB_CXX)-
@@ -48,16 +50,26 @@ ARCH2 = $(ARCH1:intel64-=AMD64)
 XARCH = $(ARCH2:-=x86)
 
 MAKEINC = ../../common/gui/Makefile.win
-
+SOURCES = seismic_video.cpp universe.cpp main.cpp 
+ 
 all: release test
 release: compiler_check
-	@$(MAKE) -f $(MAKEINC) UI=$(UI) CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS)" LFLAGS="$(LDFLAGS) tbb.lib $(LIBS)" XARCH=$(XARCH) RCNAME=SeismicSimulation SOURCE=SeismicSimulation.cpp EXE=$(PROG).exe build_one
+	@$(MAKE) -f $(MAKEINC) UI=$(UI) CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS)" LFLAGS="$(LDFLAGS) tbb.lib $(LIBS)" XARCH=$(XARCH) RCNAME=SeismicSimulation SOURCE="$(SOURCES)" EXE=$(PROG).exe build_one
 debug: compiler_check
-	@$(MAKE) -f $(MAKEINC) UI=$(UI) DEBUG=_debug CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS) /D TBB_USE_DEBUG" LFLAGS="$(LDFLAGS) tbb_debug.lib $(LIBS)" XARCH=$(XARCH) RCNAME=SeismicSimulation SOURCE=SeismicSimulation.cpp EXE=$(PROG).exe build_one
+	@$(MAKE) -f $(MAKEINC) UI=$(UI) DEBUG=_debug CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS) /D TBB_USE_DEBUG" LFLAGS="$(LDFLAGS) tbb_debug.lib $(LIBS)" XARCH=$(XARCH) RCNAME=SeismicSimulation SOURCE="$(SOURCES)" EXE=$(PROG).exe build_one
 clean:
 	@cmd.exe /C del $(PROG).exe *.obj *.?db *.manifest msvs\SeismicSimulation.res >nul 2>&1
 test:
-	$(PROG) $(ARGS)
+	$(PROG) $(ARGS) 
+
+perf_build: compiler_check
+	@$(MAKE) -f $(MAKEINC) UI=con CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS)" LFLAGS="$(LDFLAGS) tbb.lib $(LIBS)" XARCH=$(XARCH) RCNAME=SeismicSimulation SOURCE="$(SOURCES) " EXE=$(PROG).exe build_one
+perf_run:
+	$(PROG) $(PERF_RUN_ARGS)
+
+light_test:
+	$(PROG) $(LIGHT_ARGS)
+
 compiler_check:
 	@echo compiler_test>compiler_test && @$(CXX) /E compiler_test >nul 2>&1  || echo "$(CXX) command not found. Check if CXX=$(CXX) is set properly"
 	@cmd.exe /C del compiler_test

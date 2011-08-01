@@ -9,10 +9,10 @@
 /* Begin PBXBuildFile section */
 		A12649490B8392750091D5AD /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E3E7BC0B3AD4EC007C3AB5 /* OpenGL.framework */; };
 		A126495E0B83936D0091D5AD /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8D0C4E960486CD37000505A6 /* Info.plist */; };
-		A18D2A340B861B99007D8D2C /* libtbb_preview.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A18D2A330B861B99007D8D2C /* libtbb_preview.dylib */; };
+		A18D2A340B861B99007D8D2C /* libtbb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A18D2A330B861B99007D8D2C /* libtbb.dylib */; };
 		A1A8F41E0B8B4DBE001C55B1 /* AGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1A8F41D0B8B4DBE001C55B1 /* AGL.framework */; };
 		A1A8F4310B8B4EA8001C55B1 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1A8F4300B8B4EA8001C55B1 /* Carbon.framework */; };
-		A1D44D9A0B861E8A0006E401 /* libtbb_preview.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = A18D2A330B861B99007D8D2C /* libtbb_preview.dylib */; };
+		A1D44D9A0B861E8A0006E401 /* libtbb.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = A18D2A330B861B99007D8D2C /* libtbb.dylib */; };
 		A1E3E7BD0B3AD4EC007C3AB5 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E3E7BC0B3AD4EC007C3AB5 /* OpenGL.framework */; };
 		A1F591AC0B8DFC9600073279 /* macvideo.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1F591AA0B8DFC9600073279 /* macvideo.cpp */; };
 		EA135CEA130D076D00807847 /* fractal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EA135CE6130D076D00807847 /* fractal.cpp */; };
@@ -27,7 +27,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 16;
 			files = (
-				A1D44D9A0B861E8A0006E401 /* libtbb_preview.dylib in CopyFiles */,
+				A1D44D9A0B861E8A0006E401 /* libtbb.dylib in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -36,7 +36,7 @@
 /* Begin PBXFileReference section */
 		8D0C4E960486CD37000505A6 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8D0C4E970486CD37000505A6 /* fractal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = fractal.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A18D2A330B861B99007D8D2C /* libtbb_preview.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb_preview.dylib; path = ../../../../lib/libtbb_preview.dylib; sourceTree = SOURCE_ROOT; };
+		A18D2A330B861B99007D8D2C /* libtbb.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtbb.dylib; path = ../../../../lib/libtbb.dylib; sourceTree = SOURCE_ROOT; };
 		A1A8F41D0B8B4DBE001C55B1 /* AGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AGL.framework; path = /System/Library/Frameworks/AGL.framework; sourceTree = "<absolute>"; };
 		A1A8F4300B8B4EA8001C55B1 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
 		A1E3E7BC0B3AD4EC007C3AB5 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = /System/Library/Frameworks/OpenGL.framework; sourceTree = "<absolute>"; };
@@ -57,7 +57,7 @@
 			files = (
 				A1E3E7BD0B3AD4EC007C3AB5 /* OpenGL.framework in Frameworks */,
 				A12649490B8392750091D5AD /* OpenGL.framework in Frameworks */,
-				A18D2A340B861B99007D8D2C /* libtbb_preview.dylib in Frameworks */,
+				A18D2A340B861B99007D8D2C /* libtbb.dylib in Frameworks */,
 				A1A8F41E0B8B4DBE001C55B1 /* AGL.framework in Frameworks */,
 				A1A8F4310B8B4EA8001C55B1 /* Carbon.framework in Frameworks */,
 			);
@@ -111,7 +111,7 @@
 		20286C32FDCF999611CA2CEA /* External Frameworks and Libraries */ = {
 			isa = PBXGroup;
 			children = (
-				A18D2A330B861B99007D8D2C /* libtbb_preview.dylib */,
+				A18D2A330B861B99007D8D2C /* libtbb.dylib */,
 				A1A8F4300B8B4EA8001C55B1 /* Carbon.framework */,
 				A1A8F41D0B8B4DBE001C55B1 /* AGL.framework */,
 				A1E3E7BC0B3AD4EC007C3AB5 /* OpenGL.framework */,
@@ -205,7 +205,6 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = fractal.pch;
-				GCC_PREPROCESSOR_DEFINITIONS = TBB_PREVIEW_TASK_PRIORITY;
 				GCC_VERSION = 4.0;
 				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/Applications";
@@ -224,7 +223,6 @@
 				GCC_MODEL_TUNING = "";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = fractal.pch;
-				GCC_PREPROCESSOR_DEFINITIONS = TBB_PREVIEW_TASK_PRIORITY;
 				GCC_VERSION = 4.0;
 				HEADER_SEARCH_PATHS = ../../../../include;
 				INSTALL_PATH = "$(HOME)/Applications";

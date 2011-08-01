@@ -85,7 +85,10 @@ void QueuingMutex::ScopedLock::Acquire( QueuingMutex& m )
     // "sending" the fields initialized above to other processors.
     ScopedLock* pred = m.q_tail.fetch_and_store<tbb::release>(this);
     if( pred ) {
+#if TBB_USE_ASSERT
+        __TBB_control_consistency_helper(); // on "m.q_tail"
         ASSERT( !pred->next, "the predecessor has another successor!");
+#endif
         pred->next = this;
         for( int i=0; i<16; ++i ) {
             if( going!=0ul ) break;
@@ -94,9 +97,8 @@ void QueuingMutex::ScopedLock::Acquire( QueuingMutex& m )
         SleepPerhaps();
     }
 
-    // Force acquire so that user's critical section receives correct values
-    // from processor that was previously in the user's critical section.
-    __TBB_load_with_acquire(going);
+    // Acquire critical section indirectly from previous owner or directly from predecessor.
+    __TBB_control_consistency_helper(); // on either "m.q_tail" or "going"
 }
 
 //! A method to release QueuingMutex lock
@@ -199,11 +201,12 @@ void SpinMutex::ScopedLock::SleepPerhaps()
         mq.cancel_wait( thr_ctx );
 }
 
+//! A value protected by a mutex.
 template<typename M>
 struct Counter {
     typedef M mutex_type;
     M mutex;
-    volatile long value;
+    long value;
 };
 
 //! Function object for use with parallel_for.h.
@@ -229,7 +232,7 @@ void Test() {
     const int n = 100000;
     tbb::parallel_for(tbb::blocked_range<size_t>(0,n,n/10),AddOne<Counter<M> >(counter));
     if( counter.value!=n )
-        REPORT("ERROR : counter.value=%ld\n",counter.value);
+        REPORT("ERROR : counter.value=%ld (instead of %ld)\n",counter.value,n);
 }
 
 int TestMain () {

@@ -29,6 +29,7 @@
 # Just specify your program basename
 PROG=Pover
 ARGS=
+LIGHT_ARGS= --polys 10 --size 5x5
 
 # Trying to find if icl.exe is set
 CXX1 = $(TBB_CXX)-
@@ -60,6 +61,8 @@ clean:
 	@cmd.exe /C del $(PROG).exe *.obj *.?db *.manifest msvs\pover.res
 test:
 	$(PROG) $(ARGS)
+light_test:
+	$(PROG) $(LIGHT_ARGS)
 compiler_check:
 	@echo compiler_test>compiler_test && @$(CXX) /E compiler_test >nul 2>&1  || echo "$(CXX) command not found. Check if CXX=$(CXX) is set properly"
 	@cmd.exe /C del compiler_test

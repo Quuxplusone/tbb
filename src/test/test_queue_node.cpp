@@ -29,7 +29,7 @@
 // TO DO: Add overlapping put / receive tests
 
 #define TBB_PREVIEW_GRAPH 1
-#include "tbb/graph.h"
+#include "tbb/flow_graph.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tick_count.h"
 #include "harness.h"
@@ -40,7 +40,7 @@
 #define C 10
 
 template< typename T >
-void spin_try_get( tbb::queue_node<T> &q, T &value ) {
+void spin_try_get( tbb::flow::queue_node<T> &q, T &value ) {
     while ( q.try_get(value) != true ) ;
 }
 
@@ -55,9 +55,9 @@ void check_item( T* next_value, T &value ) {
 template< typename T >
 struct parallel_puts : NoAssign {
 
-    tbb::queue_node<T> &my_q;
+    tbb::flow::queue_node<T> &my_q;
 
-    parallel_puts( tbb::queue_node<T> &q ) : my_q(q) {}
+    parallel_puts( tbb::flow::queue_node<T> &q ) : my_q(q) {}
 
     void operator()(int i) const {
         for (int j = 0; j < N; ++j) {
@@ -142,10 +142,10 @@ struct touches {
 template< typename T >
 struct parallel_gets : NoAssign {
 
-    tbb::queue_node<T> &my_q;
+    tbb::flow::queue_node<T> &my_q;
     touches<T> &my_touches;
 
-    parallel_gets( tbb::queue_node<T> &q, touches<T> &t) : my_q(q), my_touches(t) {}
+    parallel_gets( tbb::flow::queue_node<T> &q, touches<T> &t) : my_q(q), my_touches(t) {}
 
     void operator()(int tid) const {
         for (int j = 0; j < N; ++j) {
@@ -160,10 +160,10 @@ struct parallel_gets : NoAssign {
 template< typename T >
 struct parallel_put_get : NoAssign {
 
-    tbb::queue_node<T> &my_q;
+    tbb::flow::queue_node<T> &my_q;
     touches<T> &my_touches;
 
-    parallel_put_get( tbb::queue_node<T> &q, touches<T> &t ) : my_q(q), my_touches(t) {}
+    parallel_put_get( tbb::flow::queue_node<T> &q, touches<T> &t ) : my_q(q), my_touches(t) {}
 
     void operator()(int tid) const {
 
@@ -191,11 +191,11 @@ struct parallel_put_get : NoAssign {
 //
 template< typename T >
 int test_reservation(int num_threads) {
-    tbb::graph g;
+    tbb::flow::graph g;
     T bogus_value(-1);
 
     // Simple tests
-    tbb::queue_node<T> q(g);
+    tbb::flow::queue_node<T> q(g);
 
     q.try_put(T(1));
     q.try_put(T(2));
@@ -242,10 +242,10 @@ int test_reservation(int num_threads) {
 //
 template< typename T >
 int test_parallel(int num_threads) {
-    tbb::graph g;
-    tbb::queue_node<T> q(g);
-    tbb::queue_node<T> q2(g);
-    tbb::queue_node<T> q3(g);
+    tbb::flow::graph g;
+    tbb::flow::queue_node<T> q(g);
+    tbb::flow::queue_node<T> q2(g);
+    tbb::flow::queue_node<T> q3(g);
     T bogus_value(-1);
     T j = bogus_value;
 
@@ -291,8 +291,8 @@ int test_parallel(int num_threads) {
     ASSERT( q.try_get( j ) == false, NULL );
     ASSERT( j == bogus_value, NULL );
 
-    ASSERT( q.register_successor( q2 ) == true, NULL );
-    ASSERT( q2.register_successor( q3 ) == true, NULL );
+    tbb::flow::make_edge( q, q2 );
+    tbb::flow::make_edge( q2, q3 );
 
     NativeParallelFor( num_threads, parallel_puts<T>(q) );
     {
@@ -310,6 +310,26 @@ int test_parallel(int num_threads) {
     ASSERT( q3.try_get( j ) == false, NULL );
     ASSERT( j == bogus_value, NULL );
 
+    // test copy constructor
+    ASSERT( q.remove_successor( q2 ), NULL );
+    NativeParallelFor( num_threads, parallel_puts<T>(q) );
+    tbb::flow::queue_node<T> q_copy(q);
+    j = bogus_value;
+    g.wait_for_all();
+    ASSERT( q_copy.try_get( j ) == false, NULL );
+    ASSERT( q.register_successor( q_copy ) == true, NULL );
+    {
+        touches< T > t( num_threads );
+        NativeParallelFor( num_threads, parallel_gets<T>(q_copy, t) );
+        g.wait_for_all();
+        ASSERT( t.validate_touches(), NULL );
+    }
+    j = bogus_value;
+    ASSERT( q.try_get( j ) == false, NULL );
+    ASSERT( j == bogus_value, NULL );
+    ASSERT( q_copy.try_get( j ) == false, NULL );
+    ASSERT( j == bogus_value, NULL );
+
     return 0;
 }
 
@@ -324,11 +344,11 @@ int test_parallel(int num_threads) {
 
 template< typename T >
 int test_serial() {
-    tbb::graph g;
+    tbb::flow::graph g;
     T bogus_value(-1);
 
-    tbb::queue_node<T> q(g);
-    tbb::queue_node<T> q2(g);
+    tbb::flow::queue_node<T> q(g);
+    tbb::flow::queue_node<T> q2(g);
     T j = bogus_value;
 
     //
@@ -360,7 +380,7 @@ int test_serial() {
     ASSERT( q.try_get( j ) == false, NULL );
     ASSERT( j == bogus_value, NULL );
 
-    ASSERT( q.register_successor( q2 ) == true, NULL );
+    tbb::flow::make_edge( q, q2 );
 
     for (int i = 0; i < N; ++i) {
         bool msg = q.try_put( T(i) );
@@ -380,7 +400,7 @@ int test_serial() {
     ASSERT( q2.try_get( j ) == false, NULL );
     ASSERT( j == bogus_value, NULL );
 
-    ASSERT( q.remove_successor( q2 ) == true, NULL );
+    tbb::flow::remove_edge( q, q2 );
     ASSERT( q.try_put( 1 ) == true, NULL );
     g.wait_for_all();
     ASSERT( q2.try_get( j ) == false, NULL );
@@ -389,9 +409,9 @@ int test_serial() {
     ASSERT( q.try_get( j ) == true, NULL );
     ASSERT( j == 1, NULL );
 
-    tbb::queue_node<T> q3(g);
-    ASSERT( q.register_successor( q2 ) == true, NULL );
-    ASSERT( q2.register_successor( q3 ) == true, NULL );
+    tbb::flow::queue_node<T> q3(g);
+    tbb::flow::make_edge( q, q2 );
+    tbb::flow::make_edge( q2, q3 );
 
     for (int i = 0; i < N; ++i) {
         bool msg = q.try_put( T(i) );
@@ -412,7 +432,7 @@ int test_serial() {
     ASSERT( q3.try_get( j ) == false, NULL );
     ASSERT( j == bogus_value, NULL );
 
-    ASSERT( q.remove_successor( q2 ) == true, NULL );
+    tbb::flow::remove_edge( q,  q2 );
     ASSERT( q.try_put( 1 ) == true, NULL );
     g.wait_for_all();
     ASSERT( q2.try_get( j ) == false, NULL );

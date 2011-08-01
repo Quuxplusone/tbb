@@ -28,7 +28,7 @@
 
 #include "harness_graph.h"
 #define TBB_PREVIEW_GRAPH 1
-#include "tbb/graph.h"
+#include "tbb/flow_graph.h"
 
 #include "tbb/task_scheduler_init.h"
 
@@ -38,7 +38,7 @@
 
 template< typename R >
 void simple_read_write_tests() {
-    tbb::overwrite_node<R> n;
+    tbb::flow::overwrite_node<R> n;
 
     for ( int t = 0; t < T; ++t ) {
         R v0(N+1);
@@ -54,7 +54,7 @@ void simple_read_write_tests() {
        }
 
         for (int i = 0; i < M; ++i) {
-           ASSERT( n.register_successor(r[i]), NULL );
+           tbb::flow::make_edge( n, r[i] );
         }
 
         for (int i = 0; i < N; ++i ) {
@@ -72,7 +72,7 @@ void simple_read_write_tests() {
              ASSERT( int(c) == N+t%2, NULL );
         }
         for (int i = 0; i < M; ++i) {
-           ASSERT( n.remove_successor(r[i]), NULL );
+           tbb::flow::remove_edge( n, r[i] );
         }
         ASSERT( n.try_put( R(0) ), NULL );
         for (int i = 0; i < M; ++i) {
@@ -87,11 +87,11 @@ void simple_read_write_tests() {
 
 template< typename R >
 class native_body : NoAssign {
-    tbb::overwrite_node<R> &my_node;
+    tbb::flow::overwrite_node<R> &my_node;
 
 public:
 
-     native_body( tbb::overwrite_node<R> &n ) : my_node(n) {}
+     native_body( tbb::flow::overwrite_node<R> &n ) : my_node(n) {}
 
      void operator()( int i ) const {
          R v1(static_cast<R>(i));
@@ -102,35 +102,39 @@ public:
 
 template< typename R >
 void parallel_read_write_tests() {
-    tbb::overwrite_node<R> n;
+    tbb::flow::overwrite_node<R> n;
+    //Create a vector of identical nodes
+    std::vector< tbb::flow::overwrite_node<R> > ow_vec(2, n);
 
+    for (size_t node_idx=0; node_idx<ow_vec.size(); ++node_idx) {
     for ( int t = 0; t < T; ++t ) {
         harness_counting_receiver<R> r[M];
 
         for (int i = 0; i < M; ++i) {
-           ASSERT( n.register_successor(r[i]), NULL );
+           tbb::flow::make_edge( ow_vec[node_idx], r[i] );
         }
         R v0;
-        ASSERT( n.is_valid() == false, NULL );
-        ASSERT( n.try_get( v0 ) == false, NULL );
+        ASSERT( ow_vec[node_idx].is_valid() == false, NULL );
+        ASSERT( ow_vec[node_idx].try_get( v0 ) == false, NULL );
 
-        NativeParallelFor( N, native_body<R>( n ) );
+        NativeParallelFor( N, native_body<R>( ow_vec[node_idx] ) );
 
         for (int i = 0; i < M; ++i) {
              size_t c = r[i].my_count;
              ASSERT( int(c) == N, NULL );
         }
         for (int i = 0; i < M; ++i) {
-           ASSERT( n.remove_successor(r[i]), NULL );
+           tbb::flow::remove_edge( ow_vec[node_idx], r[i] );
         }
-        ASSERT( n.try_put( R(0) ), NULL );
+        ASSERT( ow_vec[node_idx].try_put( R(0) ), NULL );
         for (int i = 0; i < M; ++i) {
              size_t c = r[i].my_count;
              ASSERT( int(c) == N, NULL );
         }
-        n.clear();
-        ASSERT( n.is_valid() == false, NULL );
-        ASSERT( n.try_get( v0 ) == false, NULL );
+        ow_vec[node_idx].clear();
+        ASSERT( ow_vec[node_idx].is_valid() == false, NULL );
+        ASSERT( ow_vec[node_idx].try_get( v0 ) == false, NULL );
+    }
     }
 }
 

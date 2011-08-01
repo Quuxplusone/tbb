@@ -33,7 +33,7 @@
 const int N = 1000;
 
 template< typename T >
-class test_push_receiver : public tbb::receiver<T> {
+class test_push_receiver : public tbb::flow::receiver<T> {
 
     tbb::atomic<int> my_counters[N];
 
@@ -49,7 +49,7 @@ public:
        return v;
     }
 
-    bool try_put( T v ) {
+    bool try_put( const T &v ) {
        int i = (int)v;
        ++my_counters[i];
        return true;
@@ -99,10 +99,10 @@ template< typename T >
 void test_single_dest() {
 
    // push only
-   tbb::graph g;
-   tbb::source_node<T> src(g, source_body<T>() );
+   tbb::flow::graph g;
+   tbb::flow::source_node<T> src(g, source_body<T>() );
    test_push_receiver<T> dest;
-   ASSERT( src.register_successor(dest), NULL );
+   tbb::flow::make_edge( src, dest );
    g.wait_for_all();
    for (int i = 0; i < N; ++i ) {
        ASSERT( dest.get_count(i) == 1, NULL ); 
@@ -110,10 +110,10 @@ void test_single_dest() {
 
    // push only
    tbb::atomic<int> counters3[N];
-   tbb::source_node<T> src3(g, source_body<T>() );
+   tbb::flow::source_node<T> src3(g, source_body<T>() );
    function_body<T> b3( counters3 );
-   tbb::function_node<T,bool> dest3(g, tbb::graph::unlimited, b3 );
-   ASSERT( src3.register_successor(dest3), NULL );
+   tbb::flow::function_node<T,bool> dest3(g, tbb::flow::unlimited, b3 );
+   tbb::flow::make_edge( src3, dest3 );
    g.wait_for_all();
    for (int i = 0; i < N; ++i ) {
        int v = counters3[i];
@@ -121,17 +121,25 @@ void test_single_dest() {
    }
 
    // push & pull 
-   tbb::source_node<T> src2(g, source_body<T>() );
+   tbb::flow::source_node<T> src2(g, source_body<T>() );
    tbb::atomic<int> counters2[N];
    function_body<T> b2( counters2 );
-   tbb::function_node<T,bool> dest2(g, tbb::graph::serial, b2 );
-   ASSERT( src2.register_successor(dest2), NULL );
+   tbb::flow::function_node<T,bool> dest2(g, tbb::flow::serial, b2 );
+   tbb::flow::make_edge( src2, dest2 );
    g.wait_for_all();
    for (int i = 0; i < N; ++i ) {
        int v = counters2[i];
        ASSERT( v == 1, NULL ); 
    }
 
+   // test copy constructor
+   tbb::flow::source_node<T> src_copy(src);
+   test_push_receiver<T> dest_c;
+   ASSERT( src_copy.register_successor(dest_c), NULL );
+   g.wait_for_all();
+   for (int i = 0; i < N; ++i ) {
+       ASSERT( dest_c.get_count(i) == 1, NULL ); 
+   }
 }
 
 int TestMain() { 

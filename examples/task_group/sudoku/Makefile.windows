@@ -28,7 +28,8 @@
 
 # Just specify your program basename
 PROG=sudoku
-ARGS=input1 4 2 -p
+ARGS= 4 input1 verbose
+PERF_RUN_ARGS=auto input1 silent
 
 # Trying to find if icl.exe is set
 CXX1 = $(TBB_CXX)-
@@ -50,3 +51,8 @@ test:
 	$(PROG) $(ARGS)
 compiler_check:
 	@$(CXX) >nul 2>&1 || echo "$(CXX) command not found. Check if CXX=$(CXX) is set properly"
+
+perf_build: release
+
+perf_run:
+	$(PROG) $(PERF_RUN_ARGS)

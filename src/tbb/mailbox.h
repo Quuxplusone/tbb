@@ -37,11 +37,13 @@
 namespace tbb {
 namespace internal {
 
+class generic_scheduler;
 class mail_outbox;
 
 struct task_proxy : public task {
-    static const intptr_t pool_bit = 1;
-    static const intptr_t mailbox_bit = 2;
+    static const intptr_t      pool_bit = 1<<0;
+    static const intptr_t   mailbox_bit = 1<<1;
+    static const intptr_t location_mask = pool_bit | mailbox_bit;
     /* All but two low-order bits represent a (task*).
        Two low-order bits mean:
        1 = proxy is/was/will be in task pool
@@ -49,20 +51,57 @@ struct task_proxy : public task {
     intptr_t task_and_tag;
 
     //! Pointer to next task_proxy in a mailbox
-    task_proxy* next_in_mailbox;
+    task_proxy *__TBB_atomic next_in_mailbox;
 
     //! Mailbox to which this was mailed.
     mail_outbox* outbox;
-};
+
+    //! True if the proxy is stored both in its sender's pool and in the destination mailbox.
+    static bool is_shared ( intptr_t tat ) {
+        return (tat & location_mask) == location_mask;
+    }
+
+    //! Returns a pointer to the encapsulated task or NULL.
+    static task* task_ptr ( intptr_t tat ) {
+        return (task*)(tat & ~location_mask);
+    }
+
+    //! Returns a pointer to the encapsulated task or NULL, and frees proxy if necessary.
+    template<intptr_t from_bit>
+    inline task* extract_task () {
+        __TBB_ASSERT( prefix().extra_state == es_task_proxy, "Normal task misinterpreted as a proxy?" );
+        intptr_t tat = __TBB_load_with_acquire(task_and_tag);
+        __TBB_ASSERT( tat == from_bit || (is_shared(tat) && task_ptr(tat)),
+            "Proxy's tag cannot specify both locations if the proxy "
+            "was retrieved from one of its original locations" );
+        if ( tat != from_bit ) {
+            const intptr_t cleaner_bit = location_mask & ~from_bit;
+            // Attempt to transition the proxy to the "empty" state with
+            // cleaner_bit specifying entity responsible for its eventual freeing.
+            if ( __TBB_CompareAndSwapW( &task_and_tag, cleaner_bit, tat ) == tat ) {
+                // Successfully grabbed the task, and left new owner with the job of freeing the proxy
+                return task_ptr(tat);
+            }
+        }
+        // Proxied task has already been claimed from another proxy location.
+        __TBB_ASSERT( task_and_tag == from_bit, "Empty proxy cannot contain non-zero task pointer" );
+        poison_pointer(outbox);
+        poison_pointer(next_in_mailbox);
+        poison_value(task_and_tag);
+        return NULL;
+    }
+}; // struct task_proxy
 
 //! Internal representation of mail_outbox, without padding.
 class unpadded_mail_outbox {
 protected:
+    typedef task_proxy*__TBB_atomic proxy_ptr;
+
     //! Pointer to first task_proxy in mailbox, or NULL if box is empty. 
-    task_proxy* my_first;
+    proxy_ptr my_first;
 
     //! Pointer to pointer that will point to next item in the queue.  Never NULL.
-    task_proxy** my_last;
+    proxy_ptr* __TBB_atomic my_last;
 
     //! Owner of mailbox is not executing a task, and has drained its own task pool.
     bool my_is_idle;
@@ -70,33 +109,31 @@ protected:
 
 //! Class representing where mail is put.
 /** Padded to occupy a cache line. */
-class mail_outbox: unpadded_mail_outbox {
+class mail_outbox : unpadded_mail_outbox {
     char pad[NFS_MaxLineSize-sizeof(unpadded_mail_outbox)];
 
     task_proxy* internal_pop() {
-        //! No fence on load of my_first, because if it is NULL, there's nothing further to read from another thread.
-        task_proxy* first = my_first;
-        if( first ) {
-            // There is a first item in the mailbox.  See if there is a second.
-            if( task_proxy* second = __TBB_load_with_acquire(first->next_in_mailbox) ) {
-                // There are at least two items, so first item can be popped easily.
-                __TBB_store_with_release( my_first, second );
+        task_proxy* const first = __TBB_load_relaxed(my_first);
+        if( !first )
+            return NULL;
+        __TBB_control_consistency_helper(); // on my_first
+        // There is a first item in the mailbox.  See if there is a second.
+        if( task_proxy* second = first->next_in_mailbox ) {
+            // There are at least two items, so first item can be popped easily.
+            my_first = second;
+        } else {
+            // There is only one item.  Some care is required to pop it.
+            my_first = NULL;
+            if( (proxy_ptr*)__TBB_CompareAndSwapW(&my_last, (intptr_t)&my_first,
+                                (intptr_t)&first->next_in_mailbox) == &first->next_in_mailbox )
+            {
+                // Successfully transitioned mailbox from having one item to having none.
+                __TBB_ASSERT(!first->next_in_mailbox,NULL);
             } else {
-                // There is only one item.  Some care is required to pop it.
-                my_first = NULL;
-                if( (task_proxy**)__TBB_CompareAndSwapW(&my_last, (intptr_t)&my_first,
-                    (intptr_t)&first->next_in_mailbox)==&first->next_in_mailbox ) 
-                {
-                    // Successfully transitioned mailbox from having one item to having none.
-                    __TBB_ASSERT(!first->next_in_mailbox,NULL);
-                } else {
-                    // Some other thread updated my_last but has not filled in result->next_in_mailbox
-                    // Wait until first item points to second item.
-                    atomic_backoff backoff;
-                    while( !(second=const_cast<volatile task_proxy*>(first)->next_in_mailbox) ) 
-                        backoff.pause();
-                    my_first = second;
-                } 
+                // Some other thread updated my_last but has not filled in first->next_in_mailbox
+                // Wait until first item points to second item.
+                for( atomic_backoff backoff; !(second = first->next_in_mailbox); backoff.pause() );
+                my_first = second;
             }
         }
         return first;
@@ -109,15 +146,15 @@ public:
     void push( task_proxy& t ) {
         __TBB_ASSERT(&t, NULL);
         t.next_in_mailbox = NULL; 
-        task_proxy** link = (task_proxy**)__TBB_FetchAndStoreW(&my_last,(intptr_t)&t.next_in_mailbox);
+        proxy_ptr * const link = (proxy_ptr *)__TBB_FetchAndStoreW(&my_last,(intptr_t)&t.next_in_mailbox);
         // No release fence required for the next store, because there are no memory operations 
         // between the previous fully fenced atomic operation and the store.
-        *link = &t;
+        __TBB_store_relaxed(*link, &t);
     }
 
     //! Construct *this as a mailbox from zeroed memory.
-    /** Raise assertion if *this is not previously zeored, or sizeof(this) is wrong.
-        This method is provided instead of a full constructor since we know the objecxt
+    /** Raise assertion if *this is not previously zeroed, or sizeof(this) is wrong.
+        This method is provided instead of a full constructor since we know the object
         will be constructed in zeroed memory. */
     void construct() {
         __TBB_ASSERT( sizeof(*this)==NFS_MaxLineSize, NULL );

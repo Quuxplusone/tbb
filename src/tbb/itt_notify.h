@@ -102,7 +102,7 @@ namespace tbb {
 // const_cast<void*>() is necessary to cast off volatility
 #define ITT_NOTIFY(name,obj)            __itt_notify_##name(const_cast<void*>(static_cast<volatile void*>(obj)))
 #define ITT_THREAD_SET_NAME(name)       __itt_thread_set_name(name)
-#define ITT_SYNC_CREATE(obj, type, name) __itt_sync_create(obj, type, name, 2)
+#define ITT_SYNC_CREATE(obj, type, name) __itt_sync_create((void*)(obj), type, name, 2)
 #define ITT_SYNC_RENAME(obj, name)      __itt_sync_rename(obj, name)
 #define ITT_STACK_CREATE(obj)           obj = __itt_stack_caller_create()
 #if __TBB_TASK_GROUP_CONTEXT

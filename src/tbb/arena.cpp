@@ -49,9 +49,7 @@ void arena::process( generic_scheduler& s ) {
     __TBB_ASSERT( is_alive(my_guard), NULL );
     __TBB_ASSERT( governor::is_set(&s), NULL );
     __TBB_ASSERT( !s.my_innermost_running_task, NULL );
-#if __TBB_TASK_PRIORITY
     __TBB_ASSERT( !s.my_dispatching_task, NULL );
-#endif /* __TBB_TASK_PRIORITY */
 
     __TBB_ASSERT( my_num_slots != 1, NULL );
     // Start search for an empty slot from the one we occupied the last time
@@ -97,12 +95,10 @@ void arena::process( generic_scheduler& s ) {
             // A side effect of receive_or_steal_task is that my_innermost_running_task can be set.
             // But for the outermost dispatch loop of a worker it has to be NULL.
             s.my_innermost_running_task = NULL;
-#if __TBB_TASK_PRIORITY
             __TBB_ASSERT( !s.my_dispatching_task, NULL );
-#endif /* __TBB_TASK_PRIORITY */
             s.local_wait_for_all(*s.my_dummy_task,t);
         }
-        __TBB_ASSERT ( my_slots[index].head == my_slots[index].tail, "Worker cannot leave arena while its task pool is not empty" );
+        __TBB_ASSERT ( __TBB_load_relaxed(my_slots[index].head) == __TBB_load_relaxed(my_slots[index].tail), "Worker cannot leave arena while its task pool is not empty" );
         __TBB_ASSERT( my_slots[index].task_pool == EmptyTaskPool, "Empty task pool is not marked appropriately" );
         // Revalidate quitting condition
         // This check prevents relinquishing more than necessary workers because 
@@ -135,9 +131,7 @@ void arena::process( generic_scheduler& s ) {
     s.my_inbox.detach();
     __TBB_ASSERT( s.my_inbox.is_idle_state(true), NULL );
     __TBB_ASSERT( !s.my_innermost_running_task, NULL );
-#if __TBB_TASK_PRIORITY
     __TBB_ASSERT( !s.my_dispatching_task, NULL );
-#endif /* __TBB_TASK_PRIORITY */
     __TBB_ASSERT( is_alive(my_guard), NULL );
 quit:
     // In contrast to earlier versions of TBB (before 3.0 U5) now it is possible
@@ -307,7 +301,7 @@ inline bool arena::may_have_tasks ( generic_scheduler* s, arena_slot& slot, bool
 bool arena::is_out_of_work() {
     // TODO: rework it to return at least a hint about where a task was found; better if the task itself.
     for(;;) {
-        pool_state_t snapshot = prefix().my_pool_state;
+        pool_state_t snapshot = my_pool_state;
         switch( snapshot ) {
             case SNAPSHOT_EMPTY:
                 return true;
@@ -315,7 +309,7 @@ bool arena::is_out_of_work() {
                 // Use unique id for "busy" in order to avoid ABA problems.
                 const pool_state_t busy = pool_state_t(this);
                 // Request permission to take snapshot
-                if( prefix().my_pool_state.compare_and_swap( busy, SNAPSHOT_FULL )==SNAPSHOT_FULL ) {
+                if( my_pool_state.compare_and_swap( busy, SNAPSHOT_FULL )==SNAPSHOT_FULL ) {
                     // Got permission. Take the snapshot.
                     // NOTE: This is not a lock, as the state can be set to FULL at 
                     //       any moment by a thread that spawns/enqueues new task.
@@ -330,9 +324,12 @@ bool arena::is_out_of_work() {
 #endif /* __TBB_TASK_PRIORITY */
                     size_t k; 
                     for( k=0; k<n; ++k ) {
-                        if( my_slots[k].task_pool != EmptyTaskPool && my_slots[k].head < my_slots[k].tail )
+                        if( my_slots[k].task_pool != EmptyTaskPool &&
+                            __TBB_load_relaxed(my_slots[k].head) < __TBB_load_relaxed(my_slots[k].tail) )
+                        {
                             // k-th primary task pool is nonempty and does contain tasks.
                             break;
+                        }
                     }
                     __TBB_ASSERT( k <= n, NULL );
                     bool work_absent = k == n;
@@ -379,7 +376,7 @@ bool arena::is_out_of_work() {
                     }
 #endif /* __TBB_TASK_PRIORITY */
                     // Test and test-and-set.
-                    if( prefix().my_pool_state==busy ) {
+                    if( my_pool_state==busy ) {
 #if __TBB_TASK_PRIORITY
                         bool no_fifo_tasks = my_task_stream[top_priority].empty();
                         work_absent = work_absent && (!dequeuing_possible || no_fifo_tasks)
@@ -402,7 +399,7 @@ bool arena::is_out_of_work() {
                                 // save current demand value before setting SNAPSHOT_EMPTY,
                                 // to avoid race with advertise_new_work.
                                 int current_demand = (int)my_max_num_workers;
-                                if( prefix().my_pool_state.compare_and_swap( SNAPSHOT_EMPTY, busy )==busy ) {
+                                if( my_pool_state.compare_and_swap( SNAPSHOT_EMPTY, busy )==busy ) {
                                     // This thread transitioned pool to empty state, and thus is 
                                     // responsible for telling RML that there is no other work to do.
                                     my_market->adjust_demand( *this, -current_demand );
@@ -431,7 +428,7 @@ bool arena::is_out_of_work() {
 #endif /* __TBB_TASK_PRIORITY */
                         }
                         // Undo previous transition SNAPSHOT_FULL-->busy, unless another thread undid it.
-                        prefix().my_pool_state.compare_and_swap( SNAPSHOT_FULL, busy );
+                        my_pool_state.compare_and_swap( SNAPSHOT_FULL, busy );
                     }
                 } 
                 return false;

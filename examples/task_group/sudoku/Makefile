@@ -26,7 +26,8 @@
 
 # GNU Makefile that builds and runs example.
 PROG=sudoku
-ARGS=input1 4 0 -p
+ARGS=4 input1 verbose
+PERF_RUN_ARGS=auto input1 silent
 
 # The C++ compiler
 ifneq (,$(shell which icc 2>/dev/null))
@@ -35,6 +36,10 @@ endif # which icc
 ifeq ($(CXX),icc)
 CXX0XFLAGS=-std=c++0x -D_TBB_CPP0X
 endif # icc
+
+ifeq ($(shell uname), Linux)
+LIBS+= -lrt 
+endif
 
 all:	release test
 
@@ -49,3 +54,9 @@ clean:
 
 test:
 	./$(PROG) $(ARGS)
+
+perf_build: release
+
+perf_run:
+	./$(PROG) $(PERF_RUN_ARGS)
+

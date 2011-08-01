@@ -52,21 +52,20 @@ class concurrent_queue_base: no_copy {
 
     friend class concurrent_queue_rep;
     friend struct micro_queue;
-#ifdef __IBMCPP__ 
-    // In C++ 2003, friend micro_queue's rights do not extend to pop_finalizer's
-    // nested class member variable my_page. So, strictly speaking, this assumes C++0x.
-    friend class micro_queue::pop_finalizer;
-#endif
     friend class concurrent_queue_iterator_rep;
     friend class concurrent_queue_iterator_base;
 
-protected:
+    // In C++ 1998/2003 (but quite likely not beyond), friend micro_queue's rights
+    // do not apply to the declaration of micro_queue::pop_finalizer::my_page,
+    // as a member of a class nested within that friend class, so...
+public:
     //! Prefix on a page
     struct page {
         page* next;
         uintptr_t mask; 
     };
 
+protected:
     //! Capacity of the queue
     ptrdiff_t my_capacity;
    

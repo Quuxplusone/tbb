@@ -27,6 +27,7 @@
 # GNU Makefile that builds and runs example.
 NAME=pover
 ARGS=
+LIGHT_ARGS= --polys 10 --size 5x5
 
 # The C++ compiler
 ifneq (,$(shell which icc 2>/dev/null))
@@ -36,10 +37,16 @@ endif # icc
 include ../../common/gui/Makefile.gmake
 
 ifeq ($(UI),x)
-CXXFLAGS += -DX_FULLSYNC # TODO: is this necessary? -DUSE_SCALABLE_ALLOC=0 
+UI_CXXFLAGS += -DX_FULLSYNC
 endif # X
 
+override CXXFLAGS += $(UI_CXXFLAGS)
+
 SRCFILES = ../../common/gui/$(UI)video.cpp pover_video.cpp polymain.cpp polyover.cpp
+
+ifeq ($(shell uname), Linux)
+LIBS+= -lrt 
+endif
 
 all:	release test
 
@@ -51,7 +58,12 @@ ifeq ($(UI),mac)
 endif
 
 release: $(SRCFILES) resources
+ifeq ($(compiler),xl)
+	# Avoiding "1586-346 (U) An error occurred during code generation.  The code generation return code was 40." with -O3.
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(EXE) $(SRCFILES) -ltbb -ltbbmalloc $(LIBS)
+else
 	$(CXX) -O3 -DNDEBUG $(CXXFLAGS) -o $(EXE) $(SRCFILES) -ltbb -ltbbmalloc $(LIBS)
+endif
 
 debug:  $(SRCFILES) resources
 	$(CXX) -g -O0 -DTBB_USE_DEBUG -D_DEBUG $(CXXFLAGS) -o $(EXE) $(SRCFILES) -ltbb_debug -ltbbmalloc_debug $(LIBS)
@@ -67,4 +79,11 @@ ifeq ($(UI),mac)
 	export DYLD_LIBRARY_PATH="$(DYLD_LIBRARY_PATH):$(TBBLIBSPATH)"; ./$(EXE) $(ARGS)
 else
 	./$(EXE) $(ARGS)
+endif
+
+light_test:
+ifeq ($(UI),mac)
+	export DYLD_LIBRARY_PATH="$(DYLD_LIBRARY_PATH):$(TBBLIBSPATH)"; ./$(EXE) $(LIGHT_ARGS)
+else
+	./$(EXE) $(LIGHT_ARGS)
 endif

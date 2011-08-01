@@ -28,19 +28,17 @@
 
 #include "harness.h"
 
-#ifndef TBB_PREVIEW_TASK_PRIORITY
-    #define TBB_PREVIEW_TASK_PRIORITY __TBB_TASK_PRIORITY
-#endif
+#if __TBB_TASK_GROUP_CONTEXT
 
 #include "tbb/task.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/atomic.h"
 #include <cstdlib>
 
-const int NumIterations = 1000;
+const int NumIterations = 100;
 const int NumLeafTasks = 2;
-int MinBaseDepth = 8;
-int MaxBaseDepth = 12;
+int MinBaseDepth = 9;
+int MaxBaseDepth = 11;
 int BaseDepth = 0;
 
 const int NumTests = 8;
@@ -102,14 +100,14 @@ class LeafTask : public tbb::task {
         for ( int i = 0; i < NumIterations; ++i )
             anchor += i;
         __TBB_FetchAndAddW(g_LeavesExecuted + m_tid, 1);
-#if TBB_PREVIEW_TASK_PRIORITY
+#if __TBB_TASK_PRIORITY
         ASSERT( !m_opts || (m_opts & Flog) || (!(m_opts & TestPreemption) ^ (m_tid == PreemptionActivatorId)), NULL );
         if ( (m_opts & TestPreemption) && g_LeavesExecuted[0] > P && group_priority() == tbb::priority_normal ) {
             ASSERT( m_tid == PreemptionActivatorId, NULL );
             ASSERT( (PreemptionActivatorId == 1 ? High > tbb::priority_normal : Low < tbb::priority_normal), NULL );
             set_group_priority( PreemptionActivatorId == 1 ? High : Low );
         }
-#endif /* TBB_PREVIEW_TASK_PRIORITY */
+#endif /* __TBB_TASK_PRIORITY */
         return NULL;
     }
 public:
@@ -130,11 +128,11 @@ protected:
         ASSERT( m_depth > 0, NULL );
         if ( g_LeavesExecuted[m_tid] % (100 / m_depth) == 0 ) {
             if ( m_opts & Flog ) {
-#if TBB_PREVIEW_TASK_PRIORITY
+#if __TBB_TASK_PRIORITY
                 task *r = m_opts & FlogEncloser ? this : m_root;
                 tbb::priority_t p = r->group_priority();
                 r->set_group_priority( p == Low ? High : Low );
-#endif /* TBB_PREVIEW_TASK_PRIORITY */
+#endif /* __TBB_TASK_PRIORITY */
             }
             else
                 __TBB_Yield();
@@ -208,7 +206,7 @@ public:
         tbb::task_scheduler_init init(P-1);
         tbb::task_group_context ctx (tbb::task_group_context::isolated);
         tbb::empty_task &r = *new( tbb::task::allocate_root(ctx) ) tbb::empty_task;
-        const int R = 8;
+        const int R = 4;
         r.set_ref_count( R * P + 1 );
         // Only thread 1 changes its task tree priority in preemption test mode
         uintptr_t opts = m_opts & (id == PreemptionActivatorId ? ~0u : ~(uintptr_t)TestPreemption);
@@ -293,19 +291,27 @@ void TestPrioritySwitchBetweenTwoMasters () {
             RunPrioritySwitchBetweenTwoMasters<BlockingNodeTask>( 1, TestPreemption );
             RunPrioritySwitchBetweenTwoMasters<NonblockingNodeTask>( 2, NoPriorities );
             RunPrioritySwitchBetweenTwoMasters<NonblockingNodeTask>( 3, TestPreemption );
-            RunPrioritySwitchBetweenTwoMasters<BlockingNodeTask>( 4, Flog );
-            RunPrioritySwitchBetweenTwoMasters<NonblockingNodeTask>( 5, Flog );
-            RunPrioritySwitchBetweenTwoMasters<NestedGroupNodeTask>( 6, Flog );
-            RunPrioritySwitchBetweenTwoMasters<NestedGroupNodeTask>( 7, FlogEncloser );
+            if ( i == 0 ) {
+                RunPrioritySwitchBetweenTwoMasters<BlockingNodeTask>( 4, Flog );
+                RunPrioritySwitchBetweenTwoMasters<NonblockingNodeTask>( 5, Flog );
+                RunPrioritySwitchBetweenTwoMasters<NestedGroupNodeTask>( 6, Flog );
+                RunPrioritySwitchBetweenTwoMasters<NestedGroupNodeTask>( 7, FlogEncloser );
+            }
         }
     }
+#if __TBB_TASK_PRIORITY
     const int NumRuns = TestRepeats * (MaxBaseDepth - MinBaseDepth + 1);
     for ( int i = 0; i < NumTests; ++i ) {
         if ( g_TestFailures[i] )
             REMARK( "Test %d: %d failures in %d runs\n", i, g_TestFailures[i], NumRuns );
-        if ( g_TestFailures[i] * 100 / NumRuns > 45 )
-            REPORT( "Warning: test %d misbehaved too often (%d out of %d)\n", i, g_TestFailures[i], NumRuns );
+        if ( g_TestFailures[i] * 100 / NumRuns > 50 ) {
+            if ( i == 1 )
+                REPORT( "Known issue: priority effect is limited in case of blocking-style nesting\n" );
+            else
+                REPORT( "Warning: test %d misbehaved too often (%d out of %d)\n", i, g_TestFailures[i], NumRuns );
+        }
     }
+#endif /* __TBB_TASK_PRIORITY */
     ClearGlobals();
 }
 
@@ -345,13 +351,13 @@ int TestSimplePriorityOps ( tbb::priority_t prio ) {
 void EmulateWork( int ) {
     for ( int i = 0; i < 1000; ++i )
         __TBB_Yield();
-};
+}
 
 class PeriodicActivitiesBody {
 public:
     void operator() ( int id ) const {
         tbb::task_group_context ctx;
-#if TBB_PREVIEW_TASK_PRIORITY
+#if __TBB_TASK_PRIORITY
         ctx.set_priority( id ? High : Low );
 #else /* !__TBB_TASK_PRIORITY */
         (void)id;
@@ -371,7 +377,7 @@ void TestPeriodicConcurrentActivities () {
 #include "harness_bad_expr.h"
 
 void TestPriorityAssertions () {
-#if TRY_BAD_EXPR_ENABLED && TBB_PREVIEW_TASK_PRIORITY
+#if TRY_BAD_EXPR_ENABLED && __TBB_TASK_PRIORITY
     REMARK( "TestPriorityAssertions\n" );
     tbb::priority_t bad_low_priority = tbb::priority_t( tbb::priority_low - 1 ),
                     bad_high_priority = tbb::priority_t( tbb::priority_high + 1 );
@@ -383,17 +389,17 @@ void TestPriorityAssertions () {
     TRY_BAD_EXPR( tbb::task::enqueue( t, bad_high_priority ), "Invalid priority level value" );
     // Restore normal assertion handling
     tbb::set_assertion_handler( NULL );
-#endif /* TRY_BAD_EXPR_ENABLED && TBB_PREVIEW_TASK_PRIORITY */
+#endif /* TRY_BAD_EXPR_ENABLED && __TBB_TASK_PRIORITY */
 }
 
 int TestMain () {
-#if !TBB_PREVIEW_TASK_PRIORITY
+#if !__TBB_TASK_PRIORITY
     REMARK( "Priorities disabled: Running as just yet another task scheduler test\n" );
-#endif /* TBB_PREVIEW_TASK_PRIORITY */
+#endif /* __TBB_TASK_PRIORITY */
     TestPriorityAssertions();
     TestSimplePriorityOps(tbb::priority_low);
     TestSimplePriorityOps(tbb::priority_high);
-    P = min( tbb::task_scheduler_init::default_num_threads(), 8 );
+    P = tbb::task_scheduler_init::default_num_threads();
     if ( P < 3 )
         return Harness::Skipped;
     TestPeriodicConcurrentActivities();
@@ -410,3 +416,11 @@ int TestMain () {
     TestPrioritySwitchBetweenTwoMasters();
     return Harness::Done;
 }
+
+#else /* !__TBB_TASK_GROUP_CONTEXT */
+
+int TestMain () {
+    return Harness::Skipped;
+}
+
+#endif /* !__TBB_TASK_GROUP_CONTEXT */

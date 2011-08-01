@@ -56,7 +56,7 @@
 #include "harness_assert.h"
 #include "harness.h"
 
-#if __TBB_GCC_WARNING_SUPPRESSION_ENABLED
+#if __TBB_GCC_WARNING_SUPPRESSION_PRESENT
 #pragma GCC diagnostic ignored "-Wuninitialized"
 #endif
 
@@ -888,6 +888,7 @@ flog_segmented_iterator_map() {
            REMARK( "ii=%d, (*my_csi).first=%d, second=%d\n",ii, int((*my_csi).first), int((*my_csi).second));
        }
    }
+   if(found_error) REPORT("segmented_iterator_map failed\n");
 }
 
 void

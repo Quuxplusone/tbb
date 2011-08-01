@@ -69,13 +69,13 @@ extern "C" void mallocProcessShutdownNotification(void);
 
     There are no methods "acquire" or "release".  The scoped_lock must be used
     in a strict block-scoped locking pattern.  Omitting these methods permitted
-    further simplication. */
+    further simplification. */
 class MallocMutex : tbb::internal::no_copy {
-    __TBB_Byte value;
+    __TBB_atomic_flag value;
 
 public:
     class scoped_lock : tbb::internal::no_copy {
-        const __TBB_Byte unlock_value;
+        __TBB_Flag unlock_value;
         MallocMutex& mutex;
     public:
         scoped_lock( MallocMutex& m ) : unlock_value( __TBB_LockByte(m.value)), mutex(m) {}

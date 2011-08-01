@@ -959,21 +959,26 @@ void TestExceptions() {
 #endif /* TBB_USE_EXCEPTIONS */
 
 //------------------------------------------------------------------------
-// Test SSE
+// Test SSE / AVX
 //------------------------------------------------------------------------
 #include "harness_m128.h"
 
-#if HAVE_m128
+#if HAVE_m128 | HAVE_m256
 
-void TestSSE() {
-    tbb::concurrent_vector<ClassWithSSE> v;
+template<typename ClassWithVectorType>
+void TestVectorTypes() {
+    tbb::concurrent_vector<ClassWithVectorType> v;
     for( int i=0; i<100; ++i ) {
-        v.push_back(ClassWithSSE(i));
-        for( int j=0; i<i; ++j ) 
-            ASSERT( v[j]==ClassWithSSE(j), NULL );
+        // VC8 does not properly align a temporary value; to work around, use explicit variable
+        ClassWithVectorType foo(i);
+        v.push_back(foo);
+        for( int j=0; i<i; ++j ) {
+            ClassWithVectorType bar(j);
+            ASSERT( v[j]==bar, NULL );
+        }
     }
 }
-#endif /* HAVE_m128 */
+#endif /* HAVE_m128 | HAVE_m256 */
 
 //------------------------------------------------------------------------
 
@@ -988,9 +993,12 @@ int TestMain () {
     TestResizeAndCopy();
     TestAssign();
 #if HAVE_m128
-    TestSSE();
-#endif /* HAVE_m128 */    
+    TestVectorTypes<ClassWithSSE>();
 #endif
+#if HAVE_m256
+    if (have_AVX()) TestVectorTypes<ClassWithAVX>();
+#endif
+#endif /* !TBB_DEPRECATED */
     TestCapacity();
     ASSERT( !FooCount, NULL );
     for( int nthread=MinThread; nthread<=MaxThread; ++nthread ) {

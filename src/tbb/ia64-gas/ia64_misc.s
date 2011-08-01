@@ -33,3 +33,75 @@ __TBB_get_bsp:
         mov r8=ar.bsp
         br.ret.sptk.many b0
     .endp __TBB_get_bsp#
+
+    .section .text
+    .align 16
+    .proc __TBB_machine_load8_relaxed#
+    .global __TBB_machine_load8_relaxed#
+__TBB_machine_load8_relaxed:
+        ld8 r8=[r32]
+        br.ret.sptk.many b0
+    .endp __TBB_machine_load8_relaxed#
+
+    .section .text
+    .align 16
+    .proc __TBB_machine_store8_relaxed#
+    .global __TBB_machine_store8_relaxed#
+__TBB_machine_store8_relaxed:
+        st8 [r32]=r33
+        br.ret.sptk.many b0
+    .endp __TBB_machine_store8_relaxed#
+
+    .section .text
+    .align 16
+    .proc __TBB_machine_load4_relaxed#
+    .global __TBB_machine_load4_relaxed#
+__TBB_machine_load4_relaxed:
+        ld4 r8=[r32]
+        br.ret.sptk.many b0
+    .endp __TBB_machine_load4_relaxed#
+
+    .section .text
+    .align 16
+    .proc __TBB_machine_store4_relaxed#
+    .global __TBB_machine_store4_relaxed#
+__TBB_machine_store4_relaxed:
+        st4 [r32]=r33
+        br.ret.sptk.many b0
+    .endp __TBB_machine_store4_relaxed#
+
+    .section .text
+    .align 16
+    .proc __TBB_machine_load2_relaxed#
+    .global __TBB_machine_load2_relaxed#
+__TBB_machine_load2_relaxed:
+        ld2 r8=[r32]
+        br.ret.sptk.many b0
+    .endp __TBB_machine_load2_relaxed#
+
+    .section .text
+    .align 16
+    .proc __TBB_machine_store2_relaxed#
+    .global __TBB_machine_store2_relaxed#
+__TBB_machine_store2_relaxed:
+        st2 [r32]=r33
+        br.ret.sptk.many b0
+    .endp __TBB_machine_store2_relaxed#
+
+    .section .text
+    .align 16
+    .proc __TBB_machine_load1_relaxed#
+    .global __TBB_machine_load1_relaxed#
+__TBB_machine_load1_relaxed:
+        ld1 r8=[r32]
+        br.ret.sptk.many b0
+    .endp __TBB_machine_load1_relaxed#
+
+    .section .text
+    .align 16
+    .proc __TBB_machine_store1_relaxed#
+    .global __TBB_machine_store1_relaxed#
+__TBB_machine_store1_relaxed:
+        st1 [r32]=r33
+        br.ret.sptk.many b0
+    .endp __TBB_machine_store1_relaxed#

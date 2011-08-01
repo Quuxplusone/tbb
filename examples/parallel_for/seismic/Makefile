@@ -26,7 +26,9 @@
 
 # GNU Makefile that builds and runs example.
 NAME=seismic
-ARGS=- 300
+ARGS=0:4 300
+PERF_RUN_ARGS=auto 10000 silent
+LIGHT_ARGS=1:2 100
 
 # The C++ compiler
 ifneq (,$(shell which icc 2>/dev/null))
@@ -34,6 +36,13 @@ CXX=icc
 endif # icc
 
 include ../../common/gui/Makefile.gmake
+override CXXFLAGS += $(UI_CXXFLAGS)
+
+SOURCES= ../../common/gui/$(UI)video.cpp universe.cpp seismic_video.cpp main.cpp
+
+ifeq ($(shell uname), Linux)
+LIBS+= -lrt 
+endif
 
 all:	release test
 
@@ -44,11 +53,11 @@ ifeq ($(UI),mac)
 	$(PBXCP) xcode/Info.plist $(APPRES)
 endif
 
-release: ../../common/gui/$(UI)video.cpp SeismicSimulation.cpp resources
-	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(EXE) $< SeismicSimulation.cpp -ltbb $(LIBS)
+release: $(SOURCES) resources
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(EXE) $(SOURCES) -ltbb $(LIBS)
 
-debug: ../../common/gui/$(UI)video.cpp SeismicSimulation.cpp resources
-	$(CXX) -g -O0 -DTBB_USE_DEBUG $(CXXFLAGS) -o $(EXE) $< SeismicSimulation.cpp -ltbb_debug $(LIBS)
+debug: resources
+	$(CXX) -g -O0 -DTBB_USE_DEBUG $(CXXFLAGS) -o $(EXE) $(SOURCES) -ltbb_debug $(LIBS)
 
 clean:
 	$(RM) $(EXE) *.o *.d
@@ -62,3 +71,12 @@ ifeq ($(UI),mac)
 else
 	./$(EXE) $(ARGS)
 endif
+
+perf_build: resources
+	$(CXX) -O2 -msse2 -DNDEBUG $(CXXFLAGS) -o $(EXE) $(SOURCES) -ltbb $(LIBS)
+
+perf_run:
+	./$(EXE) $(PERF_RUN_ARGS)
+
+light_test:
+	./$(EXE) $(LIGHT_ARGS)

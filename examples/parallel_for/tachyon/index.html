@@ -49,8 +49,10 @@ The following versions of the example are provided:
 
 <H2>Files</H2>
 <DL>
-<DT><A HREF="src/video.cpp">src/video.cpp</A>
-<DD>Source code for main program and GUI interfaces.
+<DT><A HREF="src/main.cpp">src/main.cpp</A>
+<DD>Main program which parses command line options and runs the raytracer.
+<DT><A HREF="src/tachyon_video.cpp">src/tachyon_video.cpp</A>
+<DD>Source code for GUI interfaces.
 <DT><A HREF="src/trace.serial.cpp">src/trace.serial.cpp</A>
 <DD>Source code for original sequential version of example.
 <DT><A HREF="src/trace.tbb1d.cpp">src/trace.tbb1d.cpp</A>
@@ -122,19 +124,25 @@ Here, &lt;<I>version</I>&gt; is one of the above versions of the example, i.e., 
 
 <H2>Usage</H2>
 Building via the above make commands, or via Visual Studio projects on Windows* systems, produces executable files
-named tachyon.&lt;<I>version</I>&gt;.exe.  To run these executables directly, use one or more of the following commands.
+named <TT>tachyon.&lt;<I>version</I>&gt;.exe</TT>.  To run these executables directly, use one or more of the following commands.
 <DL>
-<DT><TT>tachyon.&lt;<I>version</I>&gt;.exe &lt;<I>dataset</I>&gt;</TT>
-<DD>Run this version (release or debug), where &lt;<I>dataset</I>&gt; is the path/name of
-    one of the *.dat files in the <A HREF="dat">dat</A> directory for the example.
-<DT><TT>tachyon.&lt;<I>version</I>&gt;.exe -D &lt;<I>dataset</I>&gt;</TT>
+<DT><TT>tachyon.&lt;<I>version</I>&gt; <I>-h</I></TT>
+<DD>Prints the help for command line options
+<DT><TT>tachyon.&lt;<I>version</I>&gt; [<I>dataset</I>=value] [<I>boundthresh</I>=value] [<I>no-display-updating</I>] [<I>nobounding</I>] [<I>silent</I>]</TT>
+<DT><TT>tachyon.&lt;<I>version</I>&gt; [<I>dataset</I> [<I>boundthresh</I>]] [<I>no-display-updating</I>] [<I>nobounding</I>] [<I>silent</I>]</TT> 
+<DD><I>dataset</I> is the path/name of one of the *.dat files in the <A HREF="dat">dat</A> directory for the example.<BR>
+    <I>boundthresh</I> is a bounding threshold value.<BR>
+    <I>no-display-updating</I> - disable run-time display updating.<BR>
+    <I>no-bounding</I> - disable bounding technique.<BR>
+    <I>silent</I> - no output except elapsed time.<BR>
+<DT><TT>tachyon.&lt;<I>version</I>&gt; [<I>dataset</I>] [<I>no-display-updating</I>]</TT>
 <DD>Run this version (release or debug), but run with disabled run-time display updating
     for use in making performance measurements
     <I>(strongly recommended when measuring performance or scalability; see note below)</I>.
-<DT>To run a short version of this example, e.g., for use with Intel&reg; Threading Tools:
+<DT>To run a short version of this example, e.g., for use with Intel&reg; Parallel Inspector:
 <DD>Build a <I>debug</I> version of the <TT>tbb</TT> example with the GUI turned off
     (e.g., <TT>make UI=con tbb_debug</TT>; see also the build directions above).
-    <BR>Run it with a small dataset, e.g., <TT>tachyon.tbb.exe -D dat/820spheres.dat</TT>.
+    <BR>Run it with a small dataset, e.g., <TT>tachyon.tbb.exe dat/820spheres.dat no-display-updating</TT>.
 </DL>
 
 <H2>Notes</H2>

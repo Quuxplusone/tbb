@@ -29,9 +29,17 @@
 // tbb::tuple
 
 #include "harness.h"
+// this test should match that in graph.h, so we test whatever tuple is
+// being used by the join_node.
+#if !__SUNPRO_CC
+#if TBB_IMPLEMENT_CPP0X && (!defined(_MSC_VER) || _MSC_VER < 1600)
+#define __TESTING_STD_TUPLE__ 0
 #define TBB_PREVIEW_TUPLE 1
-#define TBB_IMPLEMENT_CPP0X 1
 #include "tbb/compat/tuple"
+#else
+#define __TESTING_STD_TUPLE__ 1
+#include <tuple>
+#endif
 #include <string>
 #include <iostream>
 
@@ -53,6 +61,11 @@ private:
 
 void RunTests() {
 
+#if __TESTING_STD_TUPLE__
+    REMARK("Testing platform tuple\n");
+#else
+    REMARK("Testing compat/tuple\n");
+#endif
     tuple<int> ituple1(3);
     tuple<int> ituple2(5);
     tuple<double> ftuple2(4.1);
@@ -142,3 +155,10 @@ int TestMain() {
     RunTests();
     return Harness::Done;
 }
+#else  // __SUNPRO_CC
+
+int TestMain() {
+    return Harness::Skipped;
+}
+
+#endif  // __SUNPRO_CC

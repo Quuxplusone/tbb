@@ -215,16 +215,16 @@ void dynamic_unlink( dynamic_link_handle handle ) {
         dlclose( handle );
 #endif
         (void)handle;
-#endif /* !__TBB_DYNAMIC_LOAD_ENABLED */
+#endif /* __TBB_DYNAMIC_LOAD_ENABLED */
     }
 }
 
 #if __TBB_BUILD
 
-// Class handle_storage is used by dynamic_link routine to store handles of 
-// all loaded or pinned dynamic libraries. When TBB is shut down, it calls 
-// dynamic_unlink_all() that unloads modules referenced by handle_storage. 
-// This functionality is only used by TBB. It should not be used by other 
+// Class handle_storage is used by dynamic_link routine to store handles of
+// all loaded or pinned dynamic libraries. When TBB is shut down, it calls
+// dynamic_unlink_all() that unloads modules referenced by handle_storage.
+// This functionality is only used by TBB. It should not be used by other
 // libraries reusing this source file to avoid dependency on tbb::atomic<>.
 
 #define MAX_LOADED_MODULES 8 // The number of maximum possible modules which can be loaded
@@ -242,7 +242,6 @@ public:
         const size_t ind = my_size++;
         LIBRARY_ASSERT( ind < MAX_LOADED_MODULES, "Too many modules are loaded" );
         my_handles[ind] = handle;
-        
     }
 
     void free_handles() {
@@ -256,7 +255,9 @@ public:
 
 bool dynamic_link( const char* library, const dynamic_link_descriptor descriptors[], size_t n, size_t required, dynamic_link_handle *handle ) {
     // Get library handle in case it is already loaded into the current process
-#if _WIN32||_WIN64
+#if ! __TBB_DYNAMIC_LOAD_ENABLED
+    dynamic_link_handle library_handle = NULL;
+#elif _WIN32||_WIN64
     dynamic_link_handle library_handle = GetModuleHandle( library );
 #else
     dynamic_link_handle library_handle = dlopen( NULL, RTLD_LAZY );
@@ -320,8 +321,6 @@ bool dynamic_link( const char* library, const dynamic_link_descriptor descriptor
 #if __TBB_DYNAMIC_LOAD_ENABLED || __TBB_TASK_CPP_DIRECTLY_INCLUDED
     if ( !library_handle ) {
 #if _WIN32||_WIN64
-        // Prevent Windows from displaying silly message boxes if it fails to load library
-        // (e.g. because of MS runtime problems - one of those crazy manifest related ones)
 #if _XBOX
         library_handle = LoadLibrary (library);
 #else
@@ -331,6 +330,8 @@ bool dynamic_link( const char* library, const dynamic_link_descriptor descriptor
         char path[ len ];
         size_t rc = abs_path( library, path, len );
         if ( 0 < rc && rc < len ) {
+            // Prevent Windows from displaying silly message boxes if it fails to load library
+            // (e.g. because of MS runtime problems - one of those crazy manifest related ones)
             UINT prev_mode = SetErrorMode (SEM_FAILCRITICALERRORS);
             library_handle = LoadLibrary (path);
             SetErrorMode (prev_mode);

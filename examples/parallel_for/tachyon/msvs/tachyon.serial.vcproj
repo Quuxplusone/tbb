@@ -20,8 +20,8 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(TEMP)\tbb_examples\$(ConfigurationName)"
-			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(ConfigurationName)"
+			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)\serial"
+			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)\serial"
 			ConfigurationType="1"
 			CharacterSet="2"
 			>
@@ -68,7 +68,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -103,8 +102,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|x64"
-			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)\serial"
+			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)\serial"
 			ConfigurationType="1"
 			CharacterSet="2"
 			>
@@ -150,7 +149,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -185,8 +183,8 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(TEMP)\tbb_examples\$(ConfigurationName)"
-			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(ConfigurationName)"
+			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)\serial"
+			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)\serial"
 			ConfigurationType="1"
 			CharacterSet="2"
 			WholeProgramOptimization="1"
@@ -232,7 +230,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -268,8 +265,8 @@
 		</Configuration>
 		<Configuration
 			Name="Release|x64"
-			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)\serial"
+			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)\serial"
 			ConfigurationType="1"
 			CharacterSet="2"
 			WholeProgramOptimization="1"
@@ -314,7 +311,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				GenerateDebugInformation="true"
 				SubSystem="2"
@@ -349,9 +345,9 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="DD Release|Win32"
-			OutputDirectory="$(TEMP)\tbb_examples\$(ConfigurationName)"
-			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(ConfigurationName)"
+			Name="DDRelease|Win32"
+			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)\serial"
+			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)\serial"
 			ConfigurationType="1"
 			CharacterSet="2"
 			WholeProgramOptimization="1"
@@ -397,7 +393,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(DXSDK_DIR)\lib\x86"
 				GenerateDebugInformation="true"
@@ -433,9 +428,9 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="DD Release|x64"
-			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)"
+			Name="DDRelease|x64"
+			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)\serial"
+			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)\serial"
 			ConfigurationType="1"
 			CharacterSet="2"
 			WholeProgramOptimization="1"
@@ -480,7 +475,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(DXSDK_DIR)\lib\x64"
 				GenerateDebugInformation="true"
@@ -516,9 +510,9 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="DD Debug|Win32"
-			OutputDirectory="$(TEMP)\tbb_examples\$(ConfigurationName)"
-			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(ConfigurationName)"
+			Name="DDDebug|Win32"
+			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)\serial"
+			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)\serial"
 			ConfigurationType="1"
 			CharacterSet="2"
 			>
@@ -565,7 +559,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(DXSDK_DIR)\lib\x86"
 				GenerateDebugInformation="true"
@@ -600,9 +593,9 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="DD Debug|x64"
-			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)"
+			Name="DDDebug|x64"
+			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)\serial"
+			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)\serial"
 			ConfigurationType="1"
 			CharacterSet="2"
 			>
@@ -648,7 +641,6 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="$(OutDir)tachyon.common.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(DXSDK_DIR)\lib\x64"
 				GenerateDebugInformation="true"

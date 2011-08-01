@@ -897,34 +897,39 @@ void TestPrimitiveTypes( int nthread, T exemplar )
 
 #include "harness_m128.h"
 
-#if HAVE_m128
+#if HAVE_m128 || HAVE_m256
 
-//! Test concurrent queue with SSE type
-/** Type Queue should be a queue of ClassWithSSE. */
-template<typename Queue>
-void TestSSE() {
+//! Test concurrent queue with vector types
+/** Type Queue should be a queue of ClassWithSSE/ClassWithAVX. */
+template<typename ClassWithVectorType, typename Queue>
+void TestVectorTypes() {
     Queue q1;
-    for( int i=0; i<100; ++i )
-        q1.push(ClassWithSSE(i));
+    for( int i=0; i<100; ++i ) {
+        // VC8 does not properly align a temporary value; to work around, use explicit variable
+        ClassWithVectorType bar(i);
+        q1.push(bar);
+    }
 
     // Copy the queue
     Queue q2 = q1;
     // Check that elements of the copy are correct
     typename Queue::const_iterator ci = q2.unsafe_begin();
     for( int i=0; i<100; ++i ) {
-        ClassWithSSE foo = *ci;
-        ASSERT( *ci==ClassWithSSE(i), NULL );
+        ClassWithVectorType foo = *ci;
+        ClassWithVectorType bar(i);
+        ASSERT( *ci==bar, NULL );
         ++ci;
     }
 
     for( int i=0; i<101; ++i ) {
-        ClassWithSSE tmp;
+        ClassWithVectorType tmp;
         bool b = q1.try_pop( tmp );
         ASSERT( b==(i<100), NULL );
-        ASSERT( !b || tmp==ClassWithSSE(i), NULL );
+        ClassWithVectorType bar(i);
+        ASSERT( !b || tmp==bar, NULL );
     }
 }
-#endif /* HAVE_m128 */
+#endif /* HAVE_m128 || HAVE_m256 */
 
 int TestMain () {
     TestEmptyQueue<char>();
@@ -942,9 +947,15 @@ int TestMain () {
     TestPrimitiveTypes( MaxThread, (float)-1.2f );
     TestPrimitiveTypes( MaxThread, (double)-4.3 );
 #if HAVE_m128
-    TestSSE<tbb::concurrent_queue<ClassWithSSE> >();
-    TestSSE<tbb::concurrent_bounded_queue<ClassWithSSE> >();
-#endif /* HAVE_m128 */
+    TestVectorTypes<ClassWithSSE, tbb::concurrent_queue<ClassWithSSE> >();
+    TestVectorTypes<ClassWithSSE, tbb::concurrent_bounded_queue<ClassWithSSE> >();
+#endif
+#if HAVE_m256
+    if( have_AVX() ) {
+        TestVectorTypes<ClassWithAVX, tbb::concurrent_queue<ClassWithAVX> >();
+        TestVectorTypes<ClassWithAVX, tbb::concurrent_bounded_queue<ClassWithAVX> >();
+    }
+#endif
 
     // Test concurrent operations
     for( int nthread=MinThread; nthread<=MaxThread; ++nthread ) {

@@ -26,6 +26,7 @@
     the GNU General Public License.
 */
 
+#define TBB_PREVIEW_DETERMINISTIC_REDUCE 1
 #include "tbb/parallel_reduce.h"
 #include "tbb/atomic.h"
 #include "harness_assert.h"
@@ -147,7 +148,7 @@ void Flog( int nthread, bool interference=false ) {
         }
         tbb::tick_count T1 = tbb::tick_count::now();
         REMARK("time=%g join_count=%ld ForkCount=%ld nthread=%d%s\n",
-                   (T1-T0).seconds(),join_count,long(ForkCount), nthread, interference ? " with interference)":"");
+                   (T1-T0).seconds(),join_count,long(ForkCount), nthread, interference ? " with interference":"");
     }
 }
 
@@ -165,7 +166,7 @@ public:
 };
 
 //! Test for problem in TBB 2.1 parallel_reduce where middle of a range is stolen.
-/** Warning: this test is a somewhat abusive use of TBB somewhat because 
+/** Warning: this test is a somewhat abusive use of TBB because 
     it requires two or more threads to avoid deadlock. */
 void FlogWithInterference( int nthread ) {
     ASSERT( nthread>=2, "requires too or more threads" );
@@ -250,6 +251,74 @@ void ParallelSum () {
     delete array;
 }
 
+const int N = 1000;
+
+#include "harness_concurrency_tracker.h"
+
+template <class Op>
+struct ReduceBody {
+    typename Op::Type my_value;
+
+    ReduceBody() : my_value() {}
+    ReduceBody( ReduceBody &, tbb::split ) : my_value() {}
+
+    void operator() ( const tbb::blocked_range<int>& r ) {
+        Harness::ConcurrencyTracker ct;
+        for ( int i = r.begin(); i != r.end(); ++i ) {
+            Op op;
+            my_value = op(my_value, i);
+        }
+    }
+
+    void join( const ReduceBody& y ) {
+        Op op;
+        my_value = op.join(my_value, y.my_value);
+    }
+};
+
+template <class Op>
+void TestDeterministicReduction () {
+    typedef typename Op::Type Type;
+    const tbb::blocked_range<int> range(0, N);
+    ReduceBody<Op> body;
+    tbb::parallel_deterministic_reduce( range,body );
+    Type R = body.my_value;
+    for ( int i=0; i<100; ++i ) {
+        ReduceBody<Op> body2;
+        tbb::parallel_deterministic_reduce( range,body2 );
+        ASSERT( body2.my_value == R, NULL );
+#if __TBB_LAMBDAS_PRESENT
+        Type r = tbb::parallel_deterministic_reduce( range, Type(), 
+            [](const tbb::blocked_range<int>& r, Type value) -> Type {
+                Harness::ConcurrencyTracker ct;
+                for ( int i = r.begin(); i != r.end(); ++i ) {
+                    Op op;
+                    value = op(value, i);
+                }
+                return value;
+        },
+            [](const Type& v1, const Type& v2) -> Type {
+                Op op;
+                return op.join(v1,v2);
+        }
+            );
+        ASSERT( r == R, NULL );
+#endif /* LAMBDAS */
+    }
+    ASSERT_WARNING((Harness::ConcurrencyTracker::PeakParallelism() > 1), "no parallel execution\n");
+}
+
+class RotOp {
+public:
+    typedef int Type;
+    int operator() ( int x, int i ) const {
+        return ( x<<1 ) ^ i;
+    }
+    int join( int x, int y ) const {
+        return operator()( x, y );
+    }
+};
+
 #include "tbb/task_scheduler_init.h"
 #include "harness_cpu.h"
 
@@ -264,6 +333,8 @@ int TestMain () {
         if( p>=2 )
             FlogWithInterference(p);
         ParallelSum();
+        if ( p>=2 )
+            TestDeterministicReduction<RotOp>();
         // Test that all workers sleep when no work
         TestCPUUserTime(p);
     }

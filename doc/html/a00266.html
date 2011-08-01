@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::buffer_node&lt; T, A &gt; Class Template Reference</title>
+<title>tbb::queuing_mutex::scoped_lock Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,383 +21,68 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00407.html">tbb</a>::<a class="el" href="a00266.html">buffer_node</a></div>
-<h1>tbb::buffer_node&lt; T, A &gt; Class Template Reference</h1><!-- doxytag: class="tbb::buffer_node" --><!-- doxytag: inherits="tbb::graph_node,reservable_item_buffer,tbb::receiver,tbb::sender" -->Forwards messages in arbitrary order.  
+<a class="el" href="a00357.html">tbb</a>::<a class="el" href="a00265.html">queuing_mutex</a>::<a class="el" href="a00266.html">scoped_lock</a></div>
+<h1>tbb::queuing_mutex::scoped_lock Class Reference</h1><!-- doxytag: class="tbb::queuing_mutex::scoped_lock" -->The scoped locking pattern.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00513.html">graph.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00515.html">queuing_mutex.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::buffer_node&lt; T, A &gt;:
-<p><center><img src="a00266.png" usemap="#tbb::buffer_node< T, A >_map" border="0" alt=""></center>
-<map name="tbb::buffer_node< T, A >_map">
-<area href="a00292.html" alt="tbb::graph_node" shape="rect" coords="0,56,260,80">
-<area href="a00323.html" alt="reservable_item_buffer< T, A >" shape="rect" coords="270,56,530,80">
-<area href="a00320.html" alt="tbb::receiver< T >" shape="rect" coords="540,56,800,80">
-<area href="a00327.html" alt="tbb::sender< T >" shape="rect" coords="810,56,1070,80">
-<area href="a00295.html" alt="item_buffer< T, A >" shape="rect" coords="270,0,530,24">
-<area href="a00310.html" alt="tbb::priority_queue_node< T, Compare, A >" shape="rect" coords="270,168,530,192">
-<area href="a00311.html" alt="tbb::queue_node< T, A >" shape="rect" coords="540,168,800,192">
-<area href="a00328.html" alt="tbb::sequencer_node< T, A >" shape="rect" coords="540,224,800,248">
-</map>
-<a href="a00058.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00086.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1aa0f0b829f3bfa1fd3ada547d36baa7"></a><!-- doxytag: member="tbb::buffer_node::input_type" ref="1aa0f0b829f3bfa1fd3ada547d36baa7" args="" -->
-typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#1aa0f0b829f3bfa1fd3ada547d36baa7">input_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The input type of this receiver. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f9965907524d6a4662c1ef8d7a431d16"></a><!-- doxytag: member="tbb::buffer_node::output_type" ref="f9965907524d6a4662c1ef8d7a431d16" args="" -->
-typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#f9965907524d6a4662c1ef8d7a431d16">output_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f58800af6910b79b697dc78c45a6c2c8"></a><!-- doxytag: member="tbb::buffer_node::predecessor_type" ref="f58800af6910b79b697dc78c45a6c2c8" args="" -->
-typedef <a class="el" href="a00327.html">sender</a>&lt; <a class="el" href="a00266.html#1aa0f0b829f3bfa1fd3ada547d36baa7">input_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#f58800af6910b79b697dc78c45a6c2c8">predecessor_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The predecessor type for this node. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1e7849bd080c90899ab29a0ce4a4d994"></a><!-- doxytag: member="tbb::buffer_node::successor_type" ref="1e7849bd080c90899ab29a0ce4a4d994" args="" -->
-typedef <a class="el" href="a00320.html">receiver</a>&lt; <a class="el" href="a00266.html#f9965907524d6a4662c1ef8d7a431d16">output_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#1e7849bd080c90899ab29a0ce4a4d994">successor_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a9384ce88b9f7b20412cbe0898d7866c"></a><!-- doxytag: member="tbb::buffer_node::my_class" ref="a9384ce88b9f7b20412cbe0898d7866c" args="" -->
-typedef <a class="el" href="a00266.html">buffer_node</a>&lt; T, A &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>my_class</b></td></tr>
-
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="94a406635bd9973dd241b86251d2d0eb"></a><!-- doxytag: member="tbb::buffer_node::buffer_node" ref="94a406635bd9973dd241b86251d2d0eb" args="(graph &amp;g)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#94a406635bd9973dd241b86251d2d0eb">buffer_node</a> (<a class="el" href="a00291.html">graph</a> &amp;g)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#db0fa3967491014572e24d6607bdc971">scoped_lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#d82b715d872e0b5271e5a1619b12f05e">register_successor</a> (<a class="el" href="a00320.html">receiver</a>&lt; <a class="el" href="a00266.html#f9965907524d6a4662c1ef8d7a431d16">output_type</a> &gt; &amp;r)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct lock that has not acquired a mutex.  <a href="#db0fa3967491014572e24d6607bdc971"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9b51ef972f5618ac17caadb58841ab6d"></a><!-- doxytag: member="tbb::queuing_mutex::scoped_lock::scoped_lock" ref="9b51ef972f5618ac17caadb58841ab6d" args="(queuing_mutex &amp;m)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#9b51ef972f5618ac17caadb58841ab6d">scoped_lock</a> (<a class="el" href="a00265.html">queuing_mutex</a> &amp;m)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Adds a new successor.  <a href="#d82b715d872e0b5271e5a1619b12f05e"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#d6849369f6d572c900626f72685c38aa">remove_successor</a> (<a class="el" href="a00320.html">receiver</a>&lt; <a class="el" href="a00266.html#f9965907524d6a4662c1ef8d7a431d16">output_type</a> &gt; &amp;r)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire lock on given mutex. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ac2c576a93570957d694192a5f491443"></a><!-- doxytag: member="tbb::queuing_mutex::scoped_lock::~scoped_lock" ref="ac2c576a93570957d694192a5f491443" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#ac2c576a93570957d694192a5f491443">~scoped_lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Removes a successor.  <a href="#d6849369f6d572c900626f72685c38aa"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#9e705450b76c8a0d7602ab7ed5a12df8">try_get</a> (T &amp;v)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock (if lock is held). <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="533e4fc8355ee321206a0609c42d909d"></a><!-- doxytag: member="tbb::queuing_mutex::scoped_lock::acquire" ref="533e4fc8355ee321206a0609c42d909d" args="(queuing_mutex &amp;m)" -->
+void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#533e4fc8355ee321206a0609c42d909d">acquire</a> (<a class="el" href="a00265.html">queuing_mutex</a> &amp;m)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Request an item from the <a class="el" href="a00266.html">buffer_node</a>.  <a href="#9e705450b76c8a0d7602ab7ed5a12df8"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#8df91437afbcf49c6d0390b09e22cc7c">try_reserve</a> (T &amp;v)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire lock on given mutex. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e5a014fb817599386a87170cf2cf51a9"></a><!-- doxytag: member="tbb::queuing_mutex::scoped_lock::try_acquire" ref="e5a014fb817599386a87170cf2cf51a9" args="(queuing_mutex &amp;m)" -->
+bool __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#e5a014fb817599386a87170cf2cf51a9">try_acquire</a> (<a class="el" href="a00265.html">queuing_mutex</a> &amp;m)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Reserves an item.  <a href="#8df91437afbcf49c6d0390b09e22cc7c"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#7fe6a6ee75cd8fa3d03bb7cfe208704b">try_release</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire lock on given mutex if free (i.e. non-blocking). <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3bf2b8c87ff22115be9b2eac179f2d30"></a><!-- doxytag: member="tbb::queuing_mutex::scoped_lock::release" ref="3bf2b8c87ff22115be9b2eac179f2d30" args="()" -->
+void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#3bf2b8c87ff22115be9b2eac179f2d30">release</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release a reserved item.  <a href="#7fe6a6ee75cd8fa3d03bb7cfe208704b"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#2e61664f5983b96860eda172406f42f3">try_consume</a> ()</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Consumes a reserved item.  <a href="#2e61664f5983b96860eda172406f42f3"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#00449f125dd8c18c8bd0ce392a040cbb">try_put</a> (T t)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Receive an item.  <a href="#00449f125dd8c18c8bd0ce392a040cbb"></a><br></td></tr>
-<tr><td colspan="2"><br><h2>Protected Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="75e1af5e4c086be17e03a3b0732baec4"></a><!-- doxytag: member="tbb::buffer_node::size_type" ref="75e1af5e4c086be17e03a3b0732baec4" args="" -->
-typedef size_t&nbsp;</td><td class="memItemRight" valign="bottom"><b>size_type</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="cca4b6b874023385ac56078810bc17de"></a><!-- doxytag: member="tbb::buffer_node::my_handler" ref="cca4b6b874023385ac56078810bc17de" args="" -->
-typedef internal::aggregating_functor&lt;<br>
- <a class="el" href="a00266.html">my_class</a>, buffer_operation &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>my_handler</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4560fc3c7118b2520aa1bc5f62dd60e0af7ad94618d88e00969e06c0d0187e6f"></a><!-- doxytag: member="tbb::buffer_node::reg_succ" ref="4560fc3c7118b2520aa1bc5f62dd60e0af7ad94618d88e00969e06c0d0187e6f" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>reg_succ</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4560fc3c7118b2520aa1bc5f62dd60e08634a7f7b473bc641d512f18fddbc69f"></a><!-- doxytag: member="tbb::buffer_node::rem_succ" ref="4560fc3c7118b2520aa1bc5f62dd60e08634a7f7b473bc641d512f18fddbc69f" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>rem_succ</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4560fc3c7118b2520aa1bc5f62dd60e096c16df0f0bf99d42a0bcd9d443e5a95"></a><!-- doxytag: member="tbb::buffer_node::req_item" ref="4560fc3c7118b2520aa1bc5f62dd60e096c16df0f0bf99d42a0bcd9d443e5a95" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>req_item</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4560fc3c7118b2520aa1bc5f62dd60e03cecf5febcf617b17eb608ac885cc2a5"></a><!-- doxytag: member="tbb::buffer_node::res_item" ref="4560fc3c7118b2520aa1bc5f62dd60e03cecf5febcf617b17eb608ac885cc2a5" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>res_item</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4560fc3c7118b2520aa1bc5f62dd60e0d4c172b43d8147ea9722aca3edee553c"></a><!-- doxytag: member="tbb::buffer_node::rel_res" ref="4560fc3c7118b2520aa1bc5f62dd60e0d4c172b43d8147ea9722aca3edee553c" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>rel_res</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4560fc3c7118b2520aa1bc5f62dd60e09d768c07d3f189b5f9fd8c02efc43486"></a><!-- doxytag: member="tbb::buffer_node::con_res" ref="4560fc3c7118b2520aa1bc5f62dd60e09d768c07d3f189b5f9fd8c02efc43486" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>con_res</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4560fc3c7118b2520aa1bc5f62dd60e0edd6ad56e7b36f53dd29f07e59c772f6"></a><!-- doxytag: member="tbb::buffer_node::put_item" ref="4560fc3c7118b2520aa1bc5f62dd60e0edd6ad56e7b36f53dd29f07e59c772f6" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>put_item</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4560fc3c7118b2520aa1bc5f62dd60e047ec6e83ab73d753b6dce168f9195ae0"></a><!-- doxytag: member="tbb::buffer_node::try_fwd" ref="4560fc3c7118b2520aa1bc5f62dd60e047ec6e83ab73d753b6dce168f9195ae0" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>try_fwd</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5d9b0dd3eb6f5fb930ef9c831fc2687b5b90094f6b533c0be9d43b441c56c4df"></a><!-- doxytag: member="tbb::buffer_node::WAIT" ref="5d9b0dd3eb6f5fb930ef9c831fc2687b5b90094f6b533c0be9d43b441c56c4df" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>WAIT</b> = 0</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5d9b0dd3eb6f5fb930ef9c831fc2687bfe4c71959f633ce76694b920887376ed"></a><!-- doxytag: member="tbb::buffer_node::SUCCEEDED" ref="5d9b0dd3eb6f5fb930ef9c831fc2687bfe4c71959f633ce76694b920887376ed" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>SUCCEEDED</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5d9b0dd3eb6f5fb930ef9c831fc2687b828ca8aa19d22bbdd610b3265595cb2a"></a><!-- doxytag: member="tbb::buffer_node::FAILED" ref="5d9b0dd3eb6f5fb930ef9c831fc2687b828ca8aa19d22bbdd610b3265595cb2a" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>FAILED</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><b>op_type</b> { <br>
-&nbsp;&nbsp;<b>reg_succ</b>, 
-<b>rem_succ</b>, 
-<b>req_item</b>, 
-<b>res_item</b>, 
-<br>
-&nbsp;&nbsp;<b>rel_res</b>, 
-<b>con_res</b>, 
-<b>put_item</b>, 
-<b>try_fwd</b>
-<br>
- }</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><b>op_stat</b> { <b>WAIT</b> = 0, 
-<b>SUCCEEDED</b>, 
-<b>FAILED</b>
- }</td></tr>
-
-<tr><td colspan="2"><br><h2>Protected Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a8002fd7bb46ee054b634569f5dd51f5"></a><!-- doxytag: member="tbb::buffer_node::handle_operations" ref="a8002fd7bb46ee054b634569f5dd51f5" args="(buffer_operation *op_list)" -->
-virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><b>handle_operations</b> (buffer_operation *op_list)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d31061a8f14d12fd0e356eb7c6f0b538"></a><!-- doxytag: member="tbb::buffer_node::forward" ref="d31061a8f14d12fd0e356eb7c6f0b538" args="()" -->
-virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#d31061a8f14d12fd0e356eb7c6f0b538">forward</a> ()</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">This is executed by an enqueued task, the "forwarder". <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="83886672c2419765b462ba36ae9465ba"></a><!-- doxytag: member="tbb::buffer_node::internal_reg_succ" ref="83886672c2419765b462ba36ae9465ba" args="(buffer_operation *op)" -->
-virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#83886672c2419765b462ba36ae9465ba">internal_reg_succ</a> (buffer_operation *op)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Register successor. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4b7508a1bba25f4d361f063ccf549221"></a><!-- doxytag: member="tbb::buffer_node::internal_rem_succ" ref="4b7508a1bba25f4d361f063ccf549221" args="(buffer_operation *op)" -->
-virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#4b7508a1bba25f4d361f063ccf549221">internal_rem_succ</a> (buffer_operation *op)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Remove successor. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1a7cb6ce914670837a9d71818fd04e93"></a><!-- doxytag: member="tbb::buffer_node::internal_forward" ref="1a7cb6ce914670837a9d71818fd04e93" args="(buffer_operation *op)" -->
-virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00266.html#1a7cb6ce914670837a9d71818fd04e93">internal_forward</a> (buffer_operation *op)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Tries to forward valid items to successors. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="08de79b17fc971f5ab97a19a1cca9e53"></a><!-- doxytag: member="tbb::buffer_node::internal_push" ref="08de79b17fc971f5ab97a19a1cca9e53" args="(buffer_operation *op)" -->
-virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_push</b> (buffer_operation *op)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5bfe2c3a162c59a408ae4f4621a605de"></a><!-- doxytag: member="tbb::buffer_node::internal_pop" ref="5bfe2c3a162c59a408ae4f4621a605de" args="(buffer_operation *op)" -->
-virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_pop</b> (buffer_operation *op)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8026288c09ddaf11696924108ca13130"></a><!-- doxytag: member="tbb::buffer_node::internal_reserve" ref="8026288c09ddaf11696924108ca13130" args="(buffer_operation *op)" -->
-virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_reserve</b> (buffer_operation *op)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="cab007c11a3ab0686d214976f09da130"></a><!-- doxytag: member="tbb::buffer_node::internal_consume" ref="cab007c11a3ab0686d214976f09da130" args="(buffer_operation *op)" -->
-virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_consume</b> (buffer_operation *op)</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="941acb2ced36f727361e1e2b7341ec38"></a><!-- doxytag: member="tbb::buffer_node::internal_release" ref="941acb2ced36f727361e1e2b7341ec38" args="(buffer_operation *op)" -->
-virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_release</b> (buffer_operation *op)</td></tr>
-
-<tr><td colspan="2"><br><h2>Protected Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="81a999244166f3fa120e47393113d5cc"></a><!-- doxytag: member="tbb::buffer_node::my_successors" ref="81a999244166f3fa120e47393113d5cc" args="" -->
-internal::round_robin_cache&lt;<br>
- T, <a class="el" href="a00304.html">null_rw_mutex</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>my_successors</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c9d7f3723d0c1f1174ea384a4175b3f1"></a><!-- doxytag: member="tbb::buffer_node::my_parent" ref="c9d7f3723d0c1f1174ea384a4175b3f1" args="" -->
-<a class="el" href="a00336.html">task</a> *&nbsp;</td><td class="memItemRight" valign="bottom"><b>my_parent</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="09e179a221701ced90f35e6eeb937c86"></a><!-- doxytag: member="tbb::buffer_node::forwarder_busy" ref="09e179a221701ced90f35e6eeb937c86" args="" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>forwarder_busy</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8484edf36ff0469bfdbedf1332c4b972"></a><!-- doxytag: member="tbb::buffer_node::my_aggregator" ref="8484edf36ff0469bfdbedf1332c4b972" args="" -->
-internal::aggregator&lt; my_handler,<br>
- buffer_operation &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>my_aggregator</b></td></tr>
-
-<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="02a18a6a10c05e3f217f0111e0f5fb72"></a><!-- doxytag: member="tbb::buffer_node::internal::forward_task&lt; buffer_node&lt; T, A &gt; &gt;" ref="02a18a6a10c05e3f217f0111e0f5fb72" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::forward_task&lt; buffer_node&lt; T, A &gt; &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="0b5526a5033ff7acc64681cff9ad76b0"></a><!-- doxytag: member="tbb::buffer_node::internal::aggregating_functor&lt; my_class, buffer_operation &gt;" ref="0b5526a5033ff7acc64681cff9ad76b0" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::aggregating_functor&lt; my_class, buffer_operation &gt;</b></td></tr>
-
-<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>buffer_operation</b></td></tr>
-
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename T, typename A = cache_aligned_allocator&lt;T&gt;&gt;<br>
- class tbb::buffer_node&lt; T, A &gt;</h3>
-
-Forwards messages in arbitrary order. 
+The scoped locking pattern. 
 <p>
-<hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="d82b715d872e0b5271e5a1619b12f05e"></a><!-- doxytag: member="tbb::buffer_node::register_successor" ref="d82b715d872e0b5271e5a1619b12f05e" args="(receiver&lt; output_type &gt; &amp;r)" -->
+It helps to avoid the common problem of forgetting to release lock. It also nicely provides the "node" for queuing locks. 
+<p>
+<hr><h2>Constructor &amp; Destructor Documentation</h2>
+<a class="anchor" name="db0fa3967491014572e24d6607bdc971"></a><!-- doxytag: member="tbb::queuing_mutex::scoped_lock::scoped_lock" ref="db0fa3967491014572e24d6607bdc971" args="()" -->
 <div class="memitem">
 <div class="memproto">
-<div class="memtemplate">
-template&lt;typename T, typename A = cache_aligned_allocator&lt;T&gt;&gt; </div>
       <table class="memname">
         <tr>
-          <td class="memname">bool <a class="el" href="a00266.html">tbb::buffer_node</a>&lt; T, A &gt;::register_successor           </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="a00320.html">receiver</a>&lt; <a class="el" href="a00266.html#f9965907524d6a4662c1ef8d7a431d16">output_type</a> &gt; &amp;&nbsp;</td>
-          <td class="paramname"> <em>r</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline, virtual]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Adds a new successor. 
-<p>
-Adds successor r to the list of successors; may forward tasks. 
-<p>
-Implements <a class="el" href="a00327.html#be48ac70174cf8e08e2b0279cd6343d3">tbb::sender&lt; T &gt;</a>.
-</div>
-</div><p>
-<a class="anchor" name="d6849369f6d572c900626f72685c38aa"></a><!-- doxytag: member="tbb::buffer_node::remove_successor" ref="d6849369f6d572c900626f72685c38aa" args="(receiver&lt; output_type &gt; &amp;r)" -->
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T, typename A = cache_aligned_allocator&lt;T&gt;&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">bool <a class="el" href="a00266.html">tbb::buffer_node</a>&lt; T, A &gt;::remove_successor           </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="a00320.html">receiver</a>&lt; <a class="el" href="a00266.html#f9965907524d6a4662c1ef8d7a431d16">output_type</a> &gt; &amp;&nbsp;</td>
-          <td class="paramname"> <em>r</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline, virtual]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Removes a successor. 
-<p>
-Removes successor r from the list of successors. It also calls r.remove_predecessor(*this) to remove this node as a predecessor. 
-<p>
-Implements <a class="el" href="a00327.html#3f345427e812e8741370308ff88f30bf">tbb::sender&lt; T &gt;</a>.
-</div>
-</div><p>
-<a class="anchor" name="2e61664f5983b96860eda172406f42f3"></a><!-- doxytag: member="tbb::buffer_node::try_consume" ref="2e61664f5983b96860eda172406f42f3" args="()" -->
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T, typename A = cache_aligned_allocator&lt;T&gt;&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">bool <a class="el" href="a00266.html">tbb::buffer_node</a>&lt; T, A &gt;::try_consume           </td>
+          <td class="memname">tbb::queuing_mutex::scoped_lock::scoped_lock           </td>
           <td>(</td>
           <td class="paramname">          </td>
           <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline, virtual]</code></td>
+          <td width="100%"><code> [inline]</code></td>
         </tr>
       </table>
 </div>
 <div class="memdoc">
 
 <p>
-Consumes a reserved item. 
+Construct lock that has not acquired a mutex. 
 <p>
-true = item is removed from sender and reservation removed 
-<p>
-Reimplemented from <a class="el" href="a00327.html#add46946c4c7330422733432e4032fac">tbb::sender&lt; T &gt;</a>.
-</div>
-</div><p>
-<a class="anchor" name="9e705450b76c8a0d7602ab7ed5a12df8"></a><!-- doxytag: member="tbb::buffer_node::try_get" ref="9e705450b76c8a0d7602ab7ed5a12df8" args="(T &amp;v)" -->
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T, typename A = cache_aligned_allocator&lt;T&gt;&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">bool <a class="el" href="a00266.html">tbb::buffer_node</a>&lt; T, A &gt;::try_get           </td>
-          <td>(</td>
-          <td class="paramtype">T &amp;&nbsp;</td>
-          <td class="paramname"> <em>v</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline, virtual]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Request an item from the <a class="el" href="a00266.html">buffer_node</a>. 
-<p>
-true = v contains the returned item<br>
- false = no item has been returned 
-<p>
-Reimplemented from <a class="el" href="a00327.html#bf8c9235810354f3353a899c982645de">tbb::sender&lt; T &gt;</a>.
-</div>
-</div><p>
-<a class="anchor" name="00449f125dd8c18c8bd0ce392a040cbb"></a><!-- doxytag: member="tbb::buffer_node::try_put" ref="00449f125dd8c18c8bd0ce392a040cbb" args="(T t)" -->
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T, typename A = cache_aligned_allocator&lt;T&gt;&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">bool <a class="el" href="a00266.html">tbb::buffer_node</a>&lt; T, A &gt;::try_put           </td>
-          <td>(</td>
-          <td class="paramtype">T&nbsp;</td>
-          <td class="paramname"> <em>t</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline, virtual]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Receive an item. 
-<p>
-true is always returned 
-<p>
-Implements <a class="el" href="a00320.html#6e5422b03b4570138f227b3d5d0073b8">tbb::receiver&lt; T &gt;</a>.
-</div>
-</div><p>
-<a class="anchor" name="7fe6a6ee75cd8fa3d03bb7cfe208704b"></a><!-- doxytag: member="tbb::buffer_node::try_release" ref="7fe6a6ee75cd8fa3d03bb7cfe208704b" args="()" -->
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T, typename A = cache_aligned_allocator&lt;T&gt;&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">bool <a class="el" href="a00266.html">tbb::buffer_node</a>&lt; T, A &gt;::try_release           </td>
-          <td>(</td>
-          <td class="paramname">          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline, virtual]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Release a reserved item. 
-<p>
-true = item has been released and so remains in sender 
-<p>
-Reimplemented from <a class="el" href="a00327.html#28c41df1c0c7ed485b4a691ec8f30098">tbb::sender&lt; T &gt;</a>.
-</div>
-</div><p>
-<a class="anchor" name="8df91437afbcf49c6d0390b09e22cc7c"></a><!-- doxytag: member="tbb::buffer_node::try_reserve" ref="8df91437afbcf49c6d0390b09e22cc7c" args="(T &amp;v)" -->
-<div class="memitem">
-<div class="memproto">
-<div class="memtemplate">
-template&lt;typename T, typename A = cache_aligned_allocator&lt;T&gt;&gt; </div>
-      <table class="memname">
-        <tr>
-          <td class="memname">bool <a class="el" href="a00266.html">tbb::buffer_node</a>&lt; T, A &gt;::try_reserve           </td>
-          <td>(</td>
-          <td class="paramtype">T &amp;&nbsp;</td>
-          <td class="paramname"> <em>v</em>          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline, virtual]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Reserves an item. 
-<p>
-false = no item can be reserved<br>
- true = an item is reserved 
-<p>
-Reimplemented from <a class="el" href="a00327.html#3506c7275aeeb2fc3ba5d5f10ee0adac">tbb::sender&lt; T &gt;</a>.
+Equivalent to zero-initialization of *this. 
 </div>
 </div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00513.html">graph.h</a></ul>
+<li><a class="el" href="a00515.html">queuing_mutex.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

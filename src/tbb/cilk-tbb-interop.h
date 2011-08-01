@@ -26,6 +26,8 @@
     the GNU General Public License.
 */
 
+/* The API to enable interoperability between Intel(R) Cilk(tm) Plus and TBB. */
+
 #ifndef CILK_TBB_INTEROP_H
 #define CILK_TBB_INTEROP_H
 
@@ -63,8 +65,8 @@ typedef __cilk_tbb_retcode (*__cilk_tbb_pfn_unwatch_stacks)(void *data);
 /* Each thunk structure has two pointers: "routine" and "data".
    The caller of the thunk invokes *routine, passing "data" as the void* parameter. */
 
-/* Thunk invoked by Cilk when it changes the relationship between a stack and a thread.
-   It does not matter what stack the thunk runs on.
+/* Thunk invoked by Intel Cilk Plus runtime (cilkrts) when it changes the relationship
+   between a stack and a thread. It does not matter what stack the thunk runs on.
    The thread (not fiber) on which the thunk runs is important.
 
    CILK_TBB_STACK_ORPHAN
@@ -106,9 +108,9 @@ struct __cilk_tbb_unwatch_thunk {
     void* data;      
 };
 
-/* Called by TBB, defined by Cilk. 
-   Requests that callee invoke __cilk_tbb_stack_op_thunk when it orphans a stack. 
-   Callee sets *u to a thunk that TBB should call when it is no longer interested in watching the stack. */
+/* Defined by cilkrts, called by TBB.
+   Requests that cilkrts invoke __cilk_tbb_stack_op_thunk when it orphans a stack. 
+   cilkrts sets *u to a thunk that TBB should call when it is no longer interested in watching the stack. */
 CILK_EXPORT
 __cilk_tbb_retcode __cilkrts_watch_stack(struct __cilk_tbb_unwatch_thunk* u,
                                          struct __cilk_tbb_stack_op_thunk o);

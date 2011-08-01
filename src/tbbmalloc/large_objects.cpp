@@ -173,7 +173,7 @@ static uintptr_t cleanupCacheIfNeed ()
         int i;
 
         for (i = numLargeBlockBins-1, 
-             objSize = (numLargeBlockBins-1)*largeBlockCacheStep+blockSize; 
+             objSize = (numLargeBlockBins-1)*largeBlockCacheStep+minLargeObjectSize; 
              i >= 0; 
              i--, objSize-=largeBlockCacheStep) {
             /* cached block size on iteration is

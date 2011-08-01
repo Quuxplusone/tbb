@@ -30,13 +30,6 @@
     #define TBB_PREVIEW_CONCURRENT_PRIORITY_QUEUE 1
 #endif
 
-#if __INTEL_COMPILER && _WIN64 && TBB_USE_ASSERT
-// The Intel Compiler has an issue that causes the Microsoft Iterator
-// Debugging code to crash in vector::pop_back when it is called after a
-// vector::push_back throws an exception.
-#define _HAS_ITERATOR_DEBUGGING 0
-#endif
-
 #include "tbb/concurrent_priority_queue.h"
 #include "tbb/atomic.h"
 #include "harness.h"
@@ -51,6 +44,15 @@
 #include <climits>
 #if _MSC_VER==1500 && !__INTEL_COMPILER
     #pragma warning( pop )
+#endif
+
+#if __INTEL_COMPILER && (_WIN32 || _WIN64) && TBB_USE_DEBUG && _CPPLIB_VER<520
+// The Intel Compiler has an issue that causes the Microsoft Iterator
+// Debugging code to crash in vector::pop_back when it is called after a
+// vector::push_back throws an exception.
+// #define _HAS_ITERATOR_DEBUGGING 0 // Setting this to 0 doesn't solve the problem
+                                     // and also provokes a redefinition warning
+#define __TBB_ITERATOR_DEBUGGING_EXCEPTIONS_BROKEN
 #endif
 
 using namespace tbb;
@@ -139,23 +141,6 @@ public:
     }
 };
 
-template<typename T, typename C>
-struct ReserveBody : NoAssign {
-    int nThread;
-    concurrent_priority_queue<T, C> *q;
-public:
-    ReserveBody(int nThread_, concurrent_priority_queue<T, C> *q_) : nThread(nThread_), q(q_) {}
-    void operator()(const int threadID) const {
-        T in_elem(threadID), out_elem;
-        q->reserve(q->capacity()+1);
-        for (size_t i=0; i<MAX_ITER; ++i) {
-            q->push(in_elem);
-            if (i%2) in_elem = in_elem + nThread;
-            ASSERT(q->try_pop(out_elem), "FAILED simultaneous enqueue/dequeue test in ReserveBody.");
-        }
-    }
-};
-
 template <typename T, typename C>
 class FloggerBody : NoAssign {
     int nThread;
@@ -183,7 +168,6 @@ void TestConstructorsDestructorsAccessors() {
     q = new concurrent_priority_queue<int, std::less<int> >();
     REMARK("Default constructor complete.\n");
     ASSERT(q->size()==0, "FAILED size test.");
-    ASSERT(q->capacity()==0, "FAILED capacity test.");
     ASSERT(q->empty(), "FAILED empty test.");
     REMARK("Testing destructor.\n");
     delete q;
@@ -193,7 +177,6 @@ void TestConstructorsDestructorsAccessors() {
     q = new concurrent_priority_queue<int, std::less<int> >(42);
     REMARK("Capacity constructor complete.\n");
     ASSERT(q->size()==0, "FAILED size test.");
-    ASSERT(q->capacity()==42, "FAILED capacity test.");
     ASSERT(q->empty(), "FAILED empty test.");
     REMARK("Testing destructor.\n");
     delete q;
@@ -203,7 +186,6 @@ void TestConstructorsDestructorsAccessors() {
     qi = new concurrent_priority_queue<int, std::less<int>, std::allocator<int> >(a);
     REMARK("Allocator constructor complete.\n");
     ASSERT(qi->size()==0, "FAILED size test.");
-    ASSERT(qi->capacity()==0, "FAILED allocator test.");
     ASSERT(qi->empty(), "FAILED empty test.");
     REMARK("Testing destructor.\n");
     delete qi;
@@ -213,7 +195,6 @@ void TestConstructorsDestructorsAccessors() {
     qi = new concurrent_priority_queue<int, std::less<int>, std::allocator<int> >(42, a);
     REMARK("Capacity+allocator constructor complete.\n");
     ASSERT(qi->size()==0, "FAILED size test.");
-    ASSERT(qi->capacity()==42, "FAILED capacity+allocator test.");
     ASSERT(qi->empty(), "FAILED empty test.");
     REMARK("Testing destructor.\n");
     delete qi;
@@ -225,14 +206,12 @@ void TestConstructorsDestructorsAccessors() {
     q = new concurrent_priority_queue<int, std::less<int> >(v.begin(), v.end());
     REMARK("Iterator filler constructor complete.\n");
     ASSERT(q->size()==42, "FAILED vector/size test.");
-    ASSERT(q->capacity()==42, "FAILED vector/capacity test.");
     ASSERT(!q->empty(), "FAILED vector/empty test.");
 
     REMARK("Testing copy constructor.\n");
     qo = new concurrent_priority_queue<int, std::less<int> >(*q);
     REMARK("Copy constructor complete.\n");
     ASSERT(qo->size()==42, "FAILED vector/size test.");
-    ASSERT(qo->capacity()==42, "FAILED vector/capacity test.");
     ASSERT(!qo->empty(), "FAILED vector/empty test.");
     REMARK("Testing destructor.\n");
     delete q;
@@ -240,7 +219,7 @@ void TestConstructorsDestructorsAccessors() {
     REMARK("Destruction complete.\n");
 }
 
-void TestAssignmentClearShrinkSwap() {
+void TestAssignmentClearSwap() {
     std::vector<int> v;
     concurrent_priority_queue<int, std::less<int> > *q, *qo;
     int e;
@@ -254,14 +233,12 @@ void TestAssignmentClearShrinkSwap() {
     *qo = *q; 
     REMARK("Assignment complete.\n");
     ASSERT(qo->size()==42, "FAILED assignment/size test.");
-    ASSERT(qo->capacity()==42, "FAILED assignment/capacity test.");
     ASSERT(!qo->empty(), "FAILED assignment/empty test.");
 
     REMARK("Testing clear.\n");
     q->clear();
     REMARK("Clear complete.\n");
     ASSERT(q->size()==0, "FAILED clear/size test.");
-    ASSERT(q->capacity()==42, "FAILED clear/capacity test.");
     ASSERT(q->empty(), "FAILED clear/empty test.");
 
     for (size_t i=0; i<5; ++i)
@@ -271,27 +248,17 @@ void TestAssignmentClearShrinkSwap() {
     *q = *qo;
     REMARK("Assignment complete.\n");
     ASSERT(q->size()==37, "FAILED assignment/size test.");
-    ASSERT(q->capacity()==37, "FAILED assignment/capacity test.");
     ASSERT(!q->empty(), "FAILED assignment/empty test.");
 
     for (size_t i=0; i<5; ++i)
         (void) qo->try_pop(e);
 
-    REMARK("Testing shrink_to_fit.\n");
-    qo->shrink_to_fit();
-    REMARK("Shrink_to_fit complete.\n");
-    ASSERT(qo->size()==32, "FAILED shrink_to_fit/size test.");
-    ASSERT(qo->capacity()==32, "FAILED shrink_to_fit/capacity test.");
-    ASSERT(!qo->empty(), "FAILED shrink_to_fit/empty test.");
-
     REMARK("Testing swap.\n");
     q->swap(*qo);
     REMARK("Swap complete.\n");
     ASSERT(q->size()==32, "FAILED swap/size test.");
-    ASSERT(q->capacity()==32, "FAILED swap/capacity test.");
     ASSERT(!q->empty(), "FAILED swap/empty test.");
     ASSERT(qo->size()==37, "FAILED swap_operand/size test.");
-    ASSERT(qo->capacity()==37, "FAILED swap_operand/capacity test.");
     ASSERT(!qo->empty(), "FAILED swap_operand/empty test.");
     delete q;
     delete qo;
@@ -310,7 +277,6 @@ void TestSerialPushPop() {
     }
     REMARK("Pushing complete.\n");
     ASSERT(q->size()==MAX_ITER, "FAILED push/size test.");
-    ASSERT(q->capacity()==MAX_ITER, "FAILED push/capacity test.");
     ASSERT(!q->empty(), "FAILED push/empty test.");
     
     REMARK("Testing serial pop.\n");
@@ -320,7 +286,6 @@ void TestSerialPushPop() {
         prev = e;
         ++count;
         ASSERT(q->size()==MAX_ITER-count, "FAILED swap/size test.");
-        ASSERT(q->capacity()==MAX_ITER, "FAILED swap/capacity test.");
         ASSERT(!q->empty() || count==MAX_ITER, "FAILED swap/empty test.");
     }
     REMARK("Popping complete.\n");
@@ -340,7 +305,6 @@ void TestParallelPushPop(int nThreads, T t_max, T t_min, C /*compare*/) {
     REMARK("Pushing complete.\n");
     qsize = q->size();
     ASSERT(q->size()==nThreads*MAX_ITER, "FAILED push/size test.");
-    ASSERT(q->capacity()>=qsize, "FAILED push/capacity test.");
     ASSERT(!q->empty(), "FAILED push/empty test.");
     
     REMARK("Testing parallel pop.\n");
@@ -350,21 +314,7 @@ void TestParallelPushPop(int nThreads, T t_max, T t_min, C /*compare*/) {
     ASSERT(q->size()==0, "FAILED pop/empty test.");
 
     q->clear();
-    q->shrink_to_fit();
     delete(q);
-}
-
-void TestPushPopReserve(int nThreads) {
-    concurrent_priority_queue<int, std::less<int> > *q = new concurrent_priority_queue<int, std::less<int> >(0);
-    counter = 0;
-    REMARK("Testing reserve.\n");
-    NativeParallelFor(nThreads, ReserveBody<int, std::less<int> >(nThreads, q));
-    REMARK("Reserve complete.\n");
-    ASSERT(q->size()==0, "FAILED reserve/size test.");
-    ASSERT(q->empty(), "FAILED reserve/empty test.");
-    q->clear();
-    q->shrink_to_fit();
-    delete q;
 }
 
 void TestExceptions() {
@@ -377,14 +327,14 @@ void TestExceptions() {
         my_throwing_type::throw_flag = 1;
         cpq_ex_test_type q;
     } catch(...) {
-        REMARK("FAILED: allocating empty queue should not throw exception.\n");
+        ASSERT(false, "FAILED: allocating empty queue should not throw exception.\n");
     }
     // Allocate small queue should not throw for reasonably sized type
     try {
         my_throwing_type::throw_flag = 1;
         cpq_ex_test_type q(42);
     } catch(...) {
-        REMARK("FAILED: allocating small queue should not throw exception.\n");
+        ASSERT(false, "FAILED: allocating small queue should not throw exception.\n");
     }
     // Allocate a queue with too large initial size
     try {
@@ -434,21 +384,9 @@ void TestExceptions() {
         REMARK("FAILED: Assign did not throw exception.\n");
     } catch(...) {
         ASSERT(assign_q.empty(), "FAILED: assign_q should be empty.\n");
-        ASSERT(assign_q.capacity()==24, "FAILED: assign_q should have no newly allocated memory.\n");
     }
     REMARK("Assignment exceptions testing complete.\n");
-    REMARK("Testing reserve exceptions.\n");
-    try {
-        my_throwing_type::throw_flag = 1;
-        src_q.reserve(50);
-        REMARK("FAILED: Reserve did not throw exception.\n");
-    } catch(...) {
-        ASSERT(!src_q.empty(), "FAILED: src_q should not be empty.\n");
-        ASSERT(src_q.capacity()==42, "FAILED: src_q should be have no new allocated memory.\n");
-        ASSERT(src_q.size()==42, "FAILED: src_q should have same size.\n");
-        ASSERT(src_q.try_pop(elem), "FAILED: src_q is not functional.\n");
-    }
-    REMARK("Reserve exceptions testing complete.\n");
+#ifndef __TBB_ITERATOR_DEBUGGING_EXCEPTIONS_BROKEN
     REMARK("Testing push exceptions.\n");
     my_throwing_type::throw_flag = 0;
     pq = new cpq_ex_test_type(3);
@@ -457,30 +395,39 @@ void TestExceptions() {
         pq->push(elem);
         pq->push(elem);
     } catch(...) {
-        REMARK("FAILED: Push should not throw exception... yet.\n");
+        ASSERT(false, "FAILED: Push should not throw exception... yet.\n");
     }
-    try { // should crash on reserve copy 
+    try { // should crash on copy during expansion of vector
         my_throwing_type::throw_flag = 1;
         pq->push(elem);
         REMARK("FAILED: Push did not throw exception.\n");
     } catch(...) {
         ASSERT(!pq->empty(), "FAILED: pq should not be empty.\n");
-        ASSERT(pq->capacity()==3, "FAILED: pq should be have no new allocated memory.\n");
         ASSERT(pq->size()==3, "FAILED: pq should be only three elements.\n");
         ASSERT(pq->try_pop(elem), "FAILED: pq is not functional.\n");
     }
-    try { // should crash on push copy of element, reserve not needed
+    delete pq;
+
+    my_throwing_type::throw_flag = 0;
+    pq = new cpq_ex_test_type(3);
+    try {
+        pq->push(elem);
+        pq->push(elem);
+    } catch(...) {
+        ASSERT(false, "FAILED: Push should not throw exception... yet.\n");
+    }
+    try { // should crash on push copy of element
         my_throwing_type::throw_flag = 1;
         pq->push(elem);
         REMARK("FAILED: Push did not throw exception.\n");
     } catch(...) {
         ASSERT(!pq->empty(), "FAILED: pq should not be empty.\n");
-        ASSERT(pq->capacity()==3, "FAILED: pq should be have no new allocated memory.\n");
         ASSERT(pq->size()==2, "FAILED: pq should be only two elements.\n");
         ASSERT(pq->try_pop(elem), "FAILED: pq is not functional.\n");
     }
     delete pq;
     REMARK("Push exceptions testing complete.\n");
+#endif
 }
 
 template <typename T, typename C>
@@ -499,7 +446,7 @@ void TestCpqOnNThreads(int nThreads) {
     my_less data_compare;
 
     TestConstructorsDestructorsAccessors();
-    TestAssignmentClearShrinkSwap();
+    TestAssignmentClearSwap();
     TestSerialPushPop(); 
 
     TestParallelPushPop(nThreads, INT_MAX, INT_MIN, int_compare);
@@ -510,7 +457,6 @@ void TestCpqOnNThreads(int nThreads) {
     TestFlogger(nThreads, (unsigned char)CHAR_MAX, int_compare);
     TestFlogger(nThreads, DATA_MAX, data_compare);
 
-    TestPushPopReserve(nThreads);
 #if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
     TestExceptions();
 #else

@@ -29,9 +29,12 @@
 # Just specify your program basename
 PROG=game_of_life
 ARGS=2:4 -t 5
+LIGHT_ARGS=1:2 -t 5
 
 # Trying to find if icl.exe is set
-CXX  = cl.exe
+CXX1 = $(TBB_CXX)-
+CXX2 = $(CXX1:icl.exe-=icl.exe)
+CXX  = $(CXX2:-=cl.exe)
 
 # The C++ compiler options
 MYCXXFLAGS = /TP /EHsc /W3 /nologo /D _CONSOLE /D _MBCS /D WIN32 /D _CRT_SECURE_NO_DEPRECATE $(CXXFLAGS)
@@ -46,4 +49,6 @@ clean:
 	@cmd.exe /C del $(PROG).exe *.obj *.?db *.manifest
 test:
 	$(PROG) $(ARGS)
+light_test:
+	$(PROG) $(LIGHT_ARGS)
 

@@ -41,7 +41,7 @@ namespace internal {
     on the 32-way Altix and 4-way (*2 for HT) fxqlin04. */
 #if __TBB_ipf
 static const long PauseTime = 1500;
-#else 
+#else
 static const long PauseTime = 80;
 #endif
 
@@ -79,7 +79,7 @@ class custom_scheduler: private generic_scheduler {
     /*override*/
     void local_wait_for_all( task& parent, task* child );
 
-    //! Entry point from client code to the scheduler loop that dispatches tasks. 
+    //! Entry point from client code to the scheduler loop that dispatches tasks.
     /** The method is virtual, but the *this object is used only for sake of dispatching on the correct vtable,
         not necessarily the correct *this object.  The correct *this object is looked up in TLS. */
     /*override*/
@@ -103,6 +103,8 @@ class custom_scheduler: private generic_scheduler {
             if( __TBB_FetchAndDecrementWrelease(&p.ref_count) > 1 ) // more references exist
                 return;
         }
+        // Ordering on p.ref_count (superfluous if SchedulerTraits::has_slow_atomic)
+        __TBB_control_consistency_helper();
         __TBB_ASSERT(p.ref_count==0, "completion of task caused predecessor's reference count to underflow");
         if( SchedulerTraits::itt_possible )
             ITT_NOTIFY(sync_acquired, &p.ref_count);
@@ -127,7 +129,7 @@ public:
 
     //! Try getting a task from the mailbox or stealing from another scheduler.
     /** Returns the stolen task or NULL if all attempts fail. */
-    /* override */ task* receive_or_steal_task( reference_count&, bool );
+    /* override */ task* receive_or_steal_task( __TBB_atomic reference_count& completion_ref_count, bool return_if_no_work );
 
 }; // class custom_scheduler<>
 
@@ -136,10 +138,24 @@ public:
 //------------------------------------------------------------------------
 
 template<typename SchedulerTraits>
-task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( reference_count& completion_ref_count,
+task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( __TBB_atomic reference_count& completion_ref_count,
                                                                 bool return_if_no_work ) {
     task* t = NULL;
+    bool outermost_dispatch_level = return_if_no_work || master_outermost_level();
     my_inbox.set_is_idle( true );
+#if __TBB_TASK_PRIORITY
+    if ( return_if_no_work && my_arena->my_skipped_fifo_priority ) {
+        // This thread can dequeue FIFO tasks, and some priority levels of
+        // FIFO tasks have been bypassed (to prevent deadlock caused by
+        // dynamic priority changes in nested task group hierarchy).
+        intptr_t skipped_priority = my_arena->my_skipped_fifo_priority;
+        if ( my_arena->my_skipped_fifo_priority.compare_and_swap(0, skipped_priority) == skipped_priority &&
+             skipped_priority > my_arena->my_top_priority )
+        {
+            my_market->update_arena_priority( *my_arena, skipped_priority );
+        }
+    }
+#endif /* __TBB_TASK_PRIORITY */
     // The state "failure_count==-1" is used only when itt_possible is true,
     // and denotes that a sync_prepare has not yet been issued.
     for( int failure_count = -static_cast<int>(SchedulerTraits::itt_possible);; ++failure_count) {
@@ -153,13 +169,14 @@ task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( reference_count&
                 ITT_NOTIFY(sync_acquired, &completion_ref_count);
             }
             __TBB_ASSERT( !t, NULL );
+            __TBB_control_consistency_helper(); // on ref_count
             break; // exit stealing loop and return;
         }
         __TBB_ASSERT( my_arena->my_limit > 0, NULL );
         size_t n = my_arena->my_limit;
         __TBB_ASSERT( my_arena_index < n, NULL );
         if ( n > 1 ) {
-            // Check if the resource manager requires our arena to relinquish some threads 
+            // Check if the resource manager requires our arena to relinquish some threads
             if ( return_if_no_work && my_arena->my_num_workers_allotted < my_arena->num_workers_active() ) {
                 __TBB_ASSERT( is_worker(), NULL );
                 if( SchedulerTraits::itt_possible && failure_count != -1 )
@@ -172,7 +189,7 @@ task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( reference_count&
             }
             // Check if there are tasks in starvation-resistant stream.
             // Only allowed for workers with empty stack, which is identified by return_if_no_work.
-            else if ( return_if_no_work && (t=dequeue_task()) ) {
+            else if ( outermost_dispatch_level && (t = dequeue_task()) ) {
                 // just proceed with the obtained task
             }
 #if __TBB_TASK_PRIORITY
@@ -185,9 +202,9 @@ task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( reference_count&
                 // Try to steal a task from a random victim.
                 size_t k = my_random.get() % (n - 1);
                 arena_slot* victim = &my_arena->my_slots[k];
-                // The following condition excludes the master that might have 
+                // The following condition excludes the master that might have
                 // already taken our previous place in the arena from the list .
-                // of potential victims. But since such a situation can take 
+                // of potential victims. But since such a situation can take
                 // place only in case of significant oversubscription, keeping
                 // the checks simple seems to be preferable to complicating the code.
                 if( k >= my_arena_index )
@@ -195,8 +212,13 @@ task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( reference_count&
                 t = steal_task( *victim );
                 if( !t ) goto fail;
                 if( is_proxy(*t) ) {
-                    t = strip_proxy((task_proxy*)t);
-                    if( !t ) goto fail;
+                    task_proxy &tp = *(task_proxy*)t;
+                    t = tp.extract_task<task_proxy::pool_bit>();
+                    if ( !t ) {
+                        // Proxy was empty, so it's our responsibility to free it
+                        free_task<small_task>(tp);
+                        goto fail;
+                    }
                     GATHER_STATISTIC( ++my_counters.proxies_stolen );
                 }
                 t->prefix().extra_state |= es_task_is_stolen;
@@ -256,7 +278,7 @@ fail:
                     task** link = NULL;
                     // Get local counter out of the way (we've just brought in external tasks)
                     my_local_reload_epoch = 0;
-                    t = reload_tasks( orphans, link, *my_ref_top_priority );
+                    t = reload_tasks( orphans, link, effective_reference_priority() );
                     if ( orphans ) {
                         *link = my_offloaded_tasks;
                         if ( !my_offloaded_tasks )
@@ -289,7 +311,7 @@ fail:
                 }
                 if ( my_offloaded_tasks ) {
                     // Safeguard against any sloppiness in managing reload epoch
-                    // counter (e.g. on the hot path bacause of performnace reasons).
+                    // counter (e.g. on the hot path bacause of performance reasons).
                     my_local_reload_epoch = 0;
                     // Break the deadlock caused by a higher priority dispatch loop
                     // stealing and offloading a lower priority task. Priority check
@@ -315,7 +337,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
     __TBB_ASSERT( governor::is_set(this), NULL );
     __TBB_ASSERT( parent.ref_count() >= (child && child->parent() == &parent ? 2 : 1), "ref_count is too small" );
     assert_task_pool_valid();
-    // Using parent's refcount in sync_prepare (in the stealing loop below) is 
+    // Using parent's refcount in sync_prepare (in the stealing loop below) is
     // a workaround for TP. We need to name it here to display correctly in Ampl.
     if( SchedulerTraits::itt_possible )
         ITT_SYNC_CREATE(&parent.prefix().ref_count, SyncType_Scheduler, SyncObj_TaskStealingLoop);
@@ -324,9 +346,9 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
 #endif /* __TBB_TASK_GROUP_CONTEXT */
     task* t = child;
     // Constant all_local_work_done is an unreacheable refcount value that prevents
-    // early quitting the dispatch loop. It is defined to be in the middle of the range 
+    // early quitting the dispatch loop. It is defined to be in the middle of the range
     // of negative values representable by the reference_count type.
-    static const reference_count 
+    static const reference_count
         // For normal dispatch loops
         parents_work_done = 1,
         // For termination dispatch loops in masters
@@ -338,11 +360,9 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
     // When entering nested parallelism level market level counter
     // must be replaced with the one local to this arena.
     volatile uintptr_t *old_ref_reload_epoch = my_ref_reload_epoch;
+#endif /* __TBB_TASK_PRIORITY */
     task* old_dispatching_task = my_dispatching_task;
     my_dispatching_task = my_innermost_running_task;
-#else /* !__TBB_TASK_PRIORITY */
-    task* old_innermost_running_task = my_innermost_running_task;
-#endif /* __TBB_TASK_PRIORITY */
     if( master_outermost_level() ) {
         // We are in the outermost task dispatch loop of a master thread,
         __TBB_ASSERT( !is_worker(), NULL );
@@ -370,7 +390,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
     for(;;) {
         // Middle loop retrieves tasks from the local task pool.
         do {
-            // Inner loop evaluates tasks coming from nesting loops and those returned 
+            // Inner loop evaluates tasks coming from nesting loops and those returned
             // by just executed tasks (bypassing spawn or enqueue calls).
             while(t) {
                 __TBB_ASSERT( my_inbox.is_idle_state(false), NULL );
@@ -378,7 +398,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
                 __TBB_ASSERT( t->prefix().owner, NULL );
                 assert_task_valid(*t);
 #if __TBB_TASK_GROUP_CONTEXT && TBB_USE_ASSERT
-                if ( !t->prefix().context->my_cancellation_requested ) 
+                if ( !t->prefix().context->my_cancellation_requested )
 #endif
                 __TBB_ASSERT( 1L<<t->state() & (1L<<task::allocated|1L<<task::ready|1L<<task::reexecute), NULL );
                 assert_task_pool_valid();
@@ -389,7 +409,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
                     if ( p != my_arena->my_top_priority ) {
                         my_market->update_arena_priority( *my_arena, p );
                     }
-                    if ( p < *my_ref_top_priority ) {
+                    if ( p < effective_reference_priority() ) {
                         if ( !my_offloaded_tasks ) {
                             my_offloaded_task_list_tail_link = &t->prefix().next_offloaded;
                             // Erase possible reference to the owner scheduler (next_offloaded is a union member)
@@ -402,7 +422,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
                                 continue;
                         }
                         else {
-                            // Mark arena as full to unlock arena priority level adjustment 
+                            // Mark arena as full to unlock arena priority level adjustment
                             // by arena::is_out_of_work(), and ensure worker's presence.
                             my_arena->advertise_new_work<false>();
                         }
@@ -440,7 +460,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
                     }
                 }
                 assert_task_pool_valid();
-                switch( task::state_type(t->prefix().state) ) {
+                switch( t->state() ) {
                     case task::executing: {
                         task* s = t->parent();
                         __TBB_ASSERT( my_innermost_running_task==t, NULL );
@@ -489,80 +509,53 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
             } // end of scheduler bypass loop
 
             assert_task_pool_valid();
-            if ( parent.prefix().ref_count == quit_point )
-                break;
-            if ( in_arena() )
+            if ( parent.prefix().ref_count == quit_point ) {
+                __TBB_ASSERT( quit_point != all_local_work_done, NULL );
+                __TBB_control_consistency_helper(); // on ref_count
+                goto done;
+            }
+            if ( in_arena() ) {
                 t = get_task();
-            else
-                __TBB_ASSERT( my_arena_slot->head == 0 && my_arena_slot->tail == 0, NULL );
+            }
+            else {
+                __TBB_ASSERT( is_quiescent_local_task_pool_reset(), NULL );
+                break;
+            }
             __TBB_ASSERT(!t || !is_proxy(*t),"unexpected proxy");
             assert_task_pool_valid();
         } while( t ); // end of local task pool retrieval loop
 
 #if __TBB_TASK_PRIORITY
 stealing_ground:
-        task* &dispatching_task = my_dispatching_task;
-        if ( worker_outermost_level() && my_arena->my_skipped_fifo_priority ) {
-            // This thread can dequeue FIFO tasks, and some priority levels of 
-            // FIFO tasks have been bypassed (to prevent deadlock caused by 
-            // dynamic priority changes in nested task group hierarchy).
-            intptr_t skipped_priority = my_arena->my_skipped_fifo_priority;
-            if ( my_arena->my_skipped_fifo_priority.compare_and_swap(0, skipped_priority) == skipped_priority &&
-                 skipped_priority > my_arena->my_top_priority )
-            {
-                my_market->update_arena_priority( *my_arena, skipped_priority );
-            }
-        }
-#else /* !__TBB_TASK_PRIORITY */
-        task* &dispatching_task = old_innermost_running_task;
 #endif /* __TBB_TASK_PRIORITY */
         if ( quit_point == all_local_work_done ) {
-            __TBB_ASSERT( my_arena_slot == &my_dummy_slot
-                          && my_arena_slot->head == 0 && my_arena_slot->tail == 0, NULL );
-            my_innermost_running_task = dispatching_task;
-#if __TBB_TASK_PRIORITY
+            __TBB_ASSERT( !in_arena() && is_quiescent_local_task_pool_reset(), NULL );
+            my_innermost_running_task = my_dispatching_task;
             my_dispatching_task = old_dispatching_task;
+#if __TBB_TASK_PRIORITY
             my_ref_top_priority = old_ref_top_priority;
             my_ref_reload_epoch = old_ref_reload_epoch;
 #endif /* __TBB_TASK_PRIORITY */
             return;
         }
-        __TBB_ASSERT( my_arena->my_max_num_workers > 0 || my_market->my_ref_count > 1
-                      || parent.prefix().ref_count == 1, "deadlock detected" );
+        // The following assertion may be falsely triggered in the presence of enqueued tasks
+        //__TBB_ASSERT( my_arena->my_max_num_workers > 0 || my_market->my_ref_count > 1
+        //              || parent.prefix().ref_count == 1, "deadlock detected" );
+
         // Dispatching task pointer is NULL *iff* this is a worker thread in its outermost
         // dispatch loop (i.e. its execution stack is empty). In this case it should exit it
         // either when there is no more work in the current arena, or when revoked by the market.
-        t = receive_or_steal_task( parent.prefix().ref_count, !dispatching_task );
-        if (!t) {
-            my_innermost_running_task = dispatching_task;
-#if __TBB_TASK_PRIORITY
-            my_dispatching_task = old_dispatching_task;
-            my_ref_top_priority = old_ref_top_priority;
-            my_ref_reload_epoch = old_ref_reload_epoch;
-#endif /* __TBB_TASK_PRIORITY */
-            if ( !ConcurrentWaitsEnabled(parent) ) {
-                if ( parent.prefix().ref_count != parents_work_done ) {
-                    // This is a worker that was revoked by the market.
-                    __TBB_ASSERT( is_worker() && !dispatching_task,
-                                  "Worker thread exits nested dispatch loop prematurely" );
-                    return;
-                }
-                parent.prefix().ref_count = 0;
-            }
-#if TBB_USE_ASSERT
-            parent.prefix().extra_state &= ~es_ref_count_active;
-#endif /* TBB_USE_ASSERT */
+        t = receive_or_steal_task( parent.prefix().ref_count, !my_dispatching_task );
+        if ( !t )
             goto done;
-        }
-        __TBB_ASSERT(t,NULL);
         __TBB_ASSERT(!is_proxy(*t),"unexpected proxy");
     } // end of infinite stealing loop
-    __TBB_ASSERT( false, "Must never get here" );
 #if __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS
+    __TBB_ASSERT( false, "Must never get here" );
     } // end of try-block
     TbbCatchAll( t->prefix().context );
     // Complete post-processing ...
-    if( task::state_type(t->prefix().state) == task::recycle ) {
+    if( t->state() == task::recycle ) {
         // ... for tasks recycled with recycle_as_safe_continuation
         t->prefix().state = task::allocated;
         // for safe continuation, need to atomically decrement ref_count;
@@ -576,16 +569,34 @@ stealing_ground:
         }
     }
     } // end of infinite EH loop
-#endif /* __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS */
     __TBB_ASSERT( false, "Must never get here too" );
+#endif /* __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS */
 done:
+    my_innermost_running_task = my_dispatching_task;
+    my_dispatching_task = old_dispatching_task;
+#if __TBB_TASK_PRIORITY
+    my_ref_top_priority = old_ref_top_priority;
+    my_ref_reload_epoch = old_ref_reload_epoch;
+#endif /* __TBB_TASK_PRIORITY */
+    if ( !ConcurrentWaitsEnabled(parent) ) {
+        if ( parent.prefix().ref_count != parents_work_done ) {
+            // This is a worker that was revoked by the market.
+            __TBB_ASSERT( is_worker() && !my_dispatching_task,
+                "Worker thread exits nested dispatch loop prematurely" );
+            return;
+        }
+        parent.prefix().ref_count = 0;
+    }
+#if TBB_USE_ASSERT
+    parent.prefix().extra_state &= ~es_ref_count_active;
+#endif /* TBB_USE_ASSERT */
 #if __TBB_TASK_GROUP_CONTEXT
     __TBB_ASSERT(parent.prefix().context && default_context(), NULL);
     task_group_context* parent_ctx = parent.prefix().context;
     if ( parent_ctx->my_cancellation_requested ) {
         task_group_context::exception_container_type *pe = parent_ctx->my_exception;
         if ( master_outermost_level() && parent_ctx == default_context() ) {
-            // We are in the outermost task dispatch loop of a master thread, and 
+            // We are in the outermost task dispatch loop of a master thread, and
             // the whole task tree has been collapsed. So we may clear cancellation data.
             parent_ctx->my_cancellation_requested = 0;
             // TODO: Add assertion that master's dummy task context does not have children
@@ -594,9 +605,9 @@ done:
         if ( pe )
             pe->throw_self();
     }
-    __TBB_ASSERT(!is_worker() || !CancellationInfoPresent(*my_dummy_task), 
+    __TBB_ASSERT(!is_worker() || !CancellationInfoPresent(*my_dummy_task),
         "Worker's dummy task context modified");
-    __TBB_ASSERT(!master_outermost_level() || !CancellationInfoPresent(*my_dummy_task), 
+    __TBB_ASSERT(!master_outermost_level() || !CancellationInfoPresent(*my_dummy_task),
         "Unexpected exception or cancellation data in the master's dummy task");
 #endif /* __TBB_TASK_GROUP_CONTEXT */
     assert_task_pool_valid();

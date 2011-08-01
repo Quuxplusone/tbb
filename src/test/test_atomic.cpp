@@ -43,13 +43,24 @@ int TestMain() {
 #include <string.h> // memcmp
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    // unary minus operator applied to unsigned type, result still unsigned
-    #pragma warning( push )
-    #pragma warning( disable: 4310 )
+    // Unary minus operator applied to unsigned type, result still unsigned
+    // Constant conditional expression
+    #pragma warning( disable: 4127 4310 )
 #endif
 
+enum LoadStoreExpression {
+    UseOperators,
+    UseImplicitAcqRel,
+    UseExplicitFullyFenced,
+    UseExplicitAcqRel,
+    UseExplicitRelaxed,
+    UseGlobalHelperFullyFenced,
+    UseGlobalHelperAcqRel,
+    UseGlobalHelperRelaxed
+};
+
 //! Structure that holds an atomic<T> and some guard bytes around it.
-template<typename T>
+template<typename T, LoadStoreExpression E = UseOperators>
 struct TestStruct {
     typedef unsigned char byte_type;
     T prefix;
@@ -61,7 +72,12 @@ struct TestStruct {
             reinterpret_cast<byte_type*>(&prefix)[j]             = byte_type(0x11*(j+1));
             reinterpret_cast<byte_type*>(&suffix)[sizeof(T)-j-1] = byte_type(0x11*(j+1));
         }
-        counter = i;
+        if ( E == UseOperators )
+            counter = i;
+        else if ( E == UseExplicitRelaxed )
+            counter.template store<tbb::relaxed>(i);
+        else
+            tbb::store<tbb::full_fence>( counter, i );
     }
     ~TestStruct() {
         // Check for writes outside the counter.
@@ -74,20 +90,11 @@ struct TestStruct {
 };
 
 // A global variable of type tbb::atomic<>
-template<typename T> tbb::atomic<T> TestStruct<T>::gCounter;
-
-#if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning( pop )
-#endif
-
-#if defined(__INTEL_COMPILER)
-    // reference to EBX in a function requiring stack alignment
-    #pragma warning( disable: 998 )
-#endif
+template<typename T, LoadStoreExpression E> tbb::atomic<T> TestStruct<T, E>::gCounter;
 
 //! Test compare_and_swap template members of class atomic<T> for memory_semantics=M
 template<typename T,tbb::memory_semantics M>
-void TestCompareAndSwapAcquireRelease( T i, T j, T k ) {
+void TestCompareAndSwapWithExplicitOrdering( T i, T j, T k ) {
     ASSERT( i!=k, "values must be distinct" ); 
     // Test compare_and_swap that should fail
     TestStruct<T> x(i);
@@ -103,7 +110,7 @@ void TestCompareAndSwapAcquireRelease( T i, T j, T k ) {
 //! i, j, k must be different values
 template<typename T>
 void TestCompareAndSwap( T i, T j, T k ) {
-    ASSERT( i!=k, "values must be distinct" ); 
+    ASSERT( i!=k, "values must be distinct" );
     // Test compare_and_swap that should fail
     TestStruct<T> x(i);
     T old = x.counter.compare_and_swap( j, k );
@@ -114,7 +121,7 @@ void TestCompareAndSwap( T i, T j, T k ) {
     ASSERT( old==i, NULL );
     if( x.counter==i ) {
         ASSERT( x.counter==j, "value not updated?" );
-    } else {    
+    } else {
         ASSERT( x.counter==j, "value trashed" );
     }
     // Check that atomic global variables work
@@ -122,14 +129,16 @@ void TestCompareAndSwap( T i, T j, T k ) {
     old = TestStruct<T>::gCounter.compare_and_swap( j, i );
     ASSERT( old==i, NULL );
     ASSERT( TestStruct<T>::gCounter==j, "value not updated?" );
-    TestCompareAndSwapAcquireRelease<T,tbb::acquire>(i,j,k);
-    TestCompareAndSwapAcquireRelease<T,tbb::release>(i,j,k);
+    TestCompareAndSwapWithExplicitOrdering<T,tbb::full_fence>(i,j,k);
+    TestCompareAndSwapWithExplicitOrdering<T,tbb::acquire>(i,j,k);
+    TestCompareAndSwapWithExplicitOrdering<T,tbb::release>(i,j,k);
+    TestCompareAndSwapWithExplicitOrdering<T,tbb::relaxed>(i,j,k);
 }
 
 //! memory_semantics variation on TestFetchAndStore
 template<typename T, tbb::memory_semantics M>
-void TestFetchAndStoreAcquireRelease( T i, T j ) {
-    ASSERT( i!=j, "values must be distinct" ); 
+void TestFetchAndStoreWithExplicitOrdering( T i, T j ) {
+    ASSERT( i!=j, "values must be distinct" );
     TestStruct<T> x(i);
     T old = x.counter.template fetch_and_store<M>( j );
     ASSERT( old==i, NULL );
@@ -139,7 +148,7 @@ void TestFetchAndStoreAcquireRelease( T i, T j ) {
 //! i and j must be different values
 template<typename T>
 void TestFetchAndStore( T i, T j ) {
-    ASSERT( i!=j, "values must be distinct" ); 
+    ASSERT( i!=j, "values must be distinct" );
     TestStruct<T> x(i);
     T old = x.counter.fetch_and_store( j );
     ASSERT( old==i, NULL );
@@ -149,20 +158,21 @@ void TestFetchAndStore( T i, T j ) {
     old = TestStruct<T>::gCounter.fetch_and_store( j );
     ASSERT( old==i, NULL );
     ASSERT( TestStruct<T>::gCounter==j, "value not updated?" );
-    TestFetchAndStoreAcquireRelease<T,tbb::acquire>(i,j);
-    TestFetchAndStoreAcquireRelease<T,tbb::release>(i,j);
+    TestFetchAndStoreWithExplicitOrdering<T,tbb::full_fence>(i,j);
+    TestFetchAndStoreWithExplicitOrdering<T,tbb::acquire>(i,j);
+    TestFetchAndStoreWithExplicitOrdering<T,tbb::release>(i,j);
+    TestFetchAndStoreWithExplicitOrdering<T,tbb::relaxed>(i,j);
 }
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // conversion from <bigger integer> to <smaller integer>, possible loss of data
     // the warning seems a complete nonsense when issued for e.g. short+=short
-    #pragma warning( push )
     #pragma warning( disable: 4244 )
 #endif
 
 //! Test fetch_and_add members of class atomic<T> for memory_semantics=M
 template<typename T,tbb::memory_semantics M>
-void TestFetchAndAddAcquireRelease( T i ) {
+void TestFetchAndAddWithExplicitOrdering( T i ) {
     TestStruct<T> x(i);
     T actual;
     T expected = i;
@@ -235,14 +245,11 @@ void TestFetchAndAdd( T i ) {
     expected = i+42;
     ASSERT( value==i, NULL );
     ASSERT( TestStruct<T>::gCounter==expected, "value not updated?" );
-
-    TestFetchAndAddAcquireRelease<T,tbb::acquire>(i);
-    TestFetchAndAddAcquireRelease<T,tbb::release>(i);
+    TestFetchAndAddWithExplicitOrdering<T,tbb::full_fence>(i);
+    TestFetchAndAddWithExplicitOrdering<T,tbb::acquire>(i);
+    TestFetchAndAddWithExplicitOrdering<T,tbb::release>(i);
+    TestFetchAndAddWithExplicitOrdering<T,tbb::relaxed>(i);
 }
-
-#if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning( pop )
-#endif // warning 4244 is back
 
 //! A type with unknown size.
 class IncompleteType;
@@ -259,11 +266,17 @@ void TestFetchAndAdd( bool ) {
 }
 
 template<typename T>
-void TestConst( T i ) { 
-    // Try const 
+void TestConst( T i ) {
+    // Try const
     const TestStruct<T> x(i);
-    ASSERT( memcmp( &i, &x.counter, sizeof(T) )==0, "write to atomic<T> broken?" );;
+    ASSERT( memcmp( &i, &x.counter, sizeof(T) )==0, "write to atomic<T> broken?" );
     ASSERT( x.counter==i, "read of atomic<T> broken?" );
+    const TestStruct<T, UseExplicitRelaxed> y(i);
+    ASSERT( memcmp( &i, &y.counter, sizeof(T) )==0, "relaxed write to atomic<T> broken?" );
+    ASSERT( tbb::load<tbb::relaxed>(y.counter) == i, "relaxed read of atomic<T> broken?" );
+    const TestStruct<T, UseGlobalHelperFullyFenced> z(i);
+    ASSERT( memcmp( &i, &z.counter, sizeof(T) )==0, "sequentially consistent write to atomic<T> broken?" );
+    ASSERT( z.counter.template load<tbb::full_fence>() == i, "sequentially consistent read of atomic<T> broken?" );
 }
 
 template<typename T>
@@ -288,7 +301,6 @@ struct AlignmentChecker {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // unary minus operator applied to unsigned type, result still unsigned
-    #pragma warning( push )
     #pragma warning( disable: 4146 )
 #endif
 
@@ -315,16 +327,10 @@ void TestAtomicInteger( const char* name ) {
     TestParallel<T>( name );
 }
 
-#if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning( pop )
-#endif
-
-
 template<typename T>
 struct Foo {
     T x, y, z;
 };
-
 
 template<typename T>
 void TestIndirection() {
@@ -332,7 +338,7 @@ void TestIndirection() {
     tbb::atomic<Foo<T>*> pointer;
     pointer = &item;
     for( int k=-10; k<=10; ++k ) {
-        // Test various syntaxes for indirection to fields with non-zero offset.   
+        // Test various syntaxes for indirection to fields with non-zero offset.
         T value1=T(), value2=T();
         for( size_t j=0; j<sizeof(T); ++j ) {
             *(char*)&value1 = char(k^j);
@@ -393,17 +399,11 @@ const int numMaskedOperations = 100000;
 const int testSpaceSize = 8;
 int prime[testSpaceSize] = {3,5,7,11,13,17,19,23};
 
-#if _MSC_VER && !defined(__INTEL_COMPILER)
-    // "possible loss of data" warning suppressed again
-    #pragma warning( push )
-    #pragma warning( disable: 4244 )
-#endif
-
 template<typename T>
 class TestMaskedCAS_Body: NoAssign {
     T*  test_space_uncontended;
     T*  test_space_contended;
-public:   
+public:
     TestMaskedCAS_Body( T* _space1, T* _space2 ) : test_space_uncontended(_space1), test_space_contended(_space2) {}
     void operator()( int my_idx ) const {
         using tbb::internal::__TBB_MaskedCompareAndSwap;
@@ -471,10 +471,6 @@ intptr_t getCorrectContendedValue() {
     return slot.result;
 }
 
-#if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning( pop )
-#endif // warning 4244 is back again
-
 template<typename T>
 void TestMaskedCAS() {
     REMARK("testing masked CAS<%d>\n",int(sizeof(T)));
@@ -497,6 +493,78 @@ void TestMaskedCAS() {
     }
 }
 
+template <typename T>
+class TestRelaxedLoadStorePlainBody {
+    static T s_turn,
+             s_ready;
+
+public:
+    static unsigned s_count1,
+                    s_count2;
+
+    void operator() ( int id ) const {
+        using tbb::internal::__TBB_load_relaxed;
+        using tbb::internal::__TBB_store_relaxed;
+
+        if ( id == 0 ) {
+            while ( !__TBB_load_relaxed(s_turn) ) {
+                ++s_count1;
+                __TBB_store_relaxed(s_ready, 1);
+            }
+        }
+        else {
+            while ( !__TBB_load_relaxed(s_ready) ) {
+                ++s_count2;
+                continue;
+            }
+            __TBB_store_relaxed(s_turn, 1);
+        }
+    }
+}; // class TestRelaxedLoadStorePlainBody<T>
+
+template <typename T> T TestRelaxedLoadStorePlainBody<T>::s_turn = 0;
+template <typename T> T TestRelaxedLoadStorePlainBody<T>::s_ready = 0;
+template <typename T> unsigned TestRelaxedLoadStorePlainBody<T>::s_count1 = 0;
+template <typename T> unsigned TestRelaxedLoadStorePlainBody<T>::s_count2 = 0;
+
+template <typename T>
+class TestRelaxedLoadStoreAtomicBody {
+    static tbb::atomic<T> s_turn,
+                          s_ready;
+
+public:
+    static unsigned s_count1,
+                    s_count2;
+
+    void operator() ( int id ) const {
+        if ( id == 0 ) {
+            while ( s_turn.template load<tbb::relaxed>() == 0 ) {
+                ++s_count1;
+                s_ready.template store<tbb::relaxed>(1);
+            }
+        }
+        else {
+            while ( s_ready.template load<tbb::relaxed>() == 0 ) {
+                ++s_count2;
+                continue;
+            }
+            s_turn.template store<tbb::relaxed>(1);
+        }
+    }
+}; // class TestRelaxedLoadStoreAtomicBody<T>
+
+template <typename T> tbb::atomic<T> TestRelaxedLoadStoreAtomicBody<T>::s_turn;
+template <typename T> tbb::atomic<T> TestRelaxedLoadStoreAtomicBody<T>::s_ready;
+template <typename T> unsigned TestRelaxedLoadStoreAtomicBody<T>::s_count1 = 0;
+template <typename T> unsigned TestRelaxedLoadStoreAtomicBody<T>::s_count2 = 0;
+
+template <typename T>
+void TestRegisterPromotionSuppression () {
+    REMARK("testing register promotion suppression (size=%d)\n", (int)sizeof(T));
+    NativeParallelFor( 2, TestRelaxedLoadStorePlainBody<T>() );
+    NativeParallelFor( 2, TestRelaxedLoadStoreAtomicBody<T>() );
+}
+
 template<unsigned N>
 class ArrayElement {
     char item[N];
@@ -508,7 +576,6 @@ int TestMain () {
     TestAtomicInteger<long long>("long long");
     #else
     REPORT("64-bit atomics not supported\n");
-    // TODO: advise about possibility to have 64-bit atomics on 64-bit PowerPC hardware even for 32-bit build?
     ASSERT(sizeof(long long)==8, "type long long is not 64 bits");
     #endif
     TestAtomicInteger<unsigned long>("unsigned long");
@@ -544,6 +611,10 @@ int TestMain () {
     ASSERT( !ParallelError, NULL );
     TestMaskedCAS<unsigned char>();
     TestMaskedCAS<unsigned short>();
+    TestRegisterPromotionSuppression<tbb::internal::int64_t>();
+    TestRegisterPromotionSuppression<tbb::internal::int32_t>();
+    TestRegisterPromotionSuppression<tbb::internal::int16_t>();
+    TestRegisterPromotionSuppression<tbb::internal::int8_t>();
     return Harness::Done;
 }
 
@@ -554,7 +625,7 @@ struct FlagAndMessage {
     /** Force flag and message to be on distinct cache lines for machines with cache line size <= 4096 bytes */
     char pad[4096/sizeof(T)];
     //! Non-zero if message is ready
-    T message;    
+    T message;
 };
 
 // A special template function used for summation.
@@ -586,9 +657,65 @@ bool special_sum<bool>(intptr_t arg1, intptr_t arg2) {
 }
 
 volatile int One = 1;
- 
-template<typename T>
+
+inline bool IsRelaxed ( LoadStoreExpression e ) {
+    return e == UseExplicitRelaxed || e == UseGlobalHelperRelaxed;
+}
+
+template <typename T, LoadStoreExpression E>
+struct LoadStoreTraits;
+
+template <typename T>
+struct LoadStoreTraits<T, UseOperators> {
+    static void load ( T& dst, const tbb::atomic<T>& src ) { dst = src; }
+    static void store ( tbb::atomic<T>& dst, const T& src ) { dst = src; }
+};
+
+template <typename T>
+struct LoadStoreTraits<T, UseImplicitAcqRel> {
+    static void load ( T& dst, const tbb::atomic<T>& src ) { dst = src.load(); }
+    static void store ( tbb::atomic<T>& dst, const T& src ) { dst.store(src); }
+};
+
+template <typename T>
+struct LoadStoreTraits<T, UseExplicitFullyFenced> {
+    static void load ( T& dst, const tbb::atomic<T>& src ) { dst = src.template load<tbb::full_fence>(); }
+    static void store ( tbb::atomic<T>& dst, const T& src ) { dst.template store<tbb::full_fence>(src); }
+};
+
+template <typename T>
+struct LoadStoreTraits<T, UseExplicitAcqRel> {
+    static void load ( T& dst, const tbb::atomic<T>& src ) { dst = src.template load<tbb::acquire>(); }
+    static void store ( tbb::atomic<T>& dst, const T& src ) { dst.template store<tbb::release>(src); }
+};
+
+template <typename T>
+struct LoadStoreTraits<T, UseExplicitRelaxed> {
+    static void load ( T& dst, const tbb::atomic<T>& src ) { dst = src.template load<tbb::relaxed>(); }
+    static void store ( tbb::atomic<T>& dst, const T& src ) { dst.template store<tbb::relaxed>(src); }
+};
+
+template <typename T>
+struct LoadStoreTraits<T, UseGlobalHelperFullyFenced> {
+    static void load ( T& dst, const tbb::atomic<T>& src ) { dst = tbb::load<tbb::full_fence>(src); }
+    static void store ( tbb::atomic<T>& dst, const T& src ) { tbb::store<tbb::full_fence>(dst, src); }
+};
+
+template <typename T>
+struct LoadStoreTraits<T, UseGlobalHelperAcqRel> {
+    static void load ( T& dst, const tbb::atomic<T>& src ) { dst = tbb::load<tbb::acquire>(src); }
+    static void store ( tbb::atomic<T>& dst, const T& src ) { tbb::store<tbb::release>(dst, src); }
+};
+
+template <typename T>
+struct LoadStoreTraits<T, UseGlobalHelperRelaxed> {
+    static void load ( T& dst, const tbb::atomic<T>& src ) { dst = tbb::load<tbb::relaxed>(src); }
+    static void store ( tbb::atomic<T>& dst, const T& src ) { tbb::store<tbb::relaxed>(dst, src); }
+};
+
+template<typename T, LoadStoreExpression E>
 class HammerLoadAndStoreFence: NoAssign {
+    typedef LoadStoreTraits<T, E> trait;
     FlagAndMessage<T>* fam;
     const int n;
     const int p;
@@ -602,22 +729,22 @@ public:
         FlagAndMessage<T>* s = fam+k;
         FlagAndMessage<T>* s_next = fam + (k+1)%p;
         for( int i=0; i<n; ++i ) {
-            // The inner for loop is a spin-wait loop, which is normally considered very bad style. 
+            // The inner for loop is a spin-wait loop, which is normally considered very bad style.
             // But we must use it here because we are interested in examining subtle hardware effects.
             for(unsigned short cnt=1; ; ++cnt) {
-                if( !cnt ) // to help 1-core systems complete the test, yield every 2^16 iterations
+                if( !(cnt%1024) ) // to help 1-core or oversubscribed systems complete the test, yield every 2^10 iterations
                     __TBB_Yield();
                 // Compilers typically generate non-trivial sequence for division by a constant.
                 // The expression here is dependent on the loop index i, so it cannot be hoisted.
-#define COMPLICATED_ZERO (i*(one-1)/100)
+                #define COMPLICATED_ZERO (i*(one-1)/100)
                 // Read flag and then the message
                 T flag, message;
-                if( trial&1 ) { 
+                if( trial&1 ) {
                     // COMPLICATED_ZERO here tempts compiler to hoist load of message above reading of flag.
-                    flag = (s+COMPLICATED_ZERO)->flag;
+                    trait::load( flag, (s+COMPLICATED_ZERO)->flag );
                     message = s->message;
                 } else {
-                    flag = s->flag;
+                    trait::load( flag, s->flag );
                     message = s->message;
                 }
                 if( flag ) {
@@ -625,20 +752,29 @@ public:
                         REPORT("ERROR: flag!=(T)-1 k=%d i=%d trial=%x type=%s (atomicity problem?)\n", k, i, trial, name );
                         ParallelError = true;
                     } 
-                    if( message!=(T)-1 ) {
-                        REPORT("ERROR: message!=(T)-1 k=%d i=%d trial=%x type=%s (memory fence problem?)\n", k, i, trial, name );
+                    if( !IsRelaxed(E) && message!=(T)-1 ) {
+                        REPORT("ERROR: message!=(T)-1 k=%d i=%d trial=%x type=%s mode=%d (memory fence problem?)\n", k, i, trial, name, E );
                         ParallelError = true;
                     }
-                    s->message = T(0); 
-                    s->flag = T(0);
+                    s->message = T(0);
+                    trait::store( s->flag, T(0) );
+                    // Prevent deadlock possible in relaxed mode because of store(0)
+                    // to the first thread's flag being reordered after the last
+                    // thread's store(-1) into it.
+                    if ( IsRelaxed(E) ) {
+                        while( s_next->flag.template load<tbb::relaxed>() != 0 )
+                            __TBB_Yield();
+                    }
+                    else
+                        ASSERT( s_next->flag == 0, NULL );
                     // Set message and then the flag
                     if( trial&2 ) {
                         // COMPLICATED_ZERO here tempts compiler to sink store below setting of flag
                         s_next->message = special_sum<T>(-1, COMPLICATED_ZERO);
-                        s_next->flag = (T)-1;
+                        trait::store( s_next->flag, (T)-1 );
                     } else {
                         s_next->message = (T)-1;
-                        s_next->flag = (T)-1;
+                        trait::store( s_next->flag, (T)-1 );
                     }
                     break;
                 } else {
@@ -651,22 +787,24 @@ public:
 };
 
 //! Test that atomic<T> has acquire semantics for loads and release semantics for stores.
-/** Test performs round-robin passing of message among p processors, 
+/** Test performs round-robin passing of message among p processors,
     where p goes from MinThread to MaxThread. */
-template<typename T>
+template<typename T, LoadStoreExpression E>
 void TestLoadAndStoreFences( const char* name ) {
     for( int p=MinThread<2 ? 2 : MinThread; p<=MaxThread; ++p ) {
         FlagAndMessage<T>* fam = new FlagAndMessage<T>[p];
-        // Each of four trials excercise slightly different expresion pattern within the test.
-        // See occurrences of COMPLICATED_ZERO for details. 
+        // Each of four trials exercise slightly different expression pattern within the test.
+        // See occurrences of COMPLICATED_ZERO for details.
         for( int trial=0; trial<4; ++trial ) {
             memset( fam, 0, p*sizeof(FlagAndMessage<T>) );
             fam->message = (T)-1;
             fam->flag = (T)-1;
-            NativeParallelFor( p, HammerLoadAndStoreFence<T>( fam, 100, p, name, trial ) );
-            for( int k=0; k<p; ++k ) {
-                ASSERT( fam[k].message==(k==0 ? (T)-1 : 0), "incomplete round-robin?" ); 
-                ASSERT( fam[k].flag==(k==0 ? (T)-1 : 0), "incomplete round-robin?" ); 
+            NativeParallelFor( p, HammerLoadAndStoreFence<T, E>( fam, 100, p, name, trial ) );
+            if ( !IsRelaxed(E) ) {
+                for( int k=0; k<p; ++k ) {
+                    ASSERT( fam[k].message==(k==0 ? (T)-1 : 0), "incomplete round-robin?" );
+                    ASSERT( fam[k].flag==(k==0 ? (T)-1 : 0), "incomplete round-robin?" );
+                }
             }
         }
         delete[] fam;
@@ -674,7 +812,7 @@ void TestLoadAndStoreFences( const char* name ) {
 }
 
 //! Sparse set of values of integral type T.
-/** Set is designed so that if a value is read or written non-atomically, 
+/** Set is designed so that if a value is read or written non-atomically,
     the resulting intermediate value is likely to not be a member of the set. */
 template<typename T>
 class SparseValueSet {
@@ -686,17 +824,17 @@ public:
         // 2. The bytes are typically different.
         // 3. When multiplied by any value <=127, the product does not overflow.
         factor = T(0);
-        for( unsigned i=0; i<sizeof(T)*8-7; i+=7 ) 
+        for( unsigned i=0; i<sizeof(T)*8-7; i+=7 )
             factor = T(factor | T(1)<<i);
      }
      //! Get ith member of set
      T get( int i ) const {
          // Create multiple of factor.  The & prevents overflow of the product.
          return T((i&0x7F)*factor);
-     }        
+     }
      //! True if set contains x
      bool contains( T x ) const {
-         // True if 
+         // True if
          return (x%factor)==0;
      }
 };
@@ -706,12 +844,12 @@ template<typename T>
 class SparseValueSet<T*> {
     SparseValueSet<ptrdiff_t> my_set;
 public:
-    T* get( int i ) const {return reinterpret_cast<T*>(my_set.get(i));} 
+    T* get( int i ) const {return reinterpret_cast<T*>(my_set.get(i));}
     bool contains( T* x ) const {return my_set.contains(reinterpret_cast<ptrdiff_t>(x));}
 };
 
-//! Specialization for bool.  
-/** Checking bool for atomic read/write is pointless in practice, because 
+//! Specialization for bool.
+/** Checking bool for atomic read/write is pointless in practice, because
     there is no way to *not* atomically read or write a bool value. */
 template<>
 class SparseValueSet<bool> {
@@ -746,8 +884,8 @@ public:
             int j = int(1/x+T(0.5));
             if( 0<j && j<=128 ) {
                 T error = x*T(j)-T(1);
-                // In the calculation above, if x was indeed generated by method get, the error should be 
-                // at most epsilon, because x is off by at most 1/2 ulp from its infinitely precise value, 
+                // In the calculation above, if x was indeed generated by method get, the error should be
+                // at most epsilon, because x is off by at most 1/2 ulp from its infinitely precise value,
                 // j is exact, and the multiplication incurs at most another 1/2 ulp of round-off error.
                 if( -epsilon<=error && error<=epsilon ) {
                     return true;
@@ -760,10 +898,10 @@ public:
     };
 };
 
-template<> 
+template<>
 class SparseValueSet<float>: public SparseFloatSet<float> {};
 
-template<> 
+template<>
 class SparseValueSet<double>: public SparseFloatSet<double> {};
 
 template<typename T>
@@ -771,7 +909,7 @@ class HammerAssignment: NoAssign {
     tbb::atomic<T>& x;
     const char* name;
     SparseValueSet<T> set;
-public:   
+public:
     HammerAssignment( tbb::atomic<T>& x_, const char* name_ ) : x(x_), name(name_) {}
     void operator()( int k ) const {
         const int n = 1000000;
@@ -790,7 +928,7 @@ public:
         } else {
             tbb::atomic<T> y;
             for( int i=0; i<n; ++i ) {
-                // Get pseudo-random value. 
+                // Get pseudo-random value.
                 y = set.get(i);
                 // Write y atomically into x.
                 x = y;
@@ -804,9 +942,7 @@ public:
 template<typename T> void TestAssignmentSignature( T& (T::*)(const T&) ) {}
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    // Suppress "conditional expression is constant" warning.
-    #pragma warning( push )
-    #pragma warning( disable: 4127 )
+    #pragma warning( disable: 4355 4800 )
 #endif
 
 template<typename T>
@@ -817,17 +953,17 @@ void TestAssignment( const char* name ) {
     NativeParallelFor( 2, HammerAssignment<T>( x, name ) );
 #if __TBB_x86_32 && (__linux__ || __FreeBSD__ || _WIN32)
     if( sizeof(T)==8 ) {
-        // Some compilers for IA-32 fail to provide 8-byte alignment of objects on the stack, 
-        // even if the object specifies 8-byte alignment.  On such platforms, the IA-32 implementation 
-        // of atomic<long long> and atomic<unsigned long long> use different tactics depending upon 
+        // Some compilers for IA-32 fail to provide 8-byte alignment of objects on the stack,
+        // even if the object specifies 8-byte alignment.  On such platforms, the IA-32 implementation
+        // of atomic<long long> and atomic<unsigned long long> use different tactics depending upon
         // whether the object is properly aligned or not.  The following abusive test ensures that we
-        // cover both the proper and improper alignment cases, one with the x above and the other with 
+        // cover both the proper and improper alignment cases, one with the x above and the other with
         // the y below, perhaps not respectively.
 
         // Allocate space big enough to always contain 8-byte locations that are aligned and misaligned.
         char raw_space[15];
         // Set delta to 0 if x is aligned, 4 otherwise.
-        uintptr_t delta = ((reinterpret_cast<uintptr_t>(&x)&7) ? 0 : 4); 
+        uintptr_t delta = ((reinterpret_cast<uintptr_t>(&x)&7) ? 0 : 4);
         // y crosses 8-byte boundary if and only if x does not cross.
         tbb::atomic<T>& y = *reinterpret_cast<tbb::atomic<T>*>((reinterpret_cast<uintptr_t>(&raw_space[7+delta])&~7u) - delta);
         // Assertion checks that y really did end up somewhere inside "raw_space".
@@ -839,14 +975,104 @@ void TestAssignment( const char* name ) {
 #endif /* __TBB_x86_32 && (__linux__ || __FreeBSD__ || _WIN32) */
 }
 
-#if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning( pop )
-#endif
+static const unsigned Primes[] = {
+    0x9e3779b1, 0xffe6cc59, 0x2109f6dd, 0x43977ab5, 0xba5703f5, 0xb495a877, 0xe1626741, 0x79695e6b,
+    0xbc98c09f, 0xd5bee2b3, 0x287488f9, 0x3af18231, 0x9677cd4d, 0xbe3a6929, 0xadc6a877, 0xdcf0674b,
+    0xbe4d6fe9, 0x5f15e201, 0x99afc3fd, 0xf3f16801, 0xe222cfff, 0x24ba5fdb, 0x0620452d, 0x79f149e3,
+    0xc8b93f49, 0x972702cd, 0xb07dd827, 0x6c97d5ed, 0x085a3d61, 0x46eb5ea7, 0x3d9910ed, 0x2e687b5b,
+    0x29609227, 0x6eb081f1, 0x0954c4e1, 0x9d114db9, 0x542acfa9, 0xb3e6bd7b, 0x0742d917, 0xe9f3ffa7,
+    0x54581edb, 0xf2480f45, 0x0bb9288f, 0xef1affc7, 0x85fa0ca7, 0x3ccc14db, 0xe6baf34b, 0x343377f7,
+    0x5ca19031, 0xe6d9293b, 0xf0a9f391, 0x5d2e980b, 0xfc411073, 0xc3749363, 0xb892d829, 0x3549366b,
+    0x629750ad, 0xb98294e5, 0x892d9483, 0xc235baf3, 0x3d2402a3, 0x6bdef3c9, 0xbec333cd, 0x40c9520f
+};
+
+class FastRandom {
+    unsigned x, a;
+public:
+    unsigned short get() {
+        unsigned short r = (unsigned short)(x>>16);
+        x = x*a+1;
+        return r;
+    }
+    FastRandom( unsigned seed ) {
+        x = seed;
+        a = Primes[seed % (sizeof(Primes)/sizeof(Primes[0]))];
+    }
+};
+
+template <typename T, LoadStoreExpression E>
+class ArbitrationBody : NoAssign, Harness::NoAfterlife {
+    typedef LoadStoreTraits<T, E> trait;
+
+    mutable FastRandom my_rand;
+    static const unsigned short c_rand_ceil = 10;
+
+    static tbb::atomic<T> s_ready[2];
+    static tbb::atomic<T> s_turn;
+    static volatile bool s_inside;
+
+public:
+    void operator() ( int id ) const {
+        const int me = id;
+        const T other = (T)(uintptr_t)(1 - id),
+                cleared = T(0),
+                signaled = T(1);
+        for ( int i = 0; i < 100000; ++i ) {
+            trait::store( s_ready[me], signaled );
+            trait::store( s_turn, other );
+            T r, t;
+            for ( int j = 0; ; ++j ) {
+                trait::load(r, s_ready[(uintptr_t)other]);
+                trait::load(t, s_turn);
+                if ( r != signaled || t != other )
+                    break;
+                __TBB_Pause(1);
+                if ( j == 2<<12 ) {
+                    j = 0;
+                    __TBB_Yield();
+                }
+            }
+            // Entered critical section
+            ASSERT( !s_inside, "Peterson lock is broken - some fences are missing" );
+            s_inside = true;
+            unsigned short spin = my_rand.get() % c_rand_ceil;
+            for ( volatile int j = 0; j < spin; ++j )
+                continue;
+            s_inside = false;
+            ASSERT( !s_inside, "Peterson lock is broken - some fences are missing" );
+            // leaving critical section
+            trait::store( s_ready[me], cleared );
+            spin = my_rand.get() % c_rand_ceil;
+            for ( volatile int j = 0; j < spin; ++j )
+                continue;
+        }
+    }
+
+    ArbitrationBody () : my_rand((unsigned)(uintptr_t)this) {}
+};
+
+template<typename T, LoadStoreExpression E> tbb::atomic<T> ArbitrationBody<T, E>::s_ready[2];
+template<typename T, LoadStoreExpression E> tbb::atomic<T> ArbitrationBody<T, E>::s_turn;
+template<typename T, LoadStoreExpression E> volatile bool ArbitrationBody<T, E>::s_inside = false;
+
+template <typename T, LoadStoreExpression E>
+void TestDekkerArbitration () {
+    NativeParallelFor( 2, ArbitrationBody<T, E>() );
+}
 
 template<typename T>
 void TestParallel( const char* name ) {
-    TestLoadAndStoreFences<T>(name);
+    TestLoadAndStoreFences<T, UseOperators>(name);
+    TestLoadAndStoreFences<T, UseImplicitAcqRel>(name);
+    TestLoadAndStoreFences<T, UseExplicitFullyFenced>(name);
+    TestLoadAndStoreFences<T, UseExplicitAcqRel>(name);
+    TestLoadAndStoreFences<T, UseExplicitRelaxed>(name);
+    TestLoadAndStoreFences<T, UseGlobalHelperFullyFenced>(name);
+    TestLoadAndStoreFences<T, UseGlobalHelperAcqRel>(name);
+    TestLoadAndStoreFences<T, UseGlobalHelperRelaxed>(name);
     TestAssignment<T>(name);
+    TestDekkerArbitration<T, UseExplicitFullyFenced>();
+    TestDekkerArbitration<T, UseGlobalHelperFullyFenced>();
 }
 
 #endif // __TBB_TEST_PIC && !__PIC__

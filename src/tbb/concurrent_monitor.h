@@ -38,12 +38,12 @@ namespace tbb {
 namespace internal {
 
 //! Circular doubly-linked list with sentinel
-/** head.next points to the front and  head.prev points to the back */
+/** head.next points to the front and head.prev points to the back */
 class circular_doubly_linked_list_with_sentinel : no_copy {
-public:  
+public:
     struct node_t {
-        node_t* next;  
-        node_t* prev;  
+        node_t* next;
+        node_t* prev;
         node_t() : next(NULL), prev(NULL) {}
     };
 
@@ -51,7 +51,7 @@ public:
     circular_doubly_linked_list_with_sentinel() {clear();}
     // dtor
     ~circular_doubly_linked_list_with_sentinel() {__TBB_ASSERT( head.next==&head && head.prev==&head, "the list is not empty" );}
-    
+
     inline size_t  size() const {return count;}
     inline bool    empty()  const {return size()==0;}
     inline node_t* front()  const {return head.next;}
@@ -61,38 +61,38 @@ public:
 
     //! add to the back of the list
     inline void add( node_t* n ) {
-        count = count + 1;
-        n->prev = head.prev;  
-        n->next = &head;  
-        head.prev->next = n;  
+        __TBB_store_relaxed(count, __TBB_load_relaxed(count) + 1);
+        n->prev = head.prev;
+        n->next = &head;
+        head.prev->next = n;
         head.prev = n;
     }
-  
-    //! remove node 'n' from the 'this' list
+
+    //! remove node 'n'
     inline void remove( node_t& n ) {
-        count = count - 1;
+        __TBB_store_relaxed(count, __TBB_load_relaxed(count) - 1);
         n.prev->next = n.next;
         n.next->prev = n.prev;
-    }  
+    }
 
-    //! move all elements to 'lst' and initiallize the 'this' list
+    //! move all elements to 'lst' and initialize the 'this' list
     inline void flush_to( circular_doubly_linked_list_with_sentinel& lst ) {
-        if( count>0 ) {  
-            lst.count = count;
-            lst.head.next = head.next;  
+        if( const size_t l_count = __TBB_load_relaxed(count) ) {
+            __TBB_store_relaxed(lst.count, l_count);
+            lst.head.next = head.next;
             lst.head.prev = head.prev;
             head.next->prev = &lst.head;
             head.prev->next = &lst.head;
             clear();
         }
     }
-  
+
 #if !TBB_USE_DEBUG
-private:  
+private:
 #endif
-    atomic<size_t> count;
+    __TBB_atomic size_t count;
     node_t head;
-    void clear() {count = 0; head.next = &head; head.prev = &head;}
+    void clear() {__TBB_store_relaxed(count, 0); head.next = &head; head.prev = &head;}
 };
 
 typedef circular_doubly_linked_list_with_sentinel waitset_t;
@@ -113,22 +113,22 @@ public:
         ~thread_context() { if( spurious ) sema.P(); }
     private:
         semaphore   sema;
-        tbb::atomic<unsigned> epoch;
+        __TBB_atomic unsigned epoch;
         tbb::atomic<bool>     in_waitset;
         bool         spurious;
         void*        context;
     };
 
     //! ctor
-    concurrent_monitor() {epoch = 0;}
+    concurrent_monitor() {__TBB_store_relaxed(epoch, 0);}
 
     //! prepare wait by inserting 'thr' into the wailt queue
     void prepare_wait( thread_context& thr, void* ctx = 0 );
 
-    //! Commit wait if even count has not changed; otherwise, cancel wait.
-    /** Returns true of commited; false if canceled. */
+    //! Commit wait if event count has not changed; otherwise, cancel wait.
+    /** Returns true if committed, false if canceled. */
     inline bool commit_wait( thread_context& thr ) {
-        bool do_it = thr.epoch==epoch;
+        const bool do_it = thr.epoch == __TBB_load_relaxed(epoch);
         // this check is just an optimization
         if( do_it ) {
             thr.sema.P();
@@ -143,39 +143,39 @@ public:
 
     //! Notify one thread about the event
     void notify_one() {atomic_fence(); notify_one_relaxed();}
- 
+
     //! Notify one thread about the event. Relaxed version.
     void notify_one_relaxed();
 
     //! Notify all waiting threads of the event
     void notify_all() {atomic_fence(); notify_all_relaxed();}
- 
+
     //! Notify all waiting threads of the event; Relaxed version
     void notify_all_relaxed();
 
     //! Notify waiting threads of the event that satisfies the given predicate
     template<typename P> void notify( const P& predicate ) {atomic_fence(); notify_relaxed( predicate );}
- 
+
     //! Notify waiting threads of the event that satisfies the given predicate; Relaxed version
     template<typename P> void notify_relaxed( const P& predicate );
 
 private:
     tbb::spin_mutex mutex_ec;
     waitset_t       waitset_ec;
-    tbb::atomic<unsigned> epoch;
+    __TBB_atomic unsigned epoch;
     thread_context* to_thread_context( waitset_node_t* n ) { return static_cast<thread_context*>(n); }
 };
 
-template<typename P> 
+template<typename P>
 void concurrent_monitor::notify_relaxed( const P& predicate ) {
-        if( waitset_ec.size()==0 )
+        if( waitset_ec.empty() )
             return;
         dllist_t temp;
         waitset_node_t* nxt;
         const waitset_node_t* end = waitset_ec.end();
         {
             tbb::spin_mutex::scoped_lock l( mutex_ec );
-            epoch = epoch + 1;
+            __TBB_store_relaxed(epoch, __TBB_load_relaxed(epoch) + 1);
             for( waitset_node_t* n=waitset_ec.last(); n!=end; n=nxt ) {
                 nxt = n->prev;
                 thread_context* thr = to_thread_context( n );
@@ -186,7 +186,7 @@ void concurrent_monitor::notify_relaxed( const P& predicate ) {
                 }
             }
         }
-    
+
         end = temp.end();
         for( waitset_node_t* n=temp.front(); n!=end; n=nxt ) {
             nxt = n->next;

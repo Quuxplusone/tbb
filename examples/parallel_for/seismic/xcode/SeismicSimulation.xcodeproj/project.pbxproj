@@ -195,14 +195,14 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = "$(HOME)/Applications";
+				GCC_VERSION = 4.0;
 				HEADER_SEARCH_PATHS = ../../../../include;
+				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					../../../../lib,
 				);
 				PRODUCT_NAME = SeismicSimulation;
-				GCC_VERSION = 4.0;
 			};
 			name = Debug;
 		};
@@ -211,14 +211,14 @@
 			buildSettings = {
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = "";
-				INSTALL_PATH = "$(HOME)/Applications";
+				GCC_VERSION = 4.0;
 				HEADER_SEARCH_PATHS = ../../../../include;
+				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					../../../../lib,
 				);
 				PRODUCT_NAME = SeismicSimulation;
-				GCC_VERSION = 4.0;
 			};
 			name = Release;
 		};
@@ -231,11 +231,11 @@
 				GCC_ENABLE_SSE3_EXTENSIONS = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				MACH_O_TYPE = mh_execute;
 				PREBINDING = NO;
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
-				GCC_VERSION = 4.0;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Debug;
@@ -249,11 +249,11 @@
 				GCC_ENABLE_SSE3_EXTENSIONS = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_VERSION = 4.0;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				MACH_O_TYPE = mh_execute;
 				PREBINDING = NO;
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
-				GCC_VERSION = 4.0;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Release;

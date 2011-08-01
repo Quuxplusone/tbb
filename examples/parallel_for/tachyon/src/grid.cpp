@@ -88,6 +88,8 @@ static object_methods grid_methods = {
   grid_free 
 };
 
+extern bool silent_mode;
+
 object * newgrid(int xsize, int ysize, int zsize, vector min, vector max) {
   grid * g;
 
@@ -283,7 +285,8 @@ int engrid_scene(object ** list) {
 
   numobj = countobj(*list);
 
-fprintf(stderr, "Scene contains %d bounded objects.\n", numobj);
+  if ( !silent_mode )
+    fprintf(stderr, "Scene contains %d bounded objects.\n", numobj);
 
   if (numobj > 16) {
     numcbrt = (int) cbrt(4*numobj);
@@ -635,7 +638,7 @@ static void voxel_intersect(grid * g, ray * ry, int voxindex) {
   }
 }
 
-static int grid_bounds_intersect(grid * g, ray * ry, flt *near, flt *far) {
+static int grid_bounds_intersect(grid * g, ray * ry, flt *nr, flt *fr) {
   flt a, tx1, tx2, ty1, ty2, tz1, tz2;
   flt tnear, tfar;
 
@@ -681,7 +684,7 @@ static int grid_bounds_intersect(grid * g, ray * ry, flt *near, flt *far) {
   if (tnear > tfar) return 0;
   if (tfar < 0.0) return 0;
 
-  *near = tnear;
-  *far = tfar; 
+  *nr = tnear;
+  *fr = tfar; 
   return 1;
 }

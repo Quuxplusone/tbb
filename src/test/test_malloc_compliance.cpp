@@ -371,6 +371,27 @@ int main(int argc, char* argv[]) {
     return 0;
 }
 
+// if non-zero byte found, returns bad value address plus 1
+size_t NonZero(void *ptr, size_t size)
+{
+    size_t words = size / sizeof(intptr_t);
+    size_t tailSz = size % sizeof(intptr_t);
+    intptr_t *buf =(intptr_t*)ptr;
+    char *bufTail =(char*)(buf+words);
+
+    for (size_t i=0; i<words; i++)
+        if (buf[i]) {
+            for (unsigned b=0; b<sizeof(intptr_t); b++)
+                if (((char*)(buf+i))[b])
+                    return sizeof(intptr_t)*i + b + 1;
+        }
+    for (size_t i=0; i<tailSz; i++)
+        if (bufTail[i]) {
+            return words*sizeof(intptr_t)+i+1;
+        }
+    return 0;
+}
+
 struct TestStruct
 {
     DWORD field1:2;
@@ -378,22 +399,8 @@ struct TestStruct
     double field3;
     UCHAR field4[100];
     TestStruct* field5;
-//  std::string field6;
     std::vector<int> field7;
     double field8;
-    bool IsZero() {
-        int wordSz = sizeof(TestStruct) / sizeof(intptr_t);
-        int tailSz = sizeof(TestStruct) % sizeof(intptr_t);
-
-        intptr_t *buf =(intptr_t*)this;
-        char *bufTail =(char*) (buf+wordSz);
-
-        for (int i=0; i<wordSz; i++)
-            if (buf[i]) return false;
-        for (int i=0; i<tailSz; i++)
-            if (bufTail[i]) return false;
-        return true;
-    }
 };
 
 int Tposix_memalign(void **memptr, size_t alignment, size_t size)
@@ -567,7 +574,7 @@ void CMemTest::Zerofilling()
             continue;
         for (size_t j=0; j<CountElement; j++)
         {
-            if (!(TSMas+j)->IsZero())
+            if (NonZero(TSMas+j, sizeof(TestStruct)))
             {
                 CountErrors++;
                 if (ShouldReportError()) REPORT("detect nonzero element at TestStruct\n");
@@ -581,6 +588,22 @@ void CMemTest::Zerofilling()
 }
 
 #if !__APPLE__
+
+void myMemset(void *ptr, int c, size_t n)
+{
+#if  __linux__ &&  __i386__
+// memset in Fedora 13 is not always correclty set memory to
+// required values.
+    char *p = (char*)ptr;
+    for (size_t i=0; i<n; i++)
+        p[i] = c;
+#else
+    memset(ptr, c, n);
+#endif
+}
+
+// This test requires 200 MB per thread, i.e. for standart 1:4 run
+// more then 800 MB of RAM is required.
 void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
 {
     // find size to guarantee getting NULL for 1024 B allocations
@@ -596,13 +619,14 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
     void **buf_1024 = (void**)Tmalloc(MAXNUM_1024*sizeof(void*));
 
     ASSERT(buf_1024, NULL);
-    /* We must have space for pointers when memory limit is hit. 
-       Reserve enough for the worst case. 
+    /* We must have space for pointers when memory limit is hit.
+       Reserve enough for the worst case, taking into account race for
+       limited space between threads.
     */
-    PointerList.reserve(200*MByte/MinSize);
+    PointerList.reserve(200*total_threads*MByte/MinSize);
 
-    /* There is a bug in the specific verion of GLIBC (2.5-12) shipped 
-       with RHEL5 that leads to erroneous working of the test 
+    /* There is a bug in the specific verion of GLIBC (2.5-12) shipped
+       with RHEL5 that leads to erroneous working of the test
        on Intel64 and IPF systems when setrlimit-related part is enabled.
        Switching to GLIBC 2.5-18 from RHEL5.1 resolved the issue.
      */
@@ -611,8 +635,8 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
     else
         limitMem(200);
 
-    /* regression test against the bug in allocator when it dereference NULL 
-       while lack of memory 
+    /* regression test against the bug in allocator when it dereference NULL
+       while lack of memory
     */
     for (num_1024=0; num_1024<MAXNUM_1024; num_1024++) {
         buf_1024[num_1024] = Tcalloc(1024, 1);
@@ -630,7 +654,7 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
         tmp=Tmalloc(Size);
         if (tmp != NULL)
         {
-            memset(tmp, 0, Size);
+            myMemset(tmp, 0, Size);
             PointerList.push_back(MemStruct(tmp, Size));
         }
     } while(tmp != NULL);
@@ -667,7 +691,7 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
                     CountErrors++;
                     if (ShouldReportError()) REPORT("error: errno changed to %d though valid pointer was returned\n", errno);
                 }
-                memset(tmp, 0, Size);
+                myMemset(tmp, 0, Size);
                 PointerList.push_back(MemStruct(tmp, Size));
             }
         }
@@ -745,7 +769,7 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
                         if (ShouldReportError()) REPORT("valid pointer returned, error: errno not kept\n");
                     }
                     // newly allocated area have to be zeroed
-                    memset((char*)tmp + PointerList[i].Size, 0, PointerList[i].Size);
+                    myMemset((char*)tmp + PointerList[i].Size, 0, PointerList[i].Size);
                     PointerList[i].Pointer = tmp;
                     PointerList[i].Size *= 2;
                 }
@@ -758,13 +782,10 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
                         if (ShouldReportError()) REPORT("NULL returned, error: errno(%d) != ENOMEM\n", errno);
                     }
                     // check data integrity
-                    BYTE *zer=(BYTE*)PointerList[i].Pointer;
-                    for (UINT k=0; k<PointerList[i].Size; k++)
-                        if (zer[k] != 0)
-                        {
-                            CountErrors++;
-                            if (ShouldReportError()) REPORT("NULL returned, error: data changed\n");
-                        }
+                    if (NonZero(PointerList[i].Pointer, PointerList[i].Size)) {
+                        CountErrors++;
+                        if (ShouldReportError()) REPORT("NULL returned, error: data changed\n");
+                    }
                 }
             }
     if (FullLog) REPORT("realloc end\n");
@@ -799,21 +820,17 @@ void CMemTest::UniquePointer()
         MasPointer[i]=(int*)Tmalloc(MasCountElem[i]*sizeof(int));
         if (NULL == MasPointer[i])
             MasCountElem[i]=0;
-        for (UINT j=0; j<MasCountElem[i]; j++)
-            *(MasPointer[i]+j)=0;
+        memset(MasPointer[i], 0, sizeof(int)*MasCountElem[i]);
     }
     if (FullLog) REPORT("malloc....");
     for (UINT i=0; i<COUNT_ELEM-1; i++)
     {
-        for (UINT j=0; j<MasCountElem[i]; j++)
-        {
-            if (*(*(MasPointer+i)+j)!=0)
-            {
-                CountErrors++;
-                if (ShouldReportError()) REPORT("error, detect 1 with 0x%p\n",(*(MasPointer+i)+j));
-            }
-            *(*(MasPointer+i)+j)+=1;
+        if (size_t badOff = NonZero(MasPointer[i], sizeof(int)*MasCountElem[i])) {
+            CountErrors++;
+            if (ShouldReportError())
+                REPORT("error, detect non-zero at %p\n", (char*)MasPointer[i]+badOff-1);
         }
+        memset(MasPointer[i], 1, sizeof(int)*MasCountElem[i]);
     }
     if (CountErrors) REPORT("%s\n",strError);
     else if (FullLog) REPORT("%s\n",strOk);
@@ -832,15 +849,12 @@ void CMemTest::UniquePointer()
     if (FullLog) REPORT("calloc....");
     for (int i=0; i<COUNT_ELEM-1; i++)
     {
-        for (UINT j=0; j<*(MasCountElem+i); j++)
-        {
-            if (*(*(MasPointer+i)+j)!=0)
-            {
-                CountErrors++;
-                if (ShouldReportError()) REPORT("error, detect 1 with 0x%p\n",(*(MasPointer+i)+j));
-            }
-            *(*(MasPointer+i)+j)+=1;
+        if (size_t badOff = NonZero(MasPointer[i], sizeof(int)*MasCountElem[i])) {
+            CountErrors++;
+            if (ShouldReportError())
+                REPORT("error, detect non-zero at %p\n", (char*)MasPointer[i]+badOff-1);
         }
+        memset(MasPointer[i], 1, sizeof(int)*MasCountElem[i]);
     }
     if (CountErrors) REPORT("%s\n",strError);
     else if (FullLog) REPORT("%s\n",strOk);
@@ -855,20 +869,14 @@ void CMemTest::UniquePointer()
             (int*)Trealloc(*(MasPointer+i),MasCountElem[i]*sizeof(int));
         if (NULL == MasPointer[i])
             MasCountElem[i]=0;
-        for (UINT j=0; j<MasCountElem[i]; j++)
-            *(*(MasPointer+i)+j)=0;
+        memset(MasPointer[i], 0, sizeof(int)*MasCountElem[i]);
     }
     if (FullLog) REPORT("realloc....");
     for (int i=0; i<COUNT_ELEM-1; i++)
     {
-        for (UINT j=0; j<*(MasCountElem+i); j++)
-        {
-            if (*(*(MasPointer+i)+j)!=0)
-            {
-                CountErrors++;
-            }
-            *(*(MasPointer+i)+j)+=1;
-        }
+        if (NonZero(MasPointer[i], sizeof(int)*MasCountElem[i]))
+            CountErrors++;
+        memset(MasPointer[i], 1, sizeof(int)*MasCountElem[i]);
     }
     if (CountErrors) REPORT("%s\n",strError);
     else if (FullLog) REPORT("%s\n",strOk);

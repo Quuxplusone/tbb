@@ -70,6 +70,9 @@ ifeq (intel64,$(arch))
     ASM_FLAGS += -arch x86_64
 endif
 ifeq (ia32,$(arch))
+    CPLUS_FLAGS += -m32
+    LINK_FLAGS += -m32
+    LIB_LINK_FLAGS += -m32
     ASM_FLAGS += -arch i386
 endif
 ifeq ($(cfg), debug)

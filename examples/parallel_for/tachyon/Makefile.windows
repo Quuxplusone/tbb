@@ -70,10 +70,10 @@ ARCH1 = $(ARCH0:ia32-=x86)
 ARCH2 = $(ARCH1:intel64-=AMD64)
 XARCH = $(ARCH2:-=x86)
 
-# The default dataset
-DATASET = balls
 # The default runtime arguments
-ARGS =
+ARGS = dat\balls.dat
+PERF_RUN_ARGS = silent dat\balls3.dat
+LIGHT_ARGS=dat\model2.dat
 
 # Add these for tbb/tbb1d release builds
 # /GL is a workaround to prevent run-time crash when built by VS2010
@@ -86,7 +86,7 @@ LIBS_TBB_DEBUG =  tbb_debug.lib $(LIBS)
 
 
 MAKEINC = ../../common/gui/Makefile.win
-SOURCE = src/pthread.cpp src/video.cpp src/api.cpp src/apigeom.cpp src/apitrigeom.cpp src/bndbox.cpp src/box.cpp src/camera.cpp src/coordsys.cpp src/cylinder.cpp src/extvol.cpp src/getargs.cpp src/global.cpp src/grid.cpp src/imageio.cpp src/imap.cpp src/intersect.cpp src/jpeg.cpp src/light.cpp src/objbound.cpp src/parse.cpp src/plane.cpp src/ppm.cpp src/quadric.cpp src/render.cpp src/ring.cpp src/shade.cpp src/sphere.cpp src/texture.cpp src/tgafile.cpp src/trace_rest.cpp src/triangle.cpp src/ui.cpp src/util.cpp src/vector.cpp src/vol.cpp
+SOURCE = src/main.cpp src/pthread.cpp src/tachyon_video.cpp src/api.cpp src/apigeom.cpp src/apitrigeom.cpp src/bndbox.cpp src/box.cpp src/camera.cpp src/coordsys.cpp src/cylinder.cpp src/extvol.cpp src/global.cpp src/grid.cpp src/imageio.cpp src/imap.cpp src/intersect.cpp src/jpeg.cpp src/light.cpp src/objbound.cpp src/parse.cpp src/plane.cpp src/ppm.cpp src/quadric.cpp src/render.cpp src/ring.cpp src/shade.cpp src/sphere.cpp src/texture.cpp src/tgafile.cpp src/trace_rest.cpp src/triangle.cpp src/ui.cpp src/util.cpp src/vector.cpp src/vol.cpp
 
 # Targets
 all: build run
@@ -110,22 +110,30 @@ build_serial:
 build_serial_debug:
 	@$(MAKE) -f $(MAKEINC) SOURCE="src/trace.serial.cpp $(SOURCE)" EXE=tachyon.serial.exe RCNAME=gui UI=$(UI) DEBUG=_debug CXX="$(CXX)" CXXFLAGS=$(CXXFLAGS) XARCH=$(XARCH) build_one
 run_serial:
-	-.\tachyon.serial.exe $(ARGS) dat\$(DATASET).dat
+	-.\tachyon.serial.exe $(ARGS)
 
 build_tbb:
 	@$(MAKE) -f $(MAKEINC) SOURCE="src/trace.tbb.cpp $(SOURCE)" EXE=tachyon.tbb.exe RCNAME=gui UI=$(UI) CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS_TBB_NDEBUG)" LFLAGS="$(LIBS_TBB_NDEBUG)" XARCH=$(XARCH) build_one
 build_tbb_debug:
 	@$(MAKE) -f $(MAKEINC) SOURCE="src/trace.tbb.cpp $(SOURCE)" EXE=tachyon.tbb.exe RCNAME=gui UI=$(UI) DEBUG=_debug CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS_TBB_DEBUG)" LFLAGS="$(LIBS_TBB_DEBUG)" XARCH=$(XARCH) build_one
 run_tbb:
-	-.\tachyon.tbb.exe $(ARGS) dat\$(DATASET).dat
+	-.\tachyon.tbb.exe $(ARGS)
 
 build_tbb1d:
 	@$(MAKE) -f $(MAKEINC) SOURCE="src/trace.tbb1d.cpp $(SOURCE)" EXE=tachyon.tbb1d.exe RCNAME=gui UI=$(UI) CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS_TBB_NDEBUG)" LFLAGS="$(LIBS_TBB_NDEBUG)" XARCH=$(XARCH) build_one
 build_tbb1d_debug:
 	@$(MAKE) -f $(MAKEINC) SOURCE="src/trace.tbb1d.cpp $(SOURCE)" EXE=tachyon.tbb1d.exe RCNAME=gui UI=$(UI) DEBUG=_debug CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS_TBB_DEBUG)" LFLAGS="$(LIBS_TBB_DEBUG)" XARCH=$(XARCH) build_one
 run_tbb1d:
-	-.\tachyon.tbb1d.exe $(ARGS) dat\$(DATASET).dat
+	-.\tachyon.tbb1d.exe $(ARGS)
 
 
 clean:
 	@cmd.exe /C del tachyon.* *.manifest *.obj msvs\gui.res *.?db
+
+perf_build:
+	@$(MAKE) -f $(MAKEINC) SOURCE="src/trace.tbb.cpp $(SOURCE)" EXE=tachyon.tbb.exe RCNAME=gui UI=con CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS_TBB_NDEBUG)" LFLAGS="$(LIBS_TBB_NDEBUG)" XARCH=$(XARCH) build_one
+perf_run:
+	-.\tachyon.tbb.exe $(PERF_RUN_ARGS)
+
+light_test:
+	-.\tachyon.tbb.exe $(LIGHT_ARGS)

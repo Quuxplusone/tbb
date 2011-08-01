@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::mutex Class Reference</title>
+<title>tbb::tick_count::interval_t Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,110 +21,57 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00407.html">tbb</a>::<a class="el" href="a00300.html">mutex</a></div>
-<h1>tbb::mutex Class Reference<br>
-<small>
-[<a class="el" href="a00419.html">Synchronization</a>]</small>
-</h1><!-- doxytag: class="tbb::mutex" -->Wrapper around the platform's native reader-writer lock.  
+<a class="el" href="a00357.html">tbb</a>::<a class="el" href="a00299.html">tick_count</a>::<a class="el" href="a00300.html">interval_t</a></div>
+<h1>tbb::tick_count::interval_t Class Reference</h1><!-- doxytag: class="tbb::tick_count::interval_t" -->Relative time interval.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00549.html">mutex.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00574.html">tick_count.h</a>&gt;</code>
 <p>
-<a href="a00097.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00157.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9f1ec84d5815263ceae853f06ddb4cac"></a><!-- doxytag: member="tbb::mutex::native_handle_type" ref="9f1ec84d5815263ceae853f06ddb4cac" args="" -->
-typedef LPCRITICAL_SECTION&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#9f1ec84d5815263ceae853f06ddb4cac">native_handle_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Return native_handle. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a1f4d4b88a03eb3e95c76569b91a0792"></a><!-- doxytag: member="tbb::mutex::native_handle_type" ref="a1f4d4b88a03eb3e95c76569b91a0792" args="" -->
-typedef pthread_mutex_t *&nbsp;</td><td class="memItemRight" valign="bottom"><b>native_handle_type</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c907aa5ae5274da759c4188c8ab196034e5963fe9e27d7c4d0a2d4ffa24a50a7"></a><!-- doxytag: member="tbb::mutex::INITIALIZED" ref="c907aa5ae5274da759c4188c8ab196034e5963fe9e27d7c4d0a2d4ffa24a50a7" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>INITIALIZED</b> = 0x1234</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c907aa5ae5274da759c4188c8ab19603646f4766864612448d6f9b21ff61abcd"></a><!-- doxytag: member="tbb::mutex::DESTROYED" ref="c907aa5ae5274da759c4188c8ab19603646f4766864612448d6f9b21ff61abcd" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>DESTROYED</b> = 0x789A</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c907aa5ae5274da759c4188c8ab196031de5796ebbbaa1e30d19e5d54f0f6555"></a><!-- doxytag: member="tbb::mutex::HELD" ref="c907aa5ae5274da759c4188c8ab196031de5796ebbbaa1e30d19e5d54f0f6555" args="" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>HELD</b> = 0x56CD</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><b>state_t</b> { <b>INITIALIZED</b> = 0x1234, 
-<b>DESTROYED</b> = 0x789A, 
-<b>HELD</b> = 0x56CD
- }</td></tr>
-
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="05313cb77d4f85213103d4dab74ed454"></a><!-- doxytag: member="tbb::mutex::mutex" ref="05313cb77d4f85213103d4dab74ed454" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#05313cb77d4f85213103d4dab74ed454">mutex</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="75a9a0949f8a8a84d6758835f1b48dad"></a><!-- doxytag: member="tbb::tick_count::interval_t::interval_t" ref="75a9a0949f8a8a84d6758835f1b48dad" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#75a9a0949f8a8a84d6758835f1b48dad">interval_t</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct unacquired mutex. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4470e61c24c129a0299ca6c17240adbb"></a><!-- doxytag: member="tbb::mutex::lock" ref="4470e61c24c129a0299ca6c17240adbb" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#4470e61c24c129a0299ca6c17240adbb">lock</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct a time interval representing zero time duration. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1a21a428e00cced2e6a49e0f5f2258bf"></a><!-- doxytag: member="tbb::tick_count::interval_t::interval_t" ref="1a21a428e00cced2e6a49e0f5f2258bf" args="(double sec)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#1a21a428e00cced2e6a49e0f5f2258bf">interval_t</a> (double sec)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire lock. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#4331652c79dea1c1131bd59ab161b234">try_lock</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct a time interval representing sec seconds time duration. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d5d8429c0bc59cf6131b2abc7929fa59"></a><!-- doxytag: member="tbb::tick_count::interval_t::seconds" ref="d5d8429c0bc59cf6131b2abc7929fa59" args="() const " -->
+double&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#d5d8429c0bc59cf6131b2abc7929fa59">seconds</a> () const </td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Try acquiring lock (non-blocking).  <a href="#4331652c79dea1c1131bd59ab161b234"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5fc9ef443ae75d966695546be399cc6b"></a><!-- doxytag: member="tbb::mutex::unlock" ref="5fc9ef443ae75d966695546be399cc6b" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#5fc9ef443ae75d966695546be399cc6b">unlock</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Return the length of a time interval in seconds. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="cd9814947902e26463a69a111530f81b"></a><!-- doxytag: member="tbb::tick_count::interval_t::operator+=" ref="cd9814947902e26463a69a111530f81b" args="(const interval_t &amp;i)" -->
+<a class="el" href="a00300.html">interval_t</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#cd9814947902e26463a69a111530f81b">operator+=</a> (const <a class="el" href="a00300.html">interval_t</a> &amp;i)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="caf34349c0fbe7b44f1a2ca0a3150dd0"></a><!-- doxytag: member="tbb::mutex::native_handle" ref="caf34349c0fbe7b44f1a2ca0a3150dd0" args="()" -->
-<a class="el" href="a00300.html#9f1ec84d5815263ceae853f06ddb4cac">native_handle_type</a>&nbsp;</td><td class="memItemRight" valign="bottom"><b>native_handle</b> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Accumulation operator. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="35ff7eaf7c2031b4a991402ac9ecb940"></a><!-- doxytag: member="tbb::tick_count::interval_t::operator-=" ref="35ff7eaf7c2031b4a991402ac9ecb940" args="(const interval_t &amp;i)" -->
+<a class="el" href="a00300.html">interval_t</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#35ff7eaf7c2031b4a991402ac9ecb940">operator-=</a> (const <a class="el" href="a00300.html">interval_t</a> &amp;i)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="795649a185b0d6af6dc81c5f378616dd"></a><!-- doxytag: member="tbb::mutex::set_state" ref="795649a185b0d6af6dc81c5f378616dd" args="(state_t to)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#795649a185b0d6af6dc81c5f378616dd">set_state</a> (state_t to)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Set the internal state. <br></td></tr>
-<tr><td colspan="2"><br><h2>Static Public Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="17b78176054e2bac1ff35b9535d1ea0c"></a><!-- doxytag: member="tbb::mutex::is_rw_mutex" ref="17b78176054e2bac1ff35b9535d1ea0c" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_rw_mutex</b> = false</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d4558e5a7c5b8d8e158ec7a1079669bd"></a><!-- doxytag: member="tbb::mutex::is_recursive_mutex" ref="d4558e5a7c5b8d8e158ec7a1079669bd" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_recursive_mutex</b> = false</td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f023a29c61451d02359095cbff0f3d45"></a><!-- doxytag: member="tbb::mutex::is_fair_mutex" ref="f023a29c61451d02359095cbff0f3d45" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_fair_mutex</b> = false</td></tr>
-
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Subtraction operator. <br></td></tr>
 <tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a36f15b770a1bb0b56e33d7fa75ebd1a"></a><!-- doxytag: member="tbb::mutex::scoped_lock" ref="a36f15b770a1bb0b56e33d7fa75ebd1a" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>scoped_lock</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="cc3a7ad7000317951ce61f706163efe8"></a><!-- doxytag: member="tbb::tick_count::interval_t::tbb::tick_count" ref="cc3a7ad7000317951ce61f706163efe8" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#cc3a7ad7000317951ce61f706163efe8">tbb::tick_count</a></td></tr>
 
-<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00301.html">scoped_lock</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="09dde78a4100800c11bb883d6204b586"></a><!-- doxytag: member="tbb::tick_count::interval_t::operator-" ref="09dde78a4100800c11bb883d6204b586" args="(const tick_count &amp;t1, const tick_count &amp;t0)" -->
+<a class="el" href="a00300.html">interval_t</a>&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#09dde78a4100800c11bb883d6204b586">operator-</a> (const <a class="el" href="a00299.html">tick_count</a> &amp;t1, const <a class="el" href="a00299.html">tick_count</a> &amp;t0)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The scoped locking pattern.  <a href="a00301.html#_details">More...</a><br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Extract the intervals from the tick_counts and subtract them. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5871ead1ca230efbe52a5008470e6428"></a><!-- doxytag: member="tbb::tick_count::interval_t::operator+" ref="5871ead1ca230efbe52a5008470e6428" args="(const interval_t &amp;i, const interval_t &amp;j)" -->
+<a class="el" href="a00300.html">interval_t</a>&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#5871ead1ca230efbe52a5008470e6428">operator+</a> (const <a class="el" href="a00300.html">interval_t</a> &amp;i, const <a class="el" href="a00300.html">interval_t</a> &amp;j)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Add two intervals. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fa509691e1d689830931e36edd274f76"></a><!-- doxytag: member="tbb::tick_count::interval_t::operator-" ref="fa509691e1d689830931e36edd274f76" args="(const interval_t &amp;i, const interval_t &amp;j)" -->
+<a class="el" href="a00300.html">interval_t</a>&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00300.html#fa509691e1d689830931e36edd274f76">operator-</a> (const <a class="el" href="a00300.html">interval_t</a> &amp;i, const <a class="el" href="a00300.html">interval_t</a> &amp;j)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Subtract two intervals. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Wrapper around the platform's native reader-writer lock. 
+Relative time interval. 
 <p>
-For testing purposes only. 
-<p>
-<hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="4331652c79dea1c1131bd59ab161b234"></a><!-- doxytag: member="tbb::mutex::try_lock" ref="4331652c79dea1c1131bd59ab161b234" args="()" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool tbb::mutex::try_lock           </td>
-          <td>(</td>
-          <td class="paramname">          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Try acquiring lock (non-blocking). 
-<p>
-Return true if lock acquired; false otherwise. 
-</div>
-</div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00549.html">mutex.h</a></ul>
+<li><a class="el" href="a00574.html">tick_count.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

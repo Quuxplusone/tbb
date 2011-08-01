@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::internal::join_node_base&lt; JP, InputTuple, OutputTuple &gt; Class Template Reference</title>
+<title>tbb::internal::tbb_exception_ptr Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,66 +21,63 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00407.html">tbb</a>::<b>internal</b>::<a class="el" href="a00296.html">join_node_base</a></div>
-<h1>tbb::internal::join_node_base&lt; JP, InputTuple, OutputTuple &gt; Class Template Reference</h1><!-- doxytag: class="tbb::internal::join_node_base" --><!-- doxytag: inherits="tbb::graph_node,tbb::sender&lt; OutputTuple &gt;" --><a class="el" href="a00296.html">join_node_base</a>  
+<a class="el" href="a00357.html">tbb</a>::<b>internal</b>::<a class="el" href="a00296.html">tbb_exception_ptr</a></div>
+<h1>tbb::internal::tbb_exception_ptr Class Reference</h1><!-- doxytag: class="tbb::internal::tbb_exception_ptr" -->Exception container that preserves the exact copy of the original exception.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00513.html">graph.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00549.html">tbb_exception.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::internal::join_node_base&lt; JP, InputTuple, OutputTuple &gt;:
-<p><center><img src="a00296.png" usemap="#tbb::internal::join_node_base< JP, InputTuple, OutputTuple >_map" border="0" alt=""></center>
-<map name="tbb::internal::join_node_base< JP, InputTuple, OutputTuple >_map">
-<area href="a00292.html" alt="tbb::graph_node" shape="rect" coords="0,0,355,24">
-<area href="a00327.html" alt="tbb::sender< OutputTuple >" shape="rect" coords="365,0,720,24">
-</map>
-<a href="a00075.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00133.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="578893d923f91b7e44a15dea8b0d7082"></a><!-- doxytag: member="tbb::internal::join_node_base::output_type" ref="578893d923f91b7e44a15dea8b0d7082" args="" -->
-typedef OutputTuple&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00296.html#578893d923f91b7e44a15dea8b0d7082">output_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1212cbaa293a93c3bf334da1539556bd"></a><!-- doxytag: member="tbb::internal::join_node_base::successor_type" ref="1212cbaa293a93c3bf334da1539556bd" args="" -->
-typedef <a class="el" href="a00320.html">receiver</a>&lt; <a class="el" href="a00296.html#578893d923f91b7e44a15dea8b0d7082">output_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00296.html#1212cbaa293a93c3bf334da1539556bd">successor_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="caa4c6d62f43e839024d99fb49ff4d25"></a><!-- doxytag: member="tbb::internal::join_node_base::input_ports_type" ref="caa4c6d62f43e839024d99fb49ff4d25" args="" -->
-typedef join_node_FE&lt; JP,<br>
- InputTuple, OutputTuple &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>input_ports_type</b></td></tr>
-
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="74c044c29d83c8b70496ea2d40a3e8cf"></a><!-- doxytag: member="tbb::internal::join_node_base::join_node_base" ref="74c044c29d83c8b70496ea2d40a3e8cf" args="(graph &amp;g)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>join_node_base</b> (<a class="el" href="a00291.html">graph</a> &amp;g)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00296.html#921875bbacd2c8a5f324c7da7a415262">destroy</a> ()  throw ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4fe2bd006dbd111d1f1785ee6571dde6"></a><!-- doxytag: member="tbb::internal::join_node_base::register_successor" ref="4fe2bd006dbd111d1f1785ee6571dde6" args="(successor_type &amp;r)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>register_successor</b> (<a class="el" href="a00320.html">successor_type</a> &amp;r)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destroys this objects.  <a href="#921875bbacd2c8a5f324c7da7a415262"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="292832fd5c523e3d8081a22247840a1d"></a><!-- doxytag: member="tbb::internal::tbb_exception_ptr::throw_self" ref="292832fd5c523e3d8081a22247840a1d" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00296.html#292832fd5c523e3d8081a22247840a1d">throw_self</a> ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="46a9a783464d2739bb9dadfe794d8098"></a><!-- doxytag: member="tbb::internal::join_node_base::remove_successor" ref="46a9a783464d2739bb9dadfe794d8098" args="(successor_type &amp;r)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>remove_successor</b> (<a class="el" href="a00320.html">successor_type</a> &amp;r)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Throws the contained exception . <br></td></tr>
+<tr><td colspan="2"><br><h2>Static Public Member Functions</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="65083750bebe799d3fe8143c794523bb"></a><!-- doxytag: member="tbb::internal::tbb_exception_ptr::allocate" ref="65083750bebe799d3fe8143c794523bb" args="()" -->
+static <a class="el" href="a00296.html">tbb_exception_ptr</a> *&nbsp;</td><td class="memItemRight" valign="bottom"><b>allocate</b> ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="50c0e6465ac929a2e94d4e62a13ebeff"></a><!-- doxytag: member="tbb::internal::join_node_base::try_get" ref="50c0e6465ac929a2e94d4e62a13ebeff" args="(output_type &amp;v)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00296.html#50c0e6465ac929a2e94d4e62a13ebeff">try_get</a> (<a class="el" href="a00296.html#578893d923f91b7e44a15dea8b0d7082">output_type</a> &amp;v)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d1111b00ba54b7fe35e6d3a0f21de287"></a><!-- doxytag: member="tbb::internal::tbb_exception_ptr::allocate" ref="d1111b00ba54b7fe35e6d3a0f21de287" args="(const tbb_exception &amp;tag)" -->
+static <a class="el" href="a00296.html">tbb_exception_ptr</a> *&nbsp;</td><td class="memItemRight" valign="bottom"><b>allocate</b> (const <a class="el" href="a00295.html">tbb_exception</a> &amp;tag)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Request an item from the sender. <br></td></tr>
-<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9f6e8b188c697743a482566ad0dd7e0d"></a><!-- doxytag: member="tbb::internal::join_node_base::internal::aggregating_functor&lt; my_class, join_node_base_operation &gt;" ref="9f6e8b188c697743a482566ad0dd7e0d" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::aggregating_functor&lt; my_class, join_node_base_operation &gt;</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c35e5db8e9cdff5d1387db5b0bad2e4a"></a><!-- doxytag: member="tbb::internal::tbb_exception_ptr::allocate" ref="c35e5db8e9cdff5d1387db5b0bad2e4a" args="(captured_exception &amp;src)" -->
+static <a class="el" href="a00296.html">tbb_exception_ptr</a> *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00296.html#c35e5db8e9cdff5d1387db5b0bad2e4a">allocate</a> (<a class="el" href="a00222.html">captured_exception</a> &amp;src)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d7392be41db39cc27f6b52b4809c5f75"></a><!-- doxytag: member="tbb::internal::join_node_base::forward_task&lt; join_node_base&lt; JP, InputTuple, OutputTuple &gt; &gt;" ref="d7392be41db39cc27f6b52b4809c5f75" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>forward_task&lt; join_node_base&lt; JP, InputTuple, OutputTuple &gt; &gt;</b></td></tr>
-
-<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>join_node_base_operation</b></td></tr>
-
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">This overload uses move semantics (i.e. it empties src). <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;join_policy JP, typename InputTuple, typename OutputTuple&gt;<br>
- class tbb::internal::join_node_base&lt; JP, InputTuple, OutputTuple &gt;</h3>
-
-<a class="el" href="a00296.html">join_node_base</a> 
+Exception container that preserves the exact copy of the original exception. 
 <p>
+This class can be used only when the appropriate runtime support (mandated by C++0x) is present 
+<p>
+<hr><h2>Member Function Documentation</h2>
+<a class="anchor" name="921875bbacd2c8a5f324c7da7a415262"></a><!-- doxytag: member="tbb::internal::tbb_exception_ptr::destroy" ref="921875bbacd2c8a5f324c7da7a415262" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void tbb::internal::tbb_exception_ptr::destroy           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%">  throw ()</td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Destroys this objects. 
+<p>
+Note that objects of this type can be created only by the allocate() method. 
+</div>
+</div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00513.html">graph.h</a></ul>
+<li><a class="el" href="a00549.html">tbb_exception.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

@@ -36,10 +36,8 @@
 #include "tbb/tbb_exception.h"
 #include "harness.h"
 
-#if !defined(__INTEL_COMPILER)
-#if defined(_MSC_VER) && _MSC_VER <= 1400  ||  __GNUC__==3 && __GNUC_MINOR__<=3  ||  __SUNPRO_CC
+#if !__INTEL_COMPILER && (_MSC_VER && _MSC_VER <= 1400 || __GNUC__==3 && __GNUC_MINOR__<=3 || __SUNPRO_CC)
     #define __TBB_FUNCTION_BY_CONSTREF_IN_TEMPLATE_BROKEN 1
-#endif
 #endif
 
 static const size_t MAX_NUMBER_OF_PINVOKE_ARGS = 10;
@@ -211,6 +209,7 @@ void test_parallel_invoke()
 
 // Exception handling support test
 
+#if __TBB_TASK_GROUP_CONTEXT
 #define HARNESS_EH_SIMPLE_MODE 1
 #include "harness_eh.h"
 
@@ -297,6 +296,7 @@ void TestCancellation ()
         }
     }
 }
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 //------------------------------------------------------------------------
 // Entry point
@@ -316,7 +316,9 @@ int TestMain () {
 #elif TBB_USE_EXCEPTIONS
             TestExceptionHandling();
 #endif /* TBB_USE_EXCEPTIONS */
+#if __TBB_TASK_GROUP_CONTEXT
             TestCancellation();
+#endif /* __TBB_TASK_GROUP_CONTEXT */
         }
         TestCPUUserTime(p);
     }

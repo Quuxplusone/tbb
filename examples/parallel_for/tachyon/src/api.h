@@ -122,7 +122,7 @@ typedef struct {
 vector rt_vector(apiflt x, apiflt y, apiflt z); /* helper to make vectors */
 color  rt_color(apiflt r, apiflt g, apiflt b);  /* helper to make colors */
 
-void rt_initialize(int *, char ***);/* reset raytracer, memory deallocation */
+void rt_initialize();/* reset raytracer, memory deallocation */
 void rt_finalize(void); /* close down for good.. */
 
 SceneHandle rt_newscene(void);        /* allocate new scene */

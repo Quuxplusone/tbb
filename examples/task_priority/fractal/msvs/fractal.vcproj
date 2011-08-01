@@ -19,7 +19,7 @@
 	</ToolFiles>
 	<Configurations>
 		<Configuration
-			Name="Debug|Win32"
+			Name="GDIDebug|Win32"
 			OutputDirectory="$(TEMP)\tbb_examples\$(ConfigurationName)"
 			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(ConfigurationName)"
 			ConfigurationType="1"
@@ -47,7 +47,7 @@
 				OmitFramePointers="true"
 				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="&quot;$(TBB30_INSTALL_DIR)\include&quot;"
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;TBB_USE_DEBUG;TBB_PREVIEW_TASK_PRIORITY"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;TBB_USE_DEBUG"
 				RuntimeLibrary="3"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -65,7 +65,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="tbb_preview_debug.lib"
+				AdditionalDependencies="tbb_debug.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\ia32\vc_mt;$(TBB30_INSTALL_DIR)\lib\ia32\vc8"
 				GenerateDebugInformation="true"
@@ -101,7 +101,7 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Debug|x64"
+			Name="GDIDebug|x64"
 			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
@@ -130,7 +130,7 @@
 				OmitFramePointers="true"
 				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="&quot;$(TBB30_INSTALL_DIR)\include&quot;"
-				PreprocessorDefinitions="WIN64;_DEBUG;_WINDOWS;TBB_USE_DEBUG;TBB_PREVIEW_TASK_PRIORITY"
+				PreprocessorDefinitions="WIN64;_DEBUG;_WINDOWS;TBB_USE_DEBUG"
 				RuntimeLibrary="3"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -147,7 +147,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="tbb_preview_debug.lib"
+				AdditionalDependencies="tbb_debug.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\intel64\vc_mt;$(TBB30_INSTALL_DIR)\lib\intel64\vc8"
 				GenerateDebugInformation="true"
@@ -183,7 +183,7 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Release|Win32"
+			Name="GDIRelease|Win32"
 			OutputDirectory="$(TEMP)\tbb_examples\$(ConfigurationName)"
 			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(ConfigurationName)"
 			ConfigurationType="1"
@@ -212,7 +212,7 @@
 				OmitFramePointers="true"
 				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="&quot;$(TBB30_INSTALL_DIR)\include&quot;"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;TBB_PREVIEW_TASK_PRIORITY"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -230,7 +230,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="tbb_preview.lib"
+				AdditionalDependencies="tbb.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\ia32\vc_mt;$(TBB30_INSTALL_DIR)\lib\ia32\vc8"
 				GenerateDebugInformation="true"
@@ -268,7 +268,7 @@
 			/>
 		</Configuration>
 		<Configuration
-			Name="Release|x64"
+			Name="GDIRelease|x64"
 			OutputDirectory="$(TEMP)\tbb_examples\$(PlatformName)\$(ConfigurationName)"
 			IntermediateDirectory="$(TEMP)\tbb_examples\$(SolutionName)\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="1"
@@ -298,7 +298,7 @@
 				OmitFramePointers="true"
 				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="&quot;$(TBB30_INSTALL_DIR)\include&quot;"
-				PreprocessorDefinitions="WIN64;NDEBUG;_WINDOWS;TBB_PREVIEW_TASK_PRIORITY"
+				PreprocessorDefinitions="WIN64;NDEBUG;_WINDOWS"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -315,7 +315,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="tbb_preview.lib"
+				AdditionalDependencies="tbb.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\intel64\vc_mt;$(TBB30_INSTALL_DIR)\lib\intel64\vc8"
 				GenerateDebugInformation="true"
@@ -383,7 +383,7 @@
 				OmitFramePointers="true"
 				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="&quot;$(TBB30_INSTALL_DIR)\include&quot;;&quot;$(DXSDK_DIR)\include&quot;"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;TBB_PREVIEW_TASK_PRIORITY"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -401,7 +401,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="tbb_preview.lib"
+				AdditionalDependencies="tbb.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\ia32\vc_mt;$(TBB30_INSTALL_DIR)\lib\ia32\vc8;$(DXSDK_DIR)\lib\x86"
 				GenerateDebugInformation="true"
@@ -470,7 +470,7 @@
 				OmitFramePointers="true"
 				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="&quot;$(TBB30_INSTALL_DIR)\include&quot;;&quot;$(DXSDK_DIR)\include&quot;"
-				PreprocessorDefinitions="WIN64;NDEBUG;_WINDOWS;TBB_PREVIEW_TASK_PRIORITY"
+				PreprocessorDefinitions="WIN64;NDEBUG;_WINDOWS"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -487,7 +487,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="tbb_preview.lib"
+				AdditionalDependencies="tbb.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\intel64\vc_mt;$(TBB30_INSTALL_DIR)\lib\intel64\vc8;$(DXSDK_DIR)\lib\x64"
 				GenerateDebugInformation="true"
@@ -554,7 +554,7 @@
 				OmitFramePointers="true"
 				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="&quot;$(TBB30_INSTALL_DIR)\include&quot;;&quot;$(DXSDK_DIR)\include&quot;"
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;TBB_USE_DEBUG;TBB_PREVIEW_TASK_PRIORITY"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;TBB_USE_DEBUG"
 				RuntimeLibrary="3"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -572,7 +572,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="tbb_preview_debug.lib"
+				AdditionalDependencies="tbb_debug.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\ia32\vc_mt;$(TBB30_INSTALL_DIR)\lib\ia32\vc8;$(DXSDK_DIR)\lib\x86"
 				GenerateDebugInformation="true"
@@ -638,7 +638,7 @@
 				OmitFramePointers="true"
 				WholeProgramOptimization="true"
 				AdditionalIncludeDirectories="&quot;$(TBB30_INSTALL_DIR)\include&quot;;&quot;$(DXSDK_DIR)\include&quot;"
-				PreprocessorDefinitions="WIN64;_DEBUG;_WINDOWS;TBB_USE_DEBUG;TBB_PREVIEW_TASK_PRIORITY"
+				PreprocessorDefinitions="WIN64;_DEBUG;_WINDOWS;TBB_USE_DEBUG"
 				RuntimeLibrary="3"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -655,7 +655,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="tbb_preview_debug.lib"
+				AdditionalDependencies="tbb_debug.lib"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\intel64\vc_mt;$(TBB30_INSTALL_DIR)\lib\intel64\vc8;$(DXSDK_DIR)\lib\x64"
 				GenerateDebugInformation="true"
@@ -745,7 +745,7 @@
 				RelativePath="..\..\..\common\gui\ddvideo.cpp"
 				>
 				<FileConfiguration
-					Name="Debug|Win32"
+					Name="GDIDebug|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -753,7 +753,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug|x64"
+					Name="GDIDebug|x64"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -761,7 +761,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release|Win32"
+					Name="GDIRelease|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -769,8 +769,15 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release|x64"
+					Name="GDIRelease|x64"
 					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="DDDebug|Win32"
 					>
 					<Tool
 						Name="VCCLCompilerTool"
@@ -780,6 +787,20 @@
 			<File
 				RelativePath="..\..\..\common\gui\gdivideo.cpp"
 				>
+				<FileConfiguration
+					Name="GDIDebug|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="GDIRelease|x64"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
 				<FileConfiguration
 					Name="DDRelease|Win32"
 					ExcludedFromBuild="true"

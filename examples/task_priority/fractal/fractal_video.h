@@ -43,6 +43,7 @@ private:
     void on_mouse( int x, int y, int key ) {
         if( key == 1 ) {
             if ( fg ) {
+                fg->set_num_frames(20);
                 fg->mouse_click( x, y );
             }
         }
@@ -50,7 +51,12 @@ private:
 
     void on_key( int key ) {
         switch ( key&0xff ) {
-        case 27: running = false;
+        case 27:
+            running = false; break;
+        case ' ': // space
+            if( fg ) fg->switch_priorities();
+        default:
+            if( fg ) fg->set_num_frames(20);
         }
     }
 
@@ -62,7 +68,7 @@ private:
 
 public:
     fractal_video() :fg(0) {
-        title = "Fractal Example";
+        title = "Dynamic Priorities in TBB: Fractal Example";
         v = this;
     }
 

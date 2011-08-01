@@ -38,6 +38,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cctype>
+#include "../../common/utility/utility.h"
 
 using namespace std;
 
@@ -79,9 +80,9 @@ public:
     void set_end( char* p ) {logical_end=p;}
 };
 
-const size_t MAX_CHAR_PER_INPUT_SLICE = 4000;
-static const char* InputFileName = "input.txt";
-static const char* OutputFileName = "output.txt";
+size_t MAX_CHAR_PER_INPUT_SLICE = 4000;
+string InputFileName = "input.txt";
+string OutputFileName = "output.txt";
 
 class MyInputFilter: public tbb::filter {
 public:
@@ -181,51 +182,25 @@ void* MyOutputFilter::operator()( void* item ) {
     TextSlice& out = *static_cast<TextSlice*>(item);
     size_t n = fwrite( out.begin(), 1, out.size(), my_output_file );
     if( n!=out.size() ) {
-        fprintf(stderr,"Can't write into file '%s'\n", OutputFileName);
+        fprintf(stderr,"Can't write into file '%s'\n", OutputFileName.c_str());
         exit(1);
     }
     out.free();
     return NULL;
 }
 
-static int NThread = tbb::task_scheduler_init::automatic;
-static bool is_number_of_threads_set = false;
-
-void Usage()
-{
-    fprintf( stderr, "Usage:\tsquare [input-file [output-file [nthread]]]\n");
-}
-
-int ParseCommandLine(  int argc, char* argv[] ) {
-    // Parse command line
-    if( argc> 4 ){
-        Usage();
-        return 0;
-    }
-    if( argc>=2 ) InputFileName = argv[1];
-    if( argc>=3 ) OutputFileName = argv[2];
-    if( argc>=4 ) {
-        NThread = strtol(argv[3],0,0);
-        if( NThread<1 ) {
-            fprintf(stderr,"nthread set to %d, but must be at least 1\n",NThread);
-            return 0;
-        }
-        is_number_of_threads_set = true; //Number of threads is set explicitly
-    }
-    return 1;
-}
+bool silent = false;
 
 int run_pipeline( int nthreads )
 {
-    FILE* input_file = fopen(InputFileName,"r");
+    FILE* input_file = fopen( InputFileName.c_str(), "r" );
     if( !input_file ) {
-        perror( InputFileName );
-        Usage();
+        throw std::invalid_argument( ("Invalid input file name: "+InputFileName).c_str() );
         return 0;
     }
-    FILE* output_file = fopen(OutputFileName,"w");
+    FILE* output_file = fopen( OutputFileName.c_str(), "w" );
     if( !output_file ) {
-        perror( OutputFileName );
+        throw std::invalid_argument( ("Invalid output file name: "+OutputFileName).c_str() );
         return 0;
     }
 
@@ -254,37 +229,56 @@ int run_pipeline( int nthreads )
     fclose( output_file );
     fclose( input_file );
 
-    if (is_number_of_threads_set) {
-        printf("threads = %d time = %g\n", nthreads, (t1-t0).seconds());
-    } else {
-        if ( nthreads == 1 ){
-            printf("serial run   time = %g\n", (t1-t0).seconds());
-        } else {
-            printf("parallel run time = %g\n", (t1-t0).seconds());
-        }
-    }
+    if ( !silent ) printf("time = %g\n", (t1-t0).seconds());
+
     return 1;
 }
 
 int main( int argc, char* argv[] ) {
-    if(!ParseCommandLine( argc, argv ))
+    try {
+        tbb::tick_count mainStartTime = tbb::tick_count::now();
+
+        // The 1st argument is the function to obtain 'auto' value; the 2nd is the default value
+        // The example interprets 0 threads as "run serially, then fully subscribed"
+        utility::thread_number_range threads( tbb::task_scheduler_init::default_num_threads, 0 );
+
+        utility::parse_cli_arguments(argc,argv,
+            utility::cli_argument_pack()
+            //"-h" option for for displaying help is present implicitly
+            .positional_arg(threads,"n-of-threads","number of threads to use; a range of the form low[:high], where low and optional high are non-negative integers or 'auto' for the TBB default.")
+            .positional_arg(InputFileName,"input-file","input file name")
+            .positional_arg(OutputFileName,"output-file","output file name")
+            .positional_arg(MAX_CHAR_PER_INPUT_SLICE, "max-slice-size","the maximum number of characters in one slice")
+            .arg(silent,"silent","no output except elapsed time")
+            );
+
+        if ( threads.first ) {
+            for(int p = threads.first;  p <= threads.last; ++p ) {
+                if ( !silent ) printf("threads = %d ", p);
+                tbb::task_scheduler_init init(p);
+                if(!run_pipeline (p))
+                    return 1;
+            }
+        } else { // Number of threads wasn't set explicitly. Run serial and parallel version
+            { // serial run
+                if ( !silent ) printf("serial run   ");
+                tbb::task_scheduler_init init_serial(1);
+                if(!run_pipeline (1))
+                    return 1;
+            }
+            { // parallel run (number of threads is selected automatically)
+                if ( !silent ) printf("parallel run ");
+                tbb::task_scheduler_init init_parallel;
+                if(!run_pipeline (init_parallel.default_num_threads()))
+                    return 1;
+            }
+        }
+
+        utility::report_elapsed_time((tbb::tick_count::now() - mainStartTime).seconds());
+
+        return 0;
+    } catch(std::exception& e) {
+        std::cerr<<"error occurred. error text is :\"" <<e.what()<<"\"\n";
         return 1;
-    if (is_number_of_threads_set) {
-        // Start task scheduler
-        tbb::task_scheduler_init init( NThread );
-        if(!run_pipeline (NThread))
-            return 1;
-    } else { // Number of threads wasn't set explicitly. Run serial and parallel version
-        { // serial run
-            tbb::task_scheduler_init init_serial(1);
-            if(!run_pipeline (1))
-                return 1;
-        }
-        { // parallel run (number of threads is selected automatically)
-            tbb::task_scheduler_init init_parallel;
-            if(!run_pipeline (init_parallel.default_num_threads()))
-                return 1;
-        }
     }
-    return 0;
 }

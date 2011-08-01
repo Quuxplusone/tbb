@@ -40,8 +40,8 @@ void concurrent_monitor::prepare_wait( thread_context& thr, void* ctx ) {
     thr.context = ctx;
     thr.in_waitset = true;
     {
-        tbb::spin_mutex::scoped_lock l( mutex_ec );
-        thr.epoch = epoch;
+        spin_mutex::scoped_lock l( mutex_ec );
+        __TBB_store_relaxed( thr.epoch, __TBB_load_relaxed(epoch) );
         waitset_ec.add( (waitset_t::node_t*)&thr );
     }
     atomic_fence();
@@ -65,31 +65,31 @@ void concurrent_monitor::cancel_wait( thread_context& thr ) {
 }
 
 void concurrent_monitor::notify_one_relaxed() {
-    if( waitset_ec.size()==0 )
+    if( waitset_ec.empty() )
         return;
     waitset_node_t* n;
     const waitset_node_t* end = waitset_ec.end();
     {
         tbb::spin_mutex::scoped_lock l( mutex_ec );
-        epoch = epoch + 1;
+        __TBB_store_relaxed( epoch, __TBB_load_relaxed(epoch) + 1 );
         n = waitset_ec.front();
         if( n!=end ) {
             waitset_ec.remove( *n );
             to_thread_context(n)->in_waitset = false;
         }
     }
-    if( n!=end ) 
+    if( n!=end )
         to_thread_context(n)->sema.V();
 }
 
 void concurrent_monitor::notify_all_relaxed() {
-    if( waitset_ec.size()==0 )
+    if( waitset_ec.empty() )
         return;
     dllist_t temp;
     const waitset_node_t* end;
     {
         tbb::spin_mutex::scoped_lock l( mutex_ec );
-        epoch = epoch + 1;
+        __TBB_store_relaxed( epoch, __TBB_load_relaxed(epoch) + 1 );
         waitset_ec.flush_to( temp );
         end = temp.end();
         for( waitset_node_t* n=temp.front(); n!=end; n=n->next )

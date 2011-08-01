@@ -53,7 +53,10 @@ void queuing_mutex::scoped_lock::acquire( queuing_mutex& m )
     scoped_lock* pred = m.q_tail.fetch_and_store<tbb::release>(this);
     if( pred ) {
         ITT_NOTIFY(sync_prepare, mutex);
+#if TBB_USE_ASSERT
+        __TBB_control_consistency_helper(); // on "m.q_tail"
         __TBB_ASSERT( !pred->next, "the predecessor has another successor!");
+#endif
         pred->next = this;
         spin_wait_while_eq( going, 0ul );
     }
@@ -74,20 +77,18 @@ bool queuing_mutex::scoped_lock::try_acquire( queuing_mutex& m )
     next  = NULL;
     going = 0;
 
-    if( m.q_tail ) return false;
     // The CAS must have release semantics, because we are
     // "sending" the fields initialized above to other processors.
-    scoped_lock* pred = m.q_tail.compare_and_swap<tbb::release>(this, NULL);
+    if( m.q_tail.compare_and_swap<tbb::release>(this, NULL) )
+        return false;
 
     // Force acquire so that user's critical section receives correct values
     // from processor that was previously in the user's critical section.
     // try_acquire should always have acquire semantic, even if failed.
     __TBB_load_with_acquire(going);
-    if( !pred ) {
-        mutex = &m;
-        ITT_NOTIFY(sync_acquired, mutex);
-        return true;
-    } else return false;
+    mutex = &m;
+    ITT_NOTIFY(sync_acquired, mutex);
+    return true;
 }
 
 //! A method to release queuing_mutex lock

@@ -43,7 +43,10 @@ static tbb::task *g_Root1 = NULL,
                  *g_Root2 = NULL,
                  *g_Root3 = NULL,
                  *g_Task = NULL;
+
+#if __TBB_TASK_GROUP_CONTEXT
 static tbb::task_group_context* g_Ctx = NULL;
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 
 void TestTaskSelf () {
@@ -72,10 +75,11 @@ void TestChildAllocation () {
 
 void TestAdditionalChildAllocation () {
     TEST_PROLOGUE();
-    tbb::task &t = *new( g_Root2->allocate_additional_child_of(*g_Root2) ) tbb::empty_task;
+    tbb::task &t = *new( tbb::task::allocate_additional_child_of(*g_Root2) ) tbb::empty_task;
     ExecuteChildAndCleanup( *g_Root2, t );
 }
 
+#if __TBB_TASK_GROUP_CONTEXT
 void TestTaskGroupContextCreation () {
     TEST_PROLOGUE();
     tbb::task_group_context ctx;
@@ -88,23 +92,27 @@ void TestRootAllocationWithContext () {
     tbb::task* root = new( tbb::task::allocate_root(*g_Ctx) ) tbb::empty_task;
     tbb::task::spawn_root_and_wait(*root);
 }
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 void TestSpawn () {
     TEST_PROLOGUE();
-    g_Task->spawn(*g_Task);
+    tbb::task::spawn(*g_Task);
 }
 
 void TestWaitForAll () {
     TEST_PROLOGUE();
     g_Root3->wait_for_all();
-    g_Root3->destroy( *g_Root3 );
+    tbb::task::destroy(*g_Root3);
 }
 
 typedef void (*TestFnPtr)();
 
 const TestFnPtr TestFuncsTable[] = {
         TestTaskSelf, TestRootAllocation, TestChildAllocation, TestAdditionalChildAllocation, 
-        TestTaskGroupContextCreation, TestRootAllocationWithContext, TestSpawn, TestWaitForAll };
+#if __TBB_TASK_GROUP_CONTEXT
+        TestTaskGroupContextCreation, TestRootAllocationWithContext,
+#endif /* __TBB_TASK_GROUP_CONTEXT */
+        TestSpawn, TestWaitForAll };
 
 const int NumTestFuncs = sizeof(TestFuncsTable) / sizeof(TestFnPtr);
 
@@ -174,12 +182,18 @@ struct DriverThreadBody : NoAssign, Harness::NoAfterlife {
             // auto-initialized master thread (in governor::auto_terminate). 
             // If anything goes wrong, generic_scheduler::cleanup_master() will assert.
             // The context for this task must be valid till the task completion.
+#if __TBB_TASK_GROUP_CONTEXT
             tbb::task &r = *new( tbb::task::allocate_root(*g_Ctx) ) FireAndForgetTask;
-            r.spawn(r);
+#else
+            tbb::task &r = *new( tbb::task::allocate_root() ) FireAndForgetTask;
+#endif /* __TBB_TASK_GROUP_CONTEXT */
+            tbb::task::spawn(r);
         }
         else {
+#if __TBB_TASK_GROUP_CONTEXT
             tbb::task_group_context ctx;
             g_Ctx = &ctx;
+#endif /* __TBB_TASK_GROUP_CONTEXT */
             driver_barrier.wait();
             spin_wait_until_eq( FafStarted, true );
             UseAFewNewTlsKeys();

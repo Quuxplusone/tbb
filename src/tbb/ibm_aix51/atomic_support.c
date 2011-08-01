@@ -37,19 +37,27 @@
 int32_t __TBB_machine_cas_32 (volatile void* ptr, int32_t value, int32_t comparand) { 
     __asm__ __volatile__ ("sync\n");  /* memory release operation */
     compare_and_swap ((atomic_p) ptr, &comparand, value);
-    __asm__ __volatile__ ("sync\n");  /* memory acquire operation */
+    __asm__ __volatile__ ("isync\n");  /* memory acquire operation */
     return comparand;
 }
 
 int64_t __TBB_machine_cas_64 (volatile void* ptr, int64_t value, int64_t comparand) { 
     __asm__ __volatile__ ("sync\n");  /* memory release operation */
     compare_and_swaplp ((atomic_l) ptr, &comparand, value);
-    __asm__ __volatile__ ("sync\n");  /* memory acquire operation */
+    __asm__ __volatile__ ("isync\n");  /* memory acquire operation */
     return comparand;
 }
 
 void __TBB_machine_flush () { 
     __asm__ __volatile__ ("sync\n");
+}
+
+void __TBB_machine_lwsync () { 
+    __asm__ __volatile__ ("lwsync\n");
+}
+
+void __TBB_machine_isync () { 
+    __asm__ __volatile__ ("isync\n");
 }
 
 #endif /* __GNUC__ */

@@ -38,7 +38,9 @@
     // Workaround for overzealous compiler warnings in /Wp64 mode
     #pragma warning (disable: 4267)
 #endif
-#endif //#if _MSC_VER 
+
+#define _SCL_SECURE_NO_WARNINGS
+#endif //#if _MSC_VER
 
 #include "tbb/parallel_for.h"
 #include "tbb/atomic.h"
@@ -47,7 +49,7 @@
 
 static tbb::atomic<int> FooBodyCount;
 
-//! An range object whose only public members are those required by the Range concept.
+//! A range object whose only public members are those required by the Range concept.
 template<size_t Pad>
 class FooRange {
     //! Start of range
@@ -75,7 +77,7 @@ public:
     }
 };
 
-//! An range object whose only public members are those required by the parallel_for.h body concept.
+//! A range object whose only public members are those required by the parallel_for.h body concept.
 template<size_t Pad>
 class FooBody {
     static const int LIVE = 0x1234;
@@ -90,28 +92,29 @@ public:
         for( size_t i=0; i<sizeof(*this); ++i )
             reinterpret_cast<char*>(this)[i] = -1;
     }
-    //! Copy constructor 
+    //! Copy constructor
     FooBody( const FooBody& other ) : array(other.array), state(other.state) {
         ++FooBodyCount;
         ASSERT( state==LIVE, NULL );
     }
     void operator()( FooRange<Pad>& r ) const {
-        for( int k=0; k<r.size; ++k )
-            array[r.start+k]++;
+        for( int k=0; k<r.size; ++k ) {
+            const int i = array[r.start+k]++;
+            ASSERT( i==0, NULL );
+        }
     }
 };
 
 #include "tbb/tick_count.h"
 
-static const int N = 1000;
+static const int N = 500;
 static tbb::atomic<int> Array[N];
 
 template<size_t Pad>
 void Flog( int nthread ) {
     tbb::tick_count T0 = tbb::tick_count::now();
     for( int i=0; i<N; ++i ) {
-        for ( int mode = 0; mode < 4; ++mode) 
-        {
+        for ( int mode = 0; mode < 4; ++mode) {
             FooRange<Pad> r( 0, i );
             const FooRange<Pad> rc = r;
             FooBody<Pad> f( Array );
@@ -134,14 +137,10 @@ void Flog( int nthread ) {
                 }
                 break;
             }
-            for( int j=0; j<i; ++j ) 
+            for( int j=0; j<i; ++j )
                 ASSERT( Array[j]==1, NULL );
-            for( int j=i; j<N; ++j ) 
+            for( int j=i; j<N; ++j )
                 ASSERT( Array[j]==0, NULL );
-            // Destruction of bodies might take a while, but there should be at most one body per thread
-            // at this point.
-            while( FooBodyCount>1 && FooBodyCount<=nthread )
-                __TBB_Yield();
             ASSERT( FooBodyCount==1, NULL );
         }
     }
@@ -151,8 +150,8 @@ void Flog( int nthread ) {
 
 // Testing parallel_for with step support
 const size_t PFOR_BUFFER_TEST_SIZE = 1024;
-// test_buffer has some extra items beyound right bound
-const size_t PFOR_BUFFER_ACTUAL_SIZE = PFOR_BUFFER_TEST_SIZE + 1024; 
+// test_buffer has some extra items beyond its right bound
+const size_t PFOR_BUFFER_ACTUAL_SIZE = PFOR_BUFFER_TEST_SIZE + 1024;
 size_t pfor_buffer[PFOR_BUFFER_ACTUAL_SIZE];
 
 template<typename T>
@@ -216,6 +215,7 @@ void TestParallelForWithStepSupport()
 #endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
 }
 
+#if __TBB_TASK_GROUP_CONTEXT
 // Exception support test
 #define HARNESS_EH_SIMPLE_MODE 1
 #include "tbb/tbb_exception.h"
@@ -283,30 +283,38 @@ void TestCancellation()
     ResetEhGlobals();
     RunCancellationTest<my_worker_pfor_step_task, CancellatorTask>();
 }
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 #include "harness_m128.h"
 
-#if HAVE_m128 && !__TBB_SSE_STACK_ALIGNMENT_BROKEN
+#if (HAVE_m128 || HAVE_m256) && !__TBB_SSE_STACK_ALIGNMENT_BROKEN
+template<typename ClassWithVectorType>
 struct SSE_Functor {
-    ClassWithSSE* Src, * Dst;
-    SSE_Functor( ClassWithSSE* src, ClassWithSSE* dst ) : Src(src), Dst(dst) {}
+    ClassWithVectorType* Src, * Dst;
+    SSE_Functor( ClassWithVectorType* src, ClassWithVectorType* dst ) : Src(src), Dst(dst) {}
 
     void operator()( tbb::blocked_range<int>& r ) const {
         for( int i=r.begin(); i!=r.end(); ++i )
             Dst[i] = Src[i];
-    }     
+    }
 };
 
 //! Test that parallel_for works with stack-allocated __m128
-void TestSSE() {
-    ClassWithSSE Array1[N], Array2[N];
-    for( int i=0; i<N; ++i )
-        Array1[i] = ClassWithSSE(i);
-    tbb::parallel_for( tbb::blocked_range<int>(0,N), SSE_Functor(Array1, Array2) );
-    for( int i=0; i<N; ++i )
-        ASSERT( Array2[i]==ClassWithSSE(i), NULL ) ;
+template<typename ClassWithVectorType>
+void TestVectorTypes() {
+    ClassWithVectorType Array1[N], Array2[N];
+    for( int i=0; i<N; ++i ) {
+        // VC8 does not properly align a temporary value; to work around, use explicit variable
+        ClassWithVectorType foo(i);
+        Array1[i] = foo;
+    }
+    tbb::parallel_for( tbb::blocked_range<int>(0,N), SSE_Functor<ClassWithVectorType>(Array1, Array2) );
+    for( int i=0; i<N; ++i ) {
+        ClassWithVectorType foo(i);
+        ASSERT( Array2[i]==foo, NULL ) ;
+    }
 }
-#endif /* HAVE_m128 */
+#endif /* HAVE_m128 || HAVE_m256 */
 
 #include <cstdio>
 #include "tbb/task_scheduler_init.h"
@@ -339,11 +347,18 @@ int TestMain () {
 #if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
             TestExceptionsSupport();
 #endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
-            if (p>1) TestCancellation();
-#if HAVE_m128 && !__TBB_SSE_STACK_ALIGNMENT_BROKEN
-            TestSSE();
-#endif /* HAVE_m128 */
-
+#if __TBB_TASK_GROUP_CONTEXT
+            if ( p > 1 )
+                TestCancellation();
+#endif /* __TBB_TASK_GROUP_CONTEXT */
+#if !__TBB_SSE_STACK_ALIGNMENT_BROKEN
+    #if HAVE_m128
+            TestVectorTypes<ClassWithSSE>();
+    #endif
+    #if HAVE_m256
+            if (have_AVX()) TestVectorTypes<ClassWithAVX>();
+    #endif
+#endif /*!__TBB_SSE_STACK_ALIGNMENT_BROKEN*/
             // Test that all workers sleep when no work
             TestCPUUserTime(p);
         }
@@ -351,8 +366,8 @@ int TestMain () {
 #if __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
     REPORT("Known issue: exception handling tests are skipped.\n");
 #endif
-#if HAVE_m128 && __TBB_SSE_STACK_ALIGNMENT_BROKEN
-    REPORT("Known issue: stack alignment for SSE not tested.\n");
+#if (HAVE_m128 || HAVE_m256) && __TBB_SSE_STACK_ALIGNMENT_BROKEN
+    REPORT("Known issue: stack alignment for SSE/AVX not tested.\n");
 #endif
     return Harness::Done;
 }

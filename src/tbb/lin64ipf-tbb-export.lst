@@ -381,5 +381,13 @@ __TBB_SYMBOL( __TBB_machine_lg )
 __TBB_SYMBOL( __TBB_machine_lockbyte )
 __TBB_SYMBOL( __TBB_machine_pause )
 __TBB_SYMBOL( __TBB_machine_trylockbyte )
+__TBB_SYMBOL( __TBB_machine_load8_relaxed )
+__TBB_SYMBOL( __TBB_machine_store8_relaxed )
+__TBB_SYMBOL( __TBB_machine_load4_relaxed )
+__TBB_SYMBOL( __TBB_machine_store4_relaxed )
+__TBB_SYMBOL( __TBB_machine_load2_relaxed )
+__TBB_SYMBOL( __TBB_machine_store2_relaxed )
+__TBB_SYMBOL( __TBB_machine_load1_relaxed )
+__TBB_SYMBOL( __TBB_machine_store1_relaxed )
 
 #undef __TBB_SYMBOL

@@ -71,6 +71,8 @@ static void (* rt_static_ui_message) (int, const char *) = NULL;
 static void (* rt_static_ui_progress) (int) = NULL;
 static int (* rt_static_ui_checkaction) (void) = NULL;
 
+extern bool silent_mode;
+
 void set_rt_ui_message(void (* func) (int, const char *)) {
   rt_static_ui_message = func;
 }
@@ -81,8 +83,10 @@ void set_rt_ui_progress(void (* func) (int)) {
 
 void rt_ui_message(int level, const char * msg) {
   if (rt_static_ui_message == NULL) {
-    fprintf(stderr, "%s\n", msg);
-    fflush (stderr);
+    if ( !silent_mode ) {
+      fprintf(stderr, "%s\n", msg);
+      fflush (stderr);
+    }
   } else {
     rt_static_ui_message(level, msg);
   }
@@ -92,8 +96,10 @@ void rt_ui_progress(int percent) {
   if (rt_static_ui_progress != NULL)
     rt_static_ui_progress(percent);
   else {
-    fprintf(stderr, "\r %3d%% Complete            \r", percent);
-    fflush(stderr);
+    if ( !silent_mode ) {
+      fprintf(stderr, "\r %3d%% Complete            \r", percent);
+      fflush(stderr);
+    }
   }
 }
 

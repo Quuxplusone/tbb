@@ -28,7 +28,7 @@
 
 #include "harness.h"
 #define TBB_PREVIEW_GRAPH 1
-#include "tbb/graph.h"
+#include "tbb/flow_graph.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tick_count.h"
 #include "tbb/atomic.h"
@@ -40,27 +40,27 @@
 
 template< typename T >
 struct seq_inspector {
-    size_t operator()(T &v) const { return size_t(v); }
+    size_t operator()(const T &v) const { return size_t(v); }
 };
 
 template< typename T >
-bool wait_try_get( tbb::graph &g, tbb::sequencer_node<T> &q, T &value ) {
+bool wait_try_get( tbb::flow::graph &g, tbb::flow::sequencer_node<T> &q, T &value ) {
     g.wait_for_all();
     return q.try_get(value);
 }
 
 template< typename T >
-void spin_try_get( tbb::queue_node<T> &q, T &value ) {
+void spin_try_get( tbb::flow::queue_node<T> &q, T &value ) {
     while ( q.try_get(value) != true ) ;
 }
 
 template< typename T >
 struct parallel_puts : NoAssign {
 
-    tbb::sequencer_node<T> &my_q;
+    tbb::flow::sequencer_node<T> &my_q;
     int my_num_threads;
 
-    parallel_puts( tbb::sequencer_node<T> &q, int num_threads ) : my_q(q), my_num_threads(num_threads) {}
+    parallel_puts( tbb::flow::sequencer_node<T> &q, int num_threads ) : my_q(q), my_num_threads(num_threads) {}
 
     void operator()(int tid) const {
         for (int j = tid; j < N; j+=my_num_threads) {
@@ -138,11 +138,11 @@ struct touches {
 template< typename T >
 struct parallel_gets : NoAssign {
 
-    tbb::sequencer_node<T> &my_q;
+    tbb::flow::sequencer_node<T> &my_q;
     int my_num_threads;
     touches<T> &my_touches;
 
-    parallel_gets( tbb::sequencer_node<T> &q, int num_threads, touches<T> &t ) : my_q(q), my_num_threads(num_threads), my_touches(t) {}
+    parallel_gets( tbb::flow::sequencer_node<T> &q, int num_threads, touches<T> &t ) : my_q(q), my_num_threads(num_threads), my_touches(t) {}
 
     void operator()(int tid) const {
         for (int j = tid; j < N; j+=my_num_threads) {
@@ -157,13 +157,13 @@ struct parallel_gets : NoAssign {
 template< typename T >
 struct parallel_put_get : NoAssign {
 
-    tbb::sequencer_node<T> &my_s1;
-    tbb::sequencer_node<T> &my_s2;
+    tbb::flow::sequencer_node<T> &my_s1;
+    tbb::flow::sequencer_node<T> &my_s2;
     int my_num_threads;
     tbb::atomic< int > &my_counter;    
     touches<T> &my_touches; 
 
-    parallel_put_get( tbb::sequencer_node<T> &s1, tbb::sequencer_node<T> &s2, int num_threads, 
+    parallel_put_get( tbb::flow::sequencer_node<T> &s1, tbb::flow::sequencer_node<T> &s2, int num_threads, 
                       tbb::atomic<int> &counter, touches<T> &t ) : my_s1(s1), my_s2(s2), my_num_threads(num_threads), my_counter(counter), my_touches(t) {}
 
     void operator()(int tid) const {
@@ -195,9 +195,9 @@ struct parallel_put_get : NoAssign {
 
 template< typename T >
 int test_parallel(int num_threads) {
-    tbb::graph g;
+    tbb::flow::graph g;
 
-    tbb::sequencer_node<T> s(g, seq_inspector<T>());
+    tbb::flow::sequencer_node<T> s(g, seq_inspector<T>());
     NativeParallelFor( num_threads, parallel_puts<T>(s, num_threads) );
     {
         touches<T> t( num_threads );
@@ -211,11 +211,11 @@ int test_parallel(int num_threads) {
     ASSERT( j == bogus_value, NULL );
     g.wait_for_all();
 
-    tbb::sequencer_node<T> s1(g, seq_inspector<T>());
-    tbb::sequencer_node<T> s2(g, seq_inspector<T>());
-    tbb::sequencer_node<T> s3(g, seq_inspector<T>());
-    ASSERT( s1.register_successor( s2 ) == true, NULL );
-    ASSERT( s2.register_successor( s3 ) == true, NULL );
+    tbb::flow::sequencer_node<T> s1(g, seq_inspector<T>());
+    tbb::flow::sequencer_node<T> s2(g, seq_inspector<T>());
+    tbb::flow::sequencer_node<T> s3(g, seq_inspector<T>());
+    tbb::flow::make_edge( s1, s2 );
+    tbb::flow::make_edge( s2, s3 );
 
     {
         touches<T> t( num_threads );
@@ -232,6 +232,20 @@ int test_parallel(int num_threads) {
     g.wait_for_all();
     ASSERT( s3.try_get( j ) == false, NULL );
     ASSERT( j == bogus_value, NULL );
+
+    // test copy constructor
+    tbb::flow::sequencer_node<T> s_copy(s);
+    NativeParallelFor( num_threads, parallel_puts<T>(s_copy, num_threads) );
+    for (int i = 0; i < N; ++i) {
+        j = bogus_value;
+        spin_try_get( s_copy, j );
+        ASSERT( i == j, NULL );
+    }
+    j = bogus_value;
+    g.wait_for_all();
+    ASSERT( s_copy.try_get( j ) == false, NULL );
+    ASSERT( j == bogus_value, NULL );
+
     return 0;
 }
 
@@ -248,11 +262,11 @@ int test_parallel(int num_threads) {
 
 template< typename T >
 int test_serial() {
-    tbb::graph g;
+    tbb::flow::graph g;
     T bogus_value(-1);
 
-    tbb::sequencer_node<T> s(g, seq_inspector<T>());
-    tbb::sequencer_node<T> s2(g, seq_inspector<T>());
+    tbb::flow::sequencer_node<T> s(g, seq_inspector<T>());
+    tbb::flow::sequencer_node<T> s2(g, seq_inspector<T>());
     T j = bogus_value;
 
     //
@@ -307,11 +321,11 @@ int test_serial() {
     // Chained in-order simple puts and gets
     //
 
-    tbb::sequencer_node<T> s3(g, seq_inspector<T>());
-    tbb::sequencer_node<T> s4(g, seq_inspector<T>());
-    tbb::sequencer_node<T> s5(g, seq_inspector<T>());
-    ASSERT( s3.register_successor( s4 ) == true, NULL );
-    ASSERT( s4.register_successor( s5 ) == true, NULL );
+    tbb::flow::sequencer_node<T> s3(g, seq_inspector<T>());
+    tbb::flow::sequencer_node<T> s4(g, seq_inspector<T>());
+    tbb::flow::sequencer_node<T> s5(g, seq_inspector<T>());
+    tbb::flow::make_edge( s3, s4 );
+    tbb::flow::make_edge( s4, s5 );
 
     for (int i = 0; i < N; ++i) {
         bool msg = s3.try_put( T(i) );
@@ -330,7 +344,7 @@ int test_serial() {
     ASSERT( j == bogus_value, NULL );
 
     g.wait_for_all();
-    ASSERT( s3.remove_successor( s4 ) == true, NULL );
+    tbb::flow::remove_edge( s3, s4 );
     ASSERT( s3.try_put( N ) == true, NULL );
     ASSERT( wait_try_get( g, s4, j ) == false, NULL );
     ASSERT( j == bogus_value, NULL );
@@ -343,11 +357,11 @@ int test_serial() {
     // Chained reverse-order simple puts and gets
     //
 
-    tbb::sequencer_node<T> s6(g, seq_inspector<T>());
-    tbb::sequencer_node<T> s7(g, seq_inspector<T>());
-    tbb::sequencer_node<T> s8(g, seq_inspector<T>());
-    ASSERT( s6.register_successor( s7 ) == true, NULL );
-    ASSERT( s7.register_successor( s8 ) == true, NULL );
+    tbb::flow::sequencer_node<T> s6(g, seq_inspector<T>());
+    tbb::flow::sequencer_node<T> s7(g, seq_inspector<T>());
+    tbb::flow::sequencer_node<T> s8(g, seq_inspector<T>());
+    tbb::flow::make_edge( s6, s7 );
+    tbb::flow::make_edge( s7, s8 );
 
     for (int i = N-1; i >= 0; --i) {
         bool msg = s6.try_put( T(i) );
@@ -366,7 +380,7 @@ int test_serial() {
     ASSERT( j == bogus_value, NULL );
 
     g.wait_for_all();
-    ASSERT( s6.remove_successor( s7 ) == true, NULL );
+    tbb::flow::remove_edge( s6, s7 );
     ASSERT( s6.try_put( N ) == true, NULL );
     ASSERT( wait_try_get( g, s7, j ) == false, NULL );
     ASSERT( j == bogus_value, NULL );

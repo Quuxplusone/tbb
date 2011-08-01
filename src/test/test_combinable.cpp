@@ -52,7 +52,7 @@
 #include "harness_assert.h"
 #include "harness.h"
 
-#if __TBB_GCC_WARNING_SUPPRESSION_ENABLED
+#if __TBB_GCC_WARNING_SUPPRESSION_PRESENT
 #pragma GCC diagnostic ignored "-Wuninitialized"
 #endif
 

@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::interface5::concurrent_hash_map&lt; Key, T, HashCompare, Allocator &gt;::bucket_accessor Class Reference</title>
+<title>tbb::recursive_mutex::scoped_lock Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,39 +21,51 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00407.html">tbb</a>::<b>interface5</b>::<a class="el" href="a00272.html">concurrent_hash_map</a>::<a class="el" href="a00274.html">bucket_accessor</a></div>
-<h1>tbb::interface5::concurrent_hash_map&lt; Key, T, HashCompare, Allocator &gt;::bucket_accessor Class Reference</h1><!-- doxytag: class="tbb::interface5::concurrent_hash_map::bucket_accessor" -->bucket accessor is to find, rehash, acquire a lock, and access a bucket  
+<a class="el" href="a00357.html">tbb</a>::<a class="el" href="a00273.html">recursive_mutex</a>::<a class="el" href="a00274.html">scoped_lock</a></div>
+<h1>tbb::recursive_mutex::scoped_lock Class Reference</h1><!-- doxytag: class="tbb::recursive_mutex::scoped_lock" -->The scoped locking pattern.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00471.html">concurrent_hash_map.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00518.html">recursive_mutex.h</a>&gt;</code>
 <p>
-<a href="a00020.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00093.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b1dcb174ab54b8612b25b6126d18d6c3"></a><!-- doxytag: member="tbb::interface5::concurrent_hash_map::bucket_accessor::bucket_accessor" ref="b1dcb174ab54b8612b25b6126d18d6c3" args="(concurrent_hash_map *base, const hashcode_t h, bool writer=false)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>bucket_accessor</b> (<a class="el" href="a00272.html">concurrent_hash_map</a> *base, const hashcode_t h, bool writer=false)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d82d4d36fbf9727a493d26ae50855fe7"></a><!-- doxytag: member="tbb::recursive_mutex::scoped_lock::scoped_lock" ref="d82d4d36fbf9727a493d26ae50855fe7" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00274.html#d82d4d36fbf9727a493d26ae50855fe7">scoped_lock</a> ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d11c77f4d70a94d4fb344492bbf18007"></a><!-- doxytag: member="tbb::interface5::concurrent_hash_map::bucket_accessor::acquire" ref="d11c77f4d70a94d4fb344492bbf18007" args="(concurrent_hash_map *base, const hashcode_t h, bool writer=false)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00274.html#d11c77f4d70a94d4fb344492bbf18007">acquire</a> (<a class="el" href="a00272.html">concurrent_hash_map</a> *base, const hashcode_t h, bool writer=false)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct lock that has not acquired a <a class="el" href="a00273.html">recursive_mutex</a>. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="dec17713c4c1321ac8fec66816d0c602"></a><!-- doxytag: member="tbb::recursive_mutex::scoped_lock::scoped_lock" ref="dec17713c4c1321ac8fec66816d0c602" args="(recursive_mutex &amp;mutex)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00274.html#dec17713c4c1321ac8fec66816d0c602">scoped_lock</a> (<a class="el" href="a00273.html">recursive_mutex</a> &amp;<a class="el" href="a00253.html">mutex</a>)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">find a bucket by masked hashcode, optionally rehash, and acquire the lock <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="07d958f151a0eaa92f50fd56ad6440e2"></a><!-- doxytag: member="tbb::interface5::concurrent_hash_map::bucket_accessor::is_writer" ref="07d958f151a0eaa92f50fd56ad6440e2" args="()" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00274.html#07d958f151a0eaa92f50fd56ad6440e2">is_writer</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire lock on given mutex. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c1197ffb8f3cd9d4fed71d7e06265b7c"></a><!-- doxytag: member="tbb::recursive_mutex::scoped_lock::~scoped_lock" ref="c1197ffb8f3cd9d4fed71d7e06265b7c" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00274.html#c1197ffb8f3cd9d4fed71d7e06265b7c">~scoped_lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">check whether bucket is locked for write <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="fa6314b861c574f86ed189b124cf5853"></a><!-- doxytag: member="tbb::interface5::concurrent_hash_map::bucket_accessor::operator()" ref="fa6314b861c574f86ed189b124cf5853" args="()" -->
-bucket *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00274.html#fa6314b861c574f86ed189b124cf5853">operator()</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock (if lock is held). <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="7fb04da37cccf8c99b1f9102d9074f9a"></a><!-- doxytag: member="tbb::recursive_mutex::scoped_lock::acquire" ref="7fb04da37cccf8c99b1f9102d9074f9a" args="(recursive_mutex &amp;mutex)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00274.html#7fb04da37cccf8c99b1f9102d9074f9a">acquire</a> (<a class="el" href="a00273.html">recursive_mutex</a> &amp;<a class="el" href="a00253.html">mutex</a>)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">get bucket pointer <br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire lock on given mutex. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="36bfc3e93e3ef6340abef4901444d340"></a><!-- doxytag: member="tbb::recursive_mutex::scoped_lock::try_acquire" ref="36bfc3e93e3ef6340abef4901444d340" args="(recursive_mutex &amp;mutex)" -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00274.html#36bfc3e93e3ef6340abef4901444d340">try_acquire</a> (<a class="el" href="a00273.html">recursive_mutex</a> &amp;<a class="el" href="a00253.html">mutex</a>)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Try acquire lock on given <a class="el" href="a00273.html">recursive_mutex</a>. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ac480ea0e9d5ea0345a67d57008b6263"></a><!-- doxytag: member="tbb::recursive_mutex::scoped_lock::release" ref="ac480ea0e9d5ea0345a67d57008b6263" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00274.html#ac480ea0e9d5ea0345a67d57008b6263">release</a> ()</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock. <br></td></tr>
+<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="459818b78a3e9985dc5a9d5638b6593e"></a><!-- doxytag: member="tbb::recursive_mutex::scoped_lock::recursive_mutex" ref="459818b78a3e9985dc5a9d5638b6593e" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>recursive_mutex</b></td></tr>
+
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename Key, typename T, typename HashCompare, typename Allocator&gt;<br>
- class tbb::interface5::concurrent_hash_map&lt; Key, T, HashCompare, Allocator &gt;::bucket_accessor</h3>
-
-bucket accessor is to find, rehash, acquire a lock, and access a bucket 
+The scoped locking pattern. 
+<p>
+It helps to avoid the common problem of forgetting to release lock. It also nicely provides the "node" for queuing locks. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00471.html">concurrent_hash_map.h</a></ul>
+<li><a class="el" href="a00518.html">recursive_mutex.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

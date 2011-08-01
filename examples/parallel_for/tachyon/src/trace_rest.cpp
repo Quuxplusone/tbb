@@ -75,7 +75,7 @@
 #include "intersect.h"
 #include "global.h"
 #include "ui.h"
-#include "video.h"
+#include "tachyon_video.h"
 
 color trace(ray * primary) {
   if (primary->depth > 0) {

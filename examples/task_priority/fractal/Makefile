@@ -35,11 +35,15 @@ ifneq (,$(shell which icc 2>/dev/null))
 CXX=icc
 endif # icc
 
+ifeq ($(shell uname), Linux)
+LIBS+= -lrt 
+endif
+
 include ../../common/gui/Makefile.gmake
 
 SOURCES= ../../common/gui/$(UI)video.cpp fractal.cpp main.cpp
 
-CXXFLAGS += -DTBB_PREVIEW_TASK_PRIORITY
+override CXXFLAGS += $(UI_CXXFLAGS)
 
 all:	release test
 
@@ -51,10 +55,10 @@ ifeq ($(UI),mac)
 endif
 
 release: $(SOURCES) resources
-	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(EXE) $(SOURCES) -ltbb_preview $(LIBS)
+	$(CXX) -O2 -DNDEBUG $(CXXFLAGS) -o $(EXE) $(SOURCES) -ltbb $(LIBS)
 
 debug: resources
-	$(CXX) -g -O0 -DTBB_USE_DEBUG $(CXXFLAGS) -o $(EXE) $(SOURCES) -ltbb_preview_debug $(LIBS)
+	$(CXX) -g -O0 -DTBB_USE_DEBUG $(CXXFLAGS) -o $(EXE) $(SOURCES) -ltbb_debug $(LIBS)
 
 clean:
 	$(RM) $(EXE) *.o *.d

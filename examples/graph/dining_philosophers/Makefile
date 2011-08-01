@@ -27,9 +27,15 @@
 # GNU Makefile that builds and runs example.
 PROG=dining_philosophers
 ARGS= auto 5
+LIGHT_ARGS= auto 3
+
 ifneq (,$(shell which icc 2>/dev/null))
 CXX=icc
 endif # icc
+
+ifeq ($(shell uname), Linux)
+LIBS+= -lrt 
+endif
 
 all:	release test
 
@@ -37,10 +43,13 @@ release: src/dining_philosophers.cpp
 	$(CXX) -O2 -DNDEBUG -D_CONSOLE $(CXXFLAGS) -o $(PROG) $^ -ltbb $(LIBS)
 
 debug:  src/dining_philosophers.cpp
-	$(CXX) -O0 -D_CONSOLE -g -DTBB_DO_ASSERT $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug $(LIBS)
+	$(CXX) -O0 -D_CONSOLE -g -DTBB_USE_DEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug $(LIBS)
 
 clean:
 	rm -f $(PROG) *.o *.d
 
 test:
 	./$(PROG) $(ARGS)
+
+light_test:
+	./$(PROG) $(LIGHT_ARGS)

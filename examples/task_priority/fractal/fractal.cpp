@@ -193,6 +193,21 @@ void fractal_group::set_priorities() {
     context[active^1].set_priority( tbb::priority_normal );
 }
 
+void fractal_group::switch_priorities( int new_active ) {
+    if( new_active!=-1 ) active = new_active;
+    else                 active = 1-active; // assumes 'active' is only 0 or 1
+    set_priorities();
+    draw_borders();
+}
+
+void fractal_group::set_num_frames(int n) {
+    // loops are used to handle the data race with concurently performed decrement
+    while ((volatile int)num_frames[0]<n)
+        num_frames[0] = n;
+    while ((volatile int)num_frames[1]<n)
+        num_frames[1] = n;
+}
+
 void fractal_group::run( bool create_second_fractal ) {
     // initialize task scheduler
     tbb::task_scheduler_init init( num_threads );
@@ -243,23 +258,18 @@ fractal_group::fractal_group( const drawing_memory &_dm, int _num_threads, int _
 }
 
 void fractal_group::mouse_click(int x, int y) {
-    // assumption that the point is not inside any fratal area
+    // assumption that the point is not inside any fractal area
     int new_active = -1;
 
-    // check if the point is inside the first fractal area
     if ( f0.check_point( x, y ) ) {
+        // the point is inside the first fractal area
         new_active = 0;
-    } else {
-        // check if the point is inside the second fractal area
-        if ( f1.check_point( x, y ) ) {
-            new_active = 1;
-        }
+    } else if ( f1.check_point( x, y ) ) {
+        // the point is inside the second fractal area
+        new_active = 1;
     }
 
     if ( new_active != -1 && new_active != active ) {
-        // change the priorities
-        active = new_active;
-        set_priorities();
-        draw_borders();
+        switch_priorities( new_active );
     }
 }

@@ -43,16 +43,21 @@ General build directions can be found <A HREF=../../index.html#build>here</A>.
 
 <H2>Usage</H2>
 <DL>
-<DT><TT>sudoku [<I>N</I>]</TT>
-<DT><TT>sudoku <I>inputfile</I> <I>N</I> <I>S</I> [<I>-p</I>]</TT>
-<DD><I>N</I> is the number of threads to be used.
-    <I>S</I> is the number of solutions to find: 1 finds the first, any other number will find all solutions.
-    <I>-p</I> prints the first solution (optional argument)
 
-<DT>To run a short version of this example, e.g., for use with Intel&reg; Threading Tools:
+<DT><TT>sudoku <I>-h</I></TT>
+<DD>Prints the help for command line options
+<DT><TT>sudoku [<I>n-of-threads</I>=value] [<I>filename</I>=value] [<I>verbose</I>] [<I>silent</I>] [<I>find-one</I>]</TT>
+<DT><TT>sudoku [n-of-threads [filename]] [<I>verbose</I>] [<I>silent</I>] [<I>find-one</I>]</TT> 
+<DD><I>n-of-threads</I> is the number of threads to use; a range of the form <I>low</I>[:<I>high</I>], where low and optional high are non-negative integers or 'auto' for the TBB default.<BR>
+    <I>filename</I> is an input filename.<BR>
+    <I>verbose</I> - prints the first solution.<BR>
+    <I>silent</I> - no output except elapsed time.<BR>
+    <I>find-one</I> - stops after finding first solution.<BR>
+
+<DT>To run a short version of this example, e.g., for use with Intel&reg; Parallel Inspector:
 <DD>Build a <I>debug</I> version of the example
     (see the <A HREF=../../index.html#build>build directions</A>).
-    <BR>Run it with a small problem size and the desired number of threads, e.g., <TT>sudoku input2 4</TT>.
+    <BR>Run it with a small problem size and the desired number of threads, e.g., <TT>sudoku 4 input2</TT>.
 </DL>
 
 <HR>

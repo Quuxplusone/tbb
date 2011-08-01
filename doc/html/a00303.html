@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::null_mutex::scoped_lock Class Reference</title>
+<title>tbb::zero_allocator&lt; void, Allocator &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,33 +21,42 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00407.html">tbb</a>::<a class="el" href="a00302.html">null_mutex</a>::<a class="el" href="a00303.html">scoped_lock</a></div>
-<h1>tbb::null_mutex::scoped_lock Class Reference</h1><!-- doxytag: class="tbb::null_mutex::scoped_lock" -->Represents acquisition of a mutex.  
+<a class="el" href="a00357.html">tbb</a>::<a class="el" href="a00303.html">zero_allocator&lt; void, Allocator &gt;</a></div>
+<h1>tbb::zero_allocator&lt; void, Allocator &gt; Class Template Reference<br>
+<small>
+[<a class="el" href="a00369.html">Memory Allocation</a>]</small>
+</h1><!-- doxytag: class="tbb::zero_allocator&lt; void, Allocator &gt;" -->Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00551.html">null_mutex.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00544.html">tbb_allocator.h</a>&gt;</code>
 <p>
-<a href="a00100.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00124.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="765e64065919fdd9665e78b5ec4d3c6f"></a><!-- doxytag: member="tbb::null_mutex::scoped_lock::scoped_lock" ref="765e64065919fdd9665e78b5ec4d3c6f" args="(null_mutex &amp;)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>scoped_lock</b> (<a class="el" href="a00302.html">null_mutex</a> &amp;)</td></tr>
+<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ce4f3bf06e8aaf8020fa443297eff5f7"></a><!-- doxytag: member="tbb::zero_allocator&lt; void, Allocator &gt;::base_allocator_type" ref="ce4f3bf06e8aaf8020fa443297eff5f7" args="" -->
+typedef Allocator&lt; void &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>base_allocator_type</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f6889f00ca3946906e89e856988bb890"></a><!-- doxytag: member="tbb::null_mutex::scoped_lock::acquire" ref="f6889f00ca3946906e89e856988bb890" args="(null_mutex &amp;)" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>acquire</b> (<a class="el" href="a00302.html">null_mutex</a> &amp;)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5cd644eeecd6d729c848c8e99ffd4592"></a><!-- doxytag: member="tbb::zero_allocator&lt; void, Allocator &gt;::value_type" ref="5cd644eeecd6d729c848c8e99ffd4592" args="" -->
+typedef base_allocator_type::value_type&nbsp;</td><td class="memItemRight" valign="bottom"><b>value_type</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="90eb562a9de52b33362a6fe237b3df42"></a><!-- doxytag: member="tbb::null_mutex::scoped_lock::try_acquire" ref="90eb562a9de52b33362a6fe237b3df42" args="(null_mutex &amp;)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>try_acquire</b> (<a class="el" href="a00302.html">null_mutex</a> &amp;)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8f68aa346a17c94f8c5c7945a2c50858"></a><!-- doxytag: member="tbb::zero_allocator&lt; void, Allocator &gt;::pointer" ref="8f68aa346a17c94f8c5c7945a2c50858" args="" -->
+typedef base_allocator_type::pointer&nbsp;</td><td class="memItemRight" valign="bottom"><b>pointer</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b29fdf07b4c295850a6e433001c2c6a7"></a><!-- doxytag: member="tbb::null_mutex::scoped_lock::release" ref="b29fdf07b4c295850a6e433001c2c6a7" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><b>release</b> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ae95a5761371ee7b61f2c339385684e9"></a><!-- doxytag: member="tbb::zero_allocator&lt; void, Allocator &gt;::const_pointer" ref="ae95a5761371ee7b61f2c339385684e9" args="" -->
+typedef base_allocator_type::const_pointer&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_pointer</b></td></tr>
+
+<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>rebind</b></td></tr>
 
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Represents acquisition of a mutex. 
+<h3>template&lt;template&lt; typename T &gt; class Allocator&gt;<br>
+ class tbb::zero_allocator&lt; void, Allocator &gt;</h3>
+
+Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00551.html">null_mutex.h</a></ul>
+<li><a class="el" href="a00544.html">tbb_allocator.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

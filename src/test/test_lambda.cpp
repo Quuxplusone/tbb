@@ -56,6 +56,7 @@ void f(int val, int *arr, int start, int stop) {
 
 #include "harness.h"
 
+#if __TBB_TASK_GROUP_CONTEXT
 int Fib(int n) {
     if( n<2 ) {
         return n;
@@ -70,6 +71,7 @@ int Fib(int n) {
         return x+y;
     }
 }
+#endif /* !__TBB_TASK_GROUP_CONTEXT */
 
 #include "harness_report.h"
 #include "harness_assert.h"
@@ -159,12 +161,14 @@ int TestMain () {
                             }, 42, 64);
         myThread.join();
 
+#if __TBB_TASK_GROUP_CONTEXT
         // test task_group
         REMARK("Testing task_group... ");
         int result;
         result = Fib(32);
         ASSERT(result==2178309, "task_group w/lambda failed.\n");
         REMARK("passed.\n");
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
         // Reset array a to index values
         parallel_for(blocked_range<int>(0,N,Grainsize),

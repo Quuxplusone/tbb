@@ -183,10 +183,18 @@ private:
         deviate from the calculated value. **/
     void update_allotment ( intptr_t highest_affected_priority );
 
-    //! Changes arena's top and bottom priority boundaries if necessary
+    //! Changes arena's top priority and updates affected priority levels info in the market.
     void update_arena_top_priority ( arena& a, intptr_t newPriority );
 
+    //! Changes market's global top priority and related settings.
     inline void update_global_top_priority ( intptr_t newPriority );
+
+    //! Resets empty market's global top and bottom priority to the normal level.
+    inline void reset_global_priority ();
+
+    inline void advance_global_reload_epoch () {
+        __TBB_store_with_release( my_global_reload_epoch, my_global_reload_epoch + 1 );
+    }
 
     void assert_market_valid () const {
         __TBB_ASSERT( (my_priority_levels[my_global_top_priority].workers_requested > 0
@@ -200,7 +208,10 @@ private:
     //! Recalculates the number of workers assigned to each arena in the list.
     /** The actual number of workers servicing a particular arena may temporarily 
         deviate from the calculated value. **/
-    void update_allotment () { update_allotment( my_arenas, my_total_demand, (int)my_max_num_workers ); }
+    void update_allotment () {
+        if ( my_total_demand )
+            update_allotment( my_arenas, my_total_demand, (int)my_max_num_workers );
+    }
 
     //! Returns next arena that needs more workers, or NULL.
     arena* arena_in_need () {

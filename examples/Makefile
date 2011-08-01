@@ -72,7 +72,10 @@ else
     ifeq ($(arch),ia64)
         override CXXFLAGS += $(PIC_KEY)
     endif
-    ifeq ($(compiler),gcc)
+    ifeq ($(subst suncc,gcc,$(compiler)),gcc)
+        ifeq ($(compiler),suncc)
+            override CXXFLAGS += -I$(tbb_root)$(SLASH)include -library=stlport4 -M$(tbb_root)/build/suncc.map.pause -erroff=unassigned,attrskipunsup,badargtype2w,badbinaryopw,wbadasg,wvarhidemem,wbadinit
+        endif
         ifeq ($(arch),intel64)
             override CXXFLAGS += -m64
         endif
@@ -89,16 +92,21 @@ else
             override CXXFLAGS += -mcpu=v9 -m64
         endif
     endif
-    ifeq ($(compiler),suncc)
-        override CXXFLAGS += -I$(tbb_root)$(SLASH)include -library=stlport4 -M$(tbb_root)/build/suncc.map.pause -erroff=unassigned,attrskipunsup,badargtype2w,badbinaryopw,wbadasg,wvarhidemem,wbadinit
+    ifeq ($(compiler),xl)
+        # -qsuppress=1540-0198 suppresses warnings like "1540-0198 (W) The omitted keyword "private" is assumed for base class "no_copy"."
+        # -qsuppress=1540-1401 suppresses warnings like "1540-1401 (I) An unknown "pragma ivdep" is specified."
+        override CXXFLAGS += -I$(tbb_root)$(SLASH)include -qsuppress=1540-0198:1540-1401 -L$(work_dir)_release -L$(work_dir)_debug
         ifeq ($(arch),intel64)
-            override CXXFLAGS += -m64
+            override CXXFLAGS += -q64
         endif
         ifeq ($(arch),ia32)
-            override CXXFLAGS += -m32
+            override CXXFLAGS += -q32
         endif
-        ifeq ($(arch),sparc)
-            override CXXFLAGS += -m64
+        ifeq ($(arch),ppc64)
+            override CXXFLAGS += -q64
+        endif
+        ifeq ($(arch),ppc32)
+            override CXXFLAGS += -q32
         endif
     endif
     ifeq ($(tbb_os),macos)
@@ -111,6 +119,8 @@ else
         endif
         export DYLD_LIBRARY_PATH := $(DYLD_LIBRARY_PATH):$(work_dir)_release:$(work_dir)_debug
     else
+        # -L necessary for non-native compilers which don't search $LIBRARY_PATH
+        override CXXFLAGS += -L$(work_dir)_release -L$(work_dir)_debug
         export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(work_dir)_release:$(work_dir)_debug
     endif
     export LIBS
@@ -118,7 +128,7 @@ else
     export CPATH := $(CPATH):$(tbb_root)/include
 endif
 
-COMMON_TARGETS := all clean release debug test
+COMMON_TARGETS := all clean release debug test perf_build perf_run
 # list of directories of examples
 EXAMPLES_DIRS := $(foreach T,$(EXAMPLES),$(dir $(T)))
 # targets to explicitly call example have format: {example's dir}/{example's target}
@@ -133,6 +143,7 @@ $(COMMON_TARGETS):: % : $(addsuffix %,$(EXAMPLES_DIRS))
 
 # proxy rule for calling appropriate example
 $(EXAMPLES_TARGETS)::
+	@echo --------------------------------------------------
 	-$(MAKE) SHELL=$(SHELL) -C $(@D)  -f $(EXAMPLE_MAKEFILE) $(notdir $@) CXX="$(CPLUS)" CXXFLAGS="$(CXXFLAGS)"
 
 printenv:

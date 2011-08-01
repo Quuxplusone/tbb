@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::blocked_range3d&lt; PageValue, RowValue, ColValue &gt; Class Template Reference</title>
+<title>tbb::flow::interface6::queue_node&lt; T, A &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,67 +21,95 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00407.html">tbb</a>::<a class="el" href="a00264.html">blocked_range3d</a></div>
-<h1>tbb::blocked_range3d&lt; PageValue, RowValue, ColValue &gt; Class Template Reference<br>
-<small>
-[<a class="el" href="a00416.html">Algorithms</a>]</small>
-</h1><!-- doxytag: class="tbb::blocked_range3d" -->A 3-dimensional range that models the Range concept.  
+<a class="el" href="a00357.html">tbb</a>::<b>flow</b>::<b>interface6</b>::<a class="el" href="a00264.html">queue_node</a></div>
+<h1>tbb::flow::interface6::queue_node&lt; T, A &gt; Class Template Reference</h1><!-- doxytag: class="tbb::flow::interface6::queue_node" --><!-- doxytag: inherits="tbb::flow::interface6::buffer_node" -->Forwards messages in FIFO order.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00467.html">blocked_range3d.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00440.html">flow_graph.h</a>&gt;</code>
 <p>
-<a href="a00011.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<p>Inheritance diagram for tbb::flow::interface6::queue_node&lt; T, A &gt;:
+<p><center><img src="a00264.png" usemap="#tbb::flow::interface6::queue_node< T, A >_map" border="0" alt=""></center>
+<map name="tbb::flow::interface6::queue_node< T, A >_map">
+<area href="a00219.html" alt="tbb::flow::interface6::buffer_node< T, A >" shape="rect" coords="280,56,550,80">
+<area href="a00245.html" alt="tbb::flow::interface6::graph_node" shape="rect" coords="0,0,270,24">
+<area href="a00272.html" alt="tbb::flow::interface6::receiver< T >" shape="rect" coords="280,0,550,24">
+<area href="a00278.html" alt="tbb::flow::interface6::sender< T >" shape="rect" coords="560,0,830,24">
+<area href="a00279.html" alt="tbb::flow::interface6::sequencer_node< T, A >" shape="rect" coords="280,168,550,192">
+</map>
+<a href="a00056.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b8ebf17a552ba47825e9b3887855b719"></a><!-- doxytag: member="tbb::blocked_range3d::page_range_type" ref="b8ebf17a552ba47825e9b3887855b719" args="" -->
-typedef <a class="el" href="a00262.html">blocked_range</a>&lt; PageValue &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#b8ebf17a552ba47825e9b3887855b719">page_range_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1e71030845210b6c4c7380eb9e11a2ac"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::input_type" ref="1e71030845210b6c4c7380eb9e11a2ac" args="" -->
+typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#1e71030845210b6c4c7380eb9e11a2ac">input_type</a></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Type for size of an iteation range. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4edc39b1a76c84c8f43ea8bff3e88007"></a><!-- doxytag: member="tbb::blocked_range3d::row_range_type" ref="4edc39b1a76c84c8f43ea8bff3e88007" args="" -->
-typedef <a class="el" href="a00262.html">blocked_range</a>&lt; RowValue &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>row_range_type</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The input type of this receiver. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="25b5a53ab1f9a342644fa3759bc0b1ad"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::output_type" ref="25b5a53ab1f9a342644fa3759bc0b1ad" args="" -->
+typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#25b5a53ab1f9a342644fa3759bc0b1ad">output_type</a></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="02229b59d4dc5437bf5fbe72acca7f66"></a><!-- doxytag: member="tbb::blocked_range3d::col_range_type" ref="02229b59d4dc5437bf5fbe72acca7f66" args="" -->
-typedef <a class="el" href="a00262.html">blocked_range</a>&lt; ColValue &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>col_range_type</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5e2fdd33c45d44549dee9c1638e19898"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::predecessor_type" ref="5e2fdd33c45d44549dee9c1638e19898" args="" -->
+typedef <a class="el" href="a00278.html">sender</a>&lt; <a class="el" href="a00264.html#1e71030845210b6c4c7380eb9e11a2ac">input_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#5e2fdd33c45d44549dee9c1638e19898">predecessor_type</a></td></tr>
 
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The predecessor type for this node. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f35076a19f256f9e7a61bed77ca1ccc5"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::successor_type" ref="f35076a19f256f9e7a61bed77ca1ccc5" args="" -->
+typedef <a class="el" href="a00272.html">receiver</a>&lt; <a class="el" href="a00264.html#25b5a53ab1f9a342644fa3759bc0b1ad">output_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#f35076a19f256f9e7a61bed77ca1ccc5">successor_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a762f420ed83a887967cb7dfe337582c"></a><!-- doxytag: member="tbb::blocked_range3d::blocked_range3d" ref="a762f420ed83a887967cb7dfe337582c" args="(PageValue page_begin, PageValue page_end, RowValue row_begin, RowValue row_end, ColValue col_begin, ColValue col_end)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range3d</b> (PageValue page_begin, PageValue page_end, RowValue row_begin, RowValue row_end, ColValue col_begin, ColValue col_end)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c716593a92448b0f429d1f3a38e67996"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::queue_node" ref="c716593a92448b0f429d1f3a38e67996" args="(graph &amp;g)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#c716593a92448b0f429d1f3a38e67996">queue_node</a> (<a class="el" href="a00244.html">graph</a> &amp;g)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="0b4dcf5b059634b95c1671086bf6d4ff"></a><!-- doxytag: member="tbb::blocked_range3d::blocked_range3d" ref="0b4dcf5b059634b95c1671086bf6d4ff" args="(PageValue page_begin, PageValue page_end, typename page_range_type::size_type page_grainsize, RowValue row_begin, RowValue row_end, typename row_range_type::size_type row_grainsize, ColValue col_begin, ColValue col_end, typename col_range_type::size_type col_grainsize)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range3d</b> (PageValue page_begin, PageValue page_end, typename <a class="el" href="a00262.html#f5707bffea38eee5c9680f37358afb8e">page_range_type::size_type</a> page_grainsize, RowValue row_begin, RowValue row_end, typename <a class="el" href="a00262.html#f5707bffea38eee5c9680f37358afb8e">row_range_type::size_type</a> row_grainsize, ColValue col_begin, ColValue col_end, typename <a class="el" href="a00262.html#f5707bffea38eee5c9680f37358afb8e">col_range_type::size_type</a> col_grainsize)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="0226762d9ebba28311b7b1518d948ab1"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::queue_node" ref="0226762d9ebba28311b7b1518d948ab1" args="(const queue_node &amp;src)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#0226762d9ebba28311b7b1518d948ab1">queue_node</a> (const <a class="el" href="a00264.html">queue_node</a> &amp;src)</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="356860e1c977d91711e8216bd55c0b25"></a><!-- doxytag: member="tbb::blocked_range3d::empty" ref="356860e1c977d91711e8216bd55c0b25" args="() const " -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#356860e1c977d91711e8216bd55c0b25">empty</a> () const </td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Copy constructor. <br></td></tr>
+<tr><td colspan="2"><br><h2>Protected Types</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a84ab6bb43d056468ac5df3626219513"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::size_type" ref="a84ab6bb43d056468ac5df3626219513" args="" -->
+typedef <a class="el" href="a00219.html">buffer_node</a>&lt; T, A <br>
+&gt;::size_type&nbsp;</td><td class="memItemRight" valign="bottom"><b>size_type</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if range is empty. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="39d69191721c488e737ae5d9c5336b9c"></a><!-- doxytag: member="tbb::blocked_range3d::is_divisible" ref="39d69191721c488e737ae5d9c5336b9c" args="() const " -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#39d69191721c488e737ae5d9c5336b9c">is_divisible</a> () const </td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="63c3b0a76cd7964dec2f3d54afbb05f3"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::queue_operation" ref="63c3b0a76cd7964dec2f3d54afbb05f3" args="" -->
+typedef <a class="el" href="a00219.html">buffer_node</a>&lt; T, A <br>
+&gt;::buffer_operation&nbsp;</td><td class="memItemRight" valign="bottom"><b>queue_operation</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if range is divisible into two pieces. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a0d6f0085c9fb364ddcbc2197da6c251"></a><!-- doxytag: member="tbb::blocked_range3d::blocked_range3d" ref="a0d6f0085c9fb364ddcbc2197da6c251" args="(blocked_range3d &amp;r, split)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range3d</b> (<a class="el" href="a00264.html">blocked_range3d</a> &amp;r, <a class="el" href="a00335.html">split</a>)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b748e310297e1e3f88952a2a9876bab979763449c8716cdd38fda58e607551f1"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::WAIT" ref="b748e310297e1e3f88952a2a9876bab979763449c8716cdd38fda58e607551f1" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>WAIT</b> = 0</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="cf971430aa12361d3ed245344b7c6764"></a><!-- doxytag: member="tbb::blocked_range3d::pages" ref="cf971430aa12361d3ed245344b7c6764" args="() const " -->
-const <a class="el" href="a00262.html">page_range_type</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#cf971430aa12361d3ed245344b7c6764">pages</a> () const </td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b748e310297e1e3f88952a2a9876bab923e845160e46a20fb8550132f04e94aa"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::SUCCEEDED" ref="b748e310297e1e3f88952a2a9876bab923e845160e46a20fb8550132f04e94aa" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>SUCCEEDED</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The pages of the iteration space. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1584623e59ff32a8aa82006827508be4"></a><!-- doxytag: member="tbb::blocked_range3d::rows" ref="1584623e59ff32a8aa82006827508be4" args="() const " -->
-const <a class="el" href="a00262.html">row_range_type</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#1584623e59ff32a8aa82006827508be4">rows</a> () const </td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b748e310297e1e3f88952a2a9876bab9ad699b139814d0746be2266041081474"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::FAILED" ref="b748e310297e1e3f88952a2a9876bab9ad699b139814d0746be2266041081474" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>FAILED</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The rows of the iteration space. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="3336ba9480fd6c43e158f9beb024c050"></a><!-- doxytag: member="tbb::blocked_range3d::cols" ref="3336ba9480fd6c43e158f9beb024c050" args="() const " -->
-const <a class="el" href="a00262.html">col_range_type</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#3336ba9480fd6c43e158f9beb024c050">cols</a> () const </td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><b>op_stat</b> { <b>WAIT</b> = 0, 
+<b>SUCCEEDED</b>, 
+<b>FAILED</b>
+ }</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The columns of the iteration space. <br></td></tr>
+<tr><td colspan="2"><br><h2>Protected Member Functions</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="eadcbbb81f9a9d223afabe0f40e77ecb"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::internal_forward" ref="eadcbbb81f9a9d223afabe0f40e77ecb" args="(queue_operation *op)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html#eadcbbb81f9a9d223afabe0f40e77ecb">internal_forward</a> (queue_operation *op)</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Tries to forward valid items to successors. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="cfd2350a4c9d14486a8a9285acb9ca49"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::internal_pop" ref="cfd2350a4c9d14486a8a9285acb9ca49" args="(queue_operation *op)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_pop</b> (queue_operation *op)</td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="bf478ff2ae265ec859928191e2f7dbe3"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::internal_reserve" ref="bf478ff2ae265ec859928191e2f7dbe3" args="(queue_operation *op)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_reserve</b> (queue_operation *op)</td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d67eee760d9fd829064927e7fe1b54fb"></a><!-- doxytag: member="tbb::flow::interface6::queue_node::internal_consume" ref="d67eee760d9fd829064927e7fe1b54fb" args="(queue_operation *op)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_consume</b> (queue_operation *op)</td></tr>
+
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename PageValue, typename RowValue = PageValue, typename ColValue = RowValue&gt;<br>
- class tbb::blocked_range3d&lt; PageValue, RowValue, ColValue &gt;</h3>
+<h3>template&lt;typename T, typename A = cache_aligned_allocator&lt;T&gt;&gt;<br>
+ class tbb::flow::interface6::queue_node&lt; T, A &gt;</h3>
 
-A 3-dimensional range that models the Range concept. 
+Forwards messages in FIFO order. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00467.html">blocked_range3d.h</a></ul>
+<li><a class="el" href="a00440.html">flow_graph.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

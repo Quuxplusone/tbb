@@ -213,7 +213,7 @@ done:;
 extern "C" void __TBB_machine_store8_slow( volatile void *ptr, int64_t value ) {
     for( tbb::internal::atomic_backoff b;; b.pause() ) {
         int64_t tmp = *(int64_t*)ptr;
-        if( __TBB_CompareAndSwap8(ptr,value,tmp)==tmp ) 
+        if( __TBB_machine_cmpswp8(ptr,value,tmp)==tmp ) 
             break;
     }
 }

@@ -29,6 +29,7 @@
 # Just specify your program basename
 PROG=dining_philosophers
 ARGS= auto 5
+LIGHT_ARGS= auto 3
 
 # Trying to find if icl.exe is set
 CXX1 = $(TBB_CXX)-
@@ -48,3 +49,6 @@ clean:
 	@cmd.exe /C del $(PROG).exe *.obj *.?db *.manifest
 test:
 	$(PROG) $(ARGS)
+light_test:
+	$(PROG) $(LIGHT_ARGS)
+

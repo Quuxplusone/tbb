@@ -26,7 +26,8 @@
 
 # GNU Makefile that builds and runs example.
 PROG=square
-ARGS=input.txt output.txt
+ARGS=0 input.txt output.txt
+PERF_RUN_ARGS=auto input.txt output.txt silent
 GEN=gen_input
 
 # The C++ compiler
@@ -35,6 +36,10 @@ CXX=icc
 endif # icc
 
 SQUARE = square.cpp
+
+ifeq ($(shell uname), Linux)
+LIBS+= -lrt 
+endif
 
 all:	release test
 
@@ -55,3 +60,9 @@ input.txt: $(GEN)
 
 test: input.txt
 	./$(PROG) $(ARGS)
+	
+perf_build: $(SQUARE) input.txt
+	$(CXX) -O2 -msse2 -DNDEBUG $(CXXFLAGS) -o $(PROG) $(SQUARE) -ltbb $(LIBS)
+	
+perf_run: input.txt
+	./$(PROG) $(PERF_RUN_ARGS)

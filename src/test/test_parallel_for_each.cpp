@@ -93,6 +93,7 @@ void RunMutablePForEachTests() {
         ASSERT( test_vector[i]==1, "parallel_for_each did not process each element exactly once" );
 }
 
+#if __TBB_TASK_GROUP_CONTEXT
 #define HARNESS_EH_SIMPLE_MODE 1
 #include "tbb/tbb_exception.h"
 #include "harness_eh.h"
@@ -155,6 +156,7 @@ void TestCancellation()
     ResetEhGlobals();
     RunCancellationTest<my_worker_pforeach_task<Iterator>, CancellatorTask>();
 }
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 #include "harness_cpu.h"
 
@@ -165,9 +167,12 @@ int TestMain () {
     }
     for( int p=MinThread; p<=MaxThread; ++p ) {
         tbb::task_scheduler_init init( p );
+
         RunPForEachTests<Harness::RandomIterator<size_t> >();
+        RunPForEachTests<Harness::ConstRandomIterator<size_t> >();
         RunPForEachTests<Harness::InputIterator<size_t> >();
         RunPForEachTests<Harness::ForwardIterator<size_t> >();
+
         RunMutablePForEachTests<Harness::RandomIterator<size_t> >();
         RunMutablePForEachTests<Harness::ForwardIterator<size_t> >();
 
@@ -176,11 +181,15 @@ int TestMain () {
         TestExceptionsSupport<Harness::InputIterator<size_t> >();
         TestExceptionsSupport<Harness::ForwardIterator<size_t> >();
 #endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
+
+#if __TBB_TASK_GROUP_CONTEXT
         if (p > 1) {
             TestCancellation<Harness::RandomIterator<size_t> >();
             TestCancellation<Harness::InputIterator<size_t> >();
             TestCancellation<Harness::ForwardIterator<size_t> >();
         }
+#endif /* __TBB_TASK_GROUP_CONTEXT */
+
         // Test that all workers sleep when no work
         TestCPUUserTime(p);
     }

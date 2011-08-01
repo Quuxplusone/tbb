@@ -97,11 +97,11 @@ namespace internal {
         struct segment_t {
             /** Declared volatile because in weak memory model, must have ld.acq/st.rel  */
             void* volatile array;
-#if TBB_DO_ASSERT
+#if TBB_USE_ASSERT
             ~segment_t() {
                 __TBB_ASSERT( !array, "should have been set to NULL by clear" );
             }
-#endif /* TBB_DO_ASSERT */
+#endif /* TBB_USE_ASSERT */
         };
 
         atomic<segment_t*> my_segment;

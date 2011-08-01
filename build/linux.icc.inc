@@ -57,14 +57,15 @@ endif
 
 OPENMP_FLAG = -openmp
 LIB_LINK_FLAGS = -shared -i-static -Wl,-soname=$(BUILDING_LIBRARY)
-LIBS = -lpthread -lrt
+LIBS += -lpthread -lrt
 C_FLAGS = $(CPLUS_FLAGS)
 
 TBB_ASM.OBJ=
 MALLOC_ASM.OBJ=
 
 ifeq (ia32,$(arch))
-    CPLUS_FLAGS += -falign-stack=maintain-16-byte
+    CPLUS_FLAGS += -m32 -falign-stack=maintain-16-byte
+    LIB_LINK_FLAGS += -m32
 endif
 
 ifeq (ia64,$(arch))

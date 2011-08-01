@@ -34,6 +34,10 @@ ifneq (,$(shell which icc 2>/dev/null))
 CXX=icc
 endif # icc
 
+ifeq ($(shell uname), Linux)
+LIBS+= -lrt 
+endif
+
 all:   release test
 
 release: *.cpp

@@ -29,10 +29,10 @@
 #include "tbb/tbb_config.h"
 #include "harness.h"
 
-// Skip the test if no TBB-Cilk interoperability
+// Skip the test if no interoperability with cilkrts
 #define __TBB_CILK_INTEROP   (__TBB_SURVIVE_THREAD_SWITCH && __INTEL_COMPILER>=1200)
 // The compiler does not add "-lcilkrts" linker option on some linux systems
-#define CILK_LINKAGE_BROKEN  (__linux__ && __GNUC__<4 && __INTEL_COMPILER_BUILD_DATE <= 20101116)
+#define CILK_LINKAGE_BROKEN  (__linux__ && __GNUC__<4 && __INTEL_COMPILER_BUILD_DATE <= 20110427)
 
 #if __TBB_CILK_INTEROP && !CILK_LINKAGE_BROKEN
 
@@ -57,7 +57,7 @@ enum tbb_sched_injection_mode_t {
 
 tbb_sched_injection_mode_t g_sim = tbbsched_none;
 
-bool g_sandwich = false; // have to be declare before #include "test_cilk_sandwich.h"
+bool g_sandwich = false; // have to be declare before #include "test_cilk_common.h"
 #include "test_cilk_common.h"
 
 // A time delay routine
@@ -151,10 +151,10 @@ int TestMain () {
     return Harness::Done;
 }
 
-#else /* No Cilk interop */
+#else /* !__TBB_CILK_INTEROP */
 
 int TestMain () {
     return Harness::Skipped;
 }
 
-#endif /* No Cilk interop */
+#endif /* !__TBB_CILK_INTEROP */

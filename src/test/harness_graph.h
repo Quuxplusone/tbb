@@ -35,9 +35,10 @@
 
 #include "harness.h"
 #define TBB_PREVIEW_GRAPH 1
-#include "tbb/graph.h"
+#include "tbb/flow_graph.h"
 #include "tbb/null_rw_mutex.h"
 #include "tbb/atomic.h"
+#include "tbb/concurrent_unordered_map.h"
 
 template< typename InputType, typename OutputType >
 struct harness_graph_default_functor {
@@ -47,23 +48,23 @@ struct harness_graph_default_functor {
 };
 
 template< typename OutputType >
-struct harness_graph_default_functor< tbb::continue_msg, OutputType > {
-    static OutputType construct( tbb::continue_msg ) {
+struct harness_graph_default_functor< tbb::flow::continue_msg, OutputType > {
+    static OutputType construct( tbb::flow::continue_msg ) {
         return OutputType();
     }
 };
 
 template< typename InputType >
-struct harness_graph_default_functor< InputType, tbb::continue_msg > {
-    static tbb::continue_msg construct( InputType ) {
-        return tbb::continue_msg();
+struct harness_graph_default_functor< InputType, tbb::flow::continue_msg > {
+    static tbb::flow::continue_msg construct( InputType ) {
+        return tbb::flow::continue_msg();
     }
 };
 
 template< >
-struct harness_graph_default_functor< tbb::continue_msg, tbb::continue_msg > {
-    static tbb::continue_msg construct( tbb::continue_msg ) {
-        return tbb::continue_msg();
+struct harness_graph_default_functor< tbb::flow::continue_msg, tbb::flow::continue_msg > {
+    static tbb::flow::continue_msg construct( tbb::flow::continue_msg ) {
+        return tbb::flow::continue_msg();
     }
 };
 
@@ -91,11 +92,15 @@ struct harness_graph_executor {
     }
 
     struct functor {
-        OutputType operator()( InputType i ) const {
+        tbb::atomic<size_t> my_execute_count;
+        functor() { my_execute_count = 0; }
+        functor( const functor &f ) { my_execute_count = f.my_execute_count; }
+        OutputType operator()( InputType i ) {
            typename M::scoped_lock l( harness_graph_executor::mutex );
            size_t c = current_executors.fetch_and_increment();
            ASSERT( harness_graph_executor::max_executors == 0 || c <= harness_graph_executor::max_executors, NULL ); 
            ++execute_count;
+           my_execute_count.fetch_and_increment();
            OutputType v2 = (*harness_graph_executor::fptr)(i);
            current_executors.fetch_and_decrement();
            return v2; 
@@ -119,25 +124,94 @@ size_t harness_graph_executor<InputType, OutputType, M>::max_executors = 0;
 
 //! Counts the number of puts received
 template< typename T >
-struct harness_counting_receiver : public tbb::receiver<T>, NoCopy {
+struct harness_counting_receiver : public tbb::flow::receiver<T>, NoCopy {
 
     tbb::atomic< size_t > my_count;
+    T max_value;
+    size_t num_copies;
 
-    harness_counting_receiver() {
+    harness_counting_receiver() : num_copies(1) {
        my_count = 0;
     }
 
-    /* override */ bool try_put( T ) {
+    void initialize_map( const T& m, size_t c ) {
+       my_count = 0;
+       max_value = m;
+       num_copies = c;
+    }
+
+    /* override */ bool try_put( const T & ) {
       ++my_count;
       return true;
     }
+
+    void validate() {
+        size_t n = my_count;
+        ASSERT( n == num_copies*max_value, NULL );
+    }
+
 };
 
 //! Counts the number of puts received
 template< typename T >
-struct harness_counting_sender : public tbb::sender<T>, NoCopy {
+struct harness_mapped_receiver : public tbb::flow::receiver<T>, NoCopy {
 
-    typedef tbb::receiver<T> successor_type;
+    tbb::atomic< size_t > my_count;
+    T max_value;
+    size_t num_copies;
+    typedef tbb::concurrent_unordered_map< T, tbb::atomic< size_t > > map_type;
+    map_type *my_map;
+
+    harness_mapped_receiver() : my_map(NULL) {
+       my_count = 0;
+    }
+
+    ~harness_mapped_receiver() {
+        if ( my_map ) delete my_map;
+    }
+
+    void initialize_map( const T& m, size_t c ) {
+       my_count = 0;
+       max_value = m;
+       num_copies = c;
+       if ( my_map ) delete my_map;
+       my_map = new map_type;
+    }
+
+    /* override */ bool try_put( const T &t ) {
+      if ( my_map ) {
+          tbb::atomic<size_t> a;
+          a = 1;
+          std::pair< typename map_type::iterator, bool > r =  (*my_map).insert( typename map_type::value_type( t, a ) );
+          if ( r.second == false ) {
+              size_t v = r.first->second.fetch_and_increment();
+              ASSERT( v < num_copies, NULL );
+          }
+      } else {
+          ++my_count;
+      }
+      return true;
+    }
+
+    void validate() {
+        if ( my_map ) {
+            for ( size_t i = 0; i < (size_t)max_value; ++i ) {
+                size_t n = (*my_map)[(int)i];
+                ASSERT( n == num_copies, NULL );
+            }
+        } else {
+            size_t n = my_count;
+            ASSERT( n == num_copies*max_value, NULL );
+        }
+    }
+
+};
+
+//! Counts the number of puts received
+template< typename T >
+struct harness_counting_sender : public tbb::flow::sender<T>, NoCopy {
+
+    typedef tbb::flow::receiver<T> successor_type;
     tbb::atomic< successor_type * > my_receiver;
     tbb::atomic< size_t > my_count;
     tbb::atomic< size_t > my_received;
@@ -196,6 +270,16 @@ struct harness_counting_sender : public tbb::sender<T>, NoCopy {
             ++my_received;
             i = my_count.fetch_and_increment();
         } 
+    }
+
+    void try_put_until_limit() {
+        successor_type *s = my_receiver;
+
+        for ( int i = 0; i < (int)my_limit; ++i ) { 
+            ASSERT( s->try_put( T(i) ), NULL );
+            ++my_received;
+        } 
+        ASSERT( my_received == my_limit, NULL );
     }
 
 };

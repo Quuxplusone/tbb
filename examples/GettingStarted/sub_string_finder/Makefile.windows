@@ -27,6 +27,7 @@
 # Common Makefile that builds and runs examples.
 PROG=sub_string_finder_extended
 ARGS=
+LIGHT_PROG=sub_string_finder
 
 # The C++ compiler options
 # Trying to find if icl.exe is set
@@ -50,6 +51,8 @@ clean:
 	@cmd.exe /C del sub_string_finder*.exe *.obj *.?db *.manifest
 test:
 	$(PROG) $(ARGS)
+light_test:
+	$(LIGHT_PROG) $(ARGS)
 compiler_check:
 	@echo compiler_test>compiler_test && @$(CXX) /E compiler_test >nul 2>&1  || echo "$(CXX) command not found. Check if CXX=$(CXX) is set properly"
 	@cmd.exe /C del compiler_test

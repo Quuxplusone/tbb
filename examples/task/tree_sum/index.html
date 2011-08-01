@@ -24,11 +24,11 @@ In addition, the scalable_allocator performs better for multi-threaded allocatio
 <DD>Sums in parallel without any fancy tricks.
 <DT><A HREF="OptimizedParallelSumTree.cpp">OptimizedParallelSumTree.cpp</A><DT>
 <DD>Sums in parallel, using "recycling" and "continuation-passing" tricks. 
-    In this case, it is only slightly faster than the simple version.  
+    In this case, it is only slightly faster than the simple version.
 <DT><A HREF="common.h">common.h</A>
 <DD>Shared declarations.
 <DT><A HREF="main.cpp">main.cpp</A>
-<DD>Driver.
+<DD>Main program which parses command line options and runs the algorithm.
 <DT><A HREF="Makefile">Makefile</A>
 <DD>Makefile for building example.
 </DL>
@@ -47,17 +47,19 @@ General build directions can be found <A HREF=../../index.html#build>here</A>.
 
 <H2>Usage</H2>
 <DL>
-<DT><TT>tree_sum [-stdmalloc] <I>S</I> <I>N</I></TT>
-<DD><I>S</I> is the problem size (the number of nodes in the tree).
-    <I>N</I> is the number of threads to be used.
-    <BR>
-    Passing "-stdmalloc" as the 1st parameter causes the default "operator new"
-    to be used for memory allocations instead of the TBB scalable_allocator.
+<DT><TT>tree_sum <I>-h</I></TT>
+<DD>Prints the help for command line options
+<DT><TT>tree_sum [<I>n-of-threads</I>=value] [<I>number-of-nodes</I>=value] [<I>silent</I>] [<I>stdmalloc</I>]</TT>
+<DT><TT>tree_sum [<I>n-of-threads</I> [<I>number-of-nodes</I>]] [<I>silent</I>] [<I>stdmalloc</I>]</TT> 
+<DD><I>n-of-threads</I> is the number of threads to use; a range of the form <I>low</I>[:<I>high</I>], where low and optional high are non-negative integers or 'auto' for the TBB default.<BR>
+    <I>number-of-nodes</I> is the number of nodes in the tree.<BR>
+    <I>silent</I> - no output except elapsed time.<BR>
+    <I>stdmalloc</I> - causes the default "operator new" to be used for memory allocations instead of the TBB scalable_allocator.<BR>
 
-<DT>To run a short version of this example, e.g., for use with Intel&reg; Threading Tools:
+<DT>To run a short version of this example, e.g., for use with Intel&reg; Parallel Inspector:
 <DD>Build a <I>debug</I> version of the example
     (see the <A HREF=../../index.html#build>build directions</A>).
-    <BR>Run it with a small problem size and the desired number of threads, e.g., <TT>tree_sum 100000 4</TT>.
+    <BR>Run it with a small problem size and the desired number of threads, e.g., <TT>tree_sum 4 100000</TT>.
 </DL>
 
 <HR>

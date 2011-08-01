@@ -62,7 +62,12 @@ class fractal {
 
 public:
     //! Constructor
-    fractal( const drawing_memory &dm ) : dm(dm) {}
+    fractal( const drawing_memory &dm ) : dm(dm) {
+#if _MSC_VER && _WIN64 && !__INTEL_COMPILER
+        // Workaround for MSVC x64 compiler issue
+        volatile int i=0;
+#endif
+    }
     //! Runs the fractal calculation
     void run( tbb::task_group_context &context );
     //! Renders the fractal rectangular area
@@ -105,8 +110,12 @@ public:
     void mouse_click(int x, int y);
     //! Fractal calculation routine
     void calc_fractal( int num );
-     //! Get number of threads
+    //! Get number of threads
     int get_num_threads() const { return num_threads; }
+    //! Reset the number of frames to be not less than the given value
+    void set_num_frames(int n);
+    //! Switches the priorities of two fractals
+    void switch_priorities( int new_active=-1 );
 };
 
 #endif /* FRACTAL_H_ */

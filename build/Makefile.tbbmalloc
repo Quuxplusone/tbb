@@ -175,7 +175,9 @@ MALLOC_TESTS += $(MALLOC_OVERLOAD_TESTS) test_malloc_lib_unload.$(TEST_EXT)
 endif
 
 # run_cmd is usually empty
-malloc_test: $(call cross_suffix,$(MALLOC.DLL)) $(TEST_PREREQUISITE) $(MALLOC_TESTS)
+malloc_test: $(call cross_suffix,$(MALLOC.DLL)) malloc_test_no_depends
+
+malloc_test_no_depends: $(TEST_PREREQUISITE) $(MALLOC_TESTS)
 ifneq (,$(MALLOCPROXY.DLL))
 	$(run_cmd) ./test_malloc_atexit.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_malloc_lib_unload.$(TEST_EXT) $(args)

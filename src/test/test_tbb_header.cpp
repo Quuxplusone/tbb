@@ -148,12 +148,17 @@ int TestMain ()
     TestTypeDefinitionPresence( spin_rw_mutex );
     TestTypeDefinitionPresence( critical_section );
     TestTypeDefinitionPresence( reader_writer_lock );
+#if __TBB_TASK_GROUP_CONTEXT
     TestTypeDefinitionPresence( tbb_exception );
     TestTypeDefinitionPresence( captured_exception );
     TestTypeDefinitionPresence( movable_exception<int> );
 #if !TBB_USE_CAPTURED_EXCEPTION
     TestTypeDefinitionPresence( internal::tbb_exception_ptr );
 #endif /* !TBB_USE_CAPTURED_EXCEPTION */
+    TestTypeDefinitionPresence( task_group_context );
+    TestTypeDefinitionPresence( task_group );
+    TestTypeDefinitionPresence( task_handle<Body> );
+#endif /* __TBB_TASK_GROUP_CONTEXT */
     TestTypeDefinitionPresence( blocked_range3d<int> );
     TestFuncDefinitionPresence( parallel_invoke, (const Body&, const Body&), void );
     TestFuncDefinitionPresence( parallel_do, (int*, int*, const Body1&), void );
@@ -169,9 +174,6 @@ int TestMain ()
     TestTypeDefinitionPresence( task );
     TestTypeDefinitionPresence( empty_task );
     TestTypeDefinitionPresence( task_list );
-    TestTypeDefinitionPresence( task_group_context );
-    TestTypeDefinitionPresence( task_group );
-    TestTypeDefinitionPresence( task_handle<Body> );
     TestTypeDefinitionPresence( task_scheduler_init );
     TestTypeDefinitionPresence( task_scheduler_observer );
     TestTypeDefinitionPresence( tbb_thread );

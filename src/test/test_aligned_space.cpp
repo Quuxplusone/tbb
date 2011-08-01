@@ -28,7 +28,7 @@
 
 #include "tbb/tbb_config.h"
 
-#if __TBB_GCC_WARNING_SUPPRESSION_ENABLED
+#if __TBB_GCC_WARNING_SUPPRESSION_PRESENT
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
@@ -109,7 +109,10 @@ int TestMain () {
     TestAlignedSpace<size_t>();
 #if HAVE_m128
     TestAlignedSpace<__m128>();
-#endif /* HAVE_m128 */
+#endif
+#if HAVE_m256
+    if (have_AVX()) TestAlignedSpace<__m256>();
+#endif
     return Harness::Done;
 }
 

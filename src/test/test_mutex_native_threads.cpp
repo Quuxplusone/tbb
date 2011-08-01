@@ -182,14 +182,16 @@ void Test( const char * name, int nthread ) {
     Counter<M> counter;
     counter.value = 0;
     Order = 0;
-    const long test_size = 100000;
+    // use the macro because of a seeming gcc 4.6 bug
+#define TEST_SIZE 100000
     tbb::tick_count t0 = tbb::tick_count::now();
-    NativeParallelFor( nthread, Work<Counter<M>, test_size>(counter) );
+    NativeParallelFor( nthread, Work<Counter<M>, TEST_SIZE>(counter) );
     tbb::tick_count t1 = tbb::tick_count::now();
 
     REMARK("%s time = %g usec\n",name, (t1-t0).seconds() );
-    if( counter.value!=test_size )
-        REPORT("ERROR for %s: counter.value=%ld != %ld=test_size\n",name,counter.value,test_size);
+    if( counter.value!=TEST_SIZE )
+        REPORT("ERROR for %s: counter.value=%ld != %ld=test_size\n",name,counter.value,TEST_SIZE);
+#undef TEST_SIZE
 }
 
 
@@ -199,15 +201,17 @@ void TestReaderWriter( const char * mutex_name, int nthread ) {
     REMARK("testing %s\n",mutex_name);
     Invariant<M,8> invariant(mutex_name);
     Order = 0;
-    static const long test_size = 1000000;
+    // use the macro because of a seeming gcc 4.6 bug
+#define TEST_SIZE 1000000
     tbb::tick_count t0 = tbb::tick_count::now();
-    NativeParallelFor( nthread, Work<Invariant<M,8>, test_size>(invariant) );
+    NativeParallelFor( nthread, Work<Invariant<M,8>, TEST_SIZE>(invariant) );
     tbb::tick_count t1 = tbb::tick_count::now();
     // There is either a writer or a reader upgraded to a writer for each 4th iteration
-    long expected_value = test_size/4;
+    long expected_value = TEST_SIZE/4;
     if( !invariant.value_is(expected_value) )
         REPORT("ERROR for %s: final invariant value is wrong\n",mutex_name);
     REMARK("%s readers & writers time = %g usec\n",mutex_name,(t1-t0).seconds());
+#undef TEST_SIZE
 }
 
 int TestMain () {

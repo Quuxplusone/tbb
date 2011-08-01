@@ -31,8 +31,6 @@
 
 #include "../tbb/intrusive_list.h"
 
-#if __TBB_ARENA_PER_MASTER
-
 using tbb::internal::intrusive_list_node;
 
 // Machine word filled with repeated pattern of FC bits
@@ -139,10 +137,8 @@ void TestListAssertions () {
     tbb::set_assertion_handler( NULL );
 #endif /* TRY_BAD_EXPR_ENABLED */
 }
-#endif /* __TBB_ARENA_PER_MASTER */
 
 int TestMain () {
-#if __TBB_ARENA_PER_MASTER
     TestListOperations<IntrusiveList1, DataItemWithInheritedNode>();
     TestListOperations<IntrusiveList2, DataItemWithMemberNodes>();
     TestListOperations<IntrusiveList3, DataItemWithMemberNodes>();
@@ -150,7 +146,4 @@ int TestMain () {
     TestListAssertions<IntrusiveList2, DataItemWithMemberNodes>();
     TestListAssertions<IntrusiveList3, DataItemWithMemberNodes>();
     return Harness::Done;
-#else
-    return Harness::Skipped;
-#endif /* __TBB_ARENA_PER_MASTER */
 }

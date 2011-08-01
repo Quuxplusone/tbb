@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::continue_receiver Class Reference</title>
+<title>tbb::spin_mutex Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,97 +21,89 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00407.html">tbb</a>::<a class="el" href="a00282.html">continue_receiver</a></div>
-<h1>tbb::continue_receiver Class Reference</h1><!-- doxytag: class="tbb::continue_receiver" --><!-- doxytag: inherits="tbb::receiver" -->Base class for receivers of completion messages.  
+<a class="el" href="a00357.html">tbb</a>::<a class="el" href="a00282.html">spin_mutex</a></div>
+<h1>tbb::spin_mutex Class Reference<br>
+<small>
+[<a class="el" href="a00370.html">Synchronization</a>]</small>
+</h1><!-- doxytag: class="tbb::spin_mutex" -->A lock that occupies a single byte.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00513.html">graph.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00521.html">spin_mutex.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::continue_receiver:
-<p><center><img src="a00282.png" usemap="#tbb::continue_receiver_map" border="0" alt=""></center>
-<map name="tbb::continue_receiver_map">
-<area href="a00320.html" alt="tbb::receiver< T >" shape="rect" coords="0,0,138,24">
-</map>
-<a href="a00047.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00099.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="21acef0b97b53d92f637619012837b30"></a><!-- doxytag: member="tbb::continue_receiver::input_type" ref="21acef0b97b53d92f637619012837b30" args="" -->
-typedef <a class="el" href="a00280.html">continue_msg</a>&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#21acef0b97b53d92f637619012837b30">input_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The input type. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="52fa92968dd48560d59798ca7ba6a3a2"></a><!-- doxytag: member="tbb::continue_receiver::predecessor_type" ref="52fa92968dd48560d59798ca7ba6a3a2" args="" -->
-typedef <a class="el" href="a00327.html">sender</a>&lt; <a class="el" href="a00280.html">continue_msg</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#52fa92968dd48560d59798ca7ba6a3a2">predecessor_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The predecessor type for this node. <br></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="799d383813261426d881b10247caadba"></a><!-- doxytag: member="tbb::continue_receiver::continue_receiver" ref="799d383813261426d881b10247caadba" args="(int number_of_predecessors=0)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#799d383813261426d881b10247caadba">continue_receiver</a> (int number_of_predecessors=0)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#3d8fb44644fd8d41ada1fbeba7409be3">spin_mutex</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9a38edb7e1e3c9be4e3848145c51a617"></a><!-- doxytag: member="tbb::continue_receiver::~continue_receiver" ref="9a38edb7e1e3c9be4e3848145c51a617" args="()" -->
-virtual&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#9a38edb7e1e3c9be4e3848145c51a617">~continue_receiver</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct unacquired lock.  <a href="#3d8fb44644fd8d41ada1fbeba7409be3"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4b3fa21632815f8fab2fd6c67ec0d48c"></a><!-- doxytag: member="tbb::spin_mutex::internal_construct" ref="4b3fa21632815f8fab2fd6c67ec0d48c" args="()" -->
+void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal_construct</b> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destructor. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b9fa9290cbb871f8780f9d69e1ec3b4e"></a><!-- doxytag: member="tbb::continue_receiver::register_predecessor" ref="b9fa9290cbb871f8780f9d69e1ec3b4e" args="(predecessor_type &amp;)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#b9fa9290cbb871f8780f9d69e1ec3b4e">register_predecessor</a> (<a class="el" href="a00327.html">predecessor_type</a> &amp;)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4f748989e19b6045e3a2d2ee73626a28"></a><!-- doxytag: member="tbb::spin_mutex::lock" ref="4f748989e19b6045e3a2d2ee73626a28" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#4f748989e19b6045e3a2d2ee73626a28">lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Increments the trigger threshold. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#02411d8d13b380062548aff133752cc5">remove_predecessor</a> (<a class="el" href="a00327.html">predecessor_type</a> &amp;)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire lock. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#8f9a58fb56a2b4c5efe1a7f7c1ae2074">try_lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Decrements the trigger threshold.  <a href="#02411d8d13b380062548aff133752cc5"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#a7f8b9cc6286eb2cd8d429d6279da64d">try_put</a> (<a class="el" href="a00280.html">input_type</a>)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Try acquiring lock (non-blocking).  <a href="#8f9a58fb56a2b4c5efe1a7f7c1ae2074"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="0e843ee6265f57f27d228ba91e7308ef"></a><!-- doxytag: member="tbb::spin_mutex::unlock" ref="0e843ee6265f57f27d228ba91e7308ef" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#0e843ee6265f57f27d228ba91e7308ef">unlock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Puts a <a class="el" href="a00280.html">continue_msg</a> to the receiver.  <a href="#a7f8b9cc6286eb2cd8d429d6279da64d"></a><br></td></tr>
-<tr><td colspan="2"><br><h2>Protected Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00282.html#e6bf1d21e670b78ea00c71fccbe17c78">execute</a> ()=0</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock. <br></td></tr>
+<tr><td colspan="2"><br><h2>Static Public Attributes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5a7c93ca9e7ab656037a43984f24c051"></a><!-- doxytag: member="tbb::spin_mutex::is_rw_mutex" ref="5a7c93ca9e7ab656037a43984f24c051" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_rw_mutex</b> = false</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Does whatever should happen when the threshold is reached.  <a href="#e6bf1d21e670b78ea00c71fccbe17c78"></a><br></td></tr>
-<tr><td colspan="2"><br><h2>Protected Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ddee0bc66101010aa5552db4230ca9ac"></a><!-- doxytag: member="tbb::continue_receiver::my_mutex" ref="ddee0bc66101010aa5552db4230ca9ac" args="" -->
-<a class="el" href="a00331.html">spin_mutex</a>&nbsp;</td><td class="memItemRight" valign="bottom"><b>my_mutex</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a967c455d0d80c9bbe030905201391b6"></a><!-- doxytag: member="tbb::spin_mutex::is_recursive_mutex" ref="a967c455d0d80c9bbe030905201391b6" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_recursive_mutex</b> = false</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c87649e54a1d77fbe386fa13b193e8ed"></a><!-- doxytag: member="tbb::continue_receiver::my_predecessor_count" ref="c87649e54a1d77fbe386fa13b193e8ed" args="" -->
-int&nbsp;</td><td class="memItemRight" valign="bottom"><b>my_predecessor_count</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ec12e4036073fb684b6d2d33493ed0aa"></a><!-- doxytag: member="tbb::spin_mutex::is_fair_mutex" ref="ec12e4036073fb684b6d2d33493ed0aa" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_fair_mutex</b> = false</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4f541d914398f99cff17521251742f53"></a><!-- doxytag: member="tbb::continue_receiver::my_current_count" ref="4f541d914398f99cff17521251742f53" args="" -->
-int&nbsp;</td><td class="memItemRight" valign="bottom"><b>my_current_count</b></td></tr>
+<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a36f15b770a1bb0b56e33d7fa75ebd1a"></a><!-- doxytag: member="tbb::spin_mutex::scoped_lock" ref="a36f15b770a1bb0b56e33d7fa75ebd1a" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>scoped_lock</b></td></tr>
 
+<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00283.html">scoped_lock</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Represents acquisition of a mutex.  <a href="a00283.html#_details">More...</a><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Base class for receivers of completion messages. 
+A lock that occupies a single byte. 
 <p>
-These receivers automatically reset, but cannot be explicitly waited on 
+A <a class="el" href="a00282.html">spin_mutex</a> is a spin mutex that fits in a single byte. It should be used only for locking short critical sections (typically less than 20 instructions) when fairness is not an issue. If zero-initialized, the mutex is considered unheld. 
 <p>
+<hr><h2>Constructor &amp; Destructor Documentation</h2>
+<a class="anchor" name="3d8fb44644fd8d41ada1fbeba7409be3"></a><!-- doxytag: member="tbb::spin_mutex::spin_mutex" ref="3d8fb44644fd8d41ada1fbeba7409be3" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">tbb::spin_mutex::spin_mutex           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"><code> [inline]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Construct unacquired lock. 
+<p>
+Equivalent to zero-initialization of *this. 
+</div>
+</div><p>
 <hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="e6bf1d21e670b78ea00c71fccbe17c78"></a><!-- doxytag: member="tbb::continue_receiver::execute" ref="e6bf1d21e670b78ea00c71fccbe17c78" args="()=0" -->
+<a class="anchor" name="8f9a58fb56a2b4c5efe1a7f7c1ae2074"></a><!-- doxytag: member="tbb::spin_mutex::try_lock" ref="8f9a58fb56a2b4c5efe1a7f7c1ae2074" args="()" -->
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">virtual void tbb::continue_receiver::execute           </td>
+          <td class="memname">bool tbb::spin_mutex::try_lock           </td>
           <td>(</td>
-          <td class="paramname">          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [protected, pure virtual]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Does whatever should happen when the threshold is reached. 
-<p>
-This should be very fast or else spawn a task. This is called while the sender is blocked in the <a class="el" href="a00282.html#a7f8b9cc6286eb2cd8d429d6279da64d">try_put()</a>. 
-</div>
-</div><p>
-<a class="anchor" name="02411d8d13b380062548aff133752cc5"></a><!-- doxytag: member="tbb::continue_receiver::remove_predecessor" ref="02411d8d13b380062548aff133752cc5" args="(predecessor_type &amp;)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool tbb::continue_receiver::remove_predecessor           </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="a00327.html">predecessor_type</a> &amp;&nbsp;</td>
           <td class="paramname">          </td>
           <td>&nbsp;)&nbsp;</td>
           <td width="100%"><code> [inline]</code></td>
@@ -121,35 +113,13 @@ This should be very fast or else spawn a task. This is called while the sender i
 <div class="memdoc">
 
 <p>
-Decrements the trigger threshold. 
+Try acquiring lock (non-blocking). 
 <p>
-Does not check to see if the removal of the predecessor now makes the current count exceed the new threshold. So removing a predecessor while the graph is active can cause unexpected results. 
-</div>
-</div><p>
-<a class="anchor" name="a7f8b9cc6286eb2cd8d429d6279da64d"></a><!-- doxytag: member="tbb::continue_receiver::try_put" ref="a7f8b9cc6286eb2cd8d429d6279da64d" args="(input_type)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool tbb::continue_receiver::try_put           </td>
-          <td>(</td>
-          <td class="paramtype"><a class="el" href="a00280.html">input_type</a>&nbsp;</td>
-          <td class="paramname">          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Puts a <a class="el" href="a00280.html">continue_msg</a> to the receiver. 
-<p>
-If the message causes the message count to reach the predecessor count, <a class="el" href="a00282.html#e6bf1d21e670b78ea00c71fccbe17c78">execute()</a> is called and the message count is reset to 0. Otherwise the message count is incremented. 
+Return true if lock acquired; false otherwise. 
 </div>
 </div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00513.html">graph.h</a></ul>
+<li><a class="el" href="a00521.html">spin_mutex.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

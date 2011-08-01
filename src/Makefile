@@ -28,7 +28,7 @@ tbb_root?=..
 examples_root:=$(tbb_root)/examples
 include $(tbb_root)/build/common.inc
 
-.PHONY: all tbb tbbmalloc test test_no_depends release debug examples clean
+.PHONY: all tbb tbbmalloc tbbproxy test test_no_depends release debug examples clean
 
 all: release debug examples
 
@@ -36,17 +36,19 @@ tbb: tbb_release tbb_debug
 
 tbbmalloc: tbbmalloc_release tbbmalloc_debug
 
+tbbproxy: tbbproxy_release tbbproxy_debug
+
 rml: rml_release rml_debug
 
-test: tbbmalloc_test_release rml_test_release test_release tbbmalloc_test_debug rml_test_debug test_debug
+test: tbbmalloc_test_release $(if $(use_proxy),tbbproxy_test_release) rml_test_release test_release tbbmalloc_test_debug $(if $(use_proxy),tbbproxy_test_debug) rml_test_debug test_debug
 
-test_no_depends: tbbmalloc_test_release_no_depends test_release_no_depends tbbmalloc_test_debug_no_depends test_debug_no_depends
+test_no_depends: tbbmalloc_test_release_no_depends $(if $(use_proxy),tbbproxy_test_release_no_depends) test_release_no_depends tbbmalloc_test_debug_no_depends $(if $(use_proxy),tbbproxy_test_debug_no_depends) test_debug_no_depends
 	@echo done
 
-release: tbb_release tbbmalloc_release
+release: tbb_release tbbmalloc_release $(if $(use_proxy),tbbproxy_release)
 release: $(call cross_cfg,tbbmalloc_test_release) $(call cross_cfg,test_release)
 
-debug: tbb_debug tbbmalloc_debug
+debug: tbb_debug tbbmalloc_debug $(if $(use_proxy),tbbproxy_debug)
 debug: $(call cross_cfg,tbbmalloc_test_debug) $(call cross_cfg, test_debug)
 
 examples: tbb tbbmalloc examples_debug clean_examples examples_release
@@ -97,11 +99,11 @@ tbb_release: mkdir_release
 tbb_debug: mkdir_debug
 	$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.tbb cfg=debug tbb_root=$(tbb_root)
 
-test_release: $(call cross_cfg,mkdir_release) $(call cross_cfg,tbb_release) test_release_no_depends
-test_release_no_depends: 
-	$(MAKE) -C "$(call cross_cfg,$(work_dir)_release)"  -r -f $(tbb_root)/build/Makefile.test cfg=release tbb_root=$(tbb_root) 
+test_release: $(call cross_cfg,mkdir_release) $(call cross_cfg,tbb_release) $(if $(use_proxy),$(call cross_cfg,tbbproxy_release)) test_release_no_depends
+test_release_no_depends:
+	$(MAKE) -C "$(call cross_cfg,$(work_dir)_release)"  -r -f $(tbb_root)/build/Makefile.test cfg=release tbb_root=$(tbb_root)
 
-test_debug: $(call cross_cfg,mkdir_debug) $(call cross_cfg,tbb_debug) test_debug_no_depends
+test_debug: $(call cross_cfg,mkdir_debug) $(call cross_cfg,tbb_debug) $(if $(use_proxy),$(call cross_cfg,tbbproxy_debug)) test_debug_no_depends
 test_debug_no_depends:
 	$(MAKE) -C "$(call cross_cfg,$(work_dir)_debug)"  -r -f $(tbb_root)/build/Makefile.test cfg=debug tbb_root=$(tbb_root)
 
@@ -131,11 +133,30 @@ tbbmalloc_test: tbbmalloc_test_release tbbmalloc_test_debug
 
 tbbmalloc_test_release: $(call cross_cfg,mkdir_release) $(call cross_cfg,tbbmalloc_release) tbbmalloc_test_release_no_depends
 tbbmalloc_test_release_no_depends:
-	$(MAKE) -C "$(call cross_cfg,$(work_dir)_release)"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=release malloc_test tbb_root=$(tbb_root)
+	$(MAKE) -C "$(call cross_cfg,$(work_dir)_release)"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=release malloc_test_no_depends tbb_root=$(tbb_root)
 
 tbbmalloc_test_debug: $(call cross_cfg,mkdir_debug) $(call cross_cfg,tbbmalloc_debug) tbbmalloc_test_debug_no_depends
 tbbmalloc_test_debug_no_depends:
-	$(MAKE) -C "$(call cross_cfg,$(work_dir)_debug)"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=debug malloc_test tbb_root=$(tbb_root)
+	$(MAKE) -C "$(call cross_cfg,$(work_dir)_debug)"  -r -f $(tbb_root)/build/Makefile.tbbmalloc cfg=debug malloc_test_no_depends tbb_root=$(tbb_root)
+
+.PHONY: tbbproxy_release tbbproxy_debug
+.PHONY: tbbproxy_test tbbproxy_test_release tbbproxy_test_debug tbbproxy_test_release_no_depends tbbproxy_test_debug_no_depends
+
+tbbproxy_release: mkdir_release tbb_release
+	$(MAKE) -C "$(work_dir)_release" -r -f $(tbb_root)/build/Makefile.tbbproxy cfg=release tbbproxy tbb_root=$(tbb_root)
+
+tbbproxy_debug: mkdir_debug tbb_debug
+	$(MAKE) -C "$(work_dir)_debug" -r -f $(tbb_root)/build/Makefile.tbbproxy cfg=debug tbbproxy tbb_root=$(tbb_root)
+
+tbbproxy_test: tbbproxy_test_release tbbproxy_test_debug
+
+tbbproxy_test_release: $(call cross_cfg,mkdir_release) $(call cross_cfg,tbb_release) $(call cross_cfg,tbbproxy_release) tbbproxy_test_release_no_depends
+tbbproxy_test_release_no_depends:
+	$(MAKE) -C "$(call cross_cfg,$(work_dir)_release)" -r -f $(tbb_root)/build/Makefile.tbbproxy cfg=release tbbproxy_test tbb_root=$(tbb_root)
+
+tbbproxy_test_debug: $(call cross_cfg,mkdir_debug) $(call cross_cfg,tbb_debug) $(call cross_cfg,tbbproxy_debug) tbbproxy_test_debug_no_depends
+tbbproxy_test_debug_no_depends:
+	$(MAKE) -C "$(call cross_cfg,$(work_dir)_debug)"   -r -f $(tbb_root)/build/Makefile.tbbproxy cfg=debug   tbbproxy_test tbb_root=$(tbb_root)
 
 .PHONY: rml_release rml_debug rml_test_release rml_test_debug
 .PHONY: rml_test_release_no_depends rml_test_debug_no_depends

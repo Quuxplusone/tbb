@@ -27,9 +27,14 @@
 # GNU Makefile that builds and runs example.
 PROG=game_of_life
 ARGS=2:4 -t 5
+LIGHT_ARGS=1:2 -t 5
 ifneq (,$(shell which icc 2>/dev/null))
 CXX=icc
 endif # icc
+
+ifeq ($(shell uname), Linux)
+LIBS+= -lrt
+endif
 
 all:	release test
 
@@ -37,10 +42,12 @@ release: src/Evolution.cpp src/Update_state.cpp src/Game_of_life.cpp
 	$(CXX) -O2 -DNDEBUG -D_CONSOLE $(CXXFLAGS) -o $(PROG) $^ -ltbb $(LIBS)
 
 debug: src/Evolution.cpp src/Update_state.cpp src/Game_of_life.cpp
-	$(CXX) -O0 -D_CONSOLE -g -DTBB_DO_ASSERT $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug $(LIBS)
+	$(CXX) -O0 -D_CONSOLE -g -DTBB_USE_DEBUG $(CXXFLAGS) -o $(PROG) $^ -ltbb_debug $(LIBS)
 
 clean:
 	rm -f $(PROG) *.o *.d
 
 test:
 	./$(PROG) $(ARGS)
+light_test:
+	./$(PROG) $(LIGHT_ARGS)

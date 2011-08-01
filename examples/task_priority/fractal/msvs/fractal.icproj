@@ -3,7 +3,7 @@
 	ProjectType="Intel C++ Project"
 	Version="11.1"
 	Name="fractal"
-	ProjectGUID="{5C4ACAE3-8686-4046-A5FD-D0DC8755D263}"
+	ProjectGUID="{BF088DF5-BAEA-4EB2-8EA5-1E8DFBC75E5C}"
 	VCNestedProjectGUID="{3AA40693-F93D-4D4B-B32E-068F511A2527}"
 	VCNestedProjectFileName="fractal.vcproj">
 	<Configurations/>

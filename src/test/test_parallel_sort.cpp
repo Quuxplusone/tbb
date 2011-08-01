@@ -311,11 +311,13 @@ bool init_iter(std::string *iter, std::string *sorted_list, size_t n, const std:
                 test_type = "sin";
                 for (size_t i = 0; i < n; i++) {
                     char buffer[20];
-#if __STDC_SECURE_LIB__>=200411
+// Getting rid of secure warning issued by C++ 14.00 and newer
+// sprintf_s is not defined in msvcrt.dll in windows XP and windows 2003 (used by MinGW gcc 4.5.2 with default spec)
+#if __STDC_SECURE_LIB__>=200411 && !__MINGW64__
                     sprintf_s(buffer, sizeof(buffer), "%f", float(sin(float(i))));
 #else
                     sprintf(buffer, "%f", float(sin(float(i))));
-#endif /* _MSC_VER>=1400 */
+#endif /* __STDC_SECURE_LIB__>=200411 || && !__MINGW64__ */
                     sorted_list[i] = iter[i] = std::string(buffer);
                 }
                 break;

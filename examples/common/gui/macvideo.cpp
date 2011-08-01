@@ -43,7 +43,7 @@
 #include <Carbon/Carbon.h>
 #include <AGL/agl.h>
 #include <OpenGL/gl.h>    // for OpenGL API
-#include <OpenGL/glext.h> // for OpenGL extension support 
+#include <OpenGL/glext.h> // for OpenGL extension support
 
 unsigned int *      g_pImg = 0;
 int                 g_sizex, g_sizey;
@@ -60,7 +60,7 @@ static OSStatus     WindowEventHandler( EventHandlerCallRef inCaller, EventRef i
 
 static IBNibRef     sNibRef;
 
-//-------------------------------------------------------------------------------------------- 
+//--------------------------------------------------------------------------------------------
 
 // structure for creating a fullscreen context
 struct structGLInfo // storage for setup info
@@ -86,16 +86,16 @@ struct structGLWindowInfo // storage for setup info
     SInt32 VRAM;                // input: minimum VRAM; output: actual (if successful otherwise input)
     SInt32 textureRAM;          // input: amount of texture RAM required on card; output: same (used in allcoation to ensure enough texture
     AGLPixelFormat    fmt;      // input: none; output pixel format...
-    Boolean fDraggable;         // input: is window going to be dragable, 
+    Boolean fDraggable;         // input: is window going to be draggable,
                                 //        if so renderer check (accel, VRAM, textureRAM) will look at all renderers vice just the current one
-                                //        if window is not dragable renderer check will either check the single device or short 
-                                //            circuit to software if window spans multiple devices 
+                                //        if window is not draggable renderer check will either check the single device or short
+                                //            circuit to software if window spans multiple devices
                                 //        software renderer is consider to have unlimited VRAM, unlimited textureRAM and to not be accelerated
 };
 typedef struct structGLWindowInfo structGLWindowInfo;
 typedef struct structGLWindowInfo * pstructGLWindowInfo;
 
-//-------------------------------------------------------------------------------------------- 
+//--------------------------------------------------------------------------------------------
 
 struct recGLCap // structure to store minimum OpenGL capabilites across all displays and GPUs
 {
@@ -117,15 +117,15 @@ struct recImage // OpenGL and image information associated with each window
     structGLWindowInfo glInfo;  // gl info used with SetupGL to build context
     AGLContext aglContext;      // the OpenGL context (read: state)
     GLuint fontList;            // the display list storing the bitmap font created for the context to display info
-    
+
     Boolean fAGPTexturing;      // 10.1+ only: texture from AGP memory without loading to GPU
-    
+
     // texture display stuff
     Boolean fNPOTTextures; // are we using Non-Power Of Two (NPOT) textures?
     Boolean fTileTextures; // are multiple tiled textures used to display image?
     Boolean fOverlapTextures; // do tiled textures overlapped to create correct filtering between tiles? (only applies if using tiled textures)
     Boolean fClientTextures; // 10.1+ only: texture from client memory
-        
+
     unsigned char * pImageBuffer; // image buffer that contains data for image (disposed after loading into texture if not using client textures)
     long imageWidth; // height of orginal image
     long imageHeight; // width of orginal image
@@ -168,7 +168,7 @@ OSStatus ResizeMoveGLWindow (WindowRef window);
 // main GL drawing routine, should be valid window passed in (will setupGL if require).  Draw image
 void DrawGL (WindowRef window);
 
-pRecGLCap gpOpenGLCaps; 
+pRecGLCap gpOpenGLCaps;
 
 // prototypes (internal/private) --------------------------------------------
 
@@ -192,8 +192,8 @@ static long GetTextureNumFromTextureDim (long textureDimension, long maxTextureS
 void ReportErrorNum (char * strError, long numError)
 {
     char errMsgPStr [257];
-    
-    errMsgPStr[0] = (char)snprintf (errMsgPStr+1, 255, "%s %ld (0x%lx)\n", strError, numError, numError); 
+
+    errMsgPStr[0] = (char)snprintf (errMsgPStr+1, 255, "%s %ld (0x%lx)\n", strError, numError, numError);
 
     // ensure we are faded in
     DebugStr ( (ConstStr255Param) errMsgPStr );
@@ -204,8 +204,8 @@ void ReportErrorNum (char * strError, long numError)
 void ReportError (char * strError)
 {
     char errMsgPStr [257];
-    
-    errMsgPStr[0] = (char)snprintf (errMsgPStr+1, 255, "%s\n", strError); 
+
+    errMsgPStr[0] = (char)snprintf (errMsgPStr+1, 255, "%s\n", strError);
 
     // ensure we are faded in
     DebugStr ( (ConstStr255Param) errMsgPStr );
@@ -300,7 +300,7 @@ static Boolean CheckRenderer (GDHandle hGD, long* pVRAM, long* pTextureRAM, GLin
         // see if we have an accelerated renderer, if so ignore non-accelerated ones
         // this prevents returning info on software renderer when actually we'll get the hardware one
         while (info)
-        {    
+        {
             aglDescribeRenderer(info, AGL_ACCELERATED, &dAccel);
             aglReportError ();
             if (dAccel)
@@ -309,14 +309,14 @@ static Boolean CheckRenderer (GDHandle hGD, long* pVRAM, long* pTextureRAM, GLin
             aglReportError ();
             inum++;
         }
-            
+
         info = head_info;
         inum = 0;
         while (info)
         {
             aglDescribeRenderer (info, AGL_ACCELERATED, &dAccel);
             aglReportError ();
-            // if we can accel then we will choose the accelerated renderer 
+            // if we can accel then we will choose the accelerated renderer
             // how about compliant renderers???
             if ((canAccel && dAccel) || (!canAccel && (!fAccelMust || dAccel)))
             {
@@ -350,7 +350,7 @@ static Boolean CheckRenderer (GDHandle hGD, long* pVRAM, long* pTextureRAM, GLin
 
 //-----------------------------------------------------------------------------------------------------------------------
 
-// CheckAllDeviceRenderers 
+// CheckAllDeviceRenderers
 
 // looks at renderer attributes and each device must have at least one renderer that fits the profile
 
@@ -394,14 +394,14 @@ static Boolean CheckAllDeviceRenderers (long* pVRAM, long* pTextureRAM, GLint* p
                 aglReportError ();
                 inum++;
             }
-                
+
             info = head_info;
             inum = 0;
             while (info)
-            {    
+            {
                 aglDescribeRenderer(info, AGL_ACCELERATED, &dAccel);
                 aglReportError ();
-                // if we can accel then we will choose the accelerated renderer 
+                // if we can accel then we will choose the accelerated renderer
                 // how about compliant renderers???
                 if ((canAccel && dAccel) || (!canAccel && (!fAccelMust || dAccel)))
                 {
@@ -428,7 +428,7 @@ static Boolean CheckAllDeviceRenderers (long* pVRAM, long* pTextureRAM, GLint* p
         {
             if (MinVRAM > dMaxVRAM)
                 MinVRAM = dMaxVRAM; // return VRAM
-            
+
         }
         else
             goodCheck = false; // one device failed thus entire requirement fails
@@ -463,7 +463,7 @@ void DumpCurrent (AGLDrawable* paglDraw, AGLContext* paglContext, pstructGLInfo 
         aglReportError ();
         *paglContext = NULL;
     }
-    
+
     if (pcontextInfo->fmt)
     {
         aglDestroyPixelFormat (pcontextInfo->fmt); // pixel format is no longer needed
@@ -488,13 +488,13 @@ static OSStatus BuildGLonWindow (WindowPtr pWindow, AGLContext* paglContext, pst
     short numDevices;
     GLint depthSizeSupport;
     OSStatus err = noErr;
-    
+
     if (!pWindow || !pcontextInfo)
     {
         ReportError ("NULL parameter passed to BuildGLonWindow.");
         return paramErr;
     }
-    
+
     GetPort (&cgrafSave);
     SetPortWindowPort(pWindow);
 
@@ -527,13 +527,13 @@ static OSStatus BuildGLonWindow (WindowPtr pWindow, AGLContext* paglContext, pst
         ReportError ("Renderer check failed");
         return err;
     }
-    
+
     // do agl
     if ((Ptr) kUnresolvedCFragSymbolAddress == (Ptr) aglChoosePixelFormat) // check for existance of OpenGL
     {
         ReportError ("OpenGL not installed");
         return noErr;
-    }    
+    }
     // we successfully passed the renderer check
 
     if ((!pcontextInfo->fDraggable && (numDevices == 1)))  // not draggable on a single device
@@ -541,7 +541,7 @@ static OSStatus BuildGLonWindow (WindowPtr pWindow, AGLContext* paglContext, pst
     else
         pcontextInfo->fmt = aglChoosePixelFormat (NULL, 0, pcontextInfo->aglAttributes); // get an appropriate pixel format
     aglReportError ();
-    if (NULL == pcontextInfo->fmt) 
+    if (NULL == pcontextInfo->fmt)
     {
         ReportError("Could not find valid pixel format");
         return noErr;
@@ -551,15 +551,15 @@ static OSStatus BuildGLonWindow (WindowPtr pWindow, AGLContext* paglContext, pst
     if (AGL_BAD_MATCH == aglGetError())
         *paglContext = aglCreateContext (pcontextInfo->fmt, 0); // unable to sahre context, create without sharing
     aglReportError ();
-    if (NULL == *paglContext) 
+    if (NULL == *paglContext)
     {
         ReportError ("Could not create context");
         return noErr;
     }
-    
+
     if (!aglSetDrawable (*paglContext, GetWindowPort (pWindow))) // attach the CGrafPtr to the context
         return aglReportError ();
-    
+
     if(!aglSetCurrentContext (*paglContext)) // make the context the current context
         return aglReportError ();
 
@@ -580,7 +580,7 @@ static OSStatus BuildGLonWindow (WindowPtr pWindow, AGLContext* paglContext, pst
 OSStatus DestroyGLFromWindow (AGLContext* paglContext, pstructGLWindowInfo pcontextInfo)
 {
     OSStatus err;
-    
+
     if ((!paglContext) || (!*paglContext))
         return paramErr; // not a valid context
     glFinish ();
@@ -598,7 +598,7 @@ OSStatus DestroyGLFromWindow (AGLContext* paglContext, pstructGLWindowInfo pcont
         err = aglReportError ();
     }
     pcontextInfo->fmt = 0;
-    
+
     return err;
 }
 
@@ -619,31 +619,31 @@ short FindGDHandleFromWindow (WindowPtr pWindow, GDHandle * phgdOnThisDevice)
     long greatestArea, sectArea;
     short numDevices = 0;
     GDHandle hgdNthDevice;
-    
+
     if (!pWindow || !phgdOnThisDevice)
         return 0;
-        
+
     *phgdOnThisDevice = NULL;
-    
+
     GetPort (&pgpSave);
     SetPortWindowPort (pWindow);
-    
+
 
     GetWindowPortBounds (pWindow, &rectWind);
     LocalToGlobal ((Point*)& rectWind.top);    // convert to global coordinates
     LocalToGlobal ((Point*)& rectWind.bottom);
     hgdNthDevice = GetDeviceList ();
     greatestArea = 0;
-    // check window against all gdRects in gDevice list and remember 
+    // check window against all gdRects in gDevice list and remember
     //  which gdRect contains largest area of window}
     while (hgdNthDevice)
     {
         if (TestDeviceAttribute (hgdNthDevice, screenDevice))
             if (TestDeviceAttribute (hgdNthDevice, screenActive))
             {
-                // The SectRect routine calculates the intersection 
-                //  of the window rectangle and this gDevice 
-                //  rectangle and returns TRUE if the rectangles intersect, 
+                // The SectRect routine calculates the intersection
+                //  of the window rectangle and this gDevice
+                //  rectangle and returns TRUE if the rectangles intersect,
                 //  FALSE if they don't.
                 SectRect (&rectWind, &(**hgdNthDevice).gdRect, &rectSect);
                 // determine which screen holds greatest window area
@@ -659,7 +659,7 @@ short FindGDHandleFromWindow (WindowPtr pWindow, GDHandle * phgdOnThisDevice)
                 hgdNthDevice = GetNextDevice(hgdNthDevice);
             }
     }
-    
+
     SetPort (pgpSave);
     return numDevices;
 }
@@ -683,7 +683,7 @@ static long GetNextTextureSize (long textureDimension, long maxTextureSize, Bool
     else
     {
         do // while we have txture sizes check for texture value being equal or greater
-        {  
+        {
             if (textureDimension >= targetTextureSize) // the texture dimension is greater than the target texture size (i.e., it fits)
                 return targetTextureSize; // return corresponding texture size
         }
@@ -698,12 +698,12 @@ static long GetNextTextureSize (long textureDimension, long maxTextureSize, Bool
 // requirement for power of 2 textures as the maximum texture size
 // for the overlap case each texture effectively covers two less pixels so must iterate through using whole statement
 
-static long GetTextureNumFromTextureDim (long textureDimension, long maxTextureSize, Boolean texturesOverlap, Boolean textureRectangle) 
+static long GetTextureNumFromTextureDim (long textureDimension, long maxTextureSize, Boolean texturesOverlap, Boolean textureRectangle)
 {
-    // start at max texture size 
+    // start at max texture size
     // loop through each texture size, removing textures in turn which are less than the remaining texture dimension
     // each texture has 2 pixels of overlap (one on each side) thus effective texture removed is 2 less than texture size
-    
+
     long i = 0; // initially no textures
     long bitValue = maxTextureSize; // start at max texture size
     long texOverlapx2 = texturesOverlap ? 2 : 0;
@@ -717,7 +717,7 @@ static long GetTextureNumFromTextureDim (long textureDimension, long maxTextureS
             textureDimension -= bitValue - texOverlapx2; // remove effective texture size
         }
         // add one partial texture
-        i++; 
+        i++;
     }
     else
     {
@@ -734,7 +734,7 @@ static long GetTextureNumFromTextureDim (long textureDimension, long maxTextureS
         ReportErrorNum ("GetTextureNumFromTextureDim error: Texture to small to draw, should not ever get here, texture size remaining:", textureDimension);
     }
     return i; // return textures counted
-} 
+}
 
 #pragma mark -
 // ==================================
@@ -788,7 +788,7 @@ OSStatus BuildGLForWindow (WindowRef window)
     pRecImage pWindowInfo = (pRecImage) GetWRefCon (window); // the info structure for the window stored in the refcon
     short i; // iterator
     GLenum textureTarget = GL_TEXTURE_2D;
-   
+
     if (!pWindowInfo->aglContext) // if we get here and do not have a context built, build one
     {
         GetPort (&portSave);    // save current port
@@ -799,7 +799,7 @@ OSStatus BuildGLForWindow (WindowRef window)
         pWindowInfo->glInfo.textureRAM = 0 * 1048576; // minimum texture RAM (if not zero this is always required)
            pWindowInfo->glInfo.fDraggable = true; // is this a draggable window
         pWindowInfo->glInfo.fmt = 0; // output pixel format
-        
+
         i = 0; // first attribute in array
         pWindowInfo->glInfo.aglAttributes [i++] = AGL_RGBA; // RGB + Alpha pixels
         pWindowInfo->glInfo.aglAttributes [i++] = AGL_DOUBLEBUFFER; // doble buffered context
@@ -834,23 +834,23 @@ OSStatus BuildGLForWindow (WindowRef window)
             glViewport (0, 0, rectPort.right - rectPort.left, rectPort.bottom - rectPort.top); // reset viewport to entier window area
 
             aglSetInteger (pWindowInfo->aglContext, AGL_SWAP_INTERVAL, &swap); // set swap interval to account for vbl syncing or not
-            
+
             // set correct texture target // if building on 10.0 or 9 this will be undefined
         #ifdef GL_TEXTURE_RECTANGLE_EXT
             if (pWindowInfo->fNPOTTextures)
                 textureTarget = GL_TEXTURE_RECTANGLE_EXT;
         #endif
-            
+
             // Set texture mapping parameters
             glEnable (textureTarget); // enable texturing
-                
+
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // set clear color buffer to dark gray
             glClear (GL_COLOR_BUFFER_BIT); // clear just to color buffer
             aglSwapBuffers (pWindowInfo->aglContext); // swap the cleared buffer to front
-    
+
             //GetFNum ("\pMonaco", &fNum); // get font number for named font
             //pWindowInfo->fontList = BuildFontGL (pWindowInfo->aglContext, fNum, normal, 9); // build display list for fonts for this context (see aglString for more info)
-            
+
             // if we can use texture rectangle // if building on 10.0 or 9 this will be undefined
         #ifdef GL_TEXTURE_RECTANGLE_EXT
             if (pWindowInfo->fNPOTTextures)
@@ -861,23 +861,23 @@ OSStatus BuildGLForWindow (WindowRef window)
             glPixelStorei (GL_UNPACK_ROW_LENGTH, pWindowInfo->textureWidth); // set image width in groups (pixels), accounts for border this ensures proper image alignment row to row
             // get number of textures x and y
                 // extract the number of horiz. textures needed to tile image
-            pWindowInfo->textureX = GetTextureNumFromTextureDim (pWindowInfo->textureWidth, pWindowInfo->maxTextureSize, pWindowInfo->fOverlapTextures, pWindowInfo->fNPOTTextures); 
+            pWindowInfo->textureX = GetTextureNumFromTextureDim (pWindowInfo->textureWidth, pWindowInfo->maxTextureSize, pWindowInfo->fOverlapTextures, pWindowInfo->fNPOTTextures);
                 // extract the number of horiz. textures needed to tile image
-            pWindowInfo->textureY = GetTextureNumFromTextureDim (pWindowInfo->textureHeight, pWindowInfo->maxTextureSize, pWindowInfo->fOverlapTextures, pWindowInfo->fNPOTTextures); 
+            pWindowInfo->textureY = GetTextureNumFromTextureDim (pWindowInfo->textureHeight, pWindowInfo->maxTextureSize, pWindowInfo->fOverlapTextures, pWindowInfo->fNPOTTextures);
             pWindowInfo->pTextureName = (GLuint *) NewPtrClear ((long) sizeof (GLuint) * pWindowInfo->textureX * pWindowInfo->textureY); // allocate storage for texture name lists
             glGenTextures (pWindowInfo->textureX * pWindowInfo->textureY, pWindowInfo->pTextureName); // generate textures names need to support tiling
             {
                 long x, y, k = 0, offsetY, offsetX = 0, currWidth, currHeight; // texture iterators, texture name iterator, image offsets for tiling, current texture width and height
                 for (x = 0; x < pWindowInfo->textureX; x++) // for all horizontal textures
                 {
-                    currWidth = GetNextTextureSize (pWindowInfo->textureWidth - offsetX, pWindowInfo->maxTextureSize, pWindowInfo->fNPOTTextures); // use remaining to determine next texture size 
+                    currWidth = GetNextTextureSize (pWindowInfo->textureWidth - offsetX, pWindowInfo->maxTextureSize, pWindowInfo->fNPOTTextures); // use remaining to determine next texture size
                                                                                                                     // (basically greatest power of 2 which fits into remaining space)
                     offsetY = 0; // reset vertical offest for every column
                     for (y = 0; y < pWindowInfo->textureY; y++) // for all vertical textures
                     {
                         // buffer pointer is at base + rows * row size + columns
-                        unsigned char * pBuffer = pWindowInfo->pImageBuffer + 
-                                                   offsetY * pWindowInfo->textureWidth * (pWindowInfo->imageDepth >> 3) + 
+                        unsigned char * pBuffer = pWindowInfo->pImageBuffer +
+                                                   offsetY * pWindowInfo->textureWidth * (pWindowInfo->imageDepth >> 3) +
                                                    offsetX * (pWindowInfo->imageDepth >> 3);
                         currHeight = GetNextTextureSize (pWindowInfo->textureHeight - offsetY, pWindowInfo->maxTextureSize, pWindowInfo->fNPOTTextures); // use remaining to determine next texture size
                         glBindTexture (textureTarget, pWindowInfo->pTextureName[k++]);
@@ -887,7 +887,7 @@ OSStatus BuildGLForWindow (WindowRef window)
                         }
                         else
                             glTexParameterf (textureTarget, GL_TEXTURE_PRIORITY, 1.0f);
-                            
+
                     #ifdef GL_UNPACK_CLIENT_STORAGE_APPLE
                         if (pWindowInfo->fClientTextures)
                             glPixelStorei (GL_UNPACK_CLIENT_STORAGE_APPLE, 1);
@@ -900,14 +900,14 @@ OSStatus BuildGLForWindow (WindowRef window)
                         glTexParameteri (textureTarget, GL_TEXTURE_WRAP_S, gpOpenGLCaps->edgeClampParam);
                         glTexParameteri (textureTarget, GL_TEXTURE_WRAP_T, gpOpenGLCaps->edgeClampParam);
                         glReportError (); // report any errors so far
-                        glTexImage2D (textureTarget, 0, GL_RGBA, currWidth, currHeight, 0, 
-                                      GL_BGRA_EXT, pWindowInfo->imageDepth == 32 ? GL_UNSIGNED_INT_8_8_8_8_REV : GL_UNSIGNED_SHORT_1_5_5_5_REV, 
+                        glTexImage2D (textureTarget, 0, GL_RGBA, currWidth, currHeight, 0,
+                                      GL_BGRA_EXT, pWindowInfo->imageDepth == 32 ? GL_UNSIGNED_INT_8_8_8_8_REV : GL_UNSIGNED_SHORT_1_5_5_5_REV,
                                       pBuffer); // texture with current width and height at pBuffer location in image buffer with image size as GL_UNPACK_ROW_LENGTH
                         glReportError (); // report any errors
-                        offsetY += currHeight - 2 * pWindowInfo->fOverlapTextures; // offset in for the amount of texture used, 
+                        offsetY += currHeight - 2 * pWindowInfo->fOverlapTextures; // offset in for the amount of texture used,
                                                                                        //  since we are overlapping the effective texture used is 2 texels less than texture width
                     }
-                    offsetX += currWidth - 2 * pWindowInfo->fOverlapTextures; // offset in for the amount of texture used, 
+                    offsetX += currWidth - 2 * pWindowInfo->fOverlapTextures; // offset in for the amount of texture used,
                                                                               //  since we are overlapping the effective texture used is 2 texels less than texture width
                 }
             }
@@ -945,7 +945,7 @@ OSStatus ResizeMoveGLWindow (WindowRef window)
     }
     else
         err = paramErr; // bad window
-    return err; // return any error 
+    return err; // return any error
 }
 
 // ---------------------------------
@@ -955,12 +955,12 @@ OSStatus ResizeMoveGLWindow (WindowRef window)
 void DrawGL (WindowRef window)
 {
     Rect rectPort; // rectangle for port
-    pRecImage pWindowInfo; // the gl info for the target window 
+    pRecImage pWindowInfo; // the gl info for the target window
     long width, height; // width and height or the port and the row of the raster position
     long effectiveTextureMod = 0; // texture size modification (inset) to account for borders
     long x, y, k = 0, offsetY, offsetX = 0, currTextureWidth, currTextureHeight;
     GLenum textureTarget = GL_TEXTURE_2D;
-    
+
     if (NULL == window) // if we do not have a window
         return; // drop out
     pWindowInfo = (pRecImage) GetWRefCon (window); // get the gl info for the window
@@ -970,7 +970,7 @@ void DrawGL (WindowRef window)
         BuildGLForWindow (window);
     if (NULL == pWindowInfo->aglContext) // if we still don't have one then drop out
         return;
-        
+
     if (pWindowInfo->fOverlapTextures)
         effectiveTextureMod = 2; // if we overlap then we need to inset the textures passed to the drawing code
     // set texture target
@@ -986,19 +986,19 @@ void DrawGL (WindowRef window)
     width = rectPort.right - rectPort.left; // find width
     height = rectPort.bottom - rectPort.top; // and height
     glViewport (0, 0, width, height); // set the viewport to cover entire window
-    
+
     glMatrixMode (GL_PROJECTION); // set projection matrix
     glLoadIdentity (); // to indetity
     glMatrixMode (GL_MODELVIEW); // set modelview matrix
     glLoadIdentity (); // to identity
     glReportError (); // report any GL errors so far
-    
+
     // set the model view matrix for an orthographic view scaled to one screen pixel equal image pixel (independent of image zoom)
     glScalef (2.0f / width, -2.0f /  height, 1.0f); // scale to port per pixel scale
     //glTranslatef (pWindowInfo->centerX, pWindowInfo->centerY, 0.0f); // translate for image movement
     //glRotatef (0.0f, 0.0f, 0.0f, 1.0f); // ratate matrix for image rotation
     glReportError (); // report any GL errors
-    
+
     glClear (GL_COLOR_BUFFER_BIT); // clear the color buffer before drawing
 
     // draw image
@@ -1054,7 +1054,7 @@ void DrawGL (WindowRef window)
                     else
                         endYTexCoord = 1.0f -  2.0f * startYTexCoord; // for the last texture in odd size images there are two texels of padding so step in 2
                 }
-                
+
                 glBegin (GL_TRIANGLE_STRIP); // draw either tri strips of line strips
                     glTexCoord2f (startXTexCoord, startYTexCoord); // draw upper left in world coordinates
                     glVertex3d (startXDraw, startYDraw, 0.0);
@@ -1068,7 +1068,7 @@ void DrawGL (WindowRef window)
                     glTexCoord2f (endXTexCoord, endYTexCoord); // draw lower right in world coordinates
                     glVertex3d (endXDraw, endYDraw, 0.0);
                 glEnd();
-                
+
             }
 
             //////////////////////
@@ -1081,7 +1081,7 @@ void DrawGL (WindowRef window)
     glReportError (); // report any errors
 
     glDisable (textureTarget); // done with texturing
-        
+
     aglSwapBuffers (pWindowInfo->aglContext);
 }
 
@@ -1089,13 +1089,13 @@ void DrawGL (WindowRef window)
 
 static void FindMinimumOpenGLCapabilities (pRecGLCap pOpenGLCaps)
 {
-    WindowPtr pWin = NULL; 
+    WindowPtr pWin = NULL;
     Rect rectWin = {0, 0, 10, 10};
     GLint attrib[] = { AGL_RGBA, AGL_NONE };
     AGLPixelFormat fmt = NULL;
     AGLContext ctx = NULL;
     GLint deviceMaxTextureSize = 0, NPOTDMaxTextureSize = 0;
-    
+
     if (NULL != gpOpenGLCaps)
     {
         // init desired caps to max values
@@ -1110,7 +1110,7 @@ static void FindMinimumOpenGLCapabilities (pRecGLCap pOpenGLCaps)
         // build window
         pWin = NewCWindow (0L, &rectWin, NULL, false,
                 plainDBox, (WindowPtr) -1L, true, 0L);
-                
+
         // build context
         fmt = aglChoosePixelFormat(NULL, 0, attrib);
         if (fmt)
@@ -1118,10 +1118,10 @@ static void FindMinimumOpenGLCapabilities (pRecGLCap pOpenGLCaps)
         if (ctx)
         {
             GDHandle hgdNthDevice;
-            
+
             aglSetDrawable(ctx, GetWindowPort (pWin));
             aglSetCurrentContext(ctx);
-            
+
             // for each display
             hgdNthDevice = GetDeviceList ();
             while (hgdNthDevice)
@@ -1132,7 +1132,7 @@ static void FindMinimumOpenGLCapabilities (pRecGLCap pOpenGLCaps)
                         // move window to display
                         MoveWindow (pWin, (**hgdNthDevice).gdRect.left + 5, (**hgdNthDevice).gdRect.top + 5, false);
                         aglUpdateContext(ctx);
-                        
+
                         // for each cap (this can obviously be expanded)
                         // if this driver/GPU/display is less capable
                             // save this minimum capability
@@ -1141,26 +1141,26 @@ static void FindMinimumOpenGLCapabilities (pRecGLCap pOpenGLCaps)
                             enum { kShortVersionLength = 32 };
                             const GLubyte * strVersion = glGetString (GL_VERSION); // get version string
                             const GLubyte * strExtension = glGetString (GL_EXTENSIONS);    // get extension string
-                            
+
                             // get just the non-vendor specific part of version string
                             GLubyte strShortVersion [kShortVersionLength];
                             short i = 0;
                             while ((((strVersion[i] <= '9') && (strVersion[i] >= '0')) || (strVersion[i] == '.')) && (i < kShortVersionLength)) // get only basic version info (until first space)
                                 strShortVersion [i] = strVersion[i++];
                             strShortVersion [i] = 0; //truncate string
-                            
+
                             // compare capabilities based on extension string and GL version
-                            pOpenGLCaps->f_ext_texture_rectangle = 
+                            pOpenGLCaps->f_ext_texture_rectangle =
                                 pOpenGLCaps->f_ext_texture_rectangle && (NULL != strstr ((const char *) strExtension, "GL_EXT_texture_rectangle"));
-                            pOpenGLCaps->f_ext_client_storage = 
+                            pOpenGLCaps->f_ext_client_storage =
                                 pOpenGLCaps->f_ext_client_storage && (NULL != strstr ((const char *) strExtension, "GL_APPLE_client_storage"));
-                            pOpenGLCaps->f_ext_packed_pixel = 
+                            pOpenGLCaps->f_ext_packed_pixel =
                                 pOpenGLCaps->f_ext_packed_pixel && (NULL != strstr ((const char *) strExtension, "GL_APPLE_packed_pixel"));
-                            pOpenGLCaps->f_ext_texture_edge_clamp = 
+                            pOpenGLCaps->f_ext_texture_edge_clamp =
                                 pOpenGLCaps->f_ext_texture_edge_clamp && (NULL != strstr ((const char *) strExtension, "GL_SGIS_texture_edge_clamp"));
-                            pOpenGLCaps->f_gl_texture_edge_clamp = 
+                            pOpenGLCaps->f_gl_texture_edge_clamp =
                                 pOpenGLCaps->f_gl_texture_edge_clamp && (!strstr ((const char *) strShortVersion, "1.0") && !strstr ((const char *) strShortVersion, "1.1")); // if not 1.0 and not 1.1 must be 1.2 or greater
-                            
+
                             // get device max texture size
                             glGetIntegerv (GL_MAX_TEXTURE_SIZE, &deviceMaxTextureSize);
                             if (deviceMaxTextureSize < pOpenGLCaps->maxTextureSize)
@@ -1190,7 +1190,7 @@ static void FindMinimumOpenGLCapabilities (pRecGLCap pOpenGLCaps)
             pOpenGLCaps->f_gl_texture_edge_clamp = false;
             pOpenGLCaps->maxTextureSize = 0;
         }
-        
+
         // set clamp param based on retrieved capabilities
         if (pOpenGLCaps->f_gl_texture_edge_clamp) // if OpenGL 1.2 or later and texture edge clamp is supported natively
                     pOpenGLCaps->edgeClampParam = GL_CLAMP_TO_EDGE;  // use 1.2+ constant to clamp texture coords so as to not sample the border color
@@ -1260,7 +1260,7 @@ WindowEventHandler( EventHandlerCallRef inCaller, EventRef inEvent, void* inRefc
             err = ResizeMoveGLWindow (window);
         }
     }
-    
+
     return err;
 }
 //--------------------------------------------------------------------------------------------
@@ -1291,13 +1291,13 @@ WindowRef HandleNew()
         FindMinimumOpenGLCapabilities (gpOpenGLCaps);
     }
 
-    // Create a window. "MainWindow" is the name of the window object. This name is set in 
+    // Create a window. "MainWindow" is the name of the window object. This name is set in
     // InterfaceBuilder when the nib is created.
     err = CreateWindowFromNib( sNibRef, CFSTR("MainWindow"), &window );
     require_noerr( err, CantCreateWindow );
     // We don't need the nib reference anymore.
     DisposeNibReference(sNibRef);
-    
+
     pWindowInfo = (recImage *) NewPtrClear (sizeof (recImage));
     pWindowInfo->textureWidth = pWindowInfo->imageWidth = g_sizex;
     pWindowInfo->textureHeight = pWindowInfo->imageHeight = g_sizey;
@@ -1329,11 +1329,11 @@ WindowRef HandleNew()
 
     // Position new windows in a staggered arrangement on the main screen
     RepositionWindow( window, NULL, kWindowCascadeOnMainScreen );
-    
+
     // The window was created hidden, so show it
     ShowWindow( window );
     return window;
-  
+
 CantCreateWindow:
     return 0;
 }
@@ -1385,7 +1385,7 @@ bool video::init_window(int x, int y)
     InstallStandardEventHandler(GetApplicationEventTarget()); // Doesn't work?
     verify_noerr( InstallApplicationEventHandler( NewEventHandlerUPP( AppEventHandler ),
                                     GetEventTypeCount( kAppEvents ), kAppEvents, 0, NULL ) );
-    
+
     // Once the nib reference is created, set the menu bar. "MainMenu" is the name of the menu bar
     // object. This name is set in InterfaceBuilder when the nib is created.
     //err = SetMenuBarFromNib( sNibRef, CFSTR("MenuBar") );

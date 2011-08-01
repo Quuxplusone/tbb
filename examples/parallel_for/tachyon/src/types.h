@@ -60,7 +60,7 @@
 #elif _WIN32
 #include <malloc.h>
 #define alloca _alloca
-#elif __FreeBSD__
+#elif __FreeBSD__||__NetBSD__
 #include <stdlib.h>
 #else
 #include <alloca.h>

@@ -58,8 +58,8 @@
 #include "tbb/spin_mutex.h"
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 
-// This macro is an attempt to get rid of ugly ifdefs in the shared parts of the code. 
-// It drops the second argument depending on whether the controlling macro is defined. 
+// This macro is an attempt to get rid of ugly ifdefs in the shared parts of the code.
+// It drops the second argument depending on whether the controlling macro is defined.
 // The first argument is just a convenience allowing to keep comma before the macro usage.
 #if __TBB_TASK_GROUP_CONTEXT
     #define __TBB_CONTEXT_ARG(arg1, context) arg1, context
@@ -76,13 +76,15 @@
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings
-    // These particular warnings are so ubiquitous that no attempt is made to narrow 
+    // These particular warnings are so ubiquitous that no attempt is made to narrow
     // the scope of the warnings.
     #pragma warning (disable: 4100 4127 4312 4244 4267 4706)
 #endif
 
 namespace tbb {
 namespace internal {
+
+class generic_scheduler;
 
 #if __TBB_TASK_PRIORITY
 static const intptr_t num_priority_levels = 3;
@@ -105,24 +107,26 @@ inline intptr_t& priority ( task& t ) {
 }
 #endif /* __TBB_TASK_PRIORITY */
 
+#if __TBB_TASK_GROUP_CONTEXT
 //! Task group state change propagation global epoch
-/** Together with generic_scheduler::my_context_state_propagation_epoch forms 
+/** Together with generic_scheduler::my_context_state_propagation_epoch forms
     cross-thread signaling mechanism that allows to avoid locking at the hot path
     of normal execution flow.
 
-    When a descendant task group context is registered or unregistered, the global 
+    When a descendant task group context is registered or unregistered, the global
     and local epochs are compared. If they differ, a state change is being propagated,
     and thus registration/deregistration routines take slower branch that may block
-    (at most one thread of the pool can be blocked at any moment). Otherwise the 
+    (at most one thread of the pool can be blocked at any moment). Otherwise the
     control path is lock-free and fast. **/
 extern uintptr_t the_context_state_propagation_epoch;
 
 //! Mutex guarding state change propagation across task groups forest.
 /** Also protects modification of related data structures. **/
 extern spin_mutex the_context_state_propagation_mutex;
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 //! Alignment for a task object
-const size_t task_alignment = 16;
+const size_t task_alignment = 32;
 
 //! Number of bytes reserved for a task prefix
 /** If not exactly sizeof(task_prefix), the extra bytes *precede* the task_prefix. */
@@ -144,14 +148,14 @@ enum task_extra_state {
 
 //! Optimization hint to free_task that enables it omit unnecessary tests and code.
 enum free_task_hint {
-    //! No hint 
+    //! No hint
     no_hint=0,
     //! Task is known to have been allocated by this scheduler
     local_task=1,
     //! Task is known to be a small task.
     /** Task should be returned to the free list of *some* scheduler, possibly not this scheduler. */
     small_task=2,
-    //! Bitwise-OR of local_task and small_task.  
+    //! Bitwise-OR of local_task and small_task.
     /** Task should be returned to free list of this scheduler. */
     small_local_task=3
 };
@@ -162,17 +166,16 @@ enum free_task_hint {
 
 #if TBB_USE_ASSERT
 
-static const uintptr_t venom = 
+static const uintptr_t venom =
 #if __TBB_WORDSIZE == 8
         0xDDEEAADDDEADBEEF;
 #else
         0xDEADBEEF;
 #endif
 
-
-/** In contrast to poison_pointer() and assert_task_valid() poison_value() is a macro 
-    because the variable used as its argument may be undefined in release builds. **/
-#define poison_value(g) (g = venom)
+/** Crazy conversion is necessary to shut up insane MS compiler. **/
+template <typename T>
+void poison_value ( T& val ) { val = *(T*)(uintptr_t*)&venom; }
 
 /** Expected to be used in assertions only, thus no empty form is defined. **/
 inline bool is_alive( uintptr_t v ) { return v != venom; }
@@ -188,6 +191,8 @@ inline void assert_task_valid( const task& task ) {
 
 #else /* !TBB_USE_ASSERT */
 
+/** In contrast to debug version poison_value() is a macro here because
+    the variable used as its argument may be undefined in release builds. **/
 #define poison_value(g) ((void)0)
 
 inline void assert_task_valid( const task& ) {}
@@ -198,6 +203,7 @@ inline void assert_task_valid( const task& ) {}
 // Helpers
 //------------------------------------------------------------------------
 
+#if __TBB_TASK_GROUP_CONTEXT
 inline bool ConcurrentWaitsEnabled ( task& t ) {
     return (t.prefix().context->my_version_and_traits & task_group_context::concurrent_wait) != 0;
 }
@@ -206,12 +212,11 @@ inline bool CancellationInfoPresent ( task& t ) {
     return t.prefix().context->my_cancellation_requested != 0;
 }
 
-#if __TBB_TASK_GROUP_CONTEXT
 #if TBB_USE_CAPTURED_EXCEPTION
     inline tbb_exception* TbbCurrentException( task_group_context*, tbb_exception* src) { return src->move(); }
     inline tbb_exception* TbbCurrentException( task_group_context*, captured_exception* src) { return src; }
 #else
-    // Using macro instead of an inline function here allows to avoid evaluation of the 
+    // Using macro instead of an inline function here allows to avoid evaluation of the
     // TbbCapturedException expression when exact propagation is enabled for the context.
     #define TbbCurrentException(context, TbbCapturedException) \
         context->my_version_and_traits & task_group_context::exact_exception    \
@@ -233,6 +238,11 @@ inline bool CancellationInfoPresent ( task& t ) {
     } catch ( ... ) {   \
         TbbRegisterCurrentException( context, captured_exception::allocate("...", "Unidentified exception") );\
     }
+
+#else /* !__TBB_TASK_GROUP_CONTEXT */
+
+inline bool ConcurrentWaitsEnabled ( task& t ) { return false; }
+
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 
 //------------------------------------------------------------------------
@@ -248,18 +258,18 @@ struct arena_slot {
     /** Also is used to specify if the slot is empty or locked:
          0 - empty
         -1 - locked **/
-    task** task_pool;
+    task* *__TBB_atomic task_pool;
 
     //! Index of the first ready task in the deque.
     /** Modified by thieves, and by the owner during compaction/reallocation **/
-    size_t head;
+    __TBB_atomic size_t head;
 
     //! Padding to avoid false sharing caused by the thieves accessing this slot
     char pad1[NFS_MaxLineSize - sizeof(size_t) - sizeof(task**) - sizeof(generic_scheduler*)];
 
     //! Index of the element following the last ready task in the deque.
     /** Modified by the owner thread. **/
-    size_t tail;
+    __TBB_atomic size_t tail;
 
     //! Hints provided for operations with the container of starvation-resistant tasks.
     /** Modified by the owner thread (during these operations). **/

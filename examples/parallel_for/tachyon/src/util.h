@@ -61,9 +61,23 @@
  *  $Id: util.h,v 1.3 2007-02-22 17:54:17 dpoulsen Exp $
  */
 
-void timerstart(void);
-void timerstop(void);
-flt timertime(void);
+#include "machine.h"
+
+#if defined( _WIN32 )
+  #include <windows.h>
+  typedef DWORD timer;
+#else
+  #include <sys/time.h>
+  #include <unistd.h>
+  #if defined( STDTIME )
+    typedef timeval timer;
+  #elif defined ( OLDUNIXTIME )
+    typedef time_t timer;
+  #endif  /*  OLDUNIXTIME  */ /*  STDTIME  */
+ #endif  /*  _WIN32  */
+
+timer gettimer(void);
+flt timertime(timer st, timer fn);
 void rt_sleep(int);
 int rt_meminuse(void);
 void * rt_getmem(unsigned int);

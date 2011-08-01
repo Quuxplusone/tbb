@@ -74,6 +74,7 @@ __TBB_SYMBOL( _ZN3tbb4task7destroyERS0_ )
 #endif
 
 // Exception handling in task scheduler
+#if __TBB_TASK_GROUP_CONTEXT
 __TBB_SYMBOL( _ZNK3tbb8internal32allocate_root_with_context_proxy8allocateEm )
 __TBB_SYMBOL( _ZNK3tbb8internal32allocate_root_with_context_proxy4freeERNS_4taskE )
 __TBB_SYMBOL( _ZN3tbb4task12change_groupERNS_18task_group_contextE )
@@ -105,6 +106,7 @@ __TBB_SYMBOL( _ZTVN3tbb18captured_exceptionE )
 __TBB_SYMBOL( _ZTIN3tbb13tbb_exceptionE )
 __TBB_SYMBOL( _ZTSN3tbb13tbb_exceptionE )
 __TBB_SYMBOL( _ZTVN3tbb13tbb_exceptionE )
+#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 // Symbols for exceptions thrown from TBB
 __TBB_SYMBOL( _ZN3tbb8internal33throw_bad_last_alloc_exception_v4Ev )
@@ -176,7 +178,9 @@ __TBB_SYMBOL( _ZN3tbb8pipeline10add_filterERNS_6filterE )
 __TBB_SYMBOL( _ZN3tbb8pipeline12inject_tokenERNS_4taskE )
 __TBB_SYMBOL( _ZN3tbb8pipeline13remove_filterERNS_6filterE )
 __TBB_SYMBOL( _ZN3tbb8pipeline3runEm )
+#if __TBB_TASK_GROUP_CONTEXT
 __TBB_SYMBOL( _ZN3tbb8pipeline3runEmRNS_18task_group_contextE )
+#endif
 __TBB_SYMBOL( _ZN3tbb8pipeline5clearEv )
 __TBB_SYMBOL( _ZN3tbb19thread_bound_filter12process_itemEv )
 __TBB_SYMBOL( _ZN3tbb19thread_bound_filter16try_process_itemEv )

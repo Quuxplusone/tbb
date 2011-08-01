@@ -50,7 +50,7 @@ namespace Harness {
 /** It MUST be defined by the test application.
 
     If HARNESS_NO_PARSE_COMMAND_LINE macro was not explicitly set before including harness.h,
-    then global variables Verbose, MinThread, and MaxThread will be available and
+    then global variables MinThread, and MaxThread will be available and
     initialized when it is called.
 
     Returns Harness::Done when the tests passed successfully. When the test fail, it must
@@ -214,19 +214,70 @@ static void ParseCommandLine( int argc, char* argv[] ) {
 }
 #endif /* HARNESS_NO_PARSE_COMMAND_LINE */
 
+#if HARNESS_USE_PROXY
+    #define TBB_PREVIEW_RUNTIME_LOADER 1
+    #include "tbb/runtime_loader.h"
+    static char const * _path[] = { ".", NULL };
+    static tbb::runtime_loader _runtime_loader( _path );
+#endif // HARNESS_USE_PROXY
+
 #if !HARNESS_CUSTOM_MAIN
 
+
+#if __TBB_MPI_INTEROP
+#undef SEEK_SET
+#undef SEEK_CUR
+#undef SEEK_END
+#include "mpi.h"
+#endif
 
 HARNESS_EXPORT
 #if HARNESS_NO_PARSE_COMMAND_LINE
 int main() {
+#if __TBB_MPI_INTEROP
+    MPI_Init(NULL,NULL); 
+#endif
 #else
 int main(int argc, char* argv[]) {
     ParseCommandLine( argc, argv );
+#if __TBB_MPI_INTEROP
+    MPI_Init(&argc,&argv); 
+#endif
+#endif
+#if __TBB_MPI_INTEROP
+    // Simple TBB/MPI interoperability harness for most of tests
+    // Worker processes send blocking messages to the master process about their rank and group size
+    // Master process receives this info and print it in verbose mode
+    int rank, size, myrank;
+    MPI_Status status;
+    MPI_Comm_size(MPI_COMM_WORLD,&size); 
+    MPI_Comm_rank(MPI_COMM_WORLD,&myrank); 
+    if (myrank == 0) {
+#if !HARNESS_NO_PARSE_COMMAND_LINE
+        REMARK("Hello mpi world. I am %d of %d\n", myrank, size);
+#endif
+        for ( int i = 1; i < size; i++ ) {
+            MPI_Recv (&rank, 1, MPI_INT, i, 1, MPI_COMM_WORLD, &status);
+            MPI_Recv (&size, 1, MPI_INT, i, 1, MPI_COMM_WORLD, &status);
+#if !HARNESS_NO_PARSE_COMMAND_LINE
+            REMARK("Hello mpi world. I am %d of %d\n", rank, size);
+#endif
+        }
+    } else {
+        MPI_Send (&myrank, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
+        MPI_Send (&size, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
+    }
 #endif
     int res = TestMain ();
     ASSERT( res==Harness::Done || res==Harness::Skipped, "Wrong return code by TestMain");
+#if __TBB_MPI_INTEROP
+    if (myrank == 0) {
+        REPORT( res==Harness::Done ? "done\n" : "skip\n" );
+    }
+    MPI_Finalize();
+#else
     REPORT( res==Harness::Done ? "done\n" : "skip\n" );
+#endif
     return 0;
 }
 
@@ -307,6 +358,9 @@ public:
 #else
         int status = pthread_join( thread_id, NULL );
         ASSERT( !status, "pthread_join failed" );
+#endif
+#if HARNESS_NO_ASSERT
+        (void)status;
 #endif
     }
 

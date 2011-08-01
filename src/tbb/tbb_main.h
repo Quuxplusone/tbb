@@ -59,14 +59,12 @@ class __TBB_InitOnce {
     //! Specifies if the one-time initializations has been done.
     static bool InitializationDone;
 
-    // Scenarios are possible when tools interop has to be initialized before the
-    // TBB itself. This imposes a requirement that the global initialization lock 
-    // has to support valid static initialization, and does not issue any tool
-    // notifications in any build mode.
-    typedef __TBB_Byte mutex_type;
-
-    // Global initialization lock
-    static mutex_type InitializationLock;
+    //! Global initialization lock
+    /** Scenarios are possible when tools interop has to be initialized before the
+        TBB itself. This imposes a requirement that the global initialization lock 
+        has to support valid static initialization, and does not issue any tool
+        notifications in any build mode. **/
+    static __TBB_atomic_flag InitializationLock;
 
 public:
     static void lock()   { __TBB_LockByte( InitializationLock ); }

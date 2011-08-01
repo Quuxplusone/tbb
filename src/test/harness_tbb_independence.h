@@ -54,6 +54,18 @@ int32_t __TBB_machine_fetchadd4__TBB_full_fence (volatile void *ptr, int32_t val
 
 void __TBB_machine_pause(int32_t /*delay*/) {  __TBB_Yield(); }
 
+pthread_mutex_t cas_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+extern "C" int64_t __TBB_machine_cmpswp8__TBB_full_fence(volatile void *ptr, int64_t value, int64_t comparand)
+{
+    pthread_mutex_lock(&cas_mutex);
+    int64_t result = *(int64_t*)ptr;
+    if (result == comparand)
+        *(int64_t*)ptr = value;
+    pthread_mutex_unlock(&cas_mutex);
+    return result;
+}
+
 #elif _WIN64 && defined(_M_X64) && !__MINGW64__
 
 #define __TBB_NO_IMPLICIT_LINKAGE 1
@@ -66,5 +78,7 @@ void __TBB_machine_pause(__int32 /*delay*/ ) { __TBB_Yield(); }
 #endif
 
 #endif /* _WIN64 */
+
+extern "C" void ITT_DoOneTimeInitialization() { }
 
 #endif // harness_tbb_independence_H

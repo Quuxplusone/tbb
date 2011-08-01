@@ -71,7 +71,7 @@
 #include "light.h"
 #include "global.h"
 #include "ui.h"
-#include "video.h"
+#include "tachyon_video.h"
 #include "objbound.h"
 #include "grid.h"
 
@@ -95,8 +95,6 @@ void renderscene(scenedef scene) {
                   (unsigned short) scene.vres);
   outfile = opentgafile(scene.outfilename);
   */
-
-  timerstart();
 
   trace_region (scene, 0/*outfile*/, 0, 0, scene.hres, scene.vres);
   //fclose((FILE *)outfile);

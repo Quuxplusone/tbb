@@ -44,7 +44,7 @@ ifeq ($(cfg), release)
 endif
 ifeq ($(cfg), debug)
         CPLUS_FLAGS = $(MS_CRT_KEY) /Od /Ob0 /Zi $(EH_FLAGS) /Zc:forScope \
-                      /DTBB_DO_ASSERT /D_XBOX /DTBB_NO_LEGACY=1
+                      /DTBB_USE_DEBUG /D_XBOX /DTBB_NO_LEGACY=1
         ASM_FLAGS = /DUSE_FRAME_POINTER
 endif
 

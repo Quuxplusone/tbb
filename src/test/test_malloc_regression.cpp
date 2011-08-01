@@ -50,14 +50,14 @@ void RunThread(const Body& body, const Arg& arg) {
 }
 
 /*--------------------------------------------------------------------*/
-// The regression test against bug #1518 where thread boot strap allocations "leaked"
+// The regression test against bug #1518 where thread bootstrap allocations "leaked"
 
 #include "harness_memory.h"
 
 bool TestBootstrapLeak() {
     /* In the bug 1518, each thread leaked ~384 bytes.
        Initially, scalable allocator maps 1MB. Thus it is necessary to take out most of this space.
-       1MB is chunked into 16K blocks; of those, one block is for thread boot strap, and one more 
+       1MB is chunked into 16K blocks; of those, one block is for thread bootstrap, and one more
        should be reserved for the test body. 62 blocks left, each can serve 15 objects of 1024 bytes.
     */
     const int alloc_size = 1024;
@@ -79,7 +79,7 @@ bool TestBootstrapLeak() {
     }
 
     ptrdiff_t memory_leak = 0;
-    // Note that 16K boot strap memory block is enough to serve 42 threads.
+    // Note that 16K bootstrap memory block is enough to serve 42 threads.
     const int num_thread_runs = 200;
     for (int run=0; run<3; run++) {
         memory_in_use = GetMemoryUsage();
@@ -114,7 +114,7 @@ bool TestReallocMsize(size_t startSz) {
     buf[realSz-1] = 0;
     char *buf1 = (char*)scalable_realloc(buf, 2*realSz);
     ASSERT(buf1, "");
-    ASSERT(scalable_msize(buf1)>=2*realSz, 
+    ASSERT(scalable_msize(buf1)>=2*realSz,
            "scalable_msize must be not less then allocated size");
     buf1[2*realSz-1] = 0;
     if ( strspn(buf1, "a") < realSz-1 ) {
@@ -144,7 +144,7 @@ int TestMain () {
     }
     for (size_t a=2; a<=64*1024; a*=2)
         passed &= TestReallocMsize(a);
-    
+
     ASSERT( passed, "Test failed" );
     return Harness::Done;
 }

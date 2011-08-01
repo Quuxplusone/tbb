@@ -59,10 +59,10 @@ ifneq (,$(shell which icc 2>/dev/null))
 CXX=icc
 endif # icc
 
-# The default dataset
-export DATASET = balls
 # The default runtime arguments
-export ARGS =
+export ARGS = dat/balls.dat
+export PERF_RUN_ARGS = silent dat/balls3.dat
+export LIGHT_ARGS= dat/model2.dat
 
 # define name suffix
 SUFFIX = .$(VERSION)
@@ -72,13 +72,13 @@ LIBS ?= -lm
 include ../../common/gui/Makefile.gmake
 
 ifeq ($(UI),x)
-CXXFLAGS += -DX_FULLSYNC 
+UI_CXXFLAGS += -DX_FULLSYNC 
 ifneq (,$(findstring -lXext,$(LIBS)))
-CXXFLAGS += -DX_NOSHMPIX
+UI_CXXFLAGS += -DX_NOSHMPIX
 endif
 endif # X
 
-MYCXXFLAGS = $(CXXFLAGS)
+MYCXXFLAGS = $(CXXFLAGS) $(UI_CXXFLAGS)
 
 all: build run
 release: build
@@ -118,6 +118,15 @@ run_tbb1d:
 	$(MAKE) VERSION=tbb1d run_one
 
 
+perf_build:
+	$(MAKE) UI=con VERSION=tbb ADD_TBB=1 build_one
+perf_run:
+	$(MAKE) UI=con VERSION=tbb run_perf_one
+
+light_test:
+	$(MAKE) UI=con VERSION=tbb light_test_one
+
+
 #
 # Per-build Makefile rules (for recursive $(MAKE) calls from above)
 #
@@ -127,7 +136,7 @@ SVERSION = $(VERSION)
 ifeq ($(ADD_DEBUG),1)
 MYCXXFLAGS += -O0 -g -D_DEBUG
 else
-MYCXXFLAGS += -O2
+MYCXXFLAGS += -O2 -DNDEBUG
 endif
 
 
@@ -141,16 +150,26 @@ LIBS += -ltbb
 endif
 endif
 
-SOURCE = ../../common/gui/$(UI)video.cpp src/trace.$(SVERSION).cpp src/pthread.cpp src/video.cpp src/api.cpp src/apigeom.cpp src/apitrigeom.cpp src/bndbox.cpp src/box.cpp src/camera.cpp src/coordsys.cpp src/cylinder.cpp src/extvol.cpp src/getargs.cpp src/global.cpp src/grid.cpp src/imageio.cpp src/imap.cpp src/intersect.cpp src/jpeg.cpp src/light.cpp src/objbound.cpp src/parse.cpp src/plane.cpp src/ppm.cpp src/quadric.cpp src/render.cpp src/ring.cpp src/shade.cpp src/sphere.cpp src/texture.cpp src/tgafile.cpp src/trace_rest.cpp src/triangle.cpp src/ui.cpp src/util.cpp src/vector.cpp src/vol.cpp
+ifeq ($(shell uname), Linux)
+LIBS += -lrt 
+endif
+
+SOURCE = ../../common/gui/$(UI)video.cpp src/trace.$(SVERSION).cpp src/main.cpp src/pthread.cpp src/tachyon_video.cpp src/api.cpp src/apigeom.cpp src/apitrigeom.cpp src/bndbox.cpp src/box.cpp src/camera.cpp src/coordsys.cpp src/cylinder.cpp src/extvol.cpp src/global.cpp src/grid.cpp src/imageio.cpp src/imap.cpp src/intersect.cpp src/jpeg.cpp src/light.cpp src/objbound.cpp src/parse.cpp src/plane.cpp src/ppm.cpp src/quadric.cpp src/render.cpp src/ring.cpp src/shade.cpp src/sphere.cpp src/texture.cpp src/tgafile.cpp src/trace_rest.cpp src/triangle.cpp src/ui.cpp src/util.cpp src/vector.cpp src/vol.cpp
 
 build_one:	$(EXE)
 
 run_one:
 ifeq ($(UI),mac)
-	export DYLD_LIBRARY_PATH="$(DYLD_LIBRARY_PATH):$(TBBLIBSPATH)"; ./$(EXE) $(ARGS) dat/$(DATASET).dat
+	export DYLD_LIBRARY_PATH="$(DYLD_LIBRARY_PATH):$(TBBLIBSPATH)"; ./$(EXE) $(ARGS)
 else
-	./$(EXE) $(ARGS) dat/$(DATASET).dat
+	./$(EXE) $(ARGS)
 endif
+
+run_perf_one:
+	./$(EXE) $(PERF_RUN_ARGS)
+
+light_test_one:
+	./$(EXE) $(LIGHT_ARGS)
 
 $(EXE): $(SOURCE)
 ifeq ($(UI),mac)

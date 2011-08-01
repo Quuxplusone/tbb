@@ -45,7 +45,7 @@ TBB_NOSTRICT = 1
 CPLUS = g++
 CONLY = gcc
 LIB_LINK_FLAGS = $(DYLIB_KEY) -Wl,-soname=$(BUILDING_LIBRARY)
-LIBS = -lpthread -lrt
+LIBS += -lpthread -lrt
 LINK_FLAGS = -Wl,-rpath-link=.
 C_FLAGS = $(CPLUS_FLAGS)
 

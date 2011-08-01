@@ -55,11 +55,11 @@ public:
     depth_t     pixel_depth;
     int         sizex, sizey;
     //! Get drawing memory
-    inline void* get_address() const { return reinterpret_cast<void*>(my_address); }
+    inline char* get_address() const { return reinterpret_cast<char*>(my_address); }
     //! Get drawing memory size
     inline int get_size() const { return ((pixel_depth>16) ? 4:2) * sizex * sizey; }
     //! Set drawing memory
-    inline void set_address(void *mem) { my_address = reinterpret_cast<uintptr_t>(mem); }
+    inline void set_address(char *mem) { my_address = reinterpret_cast<uintptr_t>(mem); }
 
     friend class drawing_area;
     friend class video;

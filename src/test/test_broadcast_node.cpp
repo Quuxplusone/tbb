@@ -28,7 +28,7 @@
 
 #include "harness.h"
 #define TBB_PREVIEW_GRAPH 1
-#include "tbb/graph.h"
+#include "tbb/flow_graph.h"
 
 #include "tbb/atomic.h"
 
@@ -42,13 +42,13 @@ class int_convertable_type : private NoAssign {
 public:
 
    int_convertable_type( int v ) : my_value(v) {}
-   operator int() { return my_value; }
+   operator int() const { return my_value; }
 
 };
 
 
 template< typename T >
-class counting_array_receiver : public tbb::receiver<T> {
+class counting_array_receiver : public tbb::flow::receiver<T> {
 
     tbb::atomic<size_t> my_counters[N];
 
@@ -64,7 +64,7 @@ public:
         return v;
     }
 
-    /* override */ bool try_put( T v ) {
+    /* override */ bool try_put( const T &v ) {
         ++my_counters[(int)v];
         return true;
     }
@@ -74,13 +74,13 @@ public:
 template< typename T >
 void test_serial_broadcasts() {
 
-    tbb::broadcast_node<T> b;
+    tbb::flow::broadcast_node<T> b;
     
     for ( int num_receivers = 1; num_receivers < R; ++num_receivers ) {
         counting_array_receiver<T> *receivers = new counting_array_receiver<T>[num_receivers];
 
         for ( int r = 0; r < num_receivers; ++r ) {
-            ASSERT( b.register_successor( receivers[r] ), NULL );
+            tbb::flow::make_edge( b, receivers[r] );
         } 
 
         for (int n = 0; n < N; ++n ) {
@@ -91,7 +91,7 @@ void test_serial_broadcasts() {
             for (int n = 0; n < N; ++n ) {
                 ASSERT( receivers[r][n] == 1, NULL );
             }
-            ASSERT( b.remove_successor( receivers[r] ), NULL );
+            tbb::flow::remove_edge( b, receivers[r] );
         } 
         ASSERT( b.try_put( (T)0 ), NULL );
         for ( int r = 0; r < num_receivers; ++r ) 
@@ -106,11 +106,11 @@ void test_serial_broadcasts() {
 template< typename T >
 class native_body : private NoAssign {
  
-   tbb::broadcast_node<T> &my_b;
+   tbb::flow::broadcast_node<T> &my_b;
 
 public:
 
-    native_body( tbb::broadcast_node<T> &b ) : my_b(b) {} 
+    native_body( tbb::flow::broadcast_node<T> &b ) : my_b(b) {} 
 
     void operator()(int) const {
         for (int n = 0; n < N; ++n ) {
@@ -121,15 +121,12 @@ public:
 };
 
 template< typename T >
-void test_parallel_broadcasts(int p) {
-
-    tbb::broadcast_node<T> b;
-    
+void run_parallel_broadcasts(int p, tbb::flow::broadcast_node<T>& b) {
     for ( int num_receivers = 1; num_receivers < R; ++num_receivers ) {
         counting_array_receiver<T> *receivers = new counting_array_receiver<T>[num_receivers];
 
         for ( int r = 0; r < num_receivers; ++r ) {
-            ASSERT( b.register_successor( receivers[r] ), NULL );
+            tbb::flow::make_edge( b, receivers[r] );
         } 
 
         NativeParallelFor( p, native_body<T>( b ) );
@@ -138,16 +135,26 @@ void test_parallel_broadcasts(int p) {
             for (int n = 0; n < N; ++n ) {
                 ASSERT( (int)receivers[r][n] == p, NULL );
             }
-            ASSERT( b.remove_successor( receivers[r] ), NULL );
+            tbb::flow::remove_edge( b, receivers[r] );
         } 
         ASSERT( b.try_put( (T)0 ), NULL );
         for ( int r = 0; r < num_receivers; ++r ) 
-            ASSERT( (int)receivers[0][0] == p, NULL ) ;
+            ASSERT( (int)receivers[r][0] == p, NULL ) ;
 
         delete [] receivers;
 
     }
+}
 
+template< typename T >
+void test_parallel_broadcasts(int p) {
+
+    tbb::flow::broadcast_node<T> b;
+    run_parallel_broadcasts(p, b);
+    
+    // test copy constructor
+    tbb::flow::broadcast_node<T> b_copy(b);
+    run_parallel_broadcasts(p, b_copy);
 }
 
 int TestMain() { 
@@ -166,6 +173,4 @@ int TestMain() {
        test_parallel_broadcasts<int_convertable_type>(p);
    }
    return Harness::Done;
-
 }
-

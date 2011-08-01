@@ -29,7 +29,7 @@
 #include "tbb/tbb_stddef.h"
 #include "tbb/tbb_machine.h"
 #include "tbb/tbb_exception.h"
-#include "tbb/_concurrent_queue_internal.h"
+#include "tbb/internal/_concurrent_queue_impl.h"
 #include "concurrent_monitor.h"
 #include "itt_notify.h"
 #include <new>

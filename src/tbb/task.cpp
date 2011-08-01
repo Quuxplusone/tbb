@@ -75,11 +75,11 @@ task& allocate_root_with_context_proxy::allocate( size_t size ) const {
     internal::generic_scheduler* s = governor::local_scheduler();
     __TBB_ASSERT( s, "Scheduler auto-initialization failed?" );
     task& t = s->allocate_task( size, __TBB_CONTEXT_ARG(NULL, &my_context) );
-    // Supported usage model prohibits concurrent initial binding. Thus we do not 
+    // Supported usage model prohibits concurrent initial binding. Thus we do not
     // need interlocked operations or fences to manipulate with my_context.my_kind
     if ( my_context.my_kind == task_group_context::binding_required ) {
-        // If we are in the outermost task dispatch loop of a master thread, then 
-        // there is nothing to bind this context to, and we skip the binding part 
+        // If we are in the outermost task dispatch loop of a master thread, then
+        // there is nothing to bind this context to, and we skip the binding part
         // treating the context as isolated.
         if ( s->my_innermost_running_task == s->my_dummy_task )
             my_context.my_kind = task_group_context::isolated;
@@ -177,7 +177,7 @@ void affinity_partitioner_base_v3::resize( unsigned factor ) {
             memset( my_array, 0, sizeof(affinity_id)*new_size );
             my_size = new_size;
         }
-    } 
+    }
 }
 
 } // namespace internal
@@ -218,7 +218,7 @@ bool task::is_owned_by_current_thread() const {
 }
 
 void interface5::internal::task_base::destroy( task& victim ) {
-    // 1 may be a guard reference for wait_for_all, which was not reset because 
+    // 1 may be a guard reference for wait_for_all, which was not reset because
     // of concurrent_wait mode or because prepared root task was not actually used
     // for spawning tasks (as in structured_task_group).
     __TBB_ASSERT( (intptr_t)victim.prefix().ref_count <= 1, "Task being destroyed must not have children" );
@@ -228,7 +228,7 @@ void interface5::internal::task_base::destroy( task& victim ) {
     if( parent ) {
         __TBB_ASSERT( parent->state()==task::allocated, "attempt to destroy child of running or corrupted parent?" );
         parent->internal_decrement_ref_count();
-        // Despite last reference to *parent removed, it should not be destroyed (documented behavior).
+        // Even if the last reference to *parent is removed, it should not be spawned (documented behavior).
     }
     governor::local_scheduler()->free_task<no_hint>( victim );
 }
@@ -244,7 +244,7 @@ void task::spawn_and_wait_for_all( task_list& list ) {
     s->local_wait_for_all( *this, t );
 }
 
-/** Defined out of line so that compiler does not replicate task's vtable. 
+/** Defined out of line so that compiler does not replicate task's vtable.
     It's pointless to define it inline anyway, because all call sites to it are virtual calls
     that the compiler is unlikely to optimize. */
 void task::note_affinity( affinity_id ) {
@@ -255,8 +255,8 @@ void task::change_group ( task_group_context& ctx ) {
     prefix().context = &ctx;
     if ( ctx.my_kind == task_group_context::binding_required ) {
         internal::generic_scheduler* s = governor::local_scheduler();
-        // If we are in the outermost task dispatch loop of a master thread, then 
-        // there is nothing to bind this context to, and we skip the binding part 
+        // If we are in the outermost task dispatch loop of a master thread, then
+        // there is nothing to bind this context to, and we skip the binding part
         // treating the context as isolated.
         if ( s->my_innermost_running_task == s->my_dummy_task )
             ctx.my_kind = task_group_context::isolated;

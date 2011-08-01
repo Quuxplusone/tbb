@@ -89,10 +89,10 @@ intptr_t TestNumSubrangesCalculation ( intptr_t length, intptr_t grain, intptr_t
 class NoThrowParForBody {
 public:
     void operator()( const range_type& r ) const {
-        volatile long x;
+        volatile count_type x = 0;
         count_type end = r.end();
         for( count_type i=r.begin(); i<end; ++i )
-            x = 0;
+            x += i;
     }
 };
 

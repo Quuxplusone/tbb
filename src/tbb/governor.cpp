@@ -44,6 +44,7 @@ namespace internal {
 //------------------------------------------------------------------------
 
 #if __TBB_SURVIVE_THREAD_SWITCH
+// Suuport for interoperability with Intel(R) Cilk(tm) Plus.
 
 #if _WIN32
 #define CILKLIB_NAME "cilkrts20.dll"
@@ -68,7 +69,7 @@ static atomic<do_once_state> cilkrts_load_state;
 
 bool initialize_cilk_interop() {
     // Pinning can fail. This is a normal situation, and means that the current
-    // thread does not use Cilk and consequently does not need interop.
+    // thread does not use cilkrts and consequently does not need interop.
     return dynamic_link( CILKLIB_NAME, CilkLinkTable, 1 );
 }
 #endif /* __TBB_SURVIVE_THREAD_SWITCH */
@@ -84,7 +85,7 @@ void governor::acquire_resources () {
     int status = theTLS.create();
 #endif
     if( status )
-        handle_perror(status, "TBB failed to initialize TLS storage\n");
+        handle_perror(status, "TBB failed to initialize task scheduler TLS\n");
 
     ::rml::factory::status_type res = theRMLServerFactory.open(); 
     UsePrivateRML = res != ::rml::factory::st_success;
@@ -98,7 +99,7 @@ void governor::release_resources () {
 #endif
     int status = theTLS.destroy();
     if( status )
-        handle_perror(status, "TBB failed to destroy TLS storage");
+        handle_perror(status, "TBB failed to destroy task scheduler TLS");
     dynamic_unlink_all();
 }
 
@@ -120,16 +121,15 @@ rml::tbb_server* governor::create_rml_server ( rml::tbb_client& client ) {
 }
 
 void governor::sign_on(generic_scheduler* s) {
-    __TBB_ASSERT( !s->my_registered, NULL );  
-    s->my_registered = true;
+    __TBB_ASSERT( !theTLS.get(), NULL );
     theTLS.set(s);
 #if __TBB_SURVIVE_THREAD_SWITCH
-    __cilk_tbb_stack_op_thunk o;
-    o.routine = &stack_op_handler;
-    o.data = s;
     if( watch_stack_handler ) {
+        __cilk_tbb_stack_op_thunk o;
+        o.routine = &stack_op_handler;
+        o.data = s;
         if( (*watch_stack_handler)(&s->my_cilk_unwatch_thunk, o) ) {
-            // Failed to register with Cilk, make sure we are clean
+            // Failed to register with cilkrts, make sure we are clean
             s->my_cilk_unwatch_thunk.routine = NULL;
         }
 #if TBB_USE_ASSERT
@@ -141,16 +141,13 @@ void governor::sign_on(generic_scheduler* s) {
 }
 
 void governor::sign_off(generic_scheduler* s) {
-    if( s->my_registered ) {
-        __TBB_ASSERT( theTLS.get()==s || (!s->is_worker() && !theTLS.get()), "attempt to unregister a wrong scheduler instance" );
-        theTLS.set(NULL);
-        s->my_registered = false;
+    __TBB_ASSERT( theTLS.get()==s, "attempt to unregister a wrong scheduler instance" );
+    theTLS.set(NULL);
 #if __TBB_SURVIVE_THREAD_SWITCH
-        __cilk_tbb_unwatch_thunk &ut = s->my_cilk_unwatch_thunk;
-        if ( ut.routine )
-           (*ut.routine)(ut.data);
+    __cilk_tbb_unwatch_thunk &ut = s->my_cilk_unwatch_thunk;
+    if ( ut.routine )
+       (*ut.routine)(ut.data);
 #endif /* __TBB_SURVIVE_THREAD_SWITCH */
-    }
 }
 
 generic_scheduler* governor::init_scheduler( unsigned num_threads, stack_size_type stack_size, bool auto_init ) {
@@ -183,16 +180,12 @@ void governor::auto_terminate(void* arg){
     generic_scheduler* s = static_cast<generic_scheduler*>(arg);
     if( s && s->my_auto_initialized ) {
         if( !--(s->my_ref_count) ) {
-            if ( !theTLS.get() && !s->local_task_pool_empty() ) {
-                // This thread's TLS slot is already cleared. But in order to execute
-                // remaining tasks cleanup_master() will need TLS correctly set.
-                // So we temporarily restore its value.
+            // If the TLS slot is already cleared by OS or underlying concurrency
+            // runtime, restore its value.
+            if ( !theTLS.get() )
                 theTLS.set(s);
-                s->cleanup_master();
-                theTLS.set(NULL);
-            }
-            else
-                s->cleanup_master();
+            s->cleanup_master();
+            __TBB_ASSERT( !theTLS.get(), "cleanup_master has not cleared its TLS slot" );
         }
     }
 }
@@ -275,8 +268,8 @@ void task_scheduler_init::initialize( int number_of_threads ) {
 void task_scheduler_init::initialize( int number_of_threads, stack_size_type thread_stack_size ) {
 #if __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS
     uintptr_t new_mode = thread_stack_size & propagation_mode_mask;
-    thread_stack_size &= ~(stack_size_type)propagation_mode_mask;
 #endif
+    thread_stack_size &= ~(stack_size_type)propagation_mode_mask;
     if( number_of_threads!=deferred ) {
         __TBB_ASSERT( !my_scheduler, "task_scheduler_init already initialized" );
         __TBB_ASSERT( number_of_threads==-1 || number_of_threads>=1,

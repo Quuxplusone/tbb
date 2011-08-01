@@ -89,9 +89,9 @@ static void TestAtomicCounter() {
 
 static void TestTinyLock() {
     REMARK("testing __TBB_LockByte\n");
-    __TBB_Byte flags[16];
+    __TBB_atomic_flag flags[16];
     for( unsigned int i=0; i<16; ++i )
-        flags[i] = (__TBB_Byte)i;
+        flags[i] = (__TBB_Flag)i;
 #if __TBB_GCC_OPTIMIZER_ORDERING_BROKEN
     __TBB_store_with_release( flags[8], 0 );
 #else
