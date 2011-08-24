@@ -33,6 +33,7 @@
 
 #include "tbb/task.h"
 #include "tbb/task_scheduler_init.h"
+#include "tbb/atomic.h"
 
 //! Fractal class
 class fractal {
@@ -81,7 +82,7 @@ class fractal_group {
     //! Fractals defenition
     fractal f0, f1;
     //! Number of frames to calculate
-    int num_frames[2];
+    tbb::atomic<int> num_frames[2];
     //! Task group contexts to manage prioroties
     tbb::task_group_context *context;
 
@@ -113,7 +114,7 @@ public:
     //! Get number of threads
     int get_num_threads() const { return num_threads; }
     //! Reset the number of frames to be not less than the given value
-    void set_num_frames(int n);
+    void set_num_frames_at_least(int n);
     //! Switches the priorities of two fractals
     void switch_priorities( int new_active=-1 );
 };

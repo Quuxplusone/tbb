@@ -29,8 +29,11 @@
 /* Container implementations in this header are based on PPL implementations 
    provided by Microsoft. */
 
-#ifndef __TBB_concurrent_unordered_internal_H
-#define __TBB_concurrent_unordered_internal_H
+#ifndef __TBB__concurrent_unordered_impl_H
+#define __TBB__concurrent_unordered_impl_H
+#if !defined(__TBB_concurrent_unordered_map_H) && !defined(__TBB_concurrent_unordered_set_H) && !defined(__TBB_concurrent_hash_map_H)
+#error Do not #include this internal file directly; use public TBB headers instead.
+#endif
 
 #include "../tbb_stddef.h"
 
@@ -1423,4 +1426,4 @@ public:
 };
 
 } // namespace tbb
-#endif// __TBB_concurrent_unordered_internal_H
+#endif// __TBB__concurrent_unordered_impl_H

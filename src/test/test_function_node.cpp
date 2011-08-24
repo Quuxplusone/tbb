@@ -386,6 +386,28 @@ void run_unlimited_concurrency() {
     unlimited_concurrency<InputType,OutputType>( typename harness_graph_executor<InputType, OutputType>::functor() );
 }
 
+struct continue_msg_to_int : private NoAssign {
+    int my_int;
+    continue_msg_to_int(int x) : my_int(x) {}
+    int operator()(tbb::flow::continue_msg) { return my_int; }
+};
+
+void test_function_node_with_continue_msg_as_input() {
+    // If this function terminates, then this test is successful
+    tbb::flow::graph g;
+
+    tbb::flow::broadcast_node<tbb::flow::continue_msg> Start;
+
+    tbb::flow::function_node<tbb::flow::continue_msg, int, tbb::flow::rejecting> FN1( g, tbb::flow::serial, continue_msg_to_int(42));
+    tbb::flow::function_node<tbb::flow::continue_msg, int, tbb::flow::rejecting> FN2( g, tbb::flow::serial, continue_msg_to_int(43));
+    
+    tbb::flow::make_edge( Start, FN1 );
+    tbb::flow::make_edge( Start, FN2 );
+    
+    Start.try_put( tbb::flow::continue_msg() );
+    g.wait_for_all();
+}
+
 //! Tests limited concurrency cases for nodes that accept data messages
 void test_concurrency(int num_threads) {
     tbb::task_scheduler_init init(num_threads);
@@ -398,6 +420,7 @@ void test_concurrency(int num_threads) {
     run_unlimited_concurrency<empty_no_assign,empty_no_assign>();
     run_unlimited_concurrency<int,tbb::flow::continue_msg>();
     run_unlimited_concurrency<empty_no_assign,tbb::flow::continue_msg>();
+    test_function_node_with_continue_msg_as_input();
 }
 
 int TestMain() { 

@@ -127,13 +127,6 @@ void TestBasic( A& a ) {
     // number of bytes for such an allocation would overflow size_type.
     ASSERT( a.max_size()*typename A::size_type(sizeof(T))>=a.max_size(), "max_size larger than reasonable" ); 
 
-    // Test "a1==a2"
-    A a1, a2;
-    ASSERT( a1==a2, NULL );
-
-    // Test "a1!=a2"
-    ASSERT( !(a1!=a2), NULL );
-
     // Test "a.construct(p,t)"
     int n = NumberOfFoo;
     typename A::pointer p = a.allocate(1);
@@ -164,8 +157,9 @@ struct Body: NoAssign {
         ASSERT(array[i] == 0, NULL);
         size_t size = i * (i&3);
         array[i] = i&1 ? a.allocate(size, array[i>>3]) : a.allocate(size);
+        ASSERT(array[i] != 0, "allocator returned null");
         char* s = reinterpret_cast<char*>(reinterpret_cast<void*>(array[i]));
-        for( size_t j=0; j<size*sizeof(A); ++j ) {
+        for( size_t j=0; j<size*sizeof(typename A::value_type); ++j ) {
             if(is_zero_filling<typename A::template rebind<void>::other>::value)
                 ASSERT( !s[j], NULL);
             s[j] = PseudoRandomValue(i, t);
@@ -177,7 +171,7 @@ struct Body: NoAssign {
         ASSERT(array[i] != 0, NULL);
         size_t size = i * (i&3);
         char* s = reinterpret_cast<char*>(reinterpret_cast<void*>(array[i]));
-        for( size_t j=0; j<size*sizeof(A); ++j )
+        for( size_t j=0; j<size*sizeof(typename A::value_type); ++j )
             ASSERT( s[j] == PseudoRandomValue(i, t), "Thread safety test failed" );
         a.deallocate(array[i], size);
         array[i] = 0;
@@ -200,27 +194,27 @@ struct Body: NoAssign {
 };
 
 // A is an allocator for some type, and U is another type
-template<typename A, typename U>
-void Test() {
-    typename A::template rebind<U>::other b;
+template<typename U, typename A>
+void Test(A &a) {
+    typename A::template rebind<U>::other b(a);
     TestBasic<U>(b);
-
-    A a(b);
     TestBasic<typename A::value_type>(a);
 
     // thread safety
-    int n = NumberOfFoo;
     NativeParallelFor( 4, Body<A>(a) );
-    ASSERT( NumberOfFoo==n, "Allocate/deallocate count mismatched" );
+    ASSERT( NumberOfFoo==0, "Allocate/deallocate count mismatched" );
  
     ASSERT( a==b, NULL );
     ASSERT( !(a!=b), NULL );
 }
 
 template<typename Allocator>
-int TestMain() {
-    Test<typename Allocator::template rebind<Foo<char,1> >::other, Foo<int,17> >();
-    Test<typename Allocator::template rebind<Foo<double,1> >::other, Foo<float,23> >();
+int TestMain(const Allocator &a = Allocator() ) {
+    NumberOfFoo = 0;
+    typename Allocator::template rebind<Foo<char,1> >::other a1(a);
+    typename Allocator::template rebind<Foo<double,1> >::other a2(a);
+    Test<Foo<int,17> >( a1 );
+    Test<Foo<float,23> >( a2 );
     return 0;
 }
 

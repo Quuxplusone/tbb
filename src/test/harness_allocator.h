@@ -87,15 +87,15 @@ public:
 
     static_counting_allocator() throw() { }
 
+    static_counting_allocator(const base_alloc_t& src) throw()
+    : base_alloc_t(src) { }
+
     static_counting_allocator(const static_counting_allocator& src) throw() 
     : base_alloc_t(src) { }
 
     template<typename U, typename C>
     static_counting_allocator(const static_counting_allocator<U, C>& src) throw()
     : base_alloc_t(src) { }
-
-    bool operator==(const static_counting_allocator &a) const
-    { return true; }
 
     pointer allocate(const size_type n)
     {

@@ -26,7 +26,7 @@
 
 EXPORTS
 
-; MemoryAllocator.cpp
+; frontend.cpp
 scalable_calloc
 scalable_free
 scalable_malloc
@@ -40,3 +40,10 @@ safer_scalable_realloc
 scalable_msize
 safer_scalable_msize
 safer_scalable_aligned_realloc
+?pool_create@rml@@YAPAVMemoryPool@1@HPBUMemPoolPolicy@1@@Z
+?pool_destroy@rml@@YA_NPAVMemoryPool@1@@Z
+?pool_malloc@rml@@YAPAXPAVMemoryPool@1@I@Z
+?pool_free@rml@@YA_NPAVMemoryPool@1@PAX@Z
+?pool_reset@rml@@YA_NPAVMemoryPool@1@@Z
+?pool_realloc@rml@@YAPAXPAVMemoryPool@1@PAXI@Z
+

@@ -29,6 +29,17 @@
 #ifndef _itt_shared_malloc_MapMemory_H
 #define _itt_shared_malloc_MapMemory_H
 
+#include <stdlib.h>
+
+void *ErrnoPreservingMalloc(size_t bytes)
+{
+    int prevErrno = errno;
+    void *ret = malloc( bytes );
+    if (!ret)
+        errno = prevErrno;
+    return ret;
+}
+
 #if __linux__ || __APPLE__ || __sun || __FreeBSD__
 
 #if __sun && !defined(_XPG4_2)
@@ -48,17 +59,24 @@
 void* MapMemory (size_t bytes)
 {
     void* result = 0;
+    int prevErrno = errno;
 #ifndef MAP_ANONYMOUS
 // Mac OS* X defines MAP_ANON, which is deprecated in Linux.
 #define MAP_ANONYMOUS MAP_ANON
 #endif /* MAP_ANONYMOUS */
-    result = mmap(result, bytes, (PROT_READ | PROT_WRITE), MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    result = mmap(NULL, bytes, (PROT_READ | PROT_WRITE), MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    if (result==MAP_FAILED)
+        errno = prevErrno;
     return result==MAP_FAILED? 0: result;
 }
 
 int UnmapMemory(void *area, size_t bytes)
 {
-    return munmap(area, bytes);
+    int prevErrno = errno;
+    int ret = munmap(area, bytes);
+    if (-1 == ret)
+        errno = prevErrno;
+    return ret;
 }
 
 #elif (_WIN32 || _WIN64) && !_XBOX
@@ -78,12 +96,11 @@ int UnmapMemory(void *area, size_t bytes)
 }
 
 #else
-#include <stdlib.h>
 
 #define MEMORY_MAPPING_USES_MALLOC 1
 void* MapMemory (size_t bytes)
 {
-    return malloc( bytes );
+    return ErrnoPreservingMalloc( bytes );
 }
 
 int UnmapMemory(void *area, size_t bytes)

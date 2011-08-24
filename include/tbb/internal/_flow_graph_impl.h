@@ -26,8 +26,12 @@
     the GNU General Public License.
 */
 
-#ifndef __TBB__graph_internal_H
-#define __TBB__graph_internal_H
+#ifndef __TBB__flow_graph_impl_H
+#define __TBB__flow_graph_impl_H
+
+#ifndef __TBB_flow_graph_H
+#error Do not #include this internal file directly; use public TBB headers instead.
+#endif
 
 namespace internal {
 
@@ -134,6 +138,34 @@ namespace internal {
         B body;
         B init_body;
     };
+
+# if TBB_PREVIEW_GRAPH_NODES
+    //! function_body that takes an Input and a set of output ports
+    template<typename Input, typename OutputSet>
+    class multioutput_function_body {
+    public:
+        virtual ~multioutput_function_body () {}
+        virtual void operator()(const Input &/* input*/, OutputSet &/*oset*/) = 0;
+        virtual multioutput_function_body* clone() = 0;
+    };
+
+    //! leaf for multi-output function.  OutputSet can be a std::tuple or a vector.
+    template<typename Input, typename OutputSet, typename B>
+    class multioutput_function_body_leaf : public multioutput_function_body<Input, OutputSet> {
+    public:
+        multioutput_function_body_leaf(const B &_body) : body(_body), init_body(_body) { }
+        void operator()(const Input &input, OutputSet &oset) {
+            body(input, oset); // body should explicitly put() to one or more of oset.
+        }
+        B get_body() { return body; }
+        /*override*/ multioutput_function_body_leaf* clone() {
+            return new multioutput_function_body_leaf<Input, OutputSet,B>(init_body);
+        }
+    private:
+        B body;
+        B init_body;
+    };
+#endif  // TBB_PREVIEW_GRAPH_NODES
     
     //! A task that calls a node's forward function
     template< typename NodeType >
@@ -422,8 +454,11 @@ namespace internal {
         void register_successor( receiver<continue_msg> &r ) {
             my_mutex_type::scoped_lock l(my_mutex, true);
             my_successors.push_back( &r ); 
-            if ( my_owner )
-                r.register_predecessor( *my_owner );
+            if ( my_owner ) {
+                continue_receiver *cr = dynamic_cast< continue_receiver * >(&r);
+                if ( cr ) 
+                    cr->register_predecessor( *my_owner );
+            }
         }
         
         void remove_successor( receiver<continue_msg> &r ) {
@@ -483,7 +518,7 @@ namespace internal {
             return msg;
         }
     };
-    
+
     //! A cache of successors that are put in a round-robin fashion
     template<typename T, typename M=spin_rw_mutex >
     class round_robin_cache : public successor_cache<T, M> {
@@ -543,5 +578,5 @@ namespace internal {
     
 }
 
-#endif
+#endif // __TBB__flow_graph_impl_H
 

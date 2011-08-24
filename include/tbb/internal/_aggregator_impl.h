@@ -26,8 +26,8 @@
     the GNU General Public License.
 */
 
-#ifndef __TBB_aggregator_internal_H
-#define __TBB_aggregator_internal_H
+#ifndef __TBB__aggregator_impl_H
+#define __TBB__aggregator_impl_H
 
 #include "../atomic.h"
 #include "../tbb_profiling.h"
@@ -159,4 +159,4 @@ namespace internal {
 
 } // namespace tbb
 
-#endif
+#endif  // __TBB__aggregator_impl_H

@@ -45,6 +45,8 @@
 #endif 
 #include <stdio.h>
 #include "tbb/itt_notify.h"
+#include "tbb/atomic.h"
+#include "tbb/semaphore.h"
 
 // All platform-specific threading support is in this header.
 
@@ -70,8 +72,7 @@ namespace internal {
 
 #if DO_ITT_NOTIFY
 static const ::tbb::tchar *SyncType_RML = _T("%Constant");
-static const ::tbb::tchar *SyncObj_ThreadMonitorLock = _T("RML Lock"),
-                          *SyncObj_ThreadMonitor = _T("RML Thr Monitor");
+static const ::tbb::tchar *SyncObj_ThreadMonitor = _T("RML Thr Monitor");
 #endif /* DO_ITT_NOTIFY */
 
 //! Monitor with limited two-phase commit form of wait.  
@@ -80,10 +81,14 @@ class thread_monitor {
 public:
     class cookie {
         friend class thread_monitor;
-        unsigned long long my_version;
+        tbb::atomic<size_t> my_epoch;
     };
-    thread_monitor();
-    ~thread_monitor();
+    thread_monitor() : spurious(false) { 
+        my_cookie.my_epoch = 0; 
+        ITT_SYNC_CREATE(&my_sema, SyncType_RML, SyncObj_ThreadMonitor);
+        in_wait = false; 
+    }
+    ~thread_monitor() {}
 
     //! If a thread is waiting or started a two-phase wait, notify it.
     /** Can be called by any thread. */
@@ -119,14 +124,12 @@ public:
 
 private:
     cookie my_cookie;
-#if USE_WINTHREAD
-    CRITICAL_SECTION critical_section;
-    HANDLE event;
-#elif USE_PTHREAD
-    pthread_mutex_t my_mutex;
-    pthread_cond_t my_cond;
+    tbb::atomic<bool>   in_wait;
+    bool   spurious;
+    tbb::internal::binary_semaphore my_sema;
+#if USE_PTHREAD
     static void check( int error_code, const char* routine );
-#endif /* USE_PTHREAD */
+#endif
 };
 
 #if USE_WINTHREAD
@@ -155,47 +158,6 @@ inline void thread_monitor::launch( thread_routine_type thread_routine, void* ar
 inline void thread_monitor::yield() {
     SwitchToThread();
 }
-
-inline thread_monitor::thread_monitor() {
-    event = CreateEvent( NULL, /*manualReset=*/true, /*initialState=*/false, NULL );
-    InitializeCriticalSection( &critical_section );
-    ITT_SYNC_CREATE(&event, SyncType_RML, SyncObj_ThreadMonitor);
-    ITT_SYNC_CREATE(&critical_section, SyncType_RML, SyncObj_ThreadMonitorLock);
-    my_cookie.my_version = 0;
-}
-
-inline thread_monitor::~thread_monitor() {
-    // Fake prepare/acquired pair for Intel(R) Parallel Amplifier to correctly attribute the operations below
-    ITT_NOTIFY( sync_prepare, &event );
-    CloseHandle( event );
-    DeleteCriticalSection( &critical_section );
-    ITT_NOTIFY( sync_acquired, &event );
-}
-     
-inline void thread_monitor::notify() {
-    EnterCriticalSection( &critical_section );
-    ++my_cookie.my_version;
-    SetEvent( event );
-    LeaveCriticalSection( &critical_section );
-}
-
-inline void thread_monitor::prepare_wait( cookie& c ) {
-    EnterCriticalSection( &critical_section );
-    c = my_cookie;
-}
-
-inline void thread_monitor::commit_wait( cookie& c ) {
-    ResetEvent( event );
-    LeaveCriticalSection( &critical_section );
-    while( my_cookie.my_version==c.my_version ) {
-        WaitForSingleObject( event, INFINITE );
-        ResetEvent( event );
-    }
-}
-
-inline void thread_monitor::cancel_wait() {
-    LeaveCriticalSection( &critical_section );
-}
 #endif /* USE_WINTHREAD */
 
 #if USE_PTHREAD
@@ -212,9 +174,8 @@ inline void thread_monitor::launch( void* (*thread_routine)(void*), void* arg, s
     // grabbed as part of an OpenMP team. 
     pthread_attr_t s;
     check(pthread_attr_init( &s ), "pthread_attr_init");
-    if( stack_size>0 ) {
-        check(pthread_attr_setstacksize( &s, stack_size ),"pthread_attr_setstack_size");
-    }
+    if( stack_size>0 )
+        check(pthread_attr_setstacksize( &s, stack_size ), "pthread_attr_setstack_size" );
     pthread_t handle;
     check( pthread_create( &handle, &s, thread_routine, arg ), "pthread_create" );
     check( pthread_detach( handle ), "pthread_detach" );
@@ -223,43 +184,35 @@ inline void thread_monitor::launch( void* (*thread_routine)(void*), void* arg, s
 inline void thread_monitor::yield() {
     sched_yield();
 }
-
-inline thread_monitor::thread_monitor() {
-    check( pthread_cond_init(&my_cond,NULL), "pthread_cond_init" );
-    check( pthread_mutex_init(&my_mutex,NULL), "pthread_mutex_init" );
-    ITT_SYNC_CREATE(&my_cond, SyncType_RML, SyncObj_ThreadMonitor);
-    ITT_SYNC_CREATE(&my_mutex, SyncType_RML, SyncObj_ThreadMonitorLock);
-    my_cookie.my_version = 0;
-}
-
-inline thread_monitor::~thread_monitor() {
-    pthread_cond_destroy(&my_cond);
-    pthread_mutex_destroy(&my_mutex);
-}
+#endif /* USE_PTHREAD */
 
 inline void thread_monitor::notify() {
-    check( pthread_mutex_lock( &my_mutex ), "pthread_mutex_lock" );
-    ++my_cookie.my_version;
-    check( pthread_mutex_unlock( &my_mutex ), "pthread_mutex_unlock" );
-    check( pthread_cond_signal(&my_cond), "pthread_cond_signal" );
+    my_cookie.my_epoch = my_cookie.my_epoch + 1;
+    bool do_signal = in_wait.fetch_and_store( false );
+    if( do_signal )
+        my_sema.V();
 }
 
 inline void thread_monitor::prepare_wait( cookie& c ) {
-    check( pthread_mutex_lock( &my_mutex ), "pthread_mutex_lock" );
+    if( spurious ) {
+        spurious = false;
+        //  consumes a spurious posted signal. don't wait on my_sema.
+        my_sema.P();
+    }
     c = my_cookie;
+    in_wait = true;
+   __TBB_full_memory_fence();
 }
 
 inline void thread_monitor::commit_wait( cookie& c ) {
-    while( my_cookie.my_version==c.my_version ) {
-        pthread_cond_wait( &my_cond, &my_mutex );
-    }
-    check( pthread_mutex_unlock( &my_mutex ), "pthread_mutex_unlock" );
+    bool do_it = ( c.my_epoch == my_cookie.my_epoch);
+    if( do_it ) my_sema.P();
+    else        cancel_wait();
 }
 
 inline void thread_monitor::cancel_wait() {
-    check( pthread_mutex_unlock( &my_mutex ), "pthread_mutex_unlock" );
+    spurious = ! in_wait.fetch_and_store( false );
 }
-#endif /* USE_PTHREAD */
 
 } // namespace internal
 } // namespace rml

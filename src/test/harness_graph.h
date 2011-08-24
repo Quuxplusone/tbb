@@ -34,11 +34,53 @@
 #define harness_graph_H
 
 #include "harness.h"
-#define TBB_PREVIEW_GRAPH 1
 #include "tbb/flow_graph.h"
 #include "tbb/null_rw_mutex.h"
 #include "tbb/atomic.h"
 #include "tbb/concurrent_unordered_map.h"
+
+// Needed conversion to and from continue_msg, but didn't want to add
+// conversion operators to the class, since we don't want it in general,
+// only in these tests.
+template<typename InputType, typename OutputType>
+struct convertor {
+    static OutputType convert_value(const InputType &i) {
+        return OutputType(i);
+    }
+};
+
+template<typename InputType>
+struct convertor<InputType,tbb::flow::continue_msg> {
+    static tbb::flow::continue_msg convert_value(const InputType &/*i*/) {
+        return tbb::flow::continue_msg(); 
+    }
+};
+
+template<typename OutputType>
+struct convertor<tbb::flow::continue_msg,OutputType> {
+    static OutputType convert_value(const tbb::flow::continue_msg &/*i*/) {
+        return OutputType();
+    }
+};
+
+// helper for multioutput_function_node tests.
+template<size_t N>
+struct mof_helper {
+    template<typename InputType, typename ports_type>
+    static inline void output_converted_value(const InputType &i, ports_type &p) {
+        std::get<N-1>(p).put(convertor<InputType,typename std::tuple_element<N-1,ports_type>::type::output_type>::convert_value(i));
+        output_converted_value<N-1>(i, p);
+    }
+};
+
+template<>
+struct mof_helper<1> {
+    template<typename InputType, typename ports_type>
+    static inline void output_converted_value(const InputType &i, ports_type &p) {
+        // just emit a default-constructed object
+        std::get<0>(p).put(convertor<InputType,typename std::tuple_element<0,ports_type>::type::output_type>::convert_value(i));
+    }
+};
 
 template< typename InputType, typename OutputType >
 struct harness_graph_default_functor {
@@ -67,6 +109,17 @@ struct harness_graph_default_functor< tbb::flow::continue_msg, tbb::flow::contin
         return tbb::flow::continue_msg();
     }
 };
+
+#if TBB_PREVIEW_GRAPH_NODES
+template<typename InputType, typename OutputSet>
+struct harness_graph_default_multioutput_functor {
+    static const int N = std::tuple_size<OutputSet>::value;
+    typedef typename tbb::flow::multioutput_function_node<InputType,OutputSet>::output_ports_type ports_type;
+    static void construct(const InputType &i, ports_type &p) {
+        mof_helper<N>::output_converted_value(i, p);
+    }
+};
+#endif
 
 static tbb::atomic<size_t> current_executors;
 
@@ -109,6 +162,49 @@ struct harness_graph_executor {
 
 };
 
+#if TBB_PREVIEW_GRAPH_NODES
+//! A multioutput executor that accepts InputType and has only one Output of OutputType.
+template< typename InputType, typename OutputTuple, typename M=tbb::null_rw_mutex >
+struct harness_graph_multioutput_executor {
+    typedef typename tbb::flow::multioutput_function_node<InputType,OutputTuple>::output_ports_type ports_type;
+    typedef typename std::tuple_element<0,OutputTuple>::type OutputType;
+
+    typedef void (*mfunction_ptr_type)( const InputType& v, ports_type &p );
+
+    static M mutex;
+    static mfunction_ptr_type fptr;
+    static tbb::atomic<size_t> execute_count;
+    static size_t max_executors;
+
+
+    static inline void func( const InputType &v, ports_type &p ) {
+        typename M::scoped_lock l( mutex );
+        size_t c = current_executors.fetch_and_increment();
+        ASSERT( max_executors == 0 || c <= max_executors, NULL ); 
+        ASSERT(std::tuple_size<OutputTuple>::value == 1, NULL);
+        ++execute_count;
+        (*fptr)(v,p);
+        current_executors.fetch_and_decrement();
+    }
+
+    struct functor {
+        tbb::atomic<size_t> my_execute_count;
+        functor() { my_execute_count = 0; }
+        functor( const functor &f ) { my_execute_count = f.my_execute_count; }
+        void operator()( const InputType &i, ports_type &p ) {
+           typename M::scoped_lock l( harness_graph_multioutput_executor::mutex );
+           size_t c = current_executors.fetch_and_increment();
+           ASSERT( harness_graph_multioutput_executor::max_executors == 0 || c <= harness_graph_multioutput_executor::max_executors, NULL ); 
+           ++execute_count;
+           my_execute_count.fetch_and_increment();
+           (*harness_graph_multioutput_executor::fptr)(i,p);
+           current_executors.fetch_and_decrement();
+        }
+    };
+
+};
+#endif //  TBB_PREVIEW_GRAPH_NODES
+
 template< typename InputType, typename OutputType, typename M >
 M harness_graph_executor<InputType, OutputType, M>::mutex;
 
@@ -121,6 +217,22 @@ typename harness_graph_executor<InputType, OutputType, M>::function_ptr_type har
 
 template< typename InputType, typename OutputType, typename M >
 size_t harness_graph_executor<InputType, OutputType, M>::max_executors = 0;
+
+#if TBB_PREVIEW_GRAPH_NODES
+// static vars for multioutput_function_node tests
+template< typename InputType, typename OutputTuple, typename M >
+M harness_graph_multioutput_executor<InputType, OutputTuple, M>::mutex;
+
+template< typename InputType, typename OutputTuple, typename M >
+tbb::atomic<size_t> harness_graph_multioutput_executor<InputType, OutputTuple, M>::execute_count;
+
+template< typename InputType, typename OutputTuple, typename M >
+typename harness_graph_multioutput_executor<InputType, OutputTuple, M>::mfunction_ptr_type harness_graph_multioutput_executor<InputType, OutputTuple, M>::fptr
+    = harness_graph_default_multioutput_functor< InputType, OutputTuple >::construct;
+
+template< typename InputType, typename OutputTuple, typename M >
+size_t harness_graph_multioutput_executor<InputType, OutputTuple, M>::max_executors = 0;
+#endif
 
 //! Counts the number of puts received
 template< typename T >

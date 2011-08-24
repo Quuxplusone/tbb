@@ -611,7 +611,9 @@ int TestMain () {
     ASSERT( !ParallelError, NULL );
     TestMaskedCAS<unsigned char>();
     TestMaskedCAS<unsigned short>();
+#if __TBB_64BIT_ATOMICS
     TestRegisterPromotionSuppression<tbb::internal::int64_t>();
+#endif
     TestRegisterPromotionSuppression<tbb::internal::int32_t>();
     TestRegisterPromotionSuppression<tbb::internal::int16_t>();
     TestRegisterPromotionSuppression<tbb::internal::int8_t>();

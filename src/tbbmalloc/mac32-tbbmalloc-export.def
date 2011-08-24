@@ -18,7 +18,6 @@
     writing.
 */
 
-// MemoryAllocator.cpp
 _scalable_calloc
 _scalable_free
 _scalable_malloc
@@ -28,3 +27,10 @@ _scalable_aligned_malloc
 _scalable_aligned_realloc
 _scalable_aligned_free
 _scalable_msize
+/* memory pool stuff */
+__ZN3rml11pool_createElPKNS_13MemPoolPolicyE
+__ZN3rml10pool_resetEPNS_10MemoryPoolE
+__ZN3rml12pool_destroyEPNS_10MemoryPoolE
+__ZN3rml11pool_mallocEPNS_10MemoryPoolEm
+__ZN3rml9pool_freeEPNS_10MemoryPoolEPv
+__ZN3rml12pool_reallocEPNS_10MemoryPoolEPvm

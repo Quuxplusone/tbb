@@ -29,6 +29,16 @@
 // Test whether scalable_allocator works with some of the host's STL containers.
 
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
+#define __TBB_EXTRA_DEBUG 1 // enables additional checks
+#define TBB_PREVIEW_MEMORY_POOL 1
+
+#include "harness_assert.h"
+#if __linux__  && __ia64__
+// Currently pools high-level interface has dependency to TBB library
+// to get atomics. For sake of testing add rudementary implementation of them.
+#include "harness_tbb_independence.h"
+#endif
+#include "tbb/memory_pool.h"
 #include "tbb/scalable_allocator.h"
 
 // The actual body of the test is there:
@@ -36,5 +46,10 @@
 
 int TestMain () {
     TestAllocatorWithSTL<tbb::scalable_allocator<void> >();
+    tbb::memory_pool<tbb::scalable_allocator<int> > mpool;
+    TestAllocatorWithSTL(tbb::memory_pool_allocator<void>(mpool) );
+    static char buf[1024*1024*4];
+    tbb::fixed_pool fpool(buf, sizeof(buf));
+    TestAllocatorWithSTL(tbb::memory_pool_allocator<void>(fpool) );
     return Harness::Done;
 }

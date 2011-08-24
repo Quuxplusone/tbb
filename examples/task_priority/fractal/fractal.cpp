@@ -200,12 +200,9 @@ void fractal_group::switch_priorities( int new_active ) {
     draw_borders();
 }
 
-void fractal_group::set_num_frames(int n) {
-    // loops are used to handle the data race with concurently performed decrement
-    while ((volatile int)num_frames[0]<n)
-        num_frames[0] = n;
-    while ((volatile int)num_frames[1]<n)
-        num_frames[1] = n;
+void fractal_group::set_num_frames_at_least(int n) {
+    if ( num_frames[0]<n ) num_frames[0] = n;
+    if ( num_frames[1]<n ) num_frames[1] = n;
 }
 
 void fractal_group::run( bool create_second_fractal ) {

@@ -26,8 +26,12 @@
     the GNU General Public License.
 */
 
-#ifndef __TBB_concurrent_queue_internal_H
-#define __TBB_concurrent_queue_internal_H
+#ifndef __TBB__concurrent_queue_impl_H
+#define __TBB__concurrent_queue_impl_H
+
+#ifndef __TBB_concurrent_queue_H
+#error Do not #include this internal file directly; use public TBB headers instead.
+#endif
 
 #include "../tbb_stddef.h"
 #include "../tbb_machine.h"
@@ -1016,4 +1020,4 @@ bool operator!=( const concurrent_queue_iterator<C,T>& i, const concurrent_queue
 
 } // namespace tbb
 
-#endif /* __TBB_concurrent_queue_internal_H */
+#endif /* __TBB__concurrent_queue_impl_H */

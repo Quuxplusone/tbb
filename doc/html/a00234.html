@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::flow::interface6::continue_node&lt; Output &gt; Class Template Reference</title>
+<title>tbb::blocked_range2d&lt; RowValue, ColValue &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,66 +21,60 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00357.html">tbb</a>::<b>flow</b>::<b>interface6</b>::<a class="el" href="a00234.html">continue_node</a></div>
-<h1>tbb::flow::interface6::continue_node&lt; Output &gt; Class Template Reference</h1><!-- doxytag: class="tbb::flow::interface6::continue_node" --><!-- doxytag: inherits="tbb::flow::interface6::graph_node" -->Implements an executable node that supports <a class="el" href="a00233.html">continue_msg</a> -&gt; Output.  
+<a class="el" href="a00383.html">tbb</a>::<a class="el" href="a00234.html">blocked_range2d</a></div>
+<h1>tbb::blocked_range2d&lt; RowValue, ColValue &gt; Class Template Reference<br>
+<small>
+[<a class="el" href="a00395.html">Algorithms</a>]</small>
+</h1><!-- doxytag: class="tbb::blocked_range2d" -->A 2-dimensional range that models the Range concept.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00440.html">flow_graph.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00413.html">blocked_range2d.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::flow::interface6::continue_node&lt; Output &gt;:
-<p><center><img src="a00234.png" usemap="#tbb::flow::interface6::continue_node< Output >_map" border="0" alt=""></center>
-<map name="tbb::flow::interface6::continue_node< Output >_map">
-<area href="a00245.html" alt="tbb::flow::interface6::graph_node" shape="rect" coords="0,0,271,24">
-</map>
-<a href="a00050.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00005.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="7a06613c9cda6f13a6010e7f2f8d0c23"></a><!-- doxytag: member="tbb::flow::interface6::continue_node::input_type" ref="7a06613c9cda6f13a6010e7f2f8d0c23" args="" -->
-typedef <a class="el" href="a00233.html">continue_msg</a>&nbsp;</td><td class="memItemRight" valign="bottom"><b>input_type</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a807a22fe658ec38b8edfd69521d0383"></a><!-- doxytag: member="tbb::blocked_range2d::row_range_type" ref="a807a22fe658ec38b8edfd69521d0383" args="" -->
+typedef <a class="el" href="a00233.html">blocked_range</a>&lt; RowValue &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00234.html#a807a22fe658ec38b8edfd69521d0383">row_range_type</a></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="01b4d78a352cfb7d62b5ce2d1baa24f3"></a><!-- doxytag: member="tbb::flow::interface6::continue_node::output_type" ref="01b4d78a352cfb7d62b5ce2d1baa24f3" args="" -->
-typedef Output&nbsp;</td><td class="memItemRight" valign="bottom"><b>output_type</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9ae7fda69d7d69c55cf8b57ae7b4b613"></a><!-- doxytag: member="tbb::flow::interface6::continue_node::predecessor_type" ref="9ae7fda69d7d69c55cf8b57ae7b4b613" args="" -->
-typedef <a class="el" href="a00278.html">sender</a>&lt; <a class="el" href="a00233.html">input_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>predecessor_type</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d5a647a2b302232fe9a8f44940987f21"></a><!-- doxytag: member="tbb::flow::interface6::continue_node::successor_type" ref="d5a647a2b302232fe9a8f44940987f21" args="" -->
-typedef <a class="el" href="a00272.html">receiver</a>&lt; output_type &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>successor_type</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Type for size of an iteration range. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="750d5c6ac9915443df477a30031c07fd"></a><!-- doxytag: member="tbb::blocked_range2d::col_range_type" ref="750d5c6ac9915443df477a30031c07fd" args="" -->
+typedef <a class="el" href="a00233.html">blocked_range</a>&lt; ColValue &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>col_range_type</b></td></tr>
 
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="2f200db877d2f80c08d09422e8bffd5a"></a><!-- doxytag: member="tbb::flow::interface6::continue_node::continue_node" ref="2f200db877d2f80c08d09422e8bffd5a" args="(graph &amp;g, Body body)" -->
-template&lt;typename Body&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00234.html#2f200db877d2f80c08d09422e8bffd5a">continue_node</a> (<a class="el" href="a00244.html">graph</a> &amp;g, Body body)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4180bc35d4f8ed9f20045dba4f2a1bdc"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="4180bc35d4f8ed9f20045dba4f2a1bdc" args="(RowValue row_begin, RowValue row_end, typename row_range_type::size_type row_grainsize, ColValue col_begin, ColValue col_end, typename col_range_type::size_type col_grainsize)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (RowValue row_begin, RowValue row_end, typename <a class="el" href="a00233.html#f5707bffea38eee5c9680f37358afb8e">row_range_type::size_type</a> row_grainsize, ColValue col_begin, ColValue col_end, typename <a class="el" href="a00233.html#f5707bffea38eee5c9680f37358afb8e">col_range_type::size_type</a> col_grainsize)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor for executable node with <a class="el" href="a00233.html">continue_msg</a> -&gt; Output. <br></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="7817aebf22dd125ca04df53ac488d163"></a><!-- doxytag: member="tbb::flow::interface6::continue_node::continue_node" ref="7817aebf22dd125ca04df53ac488d163" args="(graph &amp;g, int number_of_predecessors, Body body)" -->
-template&lt;typename Body&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00234.html#7817aebf22dd125ca04df53ac488d163">continue_node</a> (<a class="el" href="a00244.html">graph</a> &amp;g, int number_of_predecessors, Body body)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="485434db1609b2074d86cb604f3c674e"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="485434db1609b2074d86cb604f3c674e" args="(RowValue row_begin, RowValue row_end, ColValue col_begin, ColValue col_end)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (RowValue row_begin, RowValue row_end, ColValue col_begin, ColValue col_end)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor for executable node with <a class="el" href="a00233.html">continue_msg</a> -&gt; Output. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="869562787fcb5c57a90aea120f26d492"></a><!-- doxytag: member="tbb::flow::interface6::continue_node::continue_node" ref="869562787fcb5c57a90aea120f26d492" args="(const continue_node &amp;src)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00234.html#869562787fcb5c57a90aea120f26d492">continue_node</a> (const <a class="el" href="a00234.html">continue_node</a> &amp;src)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d144cb2d88cef553420311aca8667a44"></a><!-- doxytag: member="tbb::blocked_range2d::empty" ref="d144cb2d88cef553420311aca8667a44" args="() const " -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00234.html#d144cb2d88cef553420311aca8667a44">empty</a> () const </td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Copy constructor. <br></td></tr>
-<tr><td colspan="2"><br><h2>Protected Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="23d3b09e13e2dbc32a6308a821e8ba29"></a><!-- doxytag: member="tbb::flow::interface6::continue_node::successors" ref="23d3b09e13e2dbc32a6308a821e8ba29" args="()" -->
-internal::broadcast_cache&lt;<br>
- output_type &gt; &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><b>successors</b> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if range is empty. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ad36a9b38e4fef26d376f99552ce2d92"></a><!-- doxytag: member="tbb::blocked_range2d::is_divisible" ref="ad36a9b38e4fef26d376f99552ce2d92" args="() const " -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00234.html#ad36a9b38e4fef26d376f99552ce2d92">is_divisible</a> () const </td></tr>
 
-<tr><td colspan="2"><br><h2>Protected Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="400d291ebb0e1c9e73618c5224989b99"></a><!-- doxytag: member="tbb::flow::interface6::continue_node::my_successors" ref="400d291ebb0e1c9e73618c5224989b99" args="" -->
-internal::broadcast_cache&lt;<br>
- output_type &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>my_successors</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">True if range is divisible into two pieces. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4f80e6db02bfa4e90e2a219de9f17461"></a><!-- doxytag: member="tbb::blocked_range2d::blocked_range2d" ref="4f80e6db02bfa4e90e2a219de9f17461" args="(blocked_range2d &amp;r, split)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>blocked_range2d</b> (<a class="el" href="a00234.html">blocked_range2d</a> &amp;r, <a class="el" href="a00309.html">split</a>)</td></tr>
 
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f496e7348a82652fba581203477cc07c"></a><!-- doxytag: member="tbb::blocked_range2d::rows" ref="f496e7348a82652fba581203477cc07c" args="() const " -->
+const <a class="el" href="a00233.html">row_range_type</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00234.html#f496e7348a82652fba581203477cc07c">rows</a> () const </td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The rows of the iteration space. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="392a46759af2c884957115771affa7f4"></a><!-- doxytag: member="tbb::blocked_range2d::cols" ref="392a46759af2c884957115771affa7f4" args="() const " -->
+const <a class="el" href="a00233.html">col_range_type</a> &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00234.html#392a46759af2c884957115771affa7f4">cols</a> () const </td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The columns of the iteration space. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename Output&gt;<br>
- class tbb::flow::interface6::continue_node&lt; Output &gt;</h3>
+<h3>template&lt;typename RowValue, typename ColValue = RowValue&gt;<br>
+ class tbb::blocked_range2d&lt; RowValue, ColValue &gt;</h3>
 
-Implements an executable node that supports <a class="el" href="a00233.html">continue_msg</a> -&gt; Output. 
+A 2-dimensional range that models the Range concept. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00440.html">flow_graph.h</a></ul>
+<li><a class="el" href="a00413.html">blocked_range2d.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

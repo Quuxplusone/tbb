@@ -32,6 +32,7 @@
 #include "tbb/tbb_stddef.h"
 #include "tbb/atomic.h"
 #include "tbb/spin_mutex.h"
+
 #include "semaphore.h"
 
 namespace tbb {
@@ -44,7 +45,7 @@ public:
     struct node_t {
         node_t* next;
         node_t* prev;
-        node_t() : next(NULL), prev(NULL) {}
+        explicit node_t() : next((node_t*)(uintptr_t)0xcdcdcdcd), prev((node_t*)(uintptr_t)0xcdcdcdcd) {}
     };
 
     // ctor
@@ -52,11 +53,11 @@ public:
     // dtor
     ~circular_doubly_linked_list_with_sentinel() {__TBB_ASSERT( head.next==&head && head.prev==&head, "the list is not empty" );}
 
-    inline size_t  size() const {return count;}
-    inline bool    empty()  const {return size()==0;}
-    inline node_t* front()  const {return head.next;}
-    inline node_t* last()   const {return head.prev;}
-    inline node_t* begin()  const {return front();}
+    inline size_t  size()  const {return count;}
+    inline bool    empty() const {return size()==0;}
+    inline node_t* front() const {return head.next;}
+    inline node_t* last()  const {return head.prev;}
+    inline node_t* begin() const {return front();}
     inline const node_t* end() const {return &head;}
 
     //! add to the back of the list
@@ -92,7 +93,7 @@ private:
 #endif
     __TBB_atomic size_t count;
     node_t head;
-    void clear() {__TBB_store_relaxed(count, 0); head.next = &head; head.prev = &head;}
+    void clear() {head.next = &head; head.prev = &head;__TBB_store_relaxed(count, 0);}
 };
 
 typedef circular_doubly_linked_list_with_sentinel waitset_t;
@@ -112,7 +113,7 @@ public:
         thread_context() : spurious(false), context(NULL) {epoch = 0; in_waitset = false;}
         ~thread_context() { if( spurious ) sema.P(); }
     private:
-        semaphore   sema;
+        binary_semaphore   sema;
         __TBB_atomic unsigned epoch;
         tbb::atomic<bool>     in_waitset;
         bool         spurious;

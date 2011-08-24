@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::flow::interface6::sender&lt; T &gt; Class Template Reference</title>
+<title>tbb::null_mutex::scoped_lock Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,67 +21,33 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00357.html">tbb</a>::<b>flow</b>::<b>interface6</b>::<a class="el" href="a00278.html">sender</a></div>
-<h1>tbb::flow::interface6::sender&lt; T &gt; Class Template Reference</h1><!-- doxytag: class="tbb::flow::interface6::sender" -->Pure virtual template class that defines a sender of messages of type T.  
+<a class="el" href="a00383.html">tbb</a>::<a class="el" href="a00277.html">null_mutex</a>::<a class="el" href="a00278.html">scoped_lock</a></div>
+<h1>tbb::null_mutex::scoped_lock Class Reference</h1><!-- doxytag: class="tbb::null_mutex::scoped_lock" -->Represents acquisition of a mutex.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00440.html">flow_graph.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00489.html">null_mutex.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::flow::interface6::sender&lt; T &gt;:
-<p><center><img src="a00278.png" usemap="#tbb::flow::interface6::sender< T >_map" border="0" alt=""></center>
-<map name="tbb::flow::interface6::sender< T >_map">
-<area href="a00218.html" alt="tbb::flow::interface6::broadcast_node< T >" shape="rect" coords="0,56,352,80">
-<area href="a00219.html" alt="tbb::flow::interface6::buffer_node< T, A >" shape="rect" coords="362,56,714,80">
-<area href="a00248.html" alt="tbb::flow::interface6::limiter_node< T >" shape="rect" coords="724,56,1076,80">
-<area href="a00263.html" alt="tbb::flow::interface6::priority_queue_node< T, Compare, A >" shape="rect" coords="181,112,533,136">
-<area href="a00264.html" alt="tbb::flow::interface6::queue_node< T, A >" shape="rect" coords="543,112,895,136">
-<area href="a00279.html" alt="tbb::flow::interface6::sequencer_node< T, A >" shape="rect" coords="543,168,895,192">
-</map>
-<a href="a00041.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00077.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="127af99916cc085cd9dbc09c53299928"></a><!-- doxytag: member="tbb::flow::interface6::sender::output_type" ref="127af99916cc085cd9dbc09c53299928" args="" -->
-typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#127af99916cc085cd9dbc09c53299928">output_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d690e8a54e358968f0ee4fdf9ee73068"></a><!-- doxytag: member="tbb::flow::interface6::sender::successor_type" ref="d690e8a54e358968f0ee4fdf9ee73068" args="" -->
-typedef <a class="el" href="a00272.html">receiver</a>&lt; T &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#d690e8a54e358968f0ee4fdf9ee73068">successor_type</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="68b8941ad77b9303cf3bcb8cf1f2d28a"></a><!-- doxytag: member="tbb::flow::interface6::sender::register_successor" ref="68b8941ad77b9303cf3bcb8cf1f2d28a" args="(successor_type &amp;r)=0" -->
-virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#68b8941ad77b9303cf3bcb8cf1f2d28a">register_successor</a> (<a class="el" href="a00272.html">successor_type</a> &amp;r)=0</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="765e64065919fdd9665e78b5ec4d3c6f"></a><!-- doxytag: member="tbb::null_mutex::scoped_lock::scoped_lock" ref="765e64065919fdd9665e78b5ec4d3c6f" args="(null_mutex &amp;)" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>scoped_lock</b> (<a class="el" href="a00277.html">null_mutex</a> &amp;)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Add a new successor to this node. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="82f363bfb1738bb8789e167590b10ef9"></a><!-- doxytag: member="tbb::flow::interface6::sender::remove_successor" ref="82f363bfb1738bb8789e167590b10ef9" args="(successor_type &amp;r)=0" -->
-virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#82f363bfb1738bb8789e167590b10ef9">remove_successor</a> (<a class="el" href="a00272.html">successor_type</a> &amp;r)=0</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f6889f00ca3946906e89e856988bb890"></a><!-- doxytag: member="tbb::null_mutex::scoped_lock::acquire" ref="f6889f00ca3946906e89e856988bb890" args="(null_mutex &amp;)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><b>acquire</b> (<a class="el" href="a00277.html">null_mutex</a> &amp;)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Removes a successor from this node. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="922fb56b0aad090b90a98b7d56b76a59"></a><!-- doxytag: member="tbb::flow::interface6::sender::try_get" ref="922fb56b0aad090b90a98b7d56b76a59" args="(T &amp;)" -->
-virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#922fb56b0aad090b90a98b7d56b76a59">try_get</a> (T &amp;)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="90eb562a9de52b33362a6fe237b3df42"></a><!-- doxytag: member="tbb::null_mutex::scoped_lock::try_acquire" ref="90eb562a9de52b33362a6fe237b3df42" args="(null_mutex &amp;)" -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>try_acquire</b> (<a class="el" href="a00277.html">null_mutex</a> &amp;)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Request an item from the sender. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="02c05b472271db1b68a48ea2618fa72f"></a><!-- doxytag: member="tbb::flow::interface6::sender::try_reserve" ref="02c05b472271db1b68a48ea2618fa72f" args="(T &amp;)" -->
-virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#02c05b472271db1b68a48ea2618fa72f">try_reserve</a> (T &amp;)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b29fdf07b4c295850a6e433001c2c6a7"></a><!-- doxytag: member="tbb::null_mutex::scoped_lock::release" ref="b29fdf07b4c295850a6e433001c2c6a7" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><b>release</b> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Reserves an item in the sender. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="27036b06d6a91e97007e14f400529199"></a><!-- doxytag: member="tbb::flow::interface6::sender::try_release" ref="27036b06d6a91e97007e14f400529199" args="()" -->
-virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#27036b06d6a91e97007e14f400529199">try_release</a> ()</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Releases the reserved item. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="7b840f50da117a0d6848707c1857ea2e"></a><!-- doxytag: member="tbb::flow::interface6::sender::try_consume" ref="7b840f50da117a0d6848707c1857ea2e" args="()" -->
-virtual bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html#7b840f50da117a0d6848707c1857ea2e">try_consume</a> ()</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Consumes the reserved item. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename T&gt;<br>
- class tbb::flow::interface6::sender&lt; T &gt;</h3>
-
-Pure virtual template class that defines a sender of messages of type T. 
+Represents acquisition of a mutex. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00440.html">flow_graph.h</a></ul>
+<li><a class="el" href="a00489.html">null_mutex.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

@@ -28,6 +28,9 @@
 
 // Test for function template parallel_for.h
 
+// Enable testing of serial subset.
+#define TBB_PREVIEW_SERIAL_SUBSET 1
+
 #if _MSC_VER
 #pragma warning (push)
 #if !defined(__INTEL_COMPILER)
@@ -61,7 +64,7 @@ class FooRange {
         zero_fill<char>(pad, Pad);
         pad[Pad-1] = 'x';
     }
-    template<size_t Pad_> friend void Flog( int nthread );
+    template<typename Flavor_, size_t Pad_> friend void Flog( int nthread );
     template<size_t Pad_> friend class FooBody;
     void operator&();
 
@@ -84,7 +87,7 @@ class FooBody {
     tbb::atomic<int>* array;
     int state;
     friend class FooRange<Pad>;
-    template<size_t Pad_> friend void Flog( int nthread );
+    template<typename Flavor_, size_t Pad_> friend void Flog( int nthread );
     FooBody( tbb::atomic<int>* array_ ) : array(array_), state(LIVE) {}
 public:
     ~FooBody() {
@@ -110,7 +113,68 @@ public:
 static const int N = 500;
 static tbb::atomic<int> Array[N];
 
-template<size_t Pad>
+struct serial_tag {};
+struct parallel_tag {};
+
+template <typename Flavor, typename Range, typename Body>
+struct Invoker;
+
+template <typename Range, typename Body>
+struct Invoker<serial_tag, Range, Body> {
+    void operator()( const Range& r, const Body& body, const tbb::simple_partitioner& p ) {
+        tbb::serial:: parallel_for( r, body, p );
+    }
+    void operator()( const Range& r, const Body& body, const tbb::auto_partitioner& p ) {
+        tbb::serial:: parallel_for( r, body, p );
+    }
+    void operator()( const Range& r, const Body& body, tbb::affinity_partitioner& p ) {
+        tbb::serial:: parallel_for( r, body, p );
+    }
+    void operator()( const Range& r, const Body& body ) {
+        tbb::serial:: parallel_for( r, body, tbb::auto_partitioner() );
+    }
+};
+
+template <typename Range, typename Body>
+struct Invoker<parallel_tag, Range, Body> {
+    void operator()( const Range& r, const Body& body, const tbb::simple_partitioner& p ) {
+        tbb:: parallel_for( r, body, p );
+    }
+    void operator()( const Range& r, const Body& body, const tbb::auto_partitioner& p ) {
+        tbb:: parallel_for( r, body, p );
+    }
+    void operator()( const Range& r, const Body& body, tbb::affinity_partitioner& p ) {
+        tbb:: parallel_for( r, body, p );
+    }
+    void operator()( const Range& r, const Body& body ) {
+        tbb:: parallel_for( r, body, tbb::auto_partitioner() );
+    }
+};
+
+template <typename Flavor, typename T, typename Body>
+struct InvokerStep;
+
+template <typename T, typename Body>
+struct InvokerStep<serial_tag, T, Body> {
+    void operator()( const T& first, const T& last, const Body& f ) {
+        tbb::serial:: parallel_for( first, last, f );
+    }
+    void operator()( const T& first, const T& last, const T& step, const Body& f ) {
+        tbb::serial:: parallel_for( first, last, step, f );
+    }
+};
+
+template <typename T, typename Body>
+struct InvokerStep<parallel_tag, T, Body> {
+    void operator()( const T& first, const T& last, const Body& f ) {
+        tbb:: parallel_for( first, last, f );
+    }
+    void operator()( const T& first, const T& last, const T& step, const Body& f ) {
+        tbb:: parallel_for( first, last, step, f );
+    }
+};
+
+template<typename Flavor, size_t Pad>
 void Flog( int nthread ) {
     tbb::tick_count T0 = tbb::tick_count::now();
     for( int i=0; i<N; ++i ) {
@@ -121,19 +185,20 @@ void Flog( int nthread ) {
             const FooBody<Pad> fc = f;
             memset( Array, 0, sizeof(Array) );
             FooBodyCount = 1;
+            Invoker< Flavor, FooRange<Pad>, FooBody<Pad> > invoke_for;
             switch (mode) {
                 case 0:
-                    tbb::parallel_for( rc, fc );
+                    invoke_for( rc, fc );
                 break;
                 case 1:
-                    tbb::parallel_for( rc, fc, tbb::simple_partitioner() );
+                    invoke_for( rc, fc, tbb::simple_partitioner() );
                 break;
                 case 2:
-                    tbb::parallel_for( rc, fc, tbb::auto_partitioner() );
+                    invoke_for( rc, fc, tbb::auto_partitioner() );
                 break;
                 case 3: {
                     static tbb::affinity_partitioner affinity;
-                    tbb::parallel_for( rc, fc, affinity );
+                    invoke_for( rc, fc, affinity );
                 }
                 break;
             }
@@ -174,20 +239,21 @@ public:
     #pragma warning (pop)
 #endif
 
-template <typename T>
+template <typename Flavor, typename T>
 void TestParallelForWithStepSupport()
 {
     const T pfor_buffer_test_size = static_cast<T>(PFOR_BUFFER_TEST_SIZE);
     const T pfor_buffer_actual_size = static_cast<T>(PFOR_BUFFER_ACTUAL_SIZE);
     // Testing parallel_for with different step values
+    InvokerStep< Flavor, T, TestFunctor<T> > invoke_for;
     for (T begin = 0; begin < pfor_buffer_test_size - 1; begin += pfor_buffer_test_size / 10 + 1) {
         T step;
         for (step = 1; step < pfor_buffer_test_size; step++) {
             memset(pfor_buffer, 0, pfor_buffer_actual_size * sizeof(size_t));
             if (step == 1){
-                tbb::parallel_for(begin, pfor_buffer_test_size, TestFunctor<T>());
+                invoke_for(begin, pfor_buffer_test_size, TestFunctor<T>());
             } else {
-                tbb::parallel_for(begin, pfor_buffer_test_size, step, TestFunctor<T>());
+                invoke_for(begin, pfor_buffer_test_size, step, TestFunctor<T>());
             }
             // Verifying that parallel_for processed all items it should
             for (T i = begin; i < pfor_buffer_test_size; i = i + step) {
@@ -316,6 +382,32 @@ void TestVectorTypes() {
 }
 #endif /* HAVE_m128 || HAVE_m256 */
 
+#include <vector>
+#include <tbb/blocked_range.h>
+#include <sstream>
+struct TestSimplePartitionerStabilityFunctor:NoAssign{
+  std::vector<int> & ranges;
+  TestSimplePartitionerStabilityFunctor(std::vector<int> & theRanges):ranges(theRanges){}
+  void operator()(tbb::blocked_range<size_t>& r)const{
+      ranges.at(r.begin())=true;
+  }
+};
+void TestSimplePartitionerStability(){
+    const std::size_t repeat_count= 10;
+    const std::size_t rangeToSplitSize=1000000;
+    const std::size_t grainsizeStep=rangeToSplitSize/repeat_count;
+    typedef TestSimplePartitionerStabilityFunctor FunctorType;
+
+    for (std::size_t i=0 , grainsize=grainsizeStep; i<repeat_count;i++, grainsize+=grainsizeStep){
+        std::vector<int> firstSeries(rangeToSplitSize,0);
+        std::vector<int> secondSeries(rangeToSplitSize,0);
+
+        tbb::parallel_for(tbb::blocked_range<size_t>(0,rangeToSplitSize,grainsize),FunctorType(firstSeries),tbb::simple_partitioner());
+        tbb::parallel_for(tbb::blocked_range<size_t>(0,rangeToSplitSize,grainsize),FunctorType(secondSeries),tbb::simple_partitioner());
+        std::stringstream str; str<<i;
+        ASSERT(firstSeries==secondSeries,("splitting range with tbb::simple_partitioner must be reproducible; i=" +str.str()).c_str() );
+    }
+}
 #include <cstdio>
 #include "tbb/task_scheduler_init.h"
 #include "harness_cpu.h"
@@ -328,22 +420,39 @@ int TestMain () {
     for( int p=MinThread; p<=MaxThread; ++p ) {
         if( p>0 ) {
             tbb::task_scheduler_init init( p );
-            Flog<1>(p);
-            Flog<10>(p);
-            Flog<100>(p);
-            Flog<1000>(p);
-            Flog<10000>(p);
+            Flog<parallel_tag,1>(p);
+            Flog<parallel_tag,10>(p);
+            Flog<parallel_tag,100>(p);
+            Flog<parallel_tag,1000>(p);
+            Flog<parallel_tag,10000>(p);
 
             // Testing with different integer types
-            TestParallelForWithStepSupport<short>();
-            TestParallelForWithStepSupport<unsigned short>();
-            TestParallelForWithStepSupport<int>();
-            TestParallelForWithStepSupport<unsigned int>();
-            TestParallelForWithStepSupport<long>();
-            TestParallelForWithStepSupport<unsigned long>();
-            TestParallelForWithStepSupport<long long>();
-            TestParallelForWithStepSupport<unsigned long long>();
-            TestParallelForWithStepSupport<size_t>();
+            TestParallelForWithStepSupport<parallel_tag,short>();
+            TestParallelForWithStepSupport<parallel_tag,unsigned short>();
+            TestParallelForWithStepSupport<parallel_tag,int>();
+            TestParallelForWithStepSupport<parallel_tag,unsigned int>();
+            TestParallelForWithStepSupport<parallel_tag,long>();
+            TestParallelForWithStepSupport<parallel_tag,unsigned long>();
+            TestParallelForWithStepSupport<parallel_tag,long long>();
+            TestParallelForWithStepSupport<parallel_tag,unsigned long long>();
+            TestParallelForWithStepSupport<parallel_tag,size_t>();
+
+            // This is for testing serial implementation.
+            if( p == MaxThread ) {
+                Flog<serial_tag,1>(p);
+                Flog<serial_tag,10>(p);
+                Flog<serial_tag,100>(p);
+                TestParallelForWithStepSupport<serial_tag,short>();
+                TestParallelForWithStepSupport<serial_tag,unsigned short>();
+                TestParallelForWithStepSupport<serial_tag,int>();
+                TestParallelForWithStepSupport<serial_tag,unsigned int>();
+                TestParallelForWithStepSupport<serial_tag,long>();
+                TestParallelForWithStepSupport<serial_tag,unsigned long>();
+                TestParallelForWithStepSupport<serial_tag,long long>();
+                TestParallelForWithStepSupport<serial_tag,unsigned long long>();
+                TestParallelForWithStepSupport<serial_tag,size_t>();
+            }
+
 #if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
             TestExceptionsSupport();
 #endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
@@ -361,6 +470,7 @@ int TestMain () {
 #endif /*!__TBB_SSE_STACK_ALIGNMENT_BROKEN*/
             // Test that all workers sleep when no work
             TestCPUUserTime(p);
+            TestSimplePartitionerStability();
         }
     }
 #if __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN

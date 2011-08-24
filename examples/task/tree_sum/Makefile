@@ -27,7 +27,7 @@
 # GNU Makefile that builds and runs example.
 PROG=tree_sum
 ARGS=
-PERF_RUN_ARGS=auto 10000000 silent
+PERF_RUN_ARGS=auto 100000000 silent
 
 # The C++ compiler
 ifneq (,$(shell which icc 2>/dev/null))

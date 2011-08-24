@@ -26,6 +26,7 @@
     the GNU General Public License.
 */
 
+
 /* Bin-packing algorithm that attempts to use minimal number of bins B of
    size V to contain N items of varying sizes. */
 
@@ -35,7 +36,6 @@
 #include "tbb/atomic.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tick_count.h"
-#define TBB_PREVIEW_GRAPH 1
 #include "tbb/flow_graph.h"
 #include "../../common/utility/utility.h"
 

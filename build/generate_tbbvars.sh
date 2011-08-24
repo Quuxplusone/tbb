@@ -34,12 +34,12 @@ cd "$bin_dir"   # to EOL encoding
 [ "`uname`" = "Darwin" ] && dll_path="DYLD_LIBRARY_PATH" || dll_path="LD_LIBRARY_PATH" #
 [ -f ./tbbvars.sh ] || cat >./tbbvars.sh <<EOF
 #!/bin/bash
-export TBB30_INSTALL_DIR="${tbb_root}" #
+export TBBROOT="${tbb_root}" #
 tbb_bin="${bin_dir}" #
 if [ -z "\$CPATH" ]; then #
-    export CPATH="\${TBB30_INSTALL_DIR}/include" #
+    export CPATH="\${TBBROOT}/include" #
 else #
-    export CPATH="\${TBB30_INSTALL_DIR}/include:\$CPATH" #
+    export CPATH="\${TBBROOT}/include:\$CPATH" #
 fi #
 if [ -z "\$LIBRARY_PATH" ]; then #
     export LIBRARY_PATH="\${tbb_bin}" #
@@ -55,12 +55,12 @@ ${TBB_CUSTOM_VARS_SH} #
 EOF
 [ -f ./tbbvars.csh ] || cat >./tbbvars.csh <<EOF
 #!/bin/csh
-setenv TBB30_INSTALL_DIR "${tbb_root}" #
+setenv TBBROOT "${tbb_root}" #
 setenv tbb_bin "${bin_dir}" #
 if (! \$?CPATH) then #
-    setenv CPATH "\${TBB30_INSTALL_DIR}/include" #
+    setenv CPATH "\${TBBROOT}/include" #
 else #
-    setenv CPATH "\${TBB30_INSTALL_DIR}/include:\$CPATH" #
+    setenv CPATH "\${TBBROOT}/include:\$CPATH" #
 endif #
 if (! \$?LIBRARY_PATH) then #
     setenv LIBRARY_PATH "\${tbb_bin}" #

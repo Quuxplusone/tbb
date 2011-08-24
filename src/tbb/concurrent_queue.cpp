@@ -29,6 +29,8 @@
 #include "tbb/tbb_stddef.h"
 #include "tbb/tbb_machine.h"
 #include "tbb/tbb_exception.h"
+// Define required to satisfy test in internal file.
+#define  __TBB_concurrent_queue_H
 #include "tbb/internal/_concurrent_queue_impl.h"
 #include "concurrent_monitor.h"
 #include "itt_notify.h"

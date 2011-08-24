@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::spin_rw_mutex_v3 Class Reference</title>
+<title>tbb::pipeline Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,107 +21,85 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00357.html">tbb</a>::<a class="el" href="a00284.html">spin_rw_mutex_v3</a></div>
-<h1>tbb::spin_rw_mutex_v3 Class Reference<br>
+<a class="el" href="a00383.html">tbb</a>::<a class="el" href="a00284.html">pipeline</a></div>
+<h1>tbb::pipeline Class Reference<br>
 <small>
-[<a class="el" href="a00370.html">Synchronization</a>]</small>
-</h1><!-- doxytag: class="tbb::spin_rw_mutex_v3" -->Fast, unfair, spinning reader-writer lock with backoff and writer-preference.  
+[<a class="el" href="a00395.html">Algorithms</a>]</small>
+</h1><!-- doxytag: class="tbb::pipeline" -->A processing pipeline that applies filters to items.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00522.html">spin_rw_mutex.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00543.html">pipeline.h</a>&gt;</code>
 <p>
-<a href="a00101.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00093.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="61332b2756de89f3f5f69310cbb6e70c"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::spin_rw_mutex_v3" ref="61332b2756de89f3f5f69310cbb6e70c" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#61332b2756de89f3f5f69310cbb6e70c">spin_rw_mutex_v3</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="596dc3beba27099c4c8581cb419e1a59"></a><!-- doxytag: member="tbb::pipeline::pipeline" ref="596dc3beba27099c4c8581cb419e1a59" args="()" -->
+__TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#596dc3beba27099c4c8581cb419e1a59">pipeline</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct unacquired mutex. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9a815fb2759e55072ed413f1b6970cf3"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::~spin_rw_mutex_v3" ref="9a815fb2759e55072ed413f1b6970cf3" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#9a815fb2759e55072ed413f1b6970cf3">~spin_rw_mutex_v3</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct empty pipeline. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">virtual __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#49513c6c24f9d5bbbb27edca5efe01c9">~pipeline</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destructor asserts if the mutex is acquired, i.e. state is zero. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4007d6e1523dbc3c2bb7f889ab789a8a"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::lock" ref="4007d6e1523dbc3c2bb7f889ab789a8a" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#4007d6e1523dbc3c2bb7f889ab789a8a">lock</a> ()</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="38fb5c9c8395dd6f89a4ae2011a83e0d"></a><!-- doxytag: member="tbb::pipeline::add_filter" ref="38fb5c9c8395dd6f89a4ae2011a83e0d" args="(filter &amp;filter_)" -->
+void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#38fb5c9c8395dd6f89a4ae2011a83e0d">add_filter</a> (<a class="el" href="a00256.html">filter</a> &amp;filter_)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire writer lock. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#088bb256be794cc47d3b83791632fdfc">try_lock</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Add filter to end of pipeline. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f627616049b3fe36801f37ee40403ef8"></a><!-- doxytag: member="tbb::pipeline::run" ref="f627616049b3fe36801f37ee40403ef8" args="(size_t max_number_of_live_tokens)" -->
+void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#f627616049b3fe36801f37ee40403ef8">run</a> (size_t max_number_of_live_tokens)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Try acquiring writer lock (non-blocking).  <a href="#088bb256be794cc47d3b83791632fdfc"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f9f52ead2098eb5fb12da59d5ae53b55"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::unlock" ref="f9f52ead2098eb5fb12da59d5ae53b55" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#f9f52ead2098eb5fb12da59d5ae53b55">unlock</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Run the pipeline to completion. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="93d7fec8cd607b803dd2d79fb46bd260"></a><!-- doxytag: member="tbb::pipeline::run" ref="93d7fec8cd607b803dd2d79fb46bd260" args="(size_t max_number_of_live_tokens, tbb::task_group_context &amp;context)" -->
+void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#93d7fec8cd607b803dd2d79fb46bd260">run</a> (size_t max_number_of_live_tokens, <a class="el" href="a00314.html">tbb::task_group_context</a> &amp;context)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Release lock. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="13f799708ac4ca437a16be202e263e18"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::lock_read" ref="13f799708ac4ca437a16be202e263e18" args="()" -->
-void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#13f799708ac4ca437a16be202e263e18">lock_read</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Run the pipeline to completion with user-supplied context. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2c84aef5b834b555ee220b176e25931e"></a><!-- doxytag: member="tbb::pipeline::clear" ref="2c84aef5b834b555ee220b176e25931e" args="()" -->
+void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#2c84aef5b834b555ee220b176e25931e">clear</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquire reader lock. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00284.html#b8667415869013f840d976aa406d385a">try_lock_read</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Remove all filters from the pipeline. <br></td></tr>
+<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8228ce0751009045e8158d2e642715a6"></a><!-- doxytag: member="tbb::pipeline::internal::stage_task" ref="8228ce0751009045e8158d2e642715a6" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::stage_task</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Try acquiring reader lock (non-blocking).  <a href="#b8667415869013f840d976aa406d385a"></a><br></td></tr>
-<tr><td colspan="2"><br><h2>Static Public Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4c1e60f22c01604ca93c41b8334cc15e"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::is_rw_mutex" ref="4c1e60f22c01604ca93c41b8334cc15e" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_rw_mutex</b> = true</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="05d67150ca324698ba852553e223d3eb"></a><!-- doxytag: member="tbb::pipeline::internal::pipeline_root_task" ref="05d67150ca324698ba852553e223d3eb" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::pipeline_root_task</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="681a816fe76d6ca7752303f9dcc3c4b2"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::is_recursive_mutex" ref="681a816fe76d6ca7752303f9dcc3c4b2" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_recursive_mutex</b> = false</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4c991e50853b0cac7da039550344d3ef"></a><!-- doxytag: member="tbb::pipeline::filter" ref="4c991e50853b0cac7da039550344d3ef" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>filter</b></td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4dd66d90df6247da6050e88b2aa3b820"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::is_fair_mutex" ref="4dd66d90df6247da6050e88b2aa3b820" args="" -->
-static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_fair_mutex</b> = false</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e43b69a482df8e053cb199af69eb5139"></a><!-- doxytag: member="tbb::pipeline::thread_bound_filter" ref="e43b69a482df8e053cb199af69eb5139" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>thread_bound_filter</b></td></tr>
 
-<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00285.html">scoped_lock</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9d033d41ff53a0ae6ef824aceee7ecbc"></a><!-- doxytag: member="tbb::pipeline::internal::pipeline_cleaner" ref="9d033d41ff53a0ae6ef824aceee7ecbc" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::pipeline_cleaner</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The scoped locking pattern.  <a href="a00285.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d1ed99300bc4520a481583c448d6fafd"></a><!-- doxytag: member="tbb::pipeline::tbb::interface6::internal::pipeline_proxy" ref="d1ed99300bc4520a481583c448d6fafd" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::interface6::internal::pipeline_proxy</b></td></tr>
+
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Fast, unfair, spinning reader-writer lock with backoff and writer-preference. 
+A processing pipeline that applies filters to items. 
 <p>
-<hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="088bb256be794cc47d3b83791632fdfc"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::try_lock" ref="088bb256be794cc47d3b83791632fdfc" args="()" -->
+<hr><h2>Constructor &amp; Destructor Documentation</h2>
+<a class="anchor" name="49513c6c24f9d5bbbb27edca5efe01c9"></a><!-- doxytag: member="tbb::pipeline::~pipeline" ref="49513c6c24f9d5bbbb27edca5efe01c9" args="()" -->
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">bool tbb::spin_rw_mutex_v3::try_lock           </td>
+          <td class="memname">virtual __TBB_EXPORTED_METHOD tbb::pipeline::~pipeline           </td>
           <td>(</td>
           <td class="paramname">          </td>
           <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline]</code></td>
+          <td width="100%"><code> [virtual]</code></td>
         </tr>
       </table>
 </div>
 <div class="memdoc">
 
 <p>
-Try acquiring writer lock (non-blocking). 
-<p>
-Return true if lock acquired; false otherwise. 
-</div>
-</div><p>
-<a class="anchor" name="b8667415869013f840d976aa406d385a"></a><!-- doxytag: member="tbb::spin_rw_mutex_v3::try_lock_read" ref="b8667415869013f840d976aa406d385a" args="()" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">bool tbb::spin_rw_mutex_v3::try_lock_read           </td>
-          <td>(</td>
-          <td class="paramname">          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Try acquiring reader lock (non-blocking). 
-<p>
-Return true if reader lock acquired; false otherwise. 
+Though the current implementation declares the destructor virtual, do not rely on this detail. The virtualness is deprecated and may disappear in future versions of TBB. 
 </div>
 </div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00522.html">spin_rw_mutex.h</a></ul>
+<li><a class="el" href="a00543.html">pipeline.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

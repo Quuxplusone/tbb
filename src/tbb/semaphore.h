@@ -126,6 +126,134 @@ private:
 };
 #endif /* _WIN32||_WIN64 */
 
+
+//! for performance reasons, we want specialied binary_semaphore
+#if _WIN32||_WIN64
+#if !defined(RTL_SRWLOCK_INIT)
+//! binary_semaphore for concurrent_monitor
+class binary_semaphore : no_copy {
+public:
+    //! ctor
+    binary_semaphore() { my_sem = CreateEvent( NULL, FALSE/*manual reset*/, FALSE/*not signalled initially*/, NULL);  }
+    //! dtor
+    ~binary_semaphore() { CloseHandle( my_sem ); }
+    //! wait/acquire
+    void P() {WaitForSingleObject( my_sem, INFINITE ); }
+    //! post/release 
+    void V() {SetEvent( my_sem );}
+private:
+    HANDLE my_sem;
+};
+#else /* defined(RTL_SRWLOCK_INIT) */
+
+union srwl_or_handle {
+    SRWLOCK lock;
+    HANDLE  h;
+};
+
+//! binary_semaphore for concurrent_monitor
+class binary_semaphore : no_copy {
+public:
+    //! ctor
+    binary_semaphore();
+    //! dtor
+    ~binary_semaphore();
+    //! wait/acquire
+    void P();
+    //! post/release 
+    void V();
+private:
+    srwl_or_handle my_sem;
+};
+#endif /* !defined(RTL_SRWLOCK_INIT) */
+#elif __APPLE__
+//! binary_semaphore for concurrent monitor
+class binary_semaphore : no_copy {
+public:
+    //! ctor
+    binary_semaphore() : my_sem(0) {
+        kern_return_t ret = semaphore_create( mach_task_self(), &my_sem, SYNC_POLICY_FIFO, 0 );
+        __TBB_ASSERT_EX( ret==err_none, "failed to create a semaphore" );
+    }
+    //! dtor
+    ~binary_semaphore() {
+        kern_return_t ret = semaphore_destroy( mach_task_self(), my_sem );
+        __TBB_ASSERT_EX( ret==err_none, NULL );
+    }
+    //! wait/acquire
+    void P() { 
+        int ret;
+        do {
+            ret = semaphore_wait( my_sem );
+        } while( ret==KERN_ABORTED );
+        __TBB_ASSERT( ret==KERN_SUCCESS, "semaphore_wait() failed" );
+    }
+    //! post/release 
+    void V() { semaphore_signal( my_sem ); }
+private:
+    semaphore_t my_sem;
+};
+#else /* Linux/Unix */
+
+#if __TBB_USE_FUTEX
+class binary_semaphore : no_copy {
+public:
+    //! ctor
+    binary_semaphore() { my_sem = 1; }
+    //! dtor
+    ~binary_semaphore() {}
+    //! wait/acquire
+    void P() {
+        int s;
+        if( (s = my_sem.compare_and_swap( 1, 0 ))!=0 ) {
+            if( s!=2 )
+                s = my_sem.fetch_and_store( 2 );
+            while( s!=0 ) {
+                futex_wait( &my_sem, 2 );
+                s = my_sem.fetch_and_store( 2 );
+            }
+        }
+    }
+    //! post/release 
+    void V() { 
+        __TBB_ASSERT( my_sem>=1, "multiple V()'s in a row?" );
+        if( my_sem--!=1 ) {
+            //if old value was 2
+            my_sem = 0;
+            futex_wakeup_one( &my_sem );
+        }
+    }
+private:
+    atomic<int> my_sem;
+};
+#else
+typedef uint32_t sem_count_t;
+//! binary_semaphore for concurrent monitor
+class binary_semaphore : no_copy {
+public:
+    //! ctor
+    binary_semaphore() {
+        int ret = sem_init( &my_sem, /*shared among threads*/ 0, 0 );
+        __TBB_ASSERT_EX( !ret, NULL );
+    }
+    //! dtor
+    ~binary_semaphore() {
+        int ret = sem_destroy( &my_sem );
+        __TBB_ASSERT_EX( !ret, NULL );
+    }
+    //! wait/acquire
+    void P() {
+        while( sem_wait( &my_sem )!=0 )
+            __TBB_ASSERT( errno==EINTR, NULL );
+    }
+    //! post/release 
+    void V() { sem_post( &my_sem ); }
+private:
+    sem_t my_sem;
+};
+#endif /* __TBB_USE_FUTEX */
+#endif /* _WIN32||_WIN64 */
+
 } // namespace internal
 } // namespace tbb
 

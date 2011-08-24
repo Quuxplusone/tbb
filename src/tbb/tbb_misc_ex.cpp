@@ -122,8 +122,13 @@ static void initialize_hardware_concurrency_info () {
     int availableProcs = 0;
     int numMasks = 1;
 #if __linux__
-    int maxProcs = get_nprocs();
+#if __TBB_MAIN_THREAD_AFFINITY_BROKEN
+    int maxProcs = INT_MAX; // To check the entire mask.
+    int pid = 0; // Get the mask of the calling thread.
+#else
+    int maxProcs = sysconf(_SC_NPROCESSORS_ONLN);
     int pid = getpid();
+#endif
     cpu_set_t *processMask;
     const size_t BasicMaskSize =  sizeof(cpu_set_t);
     for (;;) {
@@ -167,10 +172,11 @@ static void initialize_hardware_concurrency_info () {
         process_mask = processMask;
     }
     else {
-        availableProcs = maxProcs;
+        availableProcs = (maxProcs == INT_MAX) ? sysconf(_SC_NPROCESSORS_ONLN) : maxProcs;
         delete[] processMask;
     }
     theNumProcs = availableProcs > 0 ? availableProcs : 1; // Fail safety strap
+    __TBB_ASSERT( theNumProcs <= sysconf(_SC_NPROCESSORS_ONLN), NULL );
 }
 
 int AvailableHwConcurrency() {

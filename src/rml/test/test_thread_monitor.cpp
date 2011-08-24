@@ -29,6 +29,7 @@
 #include "thread_monitor.h"
 #include "harness.h"
 #include "harness_memory.h"
+#include "tbb/semaphore.cpp"
 
 class ThreadState {
     void loop();

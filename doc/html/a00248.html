@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::flow::interface6::limiter_node&lt; T &gt; Class Template Reference</title>
+<title>tbb::strict_ppl::concurrent_queue&lt; T, A &gt; Class Template Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,117 +21,143 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00357.html">tbb</a>::<b>flow</b>::<b>interface6</b>::<a class="el" href="a00248.html">limiter_node</a></div>
-<h1>tbb::flow::interface6::limiter_node&lt; T &gt; Class Template Reference</h1><!-- doxytag: class="tbb::flow::interface6::limiter_node" --><!-- doxytag: inherits="tbb::flow::interface6::graph_node,tbb::flow::interface6::receiver,tbb::flow::interface6::sender" -->Forwards messages only if the threshold has not been reached.  
+<a class="el" href="a00383.html">tbb</a>::<b>strict_ppl</b>::<a class="el" href="a00248.html">concurrent_queue</a></div>
+<h1>tbb::strict_ppl::concurrent_queue&lt; T, A &gt; Class Template Reference<br>
+<small>
+[<a class="el" href="a00396.html">Containers</a>]</small>
+</h1><!-- doxytag: class="tbb::strict_ppl::concurrent_queue" -->A high-performance thread-safe non-blocking concurrent queue.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00440.html">flow_graph.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00432.html">concurrent_queue.h</a>&gt;</code>
 <p>
-<p>Inheritance diagram for tbb::flow::interface6::limiter_node&lt; T &gt;:
-<p><center><img src="a00248.png" usemap="#tbb::flow::interface6::limiter_node< T >_map" border="0" alt=""></center>
-<map name="tbb::flow::interface6::limiter_node< T >_map">
-<area href="a00245.html" alt="tbb::flow::interface6::graph_node" shape="rect" coords="0,0,226,24">
-<area href="a00272.html" alt="tbb::flow::interface6::receiver< T >" shape="rect" coords="236,0,462,24">
-<area href="a00278.html" alt="tbb::flow::interface6::sender< T >" shape="rect" coords="472,0,698,24">
-</map>
-<a href="a00059.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00022.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
 <tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="035196d3c9240ef041f528ebcde8baa7"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::input_type" ref="035196d3c9240ef041f528ebcde8baa7" args="" -->
-typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#035196d3c9240ef041f528ebcde8baa7">input_type</a></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="682c3978d5cb0620000994f11c44a476"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::value_type" ref="682c3978d5cb0620000994f11c44a476" args="" -->
+typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#682c3978d5cb0620000994f11c44a476">value_type</a></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The input type of this receiver. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6e67fc480147c0b88a483b85db6457b0"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::output_type" ref="6e67fc480147c0b88a483b85db6457b0" args="" -->
-typedef T&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#6e67fc480147c0b88a483b85db6457b0">output_type</a></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Element type in the queue. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a8d725c50a9834bb7af5b67c0aff92b8"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::reference" ref="a8d725c50a9834bb7af5b67c0aff92b8" args="" -->
+typedef T &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#a8d725c50a9834bb7af5b67c0aff92b8">reference</a></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The output type of this sender. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f89fcf44f38eb33f965ee5362d3e68e9"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::predecessor_type" ref="f89fcf44f38eb33f965ee5362d3e68e9" args="" -->
-typedef <a class="el" href="a00278.html">sender</a>&lt; <a class="el" href="a00248.html#035196d3c9240ef041f528ebcde8baa7">input_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#f89fcf44f38eb33f965ee5362d3e68e9">predecessor_type</a></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Reference type. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4d48e7ff93f81636bca2c74f7da34750"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::const_reference" ref="4d48e7ff93f81636bca2c74f7da34750" args="" -->
+typedef const T &amp;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#4d48e7ff93f81636bca2c74f7da34750">const_reference</a></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The predecessor type for this node. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e8945e4dd6ea759ff9e4735da13f12ef"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::successor_type" ref="e8945e4dd6ea759ff9e4735da13f12ef" args="" -->
-typedef <a class="el" href="a00272.html">receiver</a>&lt; <a class="el" href="a00248.html#6e67fc480147c0b88a483b85db6457b0">output_type</a> &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#e8945e4dd6ea759ff9e4735da13f12ef">successor_type</a></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Const reference type. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8fc30e93f8342a1960357f71e4fe8a2b"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::size_type" ref="8fc30e93f8342a1960357f71e4fe8a2b" args="" -->
+typedef size_t&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#8fc30e93f8342a1960357f71e4fe8a2b">size_type</a></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The successor type for this node. <br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Integral type for representing size of the queue. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="068576d16c7e4e05d52f9db7a45b5b65"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::difference_type" ref="068576d16c7e4e05d52f9db7a45b5b65" args="" -->
+typedef ptrdiff_t&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#068576d16c7e4e05d52f9db7a45b5b65">difference_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Difference type for iterator. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5a3956341728eaa558d8827063718cac"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::allocator_type" ref="5a3956341728eaa558d8827063718cac" args="" -->
+typedef A&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#5a3956341728eaa558d8827063718cac">allocator_type</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Allocator type. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9736ac047d6da3363895c7e5b121d0c4"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::iterator" ref="9736ac047d6da3363895c7e5b121d0c4" args="" -->
+typedef internal::concurrent_queue_iterator&lt;<br>
+ <a class="el" href="a00248.html">concurrent_queue</a>, T &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>iterator</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="9cd76d19af8c78be1bafc6ca0123ac0d"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::const_iterator" ref="9cd76d19af8c78be1bafc6ca0123ac0d" args="" -->
+typedef internal::concurrent_queue_iterator&lt;<br>
+ <a class="el" href="a00248.html">concurrent_queue</a>, const T &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_iterator</b></td></tr>
+
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="831b06576f46fe2bf3ed0f86b793c1b2"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::limiter_node" ref="831b06576f46fe2bf3ed0f86b793c1b2" args="(graph &amp;g, size_t threshold, int num_decrement_predecessors=0)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#831b06576f46fe2bf3ed0f86b793c1b2">limiter_node</a> (<a class="el" href="a00244.html">graph</a> &amp;g, size_t threshold, int num_decrement_predecessors=0)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="7c48a05a94a1f4f98fdfadfbef98ecf6"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::concurrent_queue" ref="7c48a05a94a1f4f98fdfadfbef98ecf6" args="(const allocator_type &amp;a=allocator_type())" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#7c48a05a94a1f4f98fdfadfbef98ecf6">concurrent_queue</a> (const <a class="el" href="a00248.html#5a3956341728eaa558d8827063718cac">allocator_type</a> &amp;a=<a class="el" href="a00248.html#5a3956341728eaa558d8827063718cac">allocator_type</a>())</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructor. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="83d3ab884543b070ee5b345a87f241fa"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::limiter_node" ref="83d3ab884543b070ee5b345a87f241fa" args="(const limiter_node &amp;src)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#83d3ab884543b070ee5b345a87f241fa">limiter_node</a> (const <a class="el" href="a00248.html">limiter_node</a> &amp;src)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Construct empty queue. <br></td></tr>
+<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="25209656c84f2f9b030e2f9162713341"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::concurrent_queue" ref="25209656c84f2f9b030e2f9162713341" args="(InputIterator begin, InputIterator end, const allocator_type &amp;a=allocator_type())" -->
+template&lt;typename InputIterator&gt; </td></tr>
+<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00248.html#25209656c84f2f9b030e2f9162713341">concurrent_queue</a> (InputIterator begin, InputIterator end, const <a class="el" href="a00248.html#5a3956341728eaa558d8827063718cac">allocator_type</a> &amp;a=<a class="el" href="a00248.html#5a3956341728eaa558d8827063718cac">allocator_type</a>())</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">[begin,end) constructor <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8a6b98ea11a867db8ac868f0113ca429"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::concurrent_queue" ref="8a6b98ea11a867db8ac868f0113ca429" args="(const concurrent_queue &amp;src, const allocator_type &amp;a=allocator_type())" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#8a6b98ea11a867db8ac868f0113ca429">concurrent_queue</a> (const <a class="el" href="a00248.html">concurrent_queue</a> &amp;src, const <a class="el" href="a00248.html#5a3956341728eaa558d8827063718cac">allocator_type</a> &amp;a=<a class="el" href="a00248.html#5a3956341728eaa558d8827063718cac">allocator_type</a>())</td></tr>
 
 <tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Copy constructor. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c76561d8d871b4769876988a4de12a9b"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::register_successor" ref="c76561d8d871b4769876988a4de12a9b" args="(receiver&lt; output_type &gt; &amp;r)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#c76561d8d871b4769876988a4de12a9b">register_successor</a> (<a class="el" href="a00272.html">receiver</a>&lt; <a class="el" href="a00248.html#6e67fc480147c0b88a483b85db6457b0">output_type</a> &gt; &amp;r)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="830b33753d6b149c366344e29b2edd8c"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::~concurrent_queue" ref="830b33753d6b149c366344e29b2edd8c" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#830b33753d6b149c366344e29b2edd8c">~concurrent_queue</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Replace the current successor with this new successor. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#275e328063c121b3e506ccef2a825d28">remove_successor</a> (<a class="el" href="a00272.html">receiver</a>&lt; <a class="el" href="a00248.html#6e67fc480147c0b88a483b85db6457b0">output_type</a> &gt; &amp;r)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destroy queue. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="73c47563ffcc4c2f6452f25a04ebe2e2"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::push" ref="73c47563ffcc4c2f6452f25a04ebe2e2" args="(const T &amp;source)" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#73c47563ffcc4c2f6452f25a04ebe2e2">push</a> (const T &amp;source)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Removes a successor from this node.  <a href="#275e328063c121b3e506ccef2a825d28"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="55a02d458a4d8ffa6accd7a70605da2f"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::try_put" ref="55a02d458a4d8ffa6accd7a70605da2f" args="(const T &amp;t)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#55a02d458a4d8ffa6accd7a70605da2f">try_put</a> (const T &amp;t)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Enqueue an item at tail of queue. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#ae31ca0db34ef96ef1e74aa0d28c95f8">try_pop</a> (T &amp;result)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Puts an item to this receiver. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="de70a0e88ce7655d8c14b6af57f7496f"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::register_predecessor" ref="de70a0e88ce7655d8c14b6af57f7496f" args="(predecessor_type &amp;src)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#de70a0e88ce7655d8c14b6af57f7496f">register_predecessor</a> (<a class="el" href="a00278.html">predecessor_type</a> &amp;src)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Attempt to dequeue an item from head of queue.  <a href="#ae31ca0db34ef96ef1e74aa0d28c95f8"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="eaa35a5274606779802e9a669a706260"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::unsafe_size" ref="eaa35a5274606779802e9a669a706260" args="() const " -->
+<a class="el" href="a00248.html#8fc30e93f8342a1960357f71e4fe8a2b">size_type</a>&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#eaa35a5274606779802e9a669a706260">unsafe_size</a> () const </td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Removes src from the list of cached predecessors. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c530e7b469454e2340460795f2da3317"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::remove_predecessor" ref="c530e7b469454e2340460795f2da3317" args="(predecessor_type &amp;src)" -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#c530e7b469454e2340460795f2da3317">remove_predecessor</a> (<a class="el" href="a00278.html">predecessor_type</a> &amp;src)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Return the number of items in the queue; thread unsafe. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f3f6fce0cfa2d581d6f3b47e0613ad64"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::empty" ref="f3f6fce0cfa2d581d6f3b47e0613ad64" args="() const " -->
+bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#f3f6fce0cfa2d581d6f3b47e0613ad64">empty</a> () const </td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Removes src from the list of cached predecessors. <br></td></tr>
-<tr><td colspan="2"><br><h2>Public Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a3344b2461966631b6ee34b79fb105c7"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::decrement" ref="a3344b2461966631b6ee34b79fb105c7" args="" -->
-internal::decrementer&lt; <a class="el" href="a00248.html">limiter_node</a>&lt;<br>
- T &gt; &gt;&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#a3344b2461966631b6ee34b79fb105c7">decrement</a></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Equivalent to size()==0. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c32e8e84c0524155133b4aae32d2a827"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::clear" ref="c32e8e84c0524155133b4aae32d2a827" args="()" -->
+void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#c32e8e84c0524155133b4aae32d2a827">clear</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The internal receiver&lt; continue_msg &gt; that decrements the count. <br></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Clear the queue. not thread-safe. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f034f70caef445fe8abc9113ec926a8d"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::get_allocator" ref="f034f70caef445fe8abc9113ec926a8d" args="() const " -->
+<a class="el" href="a00248.html#5a3956341728eaa558d8827063718cac">allocator_type</a>&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html#f034f70caef445fe8abc9113ec926a8d">get_allocator</a> () const </td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Return allocator object. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6297f48808dd7c14e6c2fe81559ca190"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::unsafe_begin" ref="6297f48808dd7c14e6c2fe81559ca190" args="()" -->
+iterator&nbsp;</td><td class="memItemRight" valign="bottom"><b>unsafe_begin</b> ()</td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="1569f70e70521fe71944a5b0138c6ef5"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::unsafe_end" ref="1569f70e70521fe71944a5b0138c6ef5" args="()" -->
+iterator&nbsp;</td><td class="memItemRight" valign="bottom"><b>unsafe_end</b> ()</td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e3e6746f7b6ecfbc16f781665ac51112"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::unsafe_begin" ref="e3e6746f7b6ecfbc16f781665ac51112" args="() const " -->
+const_iterator&nbsp;</td><td class="memItemRight" valign="bottom"><b>unsafe_begin</b> () const </td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="83bf90849c08f44d25dd7a3b207a8956"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::unsafe_end" ref="83bf90849c08f44d25dd7a3b207a8956" args="() const " -->
+const_iterator&nbsp;</td><td class="memItemRight" valign="bottom"><b>unsafe_end</b> () const </td></tr>
+
 <tr><td colspan="2"><br><h2>Friends</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="ed05e0c262c5a8869bf1395e1fb4bcf9"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::internal::forward_task&lt; limiter_node&lt; T &gt; &gt;" ref="ed05e0c262c5a8869bf1395e1fb4bcf9" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::forward_task&lt; limiter_node&lt; T &gt; &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="b43677b60c786d1071a7efd6f195c3be"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::internal::decrementer&lt; limiter_node&lt; T &gt; &gt;" ref="b43677b60c786d1071a7efd6f195c3be" args="" -->
-class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::decrementer&lt; limiter_node&lt; T &gt; &gt;</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="05bffad9626d51abbd4bb82ae2a1cceb"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::internal::concurrent_queue_iterator" ref="05bffad9626d51abbd4bb82ae2a1cceb" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::concurrent_queue_iterator</b></td></tr>
 
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;typename T&gt;<br>
- class tbb::flow::interface6::limiter_node&lt; T &gt;</h3>
+<h3>template&lt;typename T, typename A = cache_aligned_allocator&lt;T&gt;&gt;<br>
+ class tbb::strict_ppl::concurrent_queue&lt; T, A &gt;</h3>
 
-Forwards messages only if the threshold has not been reached. 
+A high-performance thread-safe non-blocking concurrent queue. 
 <p>
-This node forwards items until its threshold is reached. It contains no buffering. If the downstream node rejects, the message is dropped. 
+Multiple threads may each push and pop concurrently. Assignment construction is not allowed. 
 <p>
 <hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="275e328063c121b3e506ccef2a825d28"></a><!-- doxytag: member="tbb::flow::interface6::limiter_node::remove_successor" ref="275e328063c121b3e506ccef2a825d28" args="(receiver&lt; output_type &gt; &amp;r)" -->
+<a class="anchor" name="ae31ca0db34ef96ef1e74aa0d28c95f8"></a><!-- doxytag: member="tbb::strict_ppl::concurrent_queue::try_pop" ref="ae31ca0db34ef96ef1e74aa0d28c95f8" args="(T &amp;result)" -->
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename T&gt; </div>
+template&lt;typename T, typename A = cache_aligned_allocator&lt;T&gt;&gt; </div>
       <table class="memname">
         <tr>
-          <td class="memname">bool <a class="el" href="a00248.html">tbb::flow::interface6::limiter_node</a>&lt; T &gt;::remove_successor           </td>
+          <td class="memname">bool <a class="el" href="a00248.html">tbb::strict_ppl::concurrent_queue</a>&lt; T, A &gt;::try_pop           </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="a00272.html">receiver</a>&lt; <a class="el" href="a00248.html#6e67fc480147c0b88a483b85db6457b0">output_type</a> &gt; &amp;&nbsp;</td>
-          <td class="paramname"> <em>r</em>          </td>
+          <td class="paramtype">T &amp;&nbsp;</td>
+          <td class="paramname"> <em>result</em>          </td>
           <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [inline, virtual]</code></td>
+          <td width="100%"><code> [inline]</code></td>
         </tr>
       </table>
 </div>
 <div class="memdoc">
 
 <p>
-Removes a successor from this node. 
+Attempt to dequeue an item from head of queue. 
 <p>
-r.remove_predecessor(*this) is also called. 
-<p>
-Implements <a class="el" href="a00278.html#82f363bfb1738bb8789e167590b10ef9">tbb::flow::interface6::sender&lt; T &gt;</a>.
+Does not wait for item to become available. Returns true if successful; false otherwise. 
 </div>
 </div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00440.html">flow_graph.h</a></ul>
+<li><a class="el" href="a00432.html">concurrent_queue.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

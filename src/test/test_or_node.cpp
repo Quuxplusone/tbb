@@ -27,7 +27,7 @@
 */
 
 #include "harness.h"
-#define TBB_PREVIEW_GRAPH 1
+#define TBB_PREVIEW_GRAPH_NODES 1
 #include "tbb/flow_graph.h"
 
 #if !__SUNPRO_CC
@@ -58,6 +58,15 @@ reset_outputCheck( int nUsed, int maxCnt) {
     }
 }
 
+class test_class {
+    public:
+        test_class() { my_val = 0; }
+        test_class(int i) { my_val = i; }
+        operator int() { return my_val; }
+    private:
+        int my_val;
+};
+
 template<typename T>
 class name_of {
 public:
@@ -87,6 +96,11 @@ template<>
 class name_of<short> {
 public:
     static const char* name() { return  "short"; }
+};
+template<>
+class name_of<test_class> {
+public:
+    static const char* name() { return  "test_class"; }
 };
 
 // TT must be arithmetic, and shouldn't wrap around for reasonable sizes of Count (which is now 150, and maxPorts is 10,
@@ -124,95 +138,11 @@ public:
 };
 
 template<int ELEM, typename ONT>
-struct getval_helper;
+struct getval_helper {
 
-template<typename ONT>
-struct getval_helper<1,ONT> {
-    typedef ONT or_node_type;
-    typedef typename or_node_type::output_type OT;
+    typedef typename ONT::output_type OT;
     static int get_integer_val(OT &o) {
-        return int(o.result0);
-    }
-};
-
-template<typename ONT>
-struct getval_helper<2,ONT> {
-    typedef ONT or_node_type;
-    typedef typename or_node_type::output_type OT;
-    static int get_integer_val(OT &o) {
-        return int(o.result1);
-    }
-};
-
-template<typename ONT>
-struct getval_helper<3,ONT> {
-    typedef ONT or_node_type;
-    typedef typename or_node_type::output_type OT;
-    static int get_integer_val(OT &o) {
-        return int(o.result2);
-    }
-};
-
-template<typename ONT>
-struct getval_helper<4,ONT> {
-    typedef ONT or_node_type;
-    typedef typename or_node_type::output_type OT;
-    static int get_integer_val(OT &o) {
-        return int(o.result3);
-    }
-};
-
-template<typename ONT>
-struct getval_helper<5,ONT> {
-    typedef ONT or_node_type;
-    typedef typename or_node_type::output_type OT;
-    static int get_integer_val(OT &o) {
-        return int(o.result4);
-    }
-};
-
-template<typename ONT>
-struct getval_helper<6,ONT> {
-    typedef ONT or_node_type;
-    typedef typename or_node_type::output_type OT;
-    static int get_integer_val(OT &o) {
-        return int(o.result5);
-    }
-};
-
-template<typename ONT>
-struct getval_helper<7,ONT> {
-    typedef ONT or_node_type;
-    typedef typename or_node_type::output_type OT;
-    static int get_integer_val(OT &o) {
-        return int(o.result6);
-    }
-};
-
-template<typename ONT>
-struct getval_helper<8,ONT> {
-    typedef ONT or_node_type;
-    typedef typename or_node_type::output_type OT;
-    static int get_integer_val(OT &o) {
-        return int(o.result7);
-    }
-};
-
-template<typename ONT>
-struct getval_helper<9,ONT> {
-    typedef ONT or_node_type;
-    typedef typename or_node_type::output_type OT;
-    static int get_integer_val(OT &o) {
-        return int(o.result8);
-    }
-};
-
-template<typename ONT>
-struct getval_helper<10,ONT> {
-    typedef ONT or_node_type;
-    typedef typename or_node_type::output_type OT;
-    static int get_integer_val(OT &o) {
-        return int(o.result9);
+        return int(std::get<ELEM-1>(o.result));
     }
 };
 
@@ -504,7 +434,7 @@ int TestMain() {
 #endif
 
    for (int p = 0; p < 2; ++p) {
-       generate_test<serial_test, std::tuple<float, double> >::do_test();
+       generate_test<serial_test, std::tuple<float, test_class> >::do_test();
        generate_test<serial_test, std::tuple<float, double, int, long> >::do_test();
        generate_test<serial_test, std::tuple<double, double, int, long, int, short> >::do_test();
 #if COMPREHENSIVE_TEST

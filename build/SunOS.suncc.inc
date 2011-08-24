@@ -78,8 +78,8 @@ ifeq (sparc,$(arch))
     LIB_LINK_FLAGS += -m64
 endif 
 
-export TBB_CUSTOM_VARS_SH=export CXXFLAGS="-I$${TBB30_INSTALL_DIR}/include -library=stlport4 $(CXXFLAGS) -M$${TBB30_INSTALL_DIR}/build/suncc.map.pause"
-export TBB_CUSTOM_VARS_CSH=setenv CXXFLAGS "-I$${TBB30_INSTALL_DIR}/include -library=stlport4 $(CXXFLAGS) -M$${TBB30_INSTALL_DIR}/build/suncc.map.pause"
+export TBB_CUSTOM_VARS_SH=export CXXFLAGS="-I$${TBBROOT}/include -library=stlport4 $(CXXFLAGS) -M$${TBBROOT}/build/suncc.map.pause"
+export TBB_CUSTOM_VARS_CSH=setenv CXXFLAGS "-I$${TBBROOT}/include -library=stlport4 $(CXXFLAGS) -M$${TBBROOT}/build/suncc.map.pause"
 
 #------------------------------------------------------------------------------
 # Setting assembler data.

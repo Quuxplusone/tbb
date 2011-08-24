@@ -37,10 +37,10 @@ if not x%UNIXMODE%==x set _INCLUDE=CPATH& set _LIB=LIBRARY_PATH
 if exist tbbvars.bat goto skipbat
 echo Generating local tbbvars.bat
 echo @echo off>tbbvars.bat
-echo SET TBB30_INSTALL_DIR=%actual_root%>>tbbvars.bat
+echo SET TBBROOT=%actual_root%>>tbbvars.bat
 echo SET TBB_ARCH_PLATFORM=%arch%\%runtime%>>tbbvars.bat
 echo SET TBB_TARGET_ARCH=%arch%>>tbbvars.bat
-echo SET %_INCLUDE%=%%TBB30_INSTALL_DIR%%\include;%%%_INCLUDE%%%>>tbbvars.bat
+echo SET %_INCLUDE%=%%TBBROOT%%\include;%%%_INCLUDE%%%>>tbbvars.bat
 echo SET %_LIB%=%bin_dir%;%%%_LIB%%%>>tbbvars.bat
 echo SET PATH=%bin_dir%;%%PATH%%>>tbbvars.bat
 if not x%UNIXMODE%==x echo SET LD_LIBRARY_PATH=%bin_dir%;%%LD_LIBRARY_PATH%%>>tbbvars.bat
@@ -49,10 +49,10 @@ if not x%UNIXMODE%==x echo SET LD_LIBRARY_PATH=%bin_dir%;%%LD_LIBRARY_PATH%%>>tb
 if exist tbbvars.sh goto skipsh
 echo Generating local tbbvars.sh
 echo #!/bin/sh>tbbvars.sh
-echo export TBB30_INSTALL_DIR="%fslash_root%">>tbbvars.sh
+echo export TBBROOT="%fslash_root%">>tbbvars.sh
 echo export TBB_ARCH_PLATFORM="%arch%\%runtime%">>tbbvars.sh
 echo export TBB_TARGET_ARCH="%arch%">>tbbvars.sh
-echo export %_INCLUDE%="${TBB30_INSTALL_DIR}/include;$%_INCLUDE%">>tbbvars.sh
+echo export %_INCLUDE%="${TBBROOT}/include;$%_INCLUDE%">>tbbvars.sh
 echo export %_LIB%="%fslash_bin_dir%;$%_LIB%">>tbbvars.sh
 echo export PATH="%fslash_bin_dir%;$PATH">>tbbvars.sh
 if not x%UNIXMODE%==x echo export LD_LIBRARY_PATH="%fslash_bin_dir%;$LD_LIBRARY_PATH">>tbbvars.sh
@@ -61,10 +61,10 @@ if not x%UNIXMODE%==x echo export LD_LIBRARY_PATH="%fslash_bin_dir%;$LD_LIBRARY_
 if exist tbbvars.csh goto skipcsh
 echo Generating local tbbvars.csh
 echo #!/bin/csh>tbbvars.csh
-echo setenv TBB30_INSTALL_DIR "%actual_root%">>tbbvars.csh
+echo setenv TBBROOT "%actual_root%">>tbbvars.csh
 echo setenv TBB_ARCH_PLATFORM "%arch%\%runtime%">>tbbvars.csh
 echo setenv TBB_TARGET_ARCH "%arch%">>tbbvars.csh
-echo setenv %_INCLUDE% "${TBB30_INSTALL_DIR}\include;$%_INCLUDE%">>tbbvars.csh
+echo setenv %_INCLUDE% "${TBBROOT}\include;$%_INCLUDE%">>tbbvars.csh
 echo setenv %_LIB% "%bin_dir%;$%_LIB%">>tbbvars.csh
 echo setenv PATH "%bin_dir%;$PATH">>tbbvars.csh
 if not x%UNIXMODE%==x echo setenv LD_LIBRARY_PATH "%bin_dir%;$LD_LIBRARY_PATH">>tbbvars.csh

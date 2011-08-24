@@ -192,6 +192,7 @@ int TestMain () {
     #define LIBRARY_NAME(base) base".so"
 #endif
     void* hLib;
+#if __TBB_ARENA_PER_MASTER
 #if __linux__
     #define RML_LIBRARY_NAME(base) LIBRARY_NAME(base) ".1"
 #else
@@ -203,6 +204,7 @@ int TestMain () {
     if ( !hLib )
         return Harness::Skipped;
     dlclose(hLib);
+#endif /* __TBB_ARENA_PER_MASTER */
 #endif /* OS */
     for( int i=1; i<100; ++i ) {  
         REMARK("Iteration %d, loading plugin library...\n", i);

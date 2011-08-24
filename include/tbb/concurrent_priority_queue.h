@@ -29,10 +29,6 @@
 #ifndef __TBB_concurrent_priority_queue_H
 #define __TBB_concurrent_priority_queue_H
 
-#if !TBB_PREVIEW_CONCURRENT_PRIORITY_QUEUE
-#error Set TBB_PREVIEW_CONCURRENT_PRIORITY_QUEUE to include concurrent_priority_queue.h
-#endif
-
 #include "atomic.h"
 #include "cache_aligned_allocator.h"
 #include "tbb_exception.h"

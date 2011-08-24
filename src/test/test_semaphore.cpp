@@ -41,6 +41,7 @@
 
 #include "tbb/semaphore.h"
 #include "tbb/atomic.h"
+#include "tbb/blocked_range.h"
 
 #include <vector>
 using std::vector;
@@ -121,6 +122,41 @@ void testSemaphore( int semInitCnt, int extraThreads ) {
     if(maxCount < semInitCnt) {
         REMARK("Not enough threads in semaphore-protected region (%d < %d)\n", static_cast<int>(maxCount), semInitCnt);
     }
+}
+
+#include "tbb/semaphore.cpp"
+#include "tbb/dynamic_link.cpp"
+
+#define N_TIMES 1000
+
+template<typename S>
+struct Counter {
+    volatile long value;
+    S my_sem;
+    Counter() : value(0) {}
+};
+
+//! Function object for use with parallel_for.h.
+template<typename C>
+struct AddOne: NoAssign { 
+    C& my_counter;
+    /** Increments counter once for each iteration in the iteration space. */
+    void operator()( int /*tid*/ ) const {
+        for( size_t i=0; i<N_TIMES; ++i ) {
+            my_counter.my_sem.P();
+            my_counter.value = my_counter.value + 1;
+            my_counter.my_sem.V();
+        }
+    }
+    AddOne( C& c_ ) : my_counter(c_) { my_counter.my_sem.V(); }
+};
+
+void testBinarySemaphore( int nThreads ) {
+    REMARK("Testing binary semaphore\n");
+    Counter<tbb::internal::binary_semaphore> counter;
+    AddOne<Counter<tbb::internal::binary_semaphore> > myAddOne(counter);
+    NativeParallelFor( nThreads, myAddOne );
+    ASSERT( nThreads*N_TIMES==counter.value, "Binary semaphore operations P()/V() have a race");
 }
 
 // Power of 2, the most tokens that can be in flight.
@@ -240,6 +276,7 @@ void testProducerConsumer( unsigned totTokens, unsigned nTokens, unsigned pWait,
 int TestMain() {
     REMARK("Started\n");
     if(MaxThread > 0) {
+        testBinarySemaphore( MaxThread );
         for(int semSize = 1; semSize <= MaxThread; ++semSize) {
             for(int exThreads = 0; exThreads <= MaxThread - semSize; ++exThreads) {
                 testSemaphore( semSize, exThreads );

@@ -31,6 +31,13 @@
 // multiplicative hashing (like ets).  No synchronization built-in.
 //
 
+#ifndef __TBB__flow_graph_tagged_buffer_impl_H
+#define __TBB__flow_graph_tagged_buffer_impl_H
+
+#ifndef __TBB_flow_graph_H
+#error Do not #include this internal file directly; use public TBB headers instead.
+#endif
+
 template<typename TagType, typename ValueType, size_t NoTagMark>
 struct buffer_element {
     TagType t;
@@ -202,3 +209,4 @@ public:
         return false;
     }
 };
+#endif // __TBB__flow_graph_tagged_buffer_impl_H

@@ -52,6 +52,15 @@ int32_t __TBB_machine_fetchadd4__TBB_full_fence (volatile void *ptr, int32_t val
     return result;
 }
 
+int64_t __TBB_machine_fetchadd8__TBB_full_fence (volatile void *ptr, int64_t value)
+{
+    pthread_mutex_lock(&counter_mutex);
+    int32_t result = *(int32_t*)ptr;
+    *(int32_t*)ptr = result + value;
+    pthread_mutex_unlock(&counter_mutex);
+    return result;
+}
+
 void __TBB_machine_pause(int32_t /*delay*/) {  __TBB_Yield(); }
 
 pthread_mutex_t cas_mutex = PTHREAD_MUTEX_INITIALIZER;

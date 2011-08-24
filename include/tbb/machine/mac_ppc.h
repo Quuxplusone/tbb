@@ -27,7 +27,7 @@
 */
 
 #if !defined(__TBB_machine_H) || defined(__TBB_machine_gcc_power_H)
-#error Do not include this file directly; include tbb_machine.h instead
+#error Do not #include this internal file directly; use public TBB headers instead.
 #endif
 
 #define __TBB_machine_gcc_power_H
@@ -150,14 +150,14 @@ inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t
 }
 #endif /* __TBB_WORDSIZE==4 && __TBB_64BIT_ATOMICS */
 
-#define __TBB_MACHINE_DEFINE_LOAD_STORE(S,load,store,compare)                                                 \
+#define __TBB_MACHINE_DEFINE_LOAD_STORE(S,ldx,stx,cmpx)                                                       \
     template <typename T>                                                                                     \
     struct machine_load_store<T,S> {                                                                          \
         static inline T load_with_acquire(const volatile T& location) {                                       \
             T result;                                                                                         \
-            __asm__ __volatile__(load " %[res],0(%[ptr])\n"                                                   \
+            __asm__ __volatile__(ldx " %[res],0(%[ptr])\n"                                                    \
                                  "0:\n\t"                                                                     \
-                                 compare " %[res],%[res]\n\t"                                                 \
+                                 cmpx " %[res],%[res]\n\t"                                                    \
                                  "bne- 0b\n\t"                                                                \
                                  "isync"                                                                      \
                                  : [res]"=r"(result)                                                          \
@@ -169,7 +169,7 @@ inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t
         }                                                                                                     \
         static inline void store_with_release(volatile T &location, T value) {                                \
             __asm__ __volatile__("lwsync\n\t"                                                                 \
-                                 store " %[val],0(%[ptr])"                                                    \
+                                 stx " %[val],0(%[ptr])"                                                      \
                                  : "=m"(location)      /* redundant with "memory" */                          \
                                  : [ptr]"b"(&location) /* cannot use register 0 here */                       \
                                  , [val]"r"(value)                                                            \
@@ -178,10 +178,10 @@ inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t
     };                                                                                                        \
                                                                                                               \
     template <typename T>                                                                                     \
-    struct machine_load_store_relaxed<T,S> {                                                            \
+    struct machine_load_store_relaxed<T,S> {                                                                  \
         static inline T load (const __TBB_atomic T& location) {                                               \
             T result;                                                                                         \
-            __asm__ __volatile__(load " %[res],0(%[ptr])"                                                     \
+            __asm__ __volatile__(ldx " %[res],0(%[ptr])"                                                      \
                                  : [res]"=r"(result)                                                          \
                                  : [ptr]"b"(&location) /* cannot use register 0 here */                       \
                                  , "m"(location)                                                              \
@@ -189,7 +189,7 @@ inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t
             return result;                                                                                    \
         }                                                                                                     \
         static inline void store (__TBB_atomic T &location, T value) {                                        \
-            __asm__ __volatile__(store " %[val],0(%[ptr])"                                                    \
+            __asm__ __volatile__(stx " %[val],0(%[ptr])"                                                      \
                                  : "=m"(location)                                                             \
                                  : [ptr]"b"(&location) /* cannot use register 0 here */                       \
                                  , [val]"r"(value)                                                            \

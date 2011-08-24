@@ -26,8 +26,12 @@
     the GNU General Public License.
 */
 
-#ifndef __TBB__graph_join_internal_H
-#define __TBB__graph_join_internal_H
+#ifndef __TBB__flow_graph_join_impl_H
+#define __TBB__flow_graph_join_impl_H
+
+#ifndef __TBB_flow_graph_H
+#error Do not #include this internal file directly; use public TBB headers instead.
+#endif
 
 namespace internal {
 
@@ -344,10 +348,8 @@ namespace internal {
         class queueing_port_operation : public aggregated_operation<queueing_port_operation> {
         public:
             char type;
-            union {
-                T my_val;
-                T *my_arg;
-            };
+            T my_val;
+            T *my_arg;
             // constructor for value parameter
             queueing_port_operation(const T& e, op_type t) :
                 // type(char(t)), my_val(const_cast<T>(e)) {}
@@ -460,10 +462,9 @@ namespace internal {
         class tag_matching_port_operation : public aggregated_operation<tag_matching_port_operation> {
         public:
             char type;
-            union {
-                T my_val;
-                T *my_arg;
-            };
+            T my_val;
+            T *my_arg;
+            tag_value my_tag_value;
             // constructor for value parameter
             tag_matching_port_operation(const T& e, op_type t) :
                 // type(char(t)), my_val(const_cast<T>(e)) {}
@@ -486,13 +487,8 @@ namespace internal {
                 op_list = op_list->next;
                 switch(current->type) {
                 case try__put: {
-                        tag_value tval = (*my_tag_func)(current->my_val);
-                        bool was_inserted = this->tagged_insert(tval, current->my_val);
-                        if(was_inserted) {
-                            // report the tag to join_node_FE
-                            my_join->increment_tag_count(tval);  // may spawn
-                        }
-                        // should we make it an error to insert a tag twice?
+                        bool was_inserted = this->tagged_insert(current->my_tag_value, current->my_val);
+                        if(!was_inserted) __TBB_ASSERT( false, "multiple insertions of same tag");
                         __TBB_store_with_release(current->status, SUCCEEDED);
                     }
                     break;
@@ -549,7 +545,18 @@ namespace internal {
 
         /*override*/bool try_put(const T& v) {
             tag_matching_port_operation op_data(v, try__put);
+            op_data.my_tag_value = (*my_tag_func)(v);
             my_aggregator.execute(&op_data);
+            if(op_data.status == SUCCEEDED) {
+                // the assertion in the aggregator above will ensure we do not call with the same
+                // tag twice.  We have to exit the aggregator to keep lock-ups from happening;
+                // the increment of the tag hash table in the FE is under a separate aggregator,
+                // so that is serialized.
+                // is a race possible?  I do not believe so; the increment may cause a build of
+                // an output tuple, but its component is already in the hash table for the port.
+                my_join->increment_tag_count(op_data.my_tag_value);  // may spawn
+
+            }
             return op_data.status == SUCCEEDED;
         }
 
@@ -707,17 +714,19 @@ namespace internal {
 
     // tag_matching join input port.
     template<typename InputTuple, typename OutputTuple>
-    class join_node_FE<tag_matching, InputTuple, OutputTuple> : public forwarding_base, public tagged_buffer<tag_value, size_t, NO_TAG> {
+    class join_node_FE<tag_matching, InputTuple, OutputTuple> : public forwarding_base,
+             public tagged_buffer<tag_value, size_t, NO_TAG>, public item_buffer<OutputTuple> {
     public:
         static const int N = std::tuple_size<OutputTuple>::value;
         typedef OutputTuple output_type;
         typedef InputTuple input_type;
         typedef tagged_buffer<tag_value, size_t, NO_TAG> my_tag_buffer;
+        typedef item_buffer<output_type> output_buffer_type;
         typedef join_node_base<tag_matching, InputTuple, OutputTuple> my_node_type; // for forwarding
 
 // ----------- Aggregator ------------
         // the aggregator is only needed to serialize the access to the hash table.
-        // and the current_tag field.
+        // and the output_buffer_type base class
     private:
         enum op_type { res_count, inc_count, may_succeed, try_make };
         enum op_stat {WAIT=0, SUCCEEDED, FAILED};
@@ -735,7 +744,7 @@ namespace internal {
                 // type(char(t)), my_val(const_cast<T>(e)) {}
                 type(char(t)), my_val(e) {}
             tag_matching_FE_operation(output_type *p, op_type t) :
-                type(t), my_output(p) {}
+                type(char(t)), my_output(p) {}
             // constructor with no parameter
             tag_matching_FE_operation(op_type t) : type(char(t)) {}
         };
@@ -744,22 +753,45 @@ namespace internal {
         friend class internal::aggregating_functor<my_class, tag_matching_FE_operation>;
         aggregator<my_handler, tag_matching_FE_operation> my_aggregator;
 
+        // called from aggregator, so serialized
+        void fill_output_buffer(bool should_enqueue) {
+            output_type l_out;
+            bool do_fwd = should_enqueue && this->buffer_empty();
+            while(find_value_tag(this->current_tag,N)) {
+                this->tagged_delete(this->current_tag);
+                if(join_helper<N>::get_items(my_inputs, l_out)) {  //  <== call back
+                    this->push_back(l_out);
+                    if(do_fwd) {
+                        task::enqueue( * new ( task::allocate_additional_child_of( *(this->my_root_task) ) )
+                        forward_task<my_node_type>(*my_node) );
+                        do_fwd = false;
+                    }
+                    // retire the input values
+                    join_helper<N>::reset_ports(my_inputs);  //  <== call back
+                    this->current_tag = NO_TAG;    
+                }
+                else {
+                    __TBB_ASSERT(false, "should have had something to push");
+                }
+            }
+        }
+
         void handle_operations(tag_matching_FE_operation* op_list) {
             tag_matching_FE_operation *current;
             while(op_list) {
                 current = op_list;
                 op_list = op_list->next;
                 switch(current->type) {
-                case res_count:
-                    this->current_tag = NO_TAG;
-                    if(find_value_tag(this->current_tag,N)) {
-                        this->tagged_delete(this->current_tag);
-                        task::enqueue( * new ( task::allocate_additional_child_of( *(this->my_root_task) ) )
-                                forward_task<my_node_type>(*my_node) );
+                case res_count:  // called from BE
+                    {
+                        output_type l_out;
+                        this->pop_front(l_out);  // don't care about returned value.
+                        // buffer as many tuples as we can make
+                        fill_output_buffer(true);
+                        __TBB_store_with_release(current->status, SUCCEEDED);
                     }
-                    __TBB_store_with_release(current->status, SUCCEEDED);
                     break;
-                case inc_count: {
+                case inc_count: {  // called from input ports
                         size_t *p = 0;
                         tag_value t = current->my_val;
                         if(!(this->tagged_find_ref(t,p))) {
@@ -768,35 +800,24 @@ namespace internal {
                                 __TBB_ASSERT(false, NULL);
                             }
                         }
-                        if(++(*p) == size_t(N) && this->current_tag == NO_TAG) {
-                            // all items of tuple are available.
-                            this->current_tag = t;
-                            this->tagged_delete(t);
+                        if(++(*p) == size_t(N)) {
                             task::enqueue( * new ( task::allocate_additional_child_of( *(this->my_root_task) ) )
-                                forward_task<my_node_type>(*my_node) );
+                            forward_task<my_node_type>(*my_node) );
                         }
                     }
                     __TBB_store_with_release(current->status, SUCCEEDED);
                     break;
-                case may_succeed:
-                    if(this->current_tag == NO_TAG) {
-                        __TBB_store_with_release(current->status, FAILED);
-                    }
-                    else {
-                        __TBB_store_with_release(current->status, SUCCEEDED);
-                    }
+                case may_succeed:  // called from BE
+                    fill_output_buffer(false);
+                    __TBB_store_with_release(current->status, this->buffer_empty() ? FAILED : SUCCEEDED);
                     break;
-                case try_make:
-                    if(this->current_tag == NO_TAG) {
+                case try_make:  // called from BE
+                    if(this->buffer_empty()) {
                         __TBB_store_with_release(current->status, FAILED);
                     }
                     else {
-                        if(join_helper<N>::get_items(my_inputs, *(current->my_output))) {
-                            __TBB_store_with_release(current->status, SUCCEEDED);
-                        }
-                        else {
-                            __TBB_ASSERT(false, NULL); // shouldn't be asked to make a tuple if all items not available.
-                        }
+                        this->fetch_front(*(current->my_output));
+                        __TBB_store_with_release(current->status, SUCCEEDED);
                     }
                     break;
                 }
@@ -812,7 +833,9 @@ namespace internal {
             my_aggregator.initialize_handler(my_handler(this));
         }
 
-        join_node_FE(const join_node_FE& other) : forwarding_base(other.my_root_task), my_tag_buffer(), my_node(NULL) {
+        join_node_FE(const join_node_FE& other) : forwarding_base(other.my_root_task), my_tag_buffer(),
+        output_buffer_type() {
+            my_node = NULL;
             join_helper<N>::set_join_node_pointer(my_inputs, this);
             join_helper<N>::copy_tag_functors(my_inputs, const_cast<input_type &>(other.my_inputs));
             my_aggregator.initialize_handler(my_handler(this));
@@ -821,19 +844,14 @@ namespace internal {
         // needed for forwarding
         void set_my_node(my_node_type *new_my_node) { my_node = new_my_node; }
 
-        void reset_port_count() {
-            // reset while current_tag has old value.  The current_tag value is still valid, and will
-            // not be reset until we call into res_count in the aggregator.
-            // called from aggregator of back-end of join node (via tuple_accepted()), so this is serial on join.
-            join_helper<N>::reset_ports(my_inputs);
-            // only the hash table ops need to be serialized on our aggregator.
+        void reset_port_count() {  // called from BE
             tag_matching_FE_operation op_data(res_count);
             my_aggregator.execute(&op_data);
             return;
         }
 
         // if all input_ports have items, spawn forward to try and consume tuples
-        void increment_tag_count(tag_value t) {
+        void increment_tag_count(tag_value t) {  // called from input_ports
             tag_matching_FE_operation op_data(t, inc_count);
             my_aggregator.execute(&op_data);
             return;
@@ -847,7 +865,7 @@ namespace internal {
     protected:
         // all methods on input ports should be called under mutual exclusion from join_node_base.
 
-        bool tuple_build_may_succeed() {
+        bool tuple_build_may_succeed() {  // called from back-end
             tag_matching_FE_operation op_data(may_succeed);
             my_aggregator.execute(&op_data);
             return op_data.status == SUCCEEDED;
@@ -856,14 +874,9 @@ namespace internal {
         // cannot lock while calling back to input_ports.  current_tag will only be set
         // and reset under the aggregator, so it will remain consistent.
         bool try_to_make_tuple(output_type &out) {
-            if(this->current_tag == NO_TAG) {
-                return false;
-            }
-            if(join_helper<N>::get_items(my_inputs, out)) {
-                return true;
-            }
-            __TBB_ASSERT(false, NULL); // shouldn't be asked to make a tuple if all items not available.
-            return false;
+            tag_matching_FE_operation op_data(&out,try_make);
+            my_aggregator.execute(&op_data);
+            return op_data.status == SUCCEEDED;
         }
 
         void tuple_accepted() {
@@ -979,14 +992,8 @@ namespace internal {
         }
 
         join_node_base(const join_node_base& other) :
-#if ( __TBB_GCC_VERSION < 40202 )
-            graph_node(),
-#endif
-            input_ports_type(other),
-#if ( __TBB_GCC_VERSION < 40202 )
-            sender<OutputTuple>(),
-#endif
-            forwarder_busy(false), my_successors() {
+            graph_node(), input_ports_type(other),
+            sender<OutputTuple>(), forwarder_busy(false), my_successors() {
             my_successors.set_owner(this);
             input_ports_type::set_my_node(this);
             my_aggregator.initialize_handler(my_handler(this));
@@ -1691,5 +1698,5 @@ namespace internal {
 
 } 
 
-#endif
+#endif // __TBB__flow_graph_join_impl_H
 

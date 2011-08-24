@@ -41,7 +41,7 @@ include ../build/common.inc
 ifeq ($(filter /% $(SLASH)%, $(subst :, ,$(tbb_root)) ),)
     # also changes related variables like work_dir
     override tbb_root := $(CWD)$(SLASH)..
-    export TBB30_INSTALL_DIR := $(tbb_root)
+    export TBBROOT := $(tbb_root)
 endif
 
 ifeq ($(tbb_os),windows)

@@ -34,26 +34,26 @@ namespace utility{
 //------------------------------------------------------------------------
 
 namespace internal{
-    unsigned GetPrime ( unsigned seed );
+    size_t GetPrime ( size_t seed );
 }
 
 //! A fast random number generator.
 /** Uses linear congruential method. */
 class FastRandom {
-    unsigned x, a;
+    size_t x, a;
 public:
     //! Get a random number.
     unsigned short get() {
         return get(x);
     }
         //! Get a random number for the given seed; update the seed for next use.
-    unsigned short get( unsigned& seed ) {
+    unsigned short get( size_t& seed ) {
         unsigned short r = (unsigned short)(seed>>16);
         seed = seed*a+1;
         return r;
     }
     //! Construct a random number generator.
-    FastRandom( unsigned seed ) {
+    FastRandom( size_t seed ) {
         x = seed*internal::GetPrime(seed);
         a = internal::GetPrime(x);
     }
@@ -81,7 +81,7 @@ namespace internal{
         0x629750ad, 0xb98294e5, 0x892d9483, 0xc235baf3,
         0x3d2402a3, 0x6bdef3c9, 0xbec333cd, 0x40c9520f
     };
-    unsigned GetPrime ( unsigned seed ) {
+    size_t GetPrime ( size_t seed ) {
         return Primes[seed%(sizeof(Primes)/sizeof(Primes[0]))];
     }
 }

@@ -35,6 +35,7 @@
     - only buffered version is used
 */
 #include <cassert>
+#include <algorithm>
 #include "convex_hull.h"
 
 #include "tbb/task_scheduler_init.h"
@@ -43,8 +44,6 @@
 #include "tbb/blocked_range.h"
 #include "tbb/tick_count.h"
 #include "tbb/concurrent_vector.h"
-
-#define INIT_ONCE 1
 
 typedef util::point<double>               point_t;
 typedef tbb::concurrent_vector< point_t > pointVec_t;
@@ -57,44 +56,49 @@ void appendVector(const point_t* src, size_t srcSize, pointVec_t& dest) {
 void appendVector(const pointVec_t& src, pointVec_t& dest) {
     std::copy(src.begin(), src.end(), dest.grow_by(src.size()));
 }
-
 class FillRNDPointsVector_buf {
     pointVec_t          &points;
-    mutable unsigned int rseed;
 public:
-    static const size_t  grainSize = cfg::GENERATE_GS;
+    static const size_t  grainSize = cfg::generateGrainSize;
 
-    FillRNDPointsVector_buf(pointVec_t& _points)
-        : points(_points), rseed(1) {}
-
-    FillRNDPointsVector_buf(const FillRNDPointsVector_buf& other)
-        : points(other.points), rseed(other.rseed+1) {}
+    explicit FillRNDPointsVector_buf(pointVec_t& _points)
+        : points(_points) {}
 
     void operator()(const range_t& range) const {
+        util::rng the_rng(range.begin());
         const size_t i_end = range.end();
         size_t count = 0, j = 0;
         point_t tmp_vec[grainSize];
+
         for(size_t i=range.begin(); i!=i_end; ++i) {
-            tmp_vec[j++] = util::GenerateRNDPoint<double>(count, rseed);
+            tmp_vec[j++] = util::GenerateRNDPoint<double>(count, the_rng, util::rng::max_rand);
         }
-        appendVector(tmp_vec, j, points);
+        //Here we have race condition. Elements being written to may be still under construction.
+        //For C++ 2003 it is workarounded by vector element type which default constructor does not touch memory,
+        //it being constructed on. See comments near default ctor of point class for more details.
+        //Strictly speaking it is UB.
+        //TODO: need to find more reliable/correct way
+        points.grow_to_at_least(range.end());
+        std::copy(tmp_vec, tmp_vec+j,points.begin()+range.begin());
     }
 };
 
-void serial_initialize(pointVec_t &points) {
-    points.resize(cfg::MAXPOINTS);
-
-    unsigned int rseed=1;
-    for(size_t i=0, count=0; long(i)<cfg::MAXPOINTS; ++i) {
-        points[i] = util::GenerateRNDPoint<double>(count, rseed);
-    }
-}
-
 void initialize(pointVec_t &points) {
+    //This function generate the same series of point on every call.
+    //Reproducibility is needed for benchmarking to produce reliable results.
+    //It is achieved through the following points:
+    //      - FillRNDPointsVector_buf instance has its own local instance
+    //        of random number generator, which in turn does not use any global data
+    //      - tbb::simple_partitioner produce the same set of ranges on every call to
+    //        tbb::parallel_for
+    //      - local RNG instances are seeded by the starting indexes of corresponding ranges
+    //      - grow_to_at_least() enables putting points into the resulting vector in deterministic order
+    //        (unlike concurrent push_back or grow_by).
+
     // In the buffered version, a temporary storage for as much as grainSize elements 
     // is allocated inside the body. Since auto_partitioner may increase effective
     // range size which would cause a crash, simple partitioner has to be used.
-    tbb::parallel_for(range_t(0, cfg::MAXPOINTS, FillRNDPointsVector_buf::grainSize),
+    tbb::parallel_for(range_t(0, cfg::numberOfPoints, FillRNDPointsVector_buf::grainSize),
                       FillRNDPointsVector_buf(points), tbb::simple_partitioner());
 }
 
@@ -104,7 +108,7 @@ public:
         minX, maxX
     } extremumType;
 
-    static const size_t  grainSize = cfg::FINDEXT_GS;
+    static const size_t  grainSize = cfg::findExtremumGrainSize;
 
     FindXExtremum(const pointVec_t& points_, extremumType exType_)
         : points(points_), exType(exType_), extrXPoint(points[0]) {}
@@ -164,7 +168,7 @@ class SplitByCP_buf {
     point_t              farPoint;
     double               howFar;
 public:
-    static const size_t  grainSize = cfg::DIVIDE_GS;
+    static const size_t  grainSize = cfg::divideGrainSize;
 
     SplitByCP_buf( point_t _p1, point_t _p2,
         const pointVec_t &_initialSet, pointVec_t &_reducedSet)
@@ -217,7 +221,7 @@ point_t divide(const pointVec_t &P, pointVec_t &P_reduced,
     tbb::parallel_reduce(range_t(0, P.size(), SplitByCP_buf::grainSize),
                          sbcpb, tbb::simple_partitioner());
 
-    if(util::VERBOSE) {
+    if(util::verbose) {
         std::stringstream ss;
         ss << P.size() << " nodes in bucket"<< ", "
             << "dividing by: [ " << p1 << ", " << p2 << " ], "
@@ -265,36 +269,41 @@ void quickhull(const pointVec_t &points, pointVec_t &hull) {
 }
 
 int main(int argc, char* argv[]) {
+    util::my_time_t tm_main_begin = util::gettime();
+
     util::ParseInputArgs(argc, argv);
 
-    pointVec_t      points, tmp_points;
+    pointVec_t      points;
     pointVec_t      hull;
     int             nthreads;
-    util::my_time_t tm_init, tm_start, tm_end;
 
-    std::cout << "Starting TBB-buffered version of QUICK HULL algorithm" << std::endl;
+    points.reserve(cfg::numberOfPoints);
 
-    tm_init = util::gettime();
-    serial_initialize(points);
-    tm_start = util::gettime();
-    std::cout << "Serial init time: " << util::time_diff(tm_init, tm_start) << "  Points in input: " << points.size() << "\n";
-
-    for(nthreads=cfg::NUM_THREADS_START; nthreads<=cfg::NUM_THREADS_END;
-        ++nthreads) {
-        tbb::task_scheduler_init init(nthreads);
-#if !INIT_ONCE
-        tmp_points.clear();
-        tm_init = util::gettime();
-        initialize(tmp_points);
-        tm_start = util::gettime();
-        std::cout << "Init time on " << nthreads << " threads: " << util::time_diff(tm_init, tm_start) << " Points in input: " << points.size() << "\n";
-#endif
-        tm_start = util::gettime();
-        quickhull(points, hull);
-        tm_end = util::gettime();
-        std::cout << "Time on " << nthreads << " threads: " << util::time_diff(tm_start, tm_end) << " Points in hull: " << hull.size() << "\n";
-        hull.clear();
+    if(!util::silent) {
+        std::cout << "Starting TBB-buffered version of QUICK HULL algorithm" << std::endl;
     }
 
+
+    for(nthreads=cfg::threads.first; nthreads<=cfg::threads.last;
+        ++nthreads) {
+        tbb::task_scheduler_init init(nthreads);
+
+        points.clear();
+        util::my_time_t tm_init = util::gettime();
+        initialize(points);
+        util::my_time_t tm_start = util::gettime();
+        if(!util::silent) {
+            std::cout <<"Init time on "<<nthreads<<" threads: "<<util::time_diff(tm_init, tm_start)<<"  Points in input: "<<points.size()<<std::endl;
+        }
+
+        tm_start = util::gettime();
+        quickhull(points, hull);
+        util::my_time_t tm_end = util::gettime();
+        if(!util::silent) {
+            std::cout <<"Time on "<<nthreads<<" threads: "<<util::time_diff(tm_start, tm_end)<<"  Points in hull: "<<hull.size()<<std::endl;
+        }
+        hull.clear();
+    }
+    utility::report_elapsed_time(util::time_diff(tm_main_begin, util::gettime()));
     return 0;
 }

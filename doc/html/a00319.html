@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>flow_graph.h File Reference</title>
+<title>tbb::tbb_exception Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -10,126 +10,154 @@
     <li><a href="index.html"><span>Main&nbsp;Page</span></a></li>
     <li><a href="modules.html"><span>Modules</span></a></li>
     <li><a href="namespaces.html"><span>Namespaces</span></a></li>
-    <li><a href="annotated.html"><span>Classes</span></a></li>
-    <li id="current"><a href="files.html"><span>Files</span></a></li>
+    <li id="current"><a href="annotated.html"><span>Classes</span></a></li>
+    <li><a href="files.html"><span>Files</span></a></li>
     <li><a href="pages.html"><span>Related&nbsp;Pages</span></a></li>
   </ul></div>
 <div class="tabs">
   <ul>
-    <li><a href="files.html"><span>File&nbsp;List</span></a></li>
-    <li><a href="globals.html"><span>File&nbsp;Members</span></a></li>
+    <li><a href="annotated.html"><span>Class&nbsp;List</span></a></li>
+    <li><a href="hierarchy.html"><span>Class&nbsp;Hierarchy</span></a></li>
+    <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
-<h1>flow_graph.h File Reference</h1>The graph related classes and functions. <a href="#_details">More...</a>
+<div class="nav">
+<a class="el" href="a00383.html">tbb</a>::<a class="el" href="a00319.html">tbb_exception</a></div>
+<h1>tbb::tbb_exception Class Reference</h1><!-- doxytag: class="tbb::tbb_exception" -->Interface to be implemented by all exceptions TBB recognizes and propagates across the threads.  
+<a href="#_details">More...</a>
 <p>
-
+<code>#include &lt;<a class="el" href="a00593.html">tbb_exception.h</a>&gt;</code>
 <p>
-<a href="a00440.html">Go to the source code of this file.</a><table border="0" cellpadding="0" cellspacing="0">
+<p>Inheritance diagram for tbb::tbb_exception:
+<p><center><img src="a00319.png" usemap="#tbb::tbb_exception_map" border="0" alt=""></center>
+<map name="tbb::tbb_exception_map">
+<area href="a00240.html" alt="tbb::captured_exception" shape="rect" coords="0,56,248,80">
+<area href="a00273.html" alt="tbb::movable_exception< ExceptionData >" shape="rect" coords="258,56,506,80">
+</map>
+<a href="a00142.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Namespaces</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00357.html">tbb</a></td></tr>
+<tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">virtual <a class="el" href="a00319.html">tbb_exception</a> *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00319.html#3e3482bf264d4ca4dde046cd9c02c766">move</a> ()=0  throw ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Creates and returns pointer to the deep copy of this exception object.  <a href="#3e3482bf264d4ca4dde046cd9c02c766"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00319.html#66c94938eca8bf88b76f3eccaaf215d8">destroy</a> ()=0  throw ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destroys objects created by the <a class="el" href="a00319.html#3e3482bf264d4ca4dde046cd9c02c766">move()</a> method.  <a href="#66c94938eca8bf88b76f3eccaaf215d8"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">virtual void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00319.html#8588e07fa49692f4d734e4f2e4f048f4">throw_self</a> ()=0</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><b>internal::graph_policy_namespace</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Throws this exception object.  <a href="#8588e07fa49692f4d734e4f2e4f048f4"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="d00f6497e552fee978a02bfcbebf46e2"></a><!-- doxytag: member="tbb::tbb_exception::name" ref="d00f6497e552fee978a02bfcbebf46e2" args="() const =0" -->
+virtual const char *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00319.html#d00f6497e552fee978a02bfcbebf46e2">name</a> () const =0  throw ()</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top">namespace &nbsp;</td><td class="memItemRight" valign="bottom"><b>interface6::internal::graph_policy_namespace</b></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Returns RTTI name of the originally intercepted exception. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e8157689ecb66bc6c72d3618bf3cc371"></a><!-- doxytag: member="tbb::tbb_exception::what" ref="e8157689ecb66bc6c72d3618bf3cc371" args="() const =0" -->
+virtual const char *&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00319.html#e8157689ecb66bc6c72d3618bf3cc371">what</a> () const =0  throw ()</td></tr>
 
-<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00245.html">tbb::flow::interface6::graph_node</a></td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Returns the result of originally intercepted exception's <a class="el" href="a00319.html#e8157689ecb66bc6c72d3618bf3cc371">what()</a> method. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00319.html#3f2da7f3d8a6e4c1df522af1213afb5a">operator delete</a> (void *p)</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The base of all graph nodes. Allows them to be stored in a collection for deletion.  <a href="a00245.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00233.html">tbb::flow::interface6::continue_msg</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">An empty class used for messages that mean "I'm done".  <a href="a00233.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html">tbb::flow::interface6::sender&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Pure virtual template class that defines a sender of messages of type T.  <a href="a00278.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00272.html">tbb::flow::interface6::receiver&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Pure virtual template class that defines a receiver of messages of type T.  <a href="a00272.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00235.html">tbb::flow::interface6::continue_receiver</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Base class for receivers of completion messages.  <a href="a00235.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00244.html">tbb::flow::interface6::graph</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The graph class.  <a href="a00244.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::graph::run_task&lt; Body &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::graph::run_and_put_task&lt; Receiver, Body &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00281.html">tbb::flow::interface6::source_node&lt; Output &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">An executable node that acts as a source, i.e. it has no predecessors.  <a href="a00281.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00242.html">tbb::flow::interface6::function_node&lt; Input, Output,, Allocator &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Implements a function node that supports Input -&gt; Output.  <a href="a00242.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00243.html">tbb::flow::interface6::function_node&lt; Input, Output, queueing, Allocator &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Implements a function node that supports Input -&gt; Output.  <a href="a00243.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00234.html">tbb::flow::interface6::continue_node&lt; Output &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Implements an executable node that supports <a class="el" href="a00233.html">continue_msg</a> -&gt; Output.  <a href="a00234.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::overwrite_node&lt; T &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::write_once_node&lt; T &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00218.html">tbb::flow::interface6::broadcast_node&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages of type T to all successors.  <a href="a00218.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00219.html">tbb::flow::interface6::buffer_node&lt; T, A &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in arbitrary order.  <a href="a00219.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::buffer_node&lt; T, A &gt;::buffer_operation</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00264.html">tbb::flow::interface6::queue_node&lt; T, A &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in FIFO order.  <a href="a00264.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00279.html">tbb::flow::interface6::sequencer_node&lt; T, A &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in sequence order.  <a href="a00279.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00263.html">tbb::flow::interface6::priority_queue_node&lt; T, Compare, A &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages in priority order.  <a href="a00263.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00248.html">tbb::flow::interface6::limiter_node&lt; T &gt;</a></td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Forwards messages only if the threshold has not been reached.  <a href="a00248.html#_details">More...</a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::join_node&lt; OutputTuple, reserving &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::join_node&lt; OutputTuple, queueing &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::join_node&lt; OutputTuple, tag_matching &gt;</b></td></tr>
-
-<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><b>tbb::flow::interface6::or_node&lt; InputTuple &gt;</b></td></tr>
-
-<tr><td colspan="2"><br><h2>Enumerations</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><b>concurrency</b> { <b>unlimited</b> =  0, 
-<b>serial</b> =  1
- }</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">An enumeration the provides the two most common concurrency levels: unlimited and serial. <br></td></tr>
-<tr><td colspan="2"><br><h2>Functions</h2></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="511941e0793451ab18c6ccf489a67e47"></a><!-- doxytag: member="flow_graph.h::make_edge" ref="511941e0793451ab18c6ccf489a67e47" args="(sender&lt; T &gt; &amp;p, receiver&lt; T &gt; &amp;s)" -->
-template&lt;typename T&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00360.html#511941e0793451ab18c6ccf489a67e47">tbb::flow::interface6::make_edge</a> (sender&lt; T &gt; &amp;p, receiver&lt; T &gt; &amp;s)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Makes an edge between a single predecessor and a single successor. <br></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="15f0356fd7bcade4868d3b083ea671c2"></a><!-- doxytag: member="flow_graph.h::remove_edge" ref="15f0356fd7bcade4868d3b083ea671c2" args="(sender&lt; T &gt; &amp;p, receiver&lt; T &gt; &amp;s)" -->
-template&lt;typename T&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">void&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00360.html#15f0356fd7bcade4868d3b083ea671c2">tbb::flow::interface6::remove_edge</a> (sender&lt; T &gt; &amp;p, receiver&lt; T &gt; &amp;s)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Makes an edge between a single predecessor and a single successor. <br></td></tr>
-<tr><td class="memTemplParams" nowrap colspan="2"><a class="anchor" name="c8a3ee78426f0aa4df0c5a5e4bcd53e1"></a><!-- doxytag: member="flow_graph.h::copy_body" ref="c8a3ee78426f0aa4df0c5a5e4bcd53e1" args="(Node &amp;n)" -->
-template&lt;typename Body, typename Node&gt; </td></tr>
-<tr><td class="memTemplItemLeft" nowrap align="right" valign="top">Body&nbsp;</td><td class="memTemplItemRight" valign="bottom"><a class="el" href="a00360.html#c8a3ee78426f0aa4df0c5a5e4bcd53e1">tbb::flow::interface6::copy_body</a> (Node &amp;n)</td></tr>
-
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Returns a copy of the body from a function or continue node. <br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-The graph related classes and functions. 
+Interface to be implemented by all exceptions TBB recognizes and propagates across the threads. 
 <p>
-There are some applications that best express dependencies as messages passed between nodes in a graph. These messages may contain data or simply act as signals that a predecessors has completed. The graph class and its associated node classes can be used to express such applcations. <hr>
+If an unhandled exception of the type derived from <a class="el" href="a00319.html">tbb::tbb_exception</a> is intercepted by the TBB scheduler in one of the worker threads, it is delivered to and re-thrown in the root thread. The root thread is the thread that has started the outermost algorithm or root task sharing the same <a class="el" href="a00313.html">task_group_context</a> with the guilty algorithm/task (the one that threw the exception first).<p>
+Note: when documentation mentions workers with respect to exception handling, masters are implied as well, because they are completely equivalent in this context. Consequently a root thread can be master or worker thread.<p>
+NOTE: In case of nested algorithms or complex task hierarchies when the nested levels share (explicitly or by means of implicit inheritance) the task group context of the outermost level, the exception may be (re-)thrown multiple times (ultimately - in each worker on each nesting level) before reaching the root thread at the outermost level. IMPORTANT: if you intercept an exception derived from this class on a nested level, you must re-throw it in the catch block by means of the "throw;" operator.<p>
+TBB provides two implementations of this interface: <a class="el" href="a00240.html">tbb::captured_exception</a> and template class <a class="el" href="a00273.html">tbb::movable_exception</a>. See their declarations for more info. 
+<p>
+<hr><h2>Member Function Documentation</h2>
+<a class="anchor" name="66c94938eca8bf88b76f3eccaaf215d8"></a><!-- doxytag: member="tbb::tbb_exception::destroy" ref="66c94938eca8bf88b76f3eccaaf215d8" args="()=0" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void tbb::tbb_exception::destroy           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%">  throw ()<code> [pure virtual]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Destroys objects created by the <a class="el" href="a00319.html#3e3482bf264d4ca4dde046cd9c02c766">move()</a> method. 
+<p>
+Frees memory and calls destructor for this exception object. Can and must be used only on objects created by the move method. 
+<p>
+Implemented in <a class="el" href="a00240.html#93d875d3555502ff6f18513525de204c">tbb::captured_exception</a>, and <a class="el" href="a00273.html#7a46873119d9f85a7b0009c13e41a258">tbb::movable_exception&lt; ExceptionData &gt;</a>.
+</div>
+</div><p>
+<a class="anchor" name="3e3482bf264d4ca4dde046cd9c02c766"></a><!-- doxytag: member="tbb::tbb_exception::move" ref="3e3482bf264d4ca4dde046cd9c02c766" args="()=0" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual <a class="el" href="a00319.html">tbb_exception</a>* tbb::tbb_exception::move           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%">  throw ()<code> [pure virtual]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Creates and returns pointer to the deep copy of this exception object. 
+<p>
+Move semantics is allowed. 
+<p>
+Implemented in <a class="el" href="a00240.html#837a50b8f6a800bda225c39d1699643f">tbb::captured_exception</a>, and <a class="el" href="a00273.html#1aea0ad179d6f0481fe7f3495f66adf9">tbb::movable_exception&lt; ExceptionData &gt;</a>.
+</div>
+</div><p>
+<a class="anchor" name="3f2da7f3d8a6e4c1df522af1213afb5a"></a><!-- doxytag: member="tbb::tbb_exception::operator delete" ref="3f2da7f3d8a6e4c1df522af1213afb5a" args="(void *p)" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void tbb::tbb_exception::operator delete           </td>
+          <td>(</td>
+          <td class="paramtype">void *&nbsp;</td>
+          <td class="paramname"> <em>p</em>          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"><code> [inline]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Operator delete is provided only to allow using existing smart pointers with TBB exception objects obtained as the result of applying <a class="el" href="a00319.html#3e3482bf264d4ca4dde046cd9c02c766">move()</a> operation on an exception thrown out of TBB scheduler.<p>
+When overriding method <a class="el" href="a00319.html#3e3482bf264d4ca4dde046cd9c02c766">move()</a> make sure to override operator delete as well if memory is allocated not by TBB's scalable allocator. 
+</div>
+</div><p>
+<a class="anchor" name="8588e07fa49692f4d734e4f2e4f048f4"></a><!-- doxytag: member="tbb::tbb_exception::throw_self" ref="8588e07fa49692f4d734e4f2e4f048f4" args="()=0" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">virtual void tbb::tbb_exception::throw_self           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"><code> [pure virtual]</code></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Throws this exception object. 
+<p>
+Make sure that if you have several levels of derivation from this interface you implement or override this method on the most derived level. The implementation is as simple as "throw *this;". Failure to do this will result in exception of a base class type being thrown. 
+<p>
+Implemented in <a class="el" href="a00240.html#2dd1be66ab32fa27e0ddef5707fa67ef">tbb::captured_exception</a>, and <a class="el" href="a00273.html#17cffba35811c92b7e65d63506b69602">tbb::movable_exception&lt; ExceptionData &gt;</a>.
+</div>
+</div><p>
+<hr>The documentation for this class was generated from the following file:<ul>
+<li><a class="el" href="a00593.html">tbb_exception.h</a></ul>
+<hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.
 <p></p>

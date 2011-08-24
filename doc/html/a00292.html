@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::task_scheduler_init Class Reference</title>
+<title>tbb::interface5::reader_writer_lock Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,126 +21,117 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00357.html">tbb</a>::<a class="el" href="a00292.html">task_scheduler_init</a></div>
-<h1>tbb::task_scheduler_init Class Reference<br>
+<a class="el" href="a00383.html">tbb</a>::<b>interface5</b>::<a class="el" href="a00292.html">reader_writer_lock</a></div>
+<h1>tbb::interface5::reader_writer_lock Class Reference<br>
 <small>
-[<a class="el" href="a00372.html">Task Scheduling</a>]</small>
-</h1><!-- doxytag: class="tbb::task_scheduler_init" -->Class delimiting the scope of task scheduler activity.  
+[<a class="el" href="a00398.html">Synchronization</a>]</small>
+</h1><!-- doxytag: class="tbb::interface5::reader_writer_lock" -->Writer-preference reader-writer lock with local-only spinning on readers.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00540.html">task_scheduler_init.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00559.html">reader_writer_lock.h</a>&gt;</code>
 <p>
-<a href="a00116.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00100.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
+<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6f921f0d7c1812ceb5674418c8b6ccaf005142e2b9af377a8d33c6604d858862"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::waiting_nonblocking" ref="6f921f0d7c1812ceb5674418c8b6ccaf005142e2b9af377a8d33c6604d858862" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>waiting_nonblocking</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6f921f0d7c1812ceb5674418c8b6ccaf18bcc9aae8f056c34fb61bb7fc39b432"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::waiting" ref="6f921f0d7c1812ceb5674418c8b6ccaf18bcc9aae8f056c34fb61bb7fc39b432" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>waiting</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6f921f0d7c1812ceb5674418c8b6ccaf423c082d5cdc9bb12d0eeadcae56adb5"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::active" ref="6f921f0d7c1812ceb5674418c8b6ccaf423c082d5cdc9bb12d0eeadcae56adb5" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>active</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="6f921f0d7c1812ceb5674418c8b6ccafa9a5b17bdfb0a6d59b3cd58fecbd9610"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::invalid" ref="6f921f0d7c1812ceb5674418c8b6ccafa9a5b17bdfb0a6d59b3cd58fecbd9610" args="" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><b>invalid</b></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">enum &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#6f921f0d7c1812ceb5674418c8b6ccaf">status_t</a> { <b>waiting_nonblocking</b>, 
+<b>waiting</b>, 
+<b>active</b>, 
+<b>invalid</b>
+ }</td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Status type for nodes associated with lock instances.  <a href="a00292.html#6f921f0d7c1812ceb5674418c8b6ccaf">More...</a><br></td></tr>
 <tr><td colspan="2"><br><h2>Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#d476053cc712e572554823492a5229ce">initialize</a> (int number_of_threads=<a class="el" href="a00292.html#8f5988e2b0fbb2d533fcbb7f2583743f">automatic</a>)</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="c1431c4293e777efd9aab9a95c2a46e1"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::reader_writer_lock" ref="c1431c4293e777efd9aab9a95c2a46e1" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#c1431c4293e777efd9aab9a95c2a46e1">reader_writer_lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Ensure that scheduler exists for this thread.  <a href="#d476053cc712e572554823492a5229ce"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#d5ed214a8bb53b0466ed91ff4734b9a3">initialize</a> (int number_of_threads, stack_size_type thread_stack_size)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Constructs a new <a class="el" href="a00292.html">reader_writer_lock</a>. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5135f64f7b7339017f33d956445edbee"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::~reader_writer_lock" ref="5135f64f7b7339017f33d956445edbee" args="()" -->
+&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#5135f64f7b7339017f33d956445edbee">~reader_writer_lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The overloaded method with stack size parameter.  <a href="#d5ed214a8bb53b0466ed91ff4734b9a3"></a><br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="f73257e04cb7fb9bd5be2b635d9016f1"></a><!-- doxytag: member="tbb::task_scheduler_init::terminate" ref="f73257e04cb7fb9bd5be2b635d9016f1" args="()" -->
-void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#f73257e04cb7fb9bd5be2b635d9016f1">terminate</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destructs a <a class="el" href="a00292.html">reader_writer_lock</a> object. <br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#2653d1a2d560059a51219a8ceab3ade9">lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Inverse of method initialize. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="421600bf9bf9338bcf937063f2ff0e90"></a><!-- doxytag: member="tbb::task_scheduler_init::task_scheduler_init" ref="421600bf9bf9338bcf937063f2ff0e90" args="(int number_of_threads=automatic, stack_size_type thread_stack_size=0)" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#421600bf9bf9338bcf937063f2ff0e90">task_scheduler_init</a> (int number_of_threads=<a class="el" href="a00292.html#8f5988e2b0fbb2d533fcbb7f2583743f">automatic</a>, stack_size_type thread_stack_size=0)</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquires the <a class="el" href="a00292.html">reader_writer_lock</a> for write.  <a href="#2653d1a2d560059a51219a8ceab3ade9"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">bool __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#721eb173e154ab38292273e9266a9b07">try_lock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Shorthand for default constructor followed by call to initialize(number_of_threads). <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="4da6c86292d80c703a66c1f6f5299488"></a><!-- doxytag: member="tbb::task_scheduler_init::~task_scheduler_init" ref="4da6c86292d80c703a66c1f6f5299488" args="()" -->
-&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#4da6c86292d80c703a66c1f6f5299488">~task_scheduler_init</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Tries to acquire the <a class="el" href="a00292.html">reader_writer_lock</a> for write.  <a href="#721eb173e154ab38292273e9266a9b07"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#d9d16a24d9f6c3dada73c6b9ff214f5b">lock_read</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Destroy scheduler for this thread if thread has no other live task_scheduler_inits. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="12752282977029f23416642bc03e8b74"></a><!-- doxytag: member="tbb::task_scheduler_init::is_active" ref="12752282977029f23416642bc03e8b74" args="() const " -->
-bool&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#12752282977029f23416642bc03e8b74">is_active</a> () const </td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Acquires the <a class="el" href="a00292.html">reader_writer_lock</a> for read.  <a href="#d9d16a24d9f6c3dada73c6b9ff214f5b"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">bool __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#595fb23952e3b89426b1f7938dea9b11">try_lock_read</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Returns true if scheduler is active (initialized); false otherwise. <br></td></tr>
-<tr><td colspan="2"><br><h2>Static Public Member Functions</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">static int __TBB_EXPORTED_FUNC&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#ba00714c33a41a3c2216f48613971cab">default_num_threads</a> ()</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Tries to acquire the <a class="el" href="a00292.html">reader_writer_lock</a> for read.  <a href="#595fb23952e3b89426b1f7938dea9b11"></a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="5113b32689305599b2c36b5831547704"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::unlock" ref="5113b32689305599b2c36b5831547704" args="()" -->
+void __TBB_EXPORTED_METHOD&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#5113b32689305599b2c36b5831547704">unlock</a> ()</td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Returns the number of threads TBB scheduler would create if initialized by default.  <a href="#ba00714c33a41a3c2216f48613971cab"></a><br></td></tr>
-<tr><td colspan="2"><br><h2>Static Public Attributes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="8f5988e2b0fbb2d533fcbb7f2583743f"></a><!-- doxytag: member="tbb::task_scheduler_init::automatic" ref="8f5988e2b0fbb2d533fcbb7f2583743f" args="" -->
-static const int&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#8f5988e2b0fbb2d533fcbb7f2583743f">automatic</a> = -1</td></tr>
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Releases the <a class="el" href="a00292.html">reader_writer_lock</a>. <br></td></tr>
+<tr><td colspan="2"><br><h2>Friends</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a36f15b770a1bb0b56e33d7fa75ebd1a"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::scoped_lock" ref="a36f15b770a1bb0b56e33d7fa75ebd1a" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>scoped_lock</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Typedef for number of threads that is automatic. <br></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="e6c860f1e559026ff3ef4599c0d6c514"></a><!-- doxytag: member="tbb::task_scheduler_init::deferred" ref="e6c860f1e559026ff3ef4599c0d6c514" args="" -->
-static const int&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00292.html#e6c860f1e559026ff3ef4599c0d6c514">deferred</a> = -2</td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="680274059774b9188889d34986314f81"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::scoped_lock_read" ref="680274059774b9188889d34986314f81" args="" -->
+class&nbsp;</td><td class="memItemRight" valign="bottom"><b>scoped_lock_read</b></td></tr>
 
-<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Argument to <a class="el" href="a00292.html#d476053cc712e572554823492a5229ce">initialize()</a> or constructor that causes initialization to be deferred. <br></td></tr>
+<tr><td colspan="2"><br><h2>Classes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00293.html">scoped_lock</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The scoped lock pattern for write locks.  <a href="a00293.html#_details">More...</a><br></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00294.html">scoped_lock_read</a></td></tr>
+
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">The scoped lock pattern for read locks.  <a href="a00294.html#_details">More...</a><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-Class delimiting the scope of task scheduler activity. 
+Writer-preference reader-writer lock with local-only spinning on readers. 
 <p>
-A thread can construct a <a class="el" href="a00292.html">task_scheduler_init</a> object and keep it alive while it uses TBB's tasking subsystem (including parallel algorithms).<p>
-This class allows to customize properties of the TBB task pool to some extent. For example it can limit concurrency level of parallel work initiated by the given thread. It also can be used to specify stack size of the TBB worker threads, though this setting is not effective if the thread pool has already been created.<p>
-If a parallel construct is used without <a class="el" href="a00292.html">task_scheduler_init</a> object previously created, the scheduler will be initialized automatically with default settings, and will persist until this thread exits. Default concurrency level is defined as described in <a class="el" href="a00292.html#d476053cc712e572554823492a5229ce">task_scheduler_init::initialize()</a>. 
+Loosely adapted from Mellor-Crummey and Scott pseudocode at <a href="http://www.cs.rochester.edu/research/synchronization/pseudocode/rw.html#s_wp">http://www.cs.rochester.edu/research/synchronization/pseudocode/rw.html#s_wp</a> 
 <p>
-<hr><h2>Member Function Documentation</h2>
-<a class="anchor" name="ba00714c33a41a3c2216f48613971cab"></a><!-- doxytag: member="tbb::task_scheduler_init::default_num_threads" ref="ba00714c33a41a3c2216f48613971cab" args="()" -->
+<hr><h2>Member Enumeration Documentation</h2>
+<a class="anchor" name="6f921f0d7c1812ceb5674418c8b6ccaf"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::status_t" ref="6f921f0d7c1812ceb5674418c8b6ccaf" args="" -->
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">static int __TBB_EXPORTED_FUNC tbb::task_scheduler_init::default_num_threads           </td>
+          <td class="memname">enum <a class="el" href="a00292.html#6f921f0d7c1812ceb5674418c8b6ccaf">tbb::interface5::reader_writer_lock::status_t</a>          </td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Status type for nodes associated with lock instances. 
+<p>
+waiting_nonblocking: the wait state for nonblocking lock instances; for writes, these transition straight to active states; for reads, these are unused.<p>
+waiting: the start and spin state for all lock instances; these will transition to active state when appropriate. Non-blocking write locks transition from this state to waiting_nonblocking immediately.<p>
+active: the active state means that the lock instance holds the lock; it will transition to invalid state during node deletion<p>
+invalid: the end state for all nodes; this is set in the destructor so if we encounter this state, we are looking at memory that has already been freed<p>
+The state diagrams below describe the status transitions. Single arrows indicate that the thread that owns the node is responsible for the transition; double arrows indicate that any thread could make the transition.<p>
+State diagram for <a class="el" href="a00293.html">scoped_lock</a> status:<p>
+waiting ----------&gt; waiting_nonblocking | _____________/ | V V V active -----------------&gt; invalid<p>
+State diagram for <a class="el" href="a00294.html">scoped_lock_read</a> status:<p>
+waiting | V active -----------------&gt;invalid 
+</div>
+</div><p>
+<hr><h2>Member Function Documentation</h2>
+<a class="anchor" name="2653d1a2d560059a51219a8ceab3ade9"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::lock" ref="2653d1a2d560059a51219a8ceab3ade9" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void __TBB_EXPORTED_METHOD tbb::interface5::reader_writer_lock::lock           </td>
           <td>(</td>
           <td class="paramname">          </td>
-          <td>&nbsp;)&nbsp;</td>
-          <td width="100%"><code> [static]</code></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-Returns the number of threads TBB scheduler would create if initialized by default. 
-<p>
-Result returned by this method does not depend on whether the scheduler has already been initialized.<p>
-Because tbb 2.0 does not support blocking tasks yet, you may use this method to boost the number of threads in the tbb's internal pool, if your tasks are doing I/O operations. The optimal number of additional threads depends on how much time your tasks spend in the blocked state.<p>
-Before TBB 3.0 U4 this method returned the number of logical CPU in the system. Currently on Windows, Linux and FreeBSD it returns the number of logical CPUs available to the current process in accordance with its affinity mask.<p>
-NOTE: The return value of this method never changes after its first invocation. This means that changes in the process affinity mask that took place after this method was first invoked will not affect the number of worker threads in the TBB worker threads pool. 
-</div>
-</div><p>
-<a class="anchor" name="d5ed214a8bb53b0466ed91ff4734b9a3"></a><!-- doxytag: member="tbb::task_scheduler_init::initialize" ref="d5ed214a8bb53b0466ed91ff4734b9a3" args="(int number_of_threads, stack_size_type thread_stack_size)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void __TBB_EXPORTED_METHOD tbb::task_scheduler_init::initialize           </td>
-          <td>(</td>
-          <td class="paramtype">int&nbsp;</td>
-          <td class="paramname"> <em>number_of_threads</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">stack_size_type&nbsp;</td>
-          <td class="paramname"> <em>thread_stack_size</em></td><td>&nbsp;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td></td><td width="100%"></td>
-        </tr>
-      </table>
-</div>
-<div class="memdoc">
-
-<p>
-The overloaded method with stack size parameter. 
-<p>
-Overloading is necessary to preserve ABI compatibility 
-</div>
-</div><p>
-<a class="anchor" name="d476053cc712e572554823492a5229ce"></a><!-- doxytag: member="tbb::task_scheduler_init::initialize" ref="d476053cc712e572554823492a5229ce" args="(int number_of_threads=automatic)" -->
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">void __TBB_EXPORTED_METHOD tbb::task_scheduler_init::initialize           </td>
-          <td>(</td>
-          <td class="paramtype">int&nbsp;</td>
-          <td class="paramname"> <em>number_of_threads</em> = <code><a class="el" href="a00292.html#8f5988e2b0fbb2d533fcbb7f2583743f">automatic</a></code>          </td>
           <td>&nbsp;)&nbsp;</td>
           <td width="100%"></td>
         </tr>
@@ -149,14 +140,76 @@ Overloading is necessary to preserve ABI compatibility
 <div class="memdoc">
 
 <p>
-Ensure that scheduler exists for this thread. 
+Acquires the <a class="el" href="a00292.html">reader_writer_lock</a> for write. 
 <p>
-A value of -1 lets TBB decide on the number of threads, which is usually maximal hardware concurrency for this process, that is the number of logical CPUs on the machine (possibly limited by the processor affinity mask of this process (Windows) or of this thread (Linux, FreeBSD). It is preferable option for production code because it helps to avoid nasty surprises when several TBB based components run side-by-side or in a nested fashion inside the same process.<p>
-The number_of_threads is ignored if any other task_scheduler_inits currently exist. A thread may construct multiple task_scheduler_inits. Doing so does no harm because the underlying scheduler is reference counted. 
+If the lock is currently held in write mode by another context, the writer will block by spinning on a local variable. Exceptions thrown: <a class="el" href="a00264.html">improper_lock</a> The context tries to acquire a <a class="el" href="a00292.html">reader_writer_lock</a> that it already has write ownership of. 
+</div>
+</div><p>
+<a class="anchor" name="d9d16a24d9f6c3dada73c6b9ff214f5b"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::lock_read" ref="d9d16a24d9f6c3dada73c6b9ff214f5b" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void __TBB_EXPORTED_METHOD tbb::interface5::reader_writer_lock::lock_read           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Acquires the <a class="el" href="a00292.html">reader_writer_lock</a> for read. 
+<p>
+If the lock is currently held by a writer, this reader will block and wait until the writers are done. Exceptions thrown: <a class="el" href="a00264.html">improper_lock</a> The context tries to acquire a <a class="el" href="a00292.html">reader_writer_lock</a> that it already has write ownership of. 
+</div>
+</div><p>
+<a class="anchor" name="721eb173e154ab38292273e9266a9b07"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::try_lock" ref="721eb173e154ab38292273e9266a9b07" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool __TBB_EXPORTED_METHOD tbb::interface5::reader_writer_lock::try_lock           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Tries to acquire the <a class="el" href="a00292.html">reader_writer_lock</a> for write. 
+<p>
+This function does not block. Return Value: True or false, depending on whether the lock is acquired or not. If the lock is already held by this acquiring context, <a class="el" href="a00292.html#721eb173e154ab38292273e9266a9b07">try_lock()</a> returns false. 
+</div>
+</div><p>
+<a class="anchor" name="595fb23952e3b89426b1f7938dea9b11"></a><!-- doxytag: member="tbb::interface5::reader_writer_lock::try_lock_read" ref="595fb23952e3b89426b1f7938dea9b11" args="()" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool __TBB_EXPORTED_METHOD tbb::interface5::reader_writer_lock::try_lock_read           </td>
+          <td>(</td>
+          <td class="paramname">          </td>
+          <td>&nbsp;)&nbsp;</td>
+          <td width="100%"></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+Tries to acquire the <a class="el" href="a00292.html">reader_writer_lock</a> for read. 
+<p>
+This function does not block. Return Value: True or false, depending on whether the lock is acquired or not. 
 </div>
 </div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00540.html">task_scheduler_init.h</a></ul>
+<li><a class="el" href="a00559.html">reader_writer_lock.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

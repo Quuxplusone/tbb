@@ -391,7 +391,7 @@ bool arena::is_out_of_work() {
                                 if ( my_market->lower_arena_priority(*this, top_priority - 1, top_priority)
                                      && !my_task_stream[top_priority].empty() )
                                 {
-                                    atomic_update( my_skipped_fifo_priority, top_priority, std::less<uintptr_t>());
+                                    atomic_update( my_skipped_fifo_priority, top_priority, std::less<intptr_t>());
                                 }
                             }
                             else if ( !tasks_present && !my_orphaned_tasks && no_fifo_tasks ) {

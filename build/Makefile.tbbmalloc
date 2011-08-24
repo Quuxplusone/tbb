@@ -27,7 +27,7 @@
 # default target
 default_malloc: malloc malloc_test
 
-tbb_root ?= $(TBB30_INSTALL_DIR)
+tbb_root ?= $(TBBROOT)
 BUILDING_PHASE=1
 TEST_RESOURCE = $(MALLOC.RES)
 include $(tbb_root)/build/common.inc
@@ -131,7 +131,8 @@ MALLOC_MAIN_TESTS = test_ScalableAllocator.$(TEST_EXT) \
                     test_ScalableAllocator_STL.$(TEST_EXT) \
                     test_malloc_compliance.$(TEST_EXT) \
                     test_malloc_regression.$(TEST_EXT) \
-                    test_malloc_init_shutdown.$(TEST_EXT)
+                    test_malloc_init_shutdown.$(TEST_EXT) \
+                    test_malloc_pools.$(TEST_EXT)
 MALLOC_OVERLOAD_TESTS =  test_malloc_overload.$(TEST_EXT) test_malloc_overload_proxy.$(TEST_EXT) test_malloc_atexit.$(TEST_EXT)
 
 MALLOC_LIB = $(call cross_suffix,$(MALLOC.LIB))
@@ -178,6 +179,7 @@ endif
 malloc_test: $(call cross_suffix,$(MALLOC.DLL)) malloc_test_no_depends
 
 malloc_test_no_depends: $(TEST_PREREQUISITE) $(MALLOC_TESTS)
+	$(run_cmd) ./test_malloc_pools.$(TEST_EXT) $(args) 1:4
 ifneq (,$(MALLOCPROXY.DLL))
 	$(run_cmd) ./test_malloc_atexit.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_malloc_lib_unload.$(TEST_EXT) $(args)

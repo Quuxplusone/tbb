@@ -78,8 +78,23 @@ public:
         __TBB_Flag unlock_value;
         MallocMutex& mutex;
     public:
-        scoped_lock( MallocMutex& m ) : unlock_value( __TBB_LockByte(m.value)), mutex(m) {}
-        ~scoped_lock() { __TBB_UnlockByte(mutex.value, unlock_value); }
+        scoped_lock( MallocMutex& m ) : unlock_value(__TBB_LockByte(m.value)), mutex(m) {}
+        scoped_lock( MallocMutex& m, bool block, bool *locked ) : mutex(m) {
+            unlock_value = 1;
+            if (block) {
+                unlock_value = __TBB_LockByte(m.value);
+                if (locked) *locked = true;
+            } else {
+                if (bool res = __TBB_TryLockByte(m.value)) {
+                    unlock_value = 0;
+                    if (locked) *locked = true;
+                } else
+                    if (locked) *locked = false;
+            }
+        }
+        ~scoped_lock() {
+            if (!unlock_value) __TBB_UnlockByte(mutex.value, unlock_value);
+        }
     };
     friend class scoped_lock;
 };
@@ -88,7 +103,7 @@ inline intptr_t AtomicIncrement( volatile intptr_t& counter ) {
     return __TBB_FetchAndAddW( &counter, 1 )+1;
 }
 
-inline uintptr_t AtomicAdd( volatile uintptr_t& counter, uintptr_t value ) {
+inline uintptr_t AtomicAdd( volatile intptr_t& counter, intptr_t value ) {
     return __TBB_FetchAndAddW( &counter, value );
 }
 
@@ -102,6 +117,22 @@ inline intptr_t FencedLoad( const volatile intptr_t &location ) {
 
 inline void FencedStore( volatile intptr_t &location, intptr_t value ) {
     __TBB_store_with_release(location, value);
+}
+
+inline void SpinWaitWhileEq(const volatile intptr_t &location, const intptr_t value) {
+    tbb::internal::spin_wait_while_eq(location, value);
+}
+
+inline intptr_t BitScanRev(uintptr_t x) {
+    return !x? -1 : __TBB_Log2(x);
+}
+
+inline void AtomicOr(volatile void *operand, uintptr_t addend) {
+    __TBB_AtomicOR(operand, addend);
+}
+
+inline void AtomicAnd(volatile void *operand, uintptr_t addend) {
+    __TBB_AtomicAND(operand, addend);
 }
 
 #define USE_DEFAULT_MEMORY_MAPPING 1

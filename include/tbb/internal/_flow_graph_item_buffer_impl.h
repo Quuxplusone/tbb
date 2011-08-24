@@ -26,8 +26,12 @@
     the GNU General Public License.
 */
 
-#ifndef __TBB_item_buffer_H
-#define __TBB_item_buffer_H
+#ifndef __TBB__flow_graph_item_buffer_impl_H
+#define __TBB__flow_graph_item_buffer_impl_H
+
+#ifndef __TBB_flow_graph_H
+#error Do not #include this internal file directly; use public TBB headers instead.
+#endif
 
     //! Expandable buffer of items.  The possible operations are push, pop,
     //* tests for empty and so forth.  No mutual exclusion is built in.
@@ -183,4 +187,4 @@
         bool my_reserved;
     };
 
-#endif // __TBB_item_buffer_H
+#endif // __TBB__flow_graph_item_buffer_impl_H

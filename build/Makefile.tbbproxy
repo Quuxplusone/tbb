@@ -27,7 +27,7 @@
 # default target
 default_tbbproxy: tbbproxy tbbproxy_test
 
-tbb_root ?= $(TBB30_INSTALL_DIR)
+tbb_root ?= $(TBBROOT)
 BUILDING_PHASE=1
 include $(tbb_root)/build/common.inc
 DEBUG_SUFFIX=$(findstring _debug,_$(cfg))

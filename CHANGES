@@ -1,4 +1,39 @@
+TBB 4.0 commercial-aligned release
+
+Changes (w.r.t. TBB 3.0 Update 8 commercial-aligned release):
+
+- concurrent_priority_queue is now a supported feature. Capacity
+    control methods were removed.
+- Flow graph is now a supported feature of TBB,
+    rather than being a community preview feature.
+- A new memory backend has been implemented in the TBB allocator.
+    It can return small memory blocks to the OS and thus later reuse
+    that memory for large object allocation.
+- Improved partitioning algorithms for parallel_for and parallel_reduce
+    to better handle load imbalance.
+- The convex_hull example has been refactored to produce reproducible
+    performance results.
+- The Major Interface version has changed from 5 to 6. Deprecated interfaces
+    might be removed in future releases.
+
+Community Preview Features:
+
+- Added Community Preview Feature: serial subset of TBB for modeling
+    a sequential execution of a parallel algorithm. This release introduces
+    serial parallel_for.
+- Added Community Preview Feature: or_node (accepts multiple inputs,
+    forwarding each input separately to successors), split_node (accepts
+    tuples, and forwards each element to a corresponding successor),
+    and multioutput_function_node (accepts one input, and passes the input
+    and a tuple of output ports to the function body to support outputs
+    to multiple successors).
+- Added Community Preview Feature: Scalable Memory Pools (more control on
+    memory source, grouping, collective deallocatation).
+
+------------------------------------------------------------------------
 TBB 3.0 Update 8 commercial-aligned release
+
+Changes (w.r.t. TBB 3.0 Update 7 commercial-aligned release):
 
 - Task priorities become an official feature of TBB,
     not community preview as before.
@@ -31,8 +66,8 @@ TBB 3.0 Update 7 commercial-aligned release
 Changes (w.r.t. TBB 3.0 Update 6 commercial-aligned release):
 
 - Added implementation of the platform isolation layer based on 
-  GCC atomic built-ins; it is supposed to work on any platform 
-  where GCC has these built-ins.
+    GCC atomic built-ins; it is supposed to work on any platform 
+    where GCC has these built-ins.
 
 Community Preview Features:
 
@@ -57,11 +92,11 @@ Open-source contributions integrated:
 
 Bugs fixed:
 
-- Failure to locate Cilk runtime library to enable Cilk/TBB interop.
+- Failure to enable interoperability with Intel(R) Cilk(tm) Plus runtime
+    library, and a crash caused by invoking the interoperability layer
+    after one of the libraries was unloaded.
 - Data race that could result in concurrent_unordered_map structure
     corruption after call to clear() method.
-- Crash caused by invoking Cilk/TBB interop after one of the libraries
-    is unloaded.
 - Stack corruption caused by PIC version of 64-bit CAS compiled by Intel
     compiler on Linux.
 - Inconsistency of exception propagation mode possible when application
@@ -158,8 +193,8 @@ Changes (w.r.t. TBB 3.0 Update 1 commercial-aligned release):
 
 - Destructor of tbb::task_group class throws missing_wait exception
     if there are tasks running when it is invoked.
-- Cilk-TBB interop layer added to protect TBB TLS in case of
-    "Cilk-TBB-Cilk nesting" usage model.
+- Interoperability layer with Intel Cilk Plus runtime library added
+    to protect TBB TLS in case of nested usage with Intel Cilk Plus.
 - Compilation fix for dependent template names in concurrent_queue.
 - Memory allocator code refactored to ease development and maintenance.
 
@@ -1099,4 +1134,7 @@ Packaging:
     are provided separately on Intel(R) Premier.
 
 ------------------------------------------------------------------------
+Intel and Cilk are registered trademarks or trademarks of Intel Corporation or its
+subsidiaries in the United States and other countries.
+
 * Other names and brands may be claimed as the property of others.

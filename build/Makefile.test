@@ -31,7 +31,7 @@
 
 default: test_tbb_plain test_tbb_old
 
-tbb_root ?= $(TBB30_INSTALL_DIR)
+tbb_root ?= $(TBBROOT)
 BUILDING_PHASE=1
 TEST_RESOURCE = $(TBB.RES)
 include $(tbb_root)/build/common.inc
@@ -148,8 +148,8 @@ TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_combinable.$(TEST_EXT)                  \
 	test_task_auto_init.$(TEST_EXT)              \
 	test_concurrent_monitor.$(TEST_EXT)          \
+	semaphore.$(OBJ)                             \
 	test_critical_section.$(TEST_EXT)            \
-	test_semaphore.$(TEST_EXT)                   \
 	test_reader_writer_lock.$(TEST_EXT)          \
 	test_tbb_condition_variable.$(TEST_EXT)      \
 	test_intrusive_list.$(TEST_EXT)              \
@@ -174,6 +174,8 @@ TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_overwrite_node.$(TEST_EXT)              \
 	test_write_once_node.$(TEST_EXT)             \
 	test_or_node.$(TEST_EXT)                     \
+	test_multioutput_function_node.$(TEST_EXT)   \
+	test_split_node.$(TEST_EXT)                  \
 	test_tbb_version.$(TEST_EXT)                 # insert new files right above
 TEST_TBB_PLAIN.OBJ = $(TEST_TBB_PLAIN.EXE:$(TEST_EXT)=.$(OBJ))
 
@@ -248,7 +250,7 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(TASK_CPP_DIRECTLY_INCLUDED) $(TEST_TBB_PL
 	$(run_cmd) ./test_tbb_header.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_concurrent_monitor.$(TEST_EXT) $(args) 6:8
 	$(run_cmd) ./test_critical_section.$(TEST_EXT) $(args) 1:4
-	$(run_cmd) ./test_semaphore.$(TEST_EXT) $(args) 1:4
+#	$(run_cmd) ./test_semaphore.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_reader_writer_lock.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_tbb_condition_variable.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_intrusive_list.$(TEST_EXT) $(args)
@@ -273,6 +275,8 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(TASK_CPP_DIRECTLY_INCLUDED) $(TEST_TBB_PL
 	$(run_cmd) ./test_overwrite_node.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_write_once_node.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_or_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_multioutput_function_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_split_node.$(TEST_EXT) $(args) 1:4
 
 CPLUS_FLAGS_DEPRECATED = $(DEFINE_KEY)TBB_DEPRECATED=1 $(subst $(WARNING_KEY),,$(CPLUS_FLAGS)) $(WARNING_SUPPRESS)
 

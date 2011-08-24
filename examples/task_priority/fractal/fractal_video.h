@@ -43,7 +43,7 @@ private:
     void on_mouse( int x, int y, int key ) {
         if( key == 1 ) {
             if ( fg ) {
-                fg->set_num_frames(20);
+                fg->set_num_frames_at_least(20);
                 fg->mouse_click( x, y );
             }
         }
@@ -56,7 +56,7 @@ private:
         case ' ': // space
             if( fg ) fg->switch_priorities();
         default:
-            if( fg ) fg->set_num_frames(20);
+            if( fg ) fg->set_num_frames_at_least(20);
         }
     }
 

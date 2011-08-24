@@ -34,8 +34,10 @@
 #define CILK_SYMBOLS_VISIBLE (_WIN32||_WIN64)
 // The compiler does not add "-lcilkrts" linker option on some linux systems
 #define CILK_LINKAGE_BROKEN  (__linux__ && __GNUC__<4 && __INTEL_COMPILER_BUILD_DATE <= 20110427)
+// In U4, cilkrts incorrectly sends the interop notifications to TBB
+#define CILK_NOTIFICATIONS_BROKEN ( __INTEL_COMPILER_BUILD_DATE == 20110427 )
 
-#if __TBB_CILK_INTEROP && CILK_SYMBOLS_VISIBLE && !CILK_LINKAGE_BROKEN
+#if __TBB_CILK_INTEROP && CILK_SYMBOLS_VISIBLE && !CILK_LINKAGE_BROKEN && !CILK_NOTIFICATIONS_BROKEN
 
 #if _WIN32 || _WIN64
 #include "tbb/machine/windows_api.h"

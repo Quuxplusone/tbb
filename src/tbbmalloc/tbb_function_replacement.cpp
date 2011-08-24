@@ -199,7 +199,7 @@ size_t compareStrings( const char *str1, const char *str2 )
 // Check function prologue with know prologues from the dictionary
 // opcodes - dictionary
 // inpAddr - pointer to function prologue
-// Dictionary contains opcodes for several full asm instrutions
+// Dictionary contains opcodes for several full asm instructions
 // + one opcode byte for the next asm instruction for safe address processing
 // RETURN: number of bytes for safe bytes replacement 
 // (matched_pattern/2-1)

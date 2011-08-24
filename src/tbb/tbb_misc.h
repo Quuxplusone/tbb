@@ -157,10 +157,10 @@ public:
 //! Atomically replaces value of dst with newValue if they satisfy condition of compare predicate
 /** Return value semantics is the same as for CAS. **/
 template<typename T1, typename T2, class Pred> 
-T1 atomic_update ( tbb::atomic<T1>& dst, const T2& newValue, Pred compare ) {
+T1 atomic_update ( tbb::atomic<T1>& dst, T2 newValue, Pred compare ) {
     T1 oldValue = dst;
     while ( compare(oldValue, newValue) ) {
-        if ( dst.compare_and_swap(newValue, oldValue) == oldValue )
+        if ( dst.compare_and_swap((T1)newValue, oldValue) == oldValue )
             break;
         oldValue = dst;
     }

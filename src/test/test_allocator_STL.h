@@ -31,8 +31,8 @@
 #include "harness.h"
 
 template<typename Container>
-void TestSequence() {
-    Container c;
+void TestSequence(const typename Container::allocator_type &a) {
+    Container c(a);
     for( int i=0; i<1000; ++i )
         c.push_back(i*i);    
     typename Container::const_iterator p = c.begin();
@@ -43,8 +43,8 @@ void TestSequence() {
 }
 
 template<typename Set>
-void TestSet() {
-    Set s;
+void TestSet(const typename Set::allocator_type &a) {
+    Set s(typename Set::key_compare(), a);
     typedef typename Set::value_type value_type;
     for( int i=0; i<100; ++i ) 
         s.insert(value_type(3*i));
@@ -54,8 +54,8 @@ void TestSet() {
 }
 
 template<typename Map>
-void TestMap() {
-    Map m;
+void TestMap(const typename Map::allocator_type &a) {
+    Map m(typename Map::key_compare(), a);
     typedef typename Map::value_type value_type;
     for( int i=0; i<100; ++i ) 
         m.insert(value_type(i,i*i));
@@ -80,35 +80,35 @@ void TestMap() {
 #endif
 
 template<typename Allocator>
-void TestAllocatorWithSTL() {
+void TestAllocatorWithSTL(const Allocator &a = Allocator() ) {
     typedef typename Allocator::template rebind<int>::other Ai;
     typedef typename Allocator::template rebind<const int>::other Aci;
     typedef typename Allocator::template rebind<std::pair<const int, int> >::other Acii;
     typedef typename Allocator::template rebind<std::pair<int, int> >::other Aii;
 
     // Sequenced containers
-    TestSequence<std::deque <int,Ai> >();
-    TestSequence<std::list  <int,Ai> >();
-    TestSequence<std::vector<int,Ai> >();
+    TestSequence<std::deque <int,Ai> >(a);
+    TestSequence<std::list  <int,Ai> >(a);
+    TestSequence<std::vector<int,Ai> >(a);
 
     // Associative containers
-    TestSet<std::set     <int, std::less<int>, Ai> >();
-    TestSet<std::multiset<int, std::less<int>, Ai> >();
-    TestMap<std::map     <int, int, std::less<int>, Acii> >();
-    TestMap<std::multimap<int, int, std::less<int>, Acii> >();
+    TestSet<std::set     <int, std::less<int>, Ai> >(a);
+    TestSet<std::multiset<int, std::less<int>, Ai> >(a);
+    TestMap<std::map     <int, int, std::less<int>, Acii> >(a);
+    TestMap<std::multimap<int, int, std::less<int>, Acii> >(a);
 
 #if _MSC_VER
     // Test compatibility with Microsoft's implementation of std::allocator for some cases that
     // are undefined according to the ISO standard but permitted by Microsoft.
-    TestSequence<std::deque <const int,Aci> >();
+    TestSequence<std::deque <const int,Aci> >(a);
 #if _CPPLIB_VER>=500
-    TestSequence<std::list  <const int,Aci> >();
+    TestSequence<std::list  <const int,Aci> >(a);
 #endif
-    TestSequence<std::vector<const int,Aci> >();
-    TestSet<std::set<const int, std::less<int>, Aci> >();
-    TestMap<std::map<int, int, std::less<int>, Aii> >();
-    TestMap<std::map<const int, int, std::less<int>, Acii> >();
-    TestMap<std::multimap<int, int, std::less<int>, Aii> >();
-    TestMap<std::multimap<const int, int, std::less<int>, Acii> >();
+    TestSequence<std::vector<const int,Aci> >(a);
+    TestSet<std::set<const int, std::less<int>, Aci> >(a);
+    TestMap<std::map<int, int, std::less<int>, Aii> >(a);
+    TestMap<std::map<const int, int, std::less<int>, Acii> >(a);
+    TestMap<std::multimap<int, int, std::less<int>, Aii> >(a);
+    TestMap<std::multimap<const int, int, std::less<int>, Acii> >(a);
 #endif /* _MSC_VER */
 }

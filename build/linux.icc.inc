@@ -44,7 +44,7 @@ CPLUS = icpc
 CONLY = icc
 
 ifeq (release,$(cfg))
-CPLUS_FLAGS = -O2 -strict-ansi -DUSE_PTHREAD
+CPLUS_FLAGS = -O2 -g -strict-ansi -DUSE_PTHREAD
 else
 CPLUS_FLAGS = -O0 -g -strict-ansi -DUSE_PTHREAD -DTBB_USE_DEBUG
 endif
@@ -95,7 +95,7 @@ ASSEMBLY_SOURCE=$(arch)-gas
 ifeq (ia64,$(arch))
     ASM_FLAGS += -xexplicit
     TBB_ASM.OBJ += atomic_support.o lock_byte.o log2.o pause.o ia64_misc.o
-    MALLOC_ASM.OBJ += atomic_support.o lock_byte.o pause.o
+    MALLOC_ASM.OBJ += atomic_support.o lock_byte.o pause.o log2.o
 endif
 #------------------------------------------------------------------------------
 # End of setting assembler data.

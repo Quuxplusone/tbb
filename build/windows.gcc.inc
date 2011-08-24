@@ -44,7 +44,7 @@ ifeq (ia32,$(arch))
 else
     TBB.LST = $(tbb_root)/src/tbb/win64-gcc-tbb-export.lst
 endif
-MALLOC.DEF = $(MALLOC_ROOT)/win-gcc-tbbmalloc-export.def
+MALLOC.DEF = $(MALLOC_ROOT)/$(def_prefix)-gcc-tbbmalloc-export.def
 RML.DEF = $(RML_SERVER_ROOT)/lin-rml-export.def
 
 LINK_TBB.LIB = $(TBB.LIB)

@@ -27,7 +27,7 @@
 */
 
 #ifndef __TBB_tbb_windef_H
-#error Do not #include this file directly.  Use "#include tbb/tbb_stddef.h" instead.
+#error Do not #include this internal file directly; use public TBB headers instead.
 #endif /* __TBB_tbb_windef_H */
 
 // Check that the target Windows version has all API calls requried for TBB.

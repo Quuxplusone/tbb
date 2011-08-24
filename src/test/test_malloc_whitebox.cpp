@@ -221,6 +221,11 @@ static size_t allocatedBackRefCount()
     return cnt;
 }
 
+static void cleanObjectCache()
+{
+    defaultMemPool->extMemPool.hardCachesCleanup();
+}
+
 void TestBackRef() {
     size_t beforeNumBackRef, afterNumBackRef;
 
@@ -245,11 +250,127 @@ void TestBackRef() {
     ASSERT(beforeNumBackRef==afterNumBackRef, "backreference leak detected");
 }
 
+void *getMem(intptr_t /*pool_id*/, size_t &bytes)
+{
+    const size_t BUF_SIZE = 8*1024*1024;
+    static char space[BUF_SIZE];
+    static size_t pos;
+
+    if (pos + bytes > BUF_SIZE)
+        return NULL;
+
+    void *ret = space + pos;
+    pos += bytes;
+
+    return ret;
+}
+
+int putMem(intptr_t /*pool_id*/, void* /*raw_ptr*/, size_t /*raw_bytes*/)
+{
+    return 0;
+}
+
+struct MallocPoolHeader {
+    void  *rawPtr;
+    size_t userSize;
+};
+
+void *getMallocMem(intptr_t /*pool_id*/, size_t &bytes)
+{
+    void *rawPtr = malloc(bytes+sizeof(MallocPoolHeader));
+    void *ret = (void *)((uintptr_t)rawPtr+sizeof(MallocPoolHeader));
+
+    MallocPoolHeader *hdr = (MallocPoolHeader*)ret-1;
+    hdr->rawPtr = rawPtr;
+    hdr->userSize = bytes;
+
+    return ret;
+}
+
+int putMallocMem(intptr_t /*pool_id*/, void *ptr, size_t bytes)
+{
+    MallocPoolHeader *hdr = (MallocPoolHeader*)ptr-1;
+    ASSERT(bytes == hdr->userSize, "Invalid size in pool callback.");
+    free(hdr->rawPtr);
+
+    return 0;
+}
+
+void TestPools() {
+    rml::MemPoolPolicy pol;
+    size_t beforeNumBackRef, afterNumBackRef;
+
+    pol.pAlloc = getMem;
+    pol.pFree = putMem;
+    pol.granularity = 8;
+    rml::MemoryPool *pool1 = pool_create(0, &pol);
+    rml::MemoryPool *pool2 = pool_create(0, &pol);
+    pool_destroy(pool1);
+    pool_destroy(pool2);
+
+    cleanObjectCache();
+    beforeNumBackRef = allocatedBackRefCount();
+    rml::MemoryPool *fixedPool = pool_create(0, &pol);
+
+    pol.pAlloc = getMallocMem;
+    pol.pFree = putMallocMem;
+    pol.granularity = 8;
+    rml::MemoryPool *mallocPool = pool_create(0, &pol);
+
+/* check that large object cache (LOC) returns correct size for cached objects
+   passBackendSz Byte objects are cached in LOC, but bypassed the backend, so
+   memory requested directly from allocation callback.
+   nextPassBackendSz Byte objects must fit to another LOC bin,
+   so that their allocation/realeasing leads to cache cleanup.
+   All this is expecting to lead to releasing of passBackendSz Byte object
+   from LOC during LOC cleanup, and putMallocMem checks that returned size
+   is correct.
+*/
+    const size_t passBackendSz = Backend::maxBinedSize+1,
+        anotherLOCBinSz = minLargeObjectSize+1;
+    for (int i=0; i<10; i++) { // run long enough to be cached
+        void *p = pool_malloc(mallocPool, passBackendSz);
+        ASSERT(p, "Memory was not allocated");
+        pool_free(mallocPool, p);
+    }
+    // run long enough to passBackendSz allocation was cleaned from cache
+    // and returned back to putMallocMem for size checking
+    for (int i=0; i<1000; i++) {
+        void *p = pool_malloc(mallocPool, anotherLOCBinSz);
+        ASSERT(p, "Memory was not allocated");
+        pool_free(mallocPool, p);
+    }
+
+    void *smallObj =  pool_malloc(fixedPool, 10);
+    memset(smallObj, 1, 10);
+    void *ptr = pool_malloc(fixedPool, 1024);
+    memset(ptr, 1, 1024);
+    void *largeObj = pool_malloc(fixedPool, minLargeObjectSize);
+    memset(largeObj, 1, minLargeObjectSize);
+    ptr = pool_malloc(fixedPool, minLargeObjectSize);
+    memset(ptr, minLargeObjectSize, minLargeObjectSize);
+    pool_malloc(fixedPool, 10*minLargeObjectSize); // no leak for unsuccesful allocations
+    pool_free(fixedPool, smallObj);
+    pool_free(fixedPool, largeObj);
+
+    // provoke large object cache cleanup and hope no leaks occurs
+    for (size_t sz=minLargeObjectSize; sz<1*1024*1024; sz+=largeBlockCacheStep) {
+        ptr = pool_malloc(mallocPool, sz);
+        memset(ptr, sz, sz);
+        pool_free(mallocPool, ptr);
+    }
+    pool_destroy(mallocPool);
+    pool_destroy(fixedPool);
+
+    cleanObjectCache();
+    afterNumBackRef = allocatedBackRefCount();
+    ASSERT(beforeNumBackRef==afterNumBackRef, "backreference leak detected");
+}
+
 void TestObjectRecognition() {
     size_t headersSize = sizeof(LargeMemoryBlock)+sizeof(LargeObjectHdr);
     unsigned falseObjectSize = 113; // unsigned is the type expected by getObjectSize
     size_t obtainedSize;
-    Block *auxBackRef;
 
     ASSERT(sizeof(BackRefIdx)==4, "Unexpected size of BackRefIdx");
     ASSERT(getObjectSize(falseObjectSize)!=falseObjectSize, "Error in test: bad choice for false object size");
@@ -316,12 +437,61 @@ void TestObjectRecognition() {
     scalable_free(bufferLOH);
 }
 
+class TestBackendWork: NoAssign {
+    struct TestBlock {
+        intptr_t   data;
+        BackRefIdx idx;
+    };
+    static const int ITERS = 100;
+
+    Harness::SpinBarrier *barrier;
+    rml::internal::Backend *backend;
+public:
+    TestBackendWork(rml::internal::Backend *backend, Harness::SpinBarrier *barrier) : 
+        backend(backend), barrier(barrier) {}
+    void operator()(int) const {
+        barrier->wait();
+        
+        for (int i=0; i<ITERS; i++) {
+            BlockI *block16K = backend->get16KBlock(1, /*startup=*/false);
+            LargeMemoryBlock *lmb = backend->getLargeBlock(16*1024, /*startup=*/false);
+            backend->put16KBlock(block16K, /*startup=*/false);
+            backend->putLargeBlock(lmb);
+        }
+    }
+};
+
+void TestBackend()
+{
+    rml::MemPoolPolicy pol;
+    Harness::SpinBarrier barrier;
+
+    pol.pAlloc = getMallocMem;
+    pol.pFree = putMallocMem;
+    pol.granularity = 8;
+    rml::MemoryPool *mPool = pool_create(0, &pol);
+    rml::internal::ExtMemoryPool *ePool = 
+        &((rml::internal::MemoryPool*)mPool)->extMemPool;
+    rml::internal::Backend *backend = &ePool->backend;
+
+    for( int p=MaxThread; p>=MinThread; --p ) {
+        barrier.initialize(p);
+        NativeParallelFor( p, TestBackendWork(backend, &barrier) );
+    }
+
+    BlockI *block = backend->get16KBlock(1, /*startup=*/false);
+    backend->put16KBlock(block, /*startup=*/false);
+
+    pool_destroy(mPool);
+}
 
 int TestMain () {
     // backreference requires that initialization was done
     if(!isMallocInitialized()) doInitialization();
-     // to succeed, leak detection must be the 1st memory-intensive test
+    // to succeed, leak detection must be the 1st memory-intensive test
     TestBackRef();
+    TestPools();
+    TestBackend();
 
 #if MALLOC_CHECK_RECURSION
     for( int p=MaxThread; p>=MinThread; --p ) {

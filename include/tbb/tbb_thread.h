@@ -63,7 +63,7 @@ namespace internal {
 
 } // namespace internal
 
-void swap( internal::tbb_thread_v3& t1, internal::tbb_thread_v3& t2 ); 
+inline void swap( internal::tbb_thread_v3& t1, internal::tbb_thread_v3& t2 ); 
 
 namespace internal {
 

@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html><head><meta http-equiv="Content-Type" content="text/html;charset=iso-8859-1">
-<title>tbb::scalable_allocator&lt; void &gt; Class Template Reference</title>
+<title>tbb::null_mutex Class Reference</title>
 <link href="doxygen.css" rel="stylesheet" type="text/css">
 <link href="tabs.css" rel="stylesheet" type="text/css">
 </head><body>
@@ -21,39 +21,39 @@
     <li><a href="functions.html"><span>Class&nbsp;Members</span></a></li>
   </ul></div>
 <div class="nav">
-<a class="el" href="a00357.html">tbb</a>::<a class="el" href="a00277.html">scalable_allocator&lt; void &gt;</a></div>
-<h1>tbb::scalable_allocator&lt; void &gt; Class Template Reference<br>
+<a class="el" href="a00383.html">tbb</a>::<a class="el" href="a00277.html">null_mutex</a></div>
+<h1>tbb::null_mutex Class Reference<br>
 <small>
-[<a class="el" href="a00369.html">Memory Allocation</a>]</small>
-</h1><!-- doxytag: class="tbb::scalable_allocator&lt; void &gt;" -->Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1.  
+[<a class="el" href="a00398.html">Synchronization</a>]</small>
+</h1><!-- doxytag: class="tbb::null_mutex" -->A mutex which does nothing.  
 <a href="#_details">More...</a>
 <p>
-<code>#include &lt;<a class="el" href="a00520.html">scalable_allocator.h</a>&gt;</code>
+<code>#include &lt;<a class="el" href="a00489.html">null_mutex.h</a>&gt;</code>
 <p>
-<a href="a00097.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
+<a href="a00076.html">List of all members.</a><table border="0" cellpadding="0" cellspacing="0">
 <tr><td></td></tr>
-<tr><td colspan="2"><br><h2>Public Types</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="2046816029c2c7856f7684aed2af9cff"></a><!-- doxytag: member="tbb::scalable_allocator&lt; void &gt;::pointer" ref="2046816029c2c7856f7684aed2af9cff" args="" -->
-typedef void *&nbsp;</td><td class="memItemRight" valign="bottom"><b>pointer</b></td></tr>
+<tr><td colspan="2"><br><h2>Static Public Attributes</h2></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a960bed8b19a4d111ca047de206f5f77"></a><!-- doxytag: member="tbb::null_mutex::is_rw_mutex" ref="a960bed8b19a4d111ca047de206f5f77" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_rw_mutex</b> = false</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="591c568d23f8aadf6ea8d1dc939c4e75"></a><!-- doxytag: member="tbb::scalable_allocator&lt; void &gt;::const_pointer" ref="591c568d23f8aadf6ea8d1dc939c4e75" args="" -->
-typedef const void *&nbsp;</td><td class="memItemRight" valign="bottom"><b>const_pointer</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="a0fefed74b341d43ccf0e2fc30d31b75"></a><!-- doxytag: member="tbb::null_mutex::is_recursive_mutex" ref="a0fefed74b341d43ccf0e2fc30d31b75" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_recursive_mutex</b> = true</td></tr>
 
-<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="64dbab666af0740c30b77edac9f157ce"></a><!-- doxytag: member="tbb::scalable_allocator&lt; void &gt;::value_type" ref="64dbab666af0740c30b77edac9f157ce" args="" -->
-typedef void&nbsp;</td><td class="memItemRight" valign="bottom"><b>value_type</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top"><a class="anchor" name="707cf399055d68177b1d64c2e112603a"></a><!-- doxytag: member="tbb::null_mutex::is_fair_mutex" ref="707cf399055d68177b1d64c2e112603a" args="" -->
+static const bool&nbsp;</td><td class="memItemRight" valign="bottom"><b>is_fair_mutex</b> = true</td></tr>
 
 <tr><td colspan="2"><br><h2>Classes</h2></td></tr>
-<tr><td class="memItemLeft" nowrap align="right" valign="top">struct &nbsp;</td><td class="memItemRight" valign="bottom"><b>rebind</b></td></tr>
+<tr><td class="memItemLeft" nowrap align="right" valign="top">class &nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="a00278.html">scoped_lock</a></td></tr>
 
+<tr><td class="mdescLeft">&nbsp;</td><td class="mdescRight">Represents acquisition of a mutex.  <a href="a00278.html#_details">More...</a><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
-<h3>template&lt;&gt;<br>
- class tbb::scalable_allocator&lt; void &gt;</h3>
-
-Analogous to std::allocator&lt;void&gt;, as defined in ISO C++ Standard, Section 20.4.1. 
+A mutex which does nothing. 
+<p>
+A <a class="el" href="a00277.html">null_mutex</a> does no operation and simulates success. 
 <p>
 <hr>The documentation for this class was generated from the following file:<ul>
-<li><a class="el" href="a00520.html">scalable_allocator.h</a></ul>
+<li><a class="el" href="a00489.html">null_mutex.h</a></ul>
 <hr>
 <p></p>
 Copyright &copy; 2005-2011 Intel Corporation.  All Rights Reserved.

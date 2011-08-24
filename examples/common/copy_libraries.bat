@@ -36,9 +36,9 @@ if ("%2") == ("debug") set postfix=_debug
 set output_dir=%3
 
 :: Optional 4th parameter to set install root
-if ("%4") NEQ ("") set TBB30_INSTALL_DIR=%4
+if ("%4") NEQ ("") set TBBROOT=%4
 :: Actually we can set install root by ourselves
-if ("%TBB30_INSTALL_DIR%") == ("") set TBB30_INSTALL_DIR=%~d0%~p0..\..\
+if ("%TBBROOT%") == ("") set TBBROOT=%~d0%~p0..\..\
 
 :: Getting vs folders in case vc_mt binaries are not provided
 if ("%VS80COMNTOOLS%")  NEQ ("") set vc_dir=vc8
@@ -46,23 +46,23 @@ if ("%VS90COMNTOOLS%")  NEQ ("") set vc_dir=vc9
 if ("%VS100COMNTOOLS%") NEQ ("") set vc_dir=vc10
 
 :: Are we standalone/oss or inside compiler?
-if exist "%TBB30_INSTALL_DIR%\bin\%arch%\vc8\tbb%postfix%.dll" set interim_path=bin\%arch%
-if exist "%TBB30_INSTALL_DIR%\..\redist\%arch%\tbb\vc8\tbb%postfix%.dll" set interim_path=..\redist\%arch%\tbb
+if exist "%TBBROOT%\bin\%arch%\vc8\tbb%postfix%.dll" set interim_path=bin\%arch%
+if exist "%TBBROOT%\..\redist\%arch%\tbb\vc8\tbb%postfix%.dll" set interim_path=..\redist\%arch%\tbb
 if ("%interim_path%") == ("") goto error
 
 :: Do we provide vc_mt binaries?
-if exist "%TBB30_INSTALL_DIR%\%interim_path%\vc_mt\tbb%postfix%.dll" set vc_dir=vc_mt
+if exist "%TBBROOT%\%interim_path%\vc_mt\tbb%postfix%.dll" set vc_dir=vc_mt
 if ("%vc_dir%") == ("") goto error
 
 :: We know everything we wanted and there are no errors
 :: Copying binaries
 
-copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb%postfix%.dll" "%output_dir%"
-copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb%postfix%.pdb" "%output_dir%"
-copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbbmalloc%postfix%.dll" "%output_dir%"
-copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbbmalloc%postfix%.pdb" "%output_dir%"
-if exist "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb_preview%postfix%.dll" copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb_preview%postfix%.dll" "%output_dir%"
-if exist "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb_preview%postfix%.pdb" copy "%TBB30_INSTALL_DIR%\%interim_path%\%vc_dir%\tbb_preview%postfix%.pdb" "%output_dir%"
+copy "%TBBROOT%\%interim_path%\%vc_dir%\tbb%postfix%.dll" "%output_dir%"
+copy "%TBBROOT%\%interim_path%\%vc_dir%\tbb%postfix%.pdb" "%output_dir%"
+copy "%TBBROOT%\%interim_path%\%vc_dir%\tbbmalloc%postfix%.dll" "%output_dir%"
+copy "%TBBROOT%\%interim_path%\%vc_dir%\tbbmalloc%postfix%.pdb" "%output_dir%"
+if exist "%TBBROOT%\%interim_path%\%vc_dir%\tbb_preview%postfix%.dll" copy "%TBBROOT%\%interim_path%\%vc_dir%\tbb_preview%postfix%.dll" "%output_dir%"
+if exist "%TBBROOT%\%interim_path%\%vc_dir%\tbb_preview%postfix%.pdb" copy "%TBBROOT%\%interim_path%\%vc_dir%\tbb_preview%postfix%.pdb" "%output_dir%"
 
 goto end
 :error

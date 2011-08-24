@@ -115,14 +115,24 @@ public:
     static BackRefIdx newBackRef(bool largeObj);
 };
 
-struct LargeMemoryBlock {
+class ExtMemoryPool;
+
+class BlockI {
+    intptr_t     blockState[2];
+};
+
+struct LargeMemoryBlock : public BlockI {
     LargeMemoryBlock *next,          // ptrs in list of cached blocks
-                     *prev;
+                     *prev,
+                     *gPrev,         // in pool's global list 
+                     *gNext;
     uintptr_t         age;           // age of block while in cache
     size_t            objectSize;    // the size requested by a client
     size_t            unalignedSize; // the size requested from getMemory
     bool              fromMapMemory;
     BackRefIdx        backRefIdx;    // cached here, used copy is in LargeObjectHdr
+    void registerInPool(ExtMemoryPool *extMemPool);
+    void unregisterFromPool(ExtMemoryPool *extMemPool);
 };
 
 struct LargeObjectHdr {

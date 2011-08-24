@@ -35,9 +35,12 @@
 
 typedef util::point<double> point_t;
 
-#define USETBB      1
-#define USECONCVEC  1
-#define INIT_ONCE   1
+#ifndef USETBB
+    #define USETBB      1
+#endif
+#ifndef USECONCVEC
+    #define USECONCVEC   1
+#endif
 
 #if !USETBB // Serial implementation of Quick Hull algorithm
 
@@ -119,7 +122,7 @@ point_t divide(const pointVec_t &P, pointVec_t &P_reduced, const point_t &p1, co
     SplitByCP splitByCP(p1, p2, P_reduced);
     point_t farPoint = std::for_each(P.begin(), P.end(), splitByCP);
 
-    if(util::VERBOSE) {
+    if(util::verbose) {
         std::stringstream ss;
         ss << P.size() << " nodes in bucket"<< ", "
             << "dividing by: [ " << p1 << ", " << p2 << " ], "
@@ -205,6 +208,9 @@ void appendVector(const pointVec_t& src, pointVec_t& dest) {
     std::copy(src.begin(), src.end(), dest.grow_by(src.size()));
 }
 
+void grow_vector_to_at_least(pointVec_t& vect, size_t size) {
+    vect.grow_to_at_least(size);
+}
 #else // USE STD::VECTOR - include spin_mutex.h and lock vector operations
 #include "tbb/spin_mutex.h"
 
@@ -222,67 +228,67 @@ void appendVector(mutex_t& insertMutex, const point_t* src, size_t srcSize,
     dest.insert(dest.end(), src, src + srcSize);
 }
 
+void grow_vector_to_at_least(mutex_t& mutex, pointVec_t& vect, size_t size) {
+    mutex_t::scoped_lock lock(mutex);
+    if (vect.size()< size){
+        vect.resize(size);
+    }
+}
 #endif // USECONCVEC
-
-void serial_initialize(pointVec_t &points);
 
 class FillRNDPointsVector {
     pointVec_t          &points;
-    mutable unsigned int rseed;
 public:
-    static const size_t  grainSize = cfg::GENERATE_GS;
+    static const size_t  grainSize = cfg::generateGrainSize;
 #if !USECONCVEC
     static mutex_t       pushBackMutex;
 #endif // USECONCVEC
-    FillRNDPointsVector(pointVec_t& _points)
-        : points(_points), rseed(1) {}
 
-    FillRNDPointsVector(const FillRNDPointsVector& other)
-        : points(other.points), rseed(other.rseed+1) {}
+    explicit FillRNDPointsVector(pointVec_t& _points)
+        : points(_points){}
 
     void operator()(const range_t& range) const {
+        util::rng the_rng(range.begin());
         const size_t i_end = range.end();
         size_t count = 0;
-        for(size_t i = range.begin(); i != i_end; ++i) {
 #if USECONCVEC
-            points.push_back(util::GenerateRNDPoint<double>(count, rseed));
-#else // Locked push_back to a not thread-safe STD::VECTOR
-            {
-                mutex_t::scoped_lock lock(pushBackMutex);
-                points.push_back(util::GenerateRNDPoint<double>(count, rseed));
-            }
+            points.grow_to_at_least(i_end);
+#else // Locked enlarge to a not thread-safe STD::VECTOR
+            grow_vector_to_at_least(pushBackMutex,points,i_end);
 #endif // USECONCVEC
+
+        for(size_t i = range.begin(); i != i_end; ++i) {
+            points[i]=util::GenerateRNDPoint<double>(count,the_rng,util::rng::max_rand);
         }
     }
 };
 
 class FillRNDPointsVector_buf {
     pointVec_t          &points;
-    mutable unsigned int rseed;
 public:
-    static const size_t  grainSize = cfg::GENERATE_GS;
+    static const size_t  grainSize = cfg::generateGrainSize;
 #if !USECONCVEC
     static mutex_t       insertMutex;
 #endif // USECONCVEC
 
-    FillRNDPointsVector_buf(pointVec_t& _points)
-        : points(_points), rseed(1) {}
-
-    FillRNDPointsVector_buf(const FillRNDPointsVector_buf& other)
-        : points(other.points), rseed(other.rseed+1) {}
+    explicit FillRNDPointsVector_buf(pointVec_t& _points)
+        : points(_points){}
 
     void operator()(const range_t& range) const {
+        util::rng the_rng(range.begin());
         const size_t i_end = range.end();
         size_t count = 0, j = 0;
         point_t tmp_vec[grainSize];
+
         for(size_t i=range.begin(); i!=i_end; ++i) {
-            tmp_vec[j++] = util::GenerateRNDPoint<double>(count, rseed);
+            tmp_vec[j++] = util::GenerateRNDPoint<double>(count,the_rng,util::rng::max_rand);
         }
 #if USECONCVEC
-        appendVector(tmp_vec, j, points);
+        grow_vector_to_at_least(points,range.end());
 #else // USE STD::VECTOR
-        appendVector(insertMutex, tmp_vec, j, points);
+        grow_vector_to_at_least(insertMutex,points,range.end());
 #endif // USECONCVEC
+        std::copy(tmp_vec, tmp_vec+j,points.begin()+range.begin());
     }   
 };
 
@@ -293,11 +299,22 @@ mutex_t FillRNDPointsVector_buf::insertMutex = mutex_t();
 
 template<typename BodyType>
 void initialize(pointVec_t &points) {
+    //This function generate the same series of point on every call.
+    //Reproducibility is needed for benchmarking to produce reliable results.
+    //It is achieved through the following points:
+    //      - FillRNDPointsVector_buf instance has its own local instance
+    //        of random number generator, which in turn does not use any global data
+    //      - tbb::simple_partitioner produce the same set of ranges on every call to
+    //        tbb::parallel_for
+    //      - local RNG instances are seeded by the starting indexes of corresponding ranges
+    //      - grow_to_at_least() enables putting points into the resulting vector in deterministic order
+    //        (unlike concurrent push_back or grow_by).
+
     // In the buffered version, a temporary storage for as much as grainSize elements 
     // is allocated inside the body. Since auto_partitioner may increase effective
     // range size which would cause a crash, simple partitioner has to be used.
 
-    tbb::parallel_for(range_t(0, cfg::MAXPOINTS, BodyType::grainSize),
+    tbb::parallel_for(range_t(0, cfg::numberOfPoints, BodyType::grainSize),
     BodyType(points), tbb::simple_partitioner());
 }
 
@@ -307,7 +324,7 @@ public:
         minX, maxX
     } extremumType;
 
-    static const size_t  grainSize = cfg::FINDEXT_GS;
+    static const size_t  grainSize = cfg::findExtremumGrainSize;
 
     FindXExtremum(const pointVec_t& points_, extremumType exType_)
         : points(points_), exType(exType_), extrXPoint(points[0]) {}
@@ -365,7 +382,7 @@ class SplitByCP {
     point_t              farPoint;
     double               howFar;
 public:
-    static const size_t grainSize = cfg::DIVIDE_GS;
+    static const size_t grainSize = cfg::divideGrainSize;
 #if !USECONCVEC
     static mutex_t      pushBackMutex;
 #endif // USECONCVEC
@@ -425,7 +442,7 @@ class SplitByCP_buf {
     point_t              farPoint;
     double               howFar;
 public:
-    static const size_t  grainSize = cfg::DIVIDE_GS;
+    static const size_t  grainSize = cfg::divideGrainSize;
 #if !USECONCVEC
     static mutex_t       insertMutex;
 #endif // USECONCVEC
@@ -491,7 +508,7 @@ point_t divide(const pointVec_t &P, pointVec_t &P_reduced,
     tbb::parallel_reduce(range_t(0, P.size(), BodyType::grainSize),
                          body, tbb::simple_partitioner() );
 
-    if(util::VERBOSE) {
+    if(util::verbose) {
         std::stringstream ss;
         ss << P.size() << " nodes in bucket"<< ", "
             << "dividing by: [ " << p1 << ", " << p2 << " ], "
@@ -564,8 +581,6 @@ void quickhull(const pointVec_t &points, pointVec_t &hull, bool buffered) {
 int main(int argc, char* argv[]) {
     util::ParseInputArgs(argc, argv);
 
-    pointVec_t      points;
-    pointVec_t      hull;
     int             nthreads;
     util::my_time_t tm_init, tm_start, tm_end;
 
@@ -575,29 +590,21 @@ int main(int argc, char* argv[]) {
     std::cout << "Starting STL locked unbuffered push_back version of QUICK HULL algorithm" << std::endl;
 #endif // USECONCVEC
 
-#if INIT_ONCE
-    tm_init = util::gettime();
-    serial_initialize(points);
-    tm_start = util::gettime();
-    std::cout << "Serial init time: " << util::time_diff(tm_init, tm_start) << "  Points in input: " << points.size() << "\n";
-
-#endif
-
-    for(nthreads=cfg::NUM_THREADS_START; nthreads<=cfg::NUM_THREADS_END;
+    for(nthreads=cfg::threads.first; nthreads<=cfg::threads.last;
         ++nthreads) {
+        pointVec_t      points;
+        pointVec_t      hull;
+
         tbb::task_scheduler_init init(nthreads);
-#if !INIT_ONCE
-        points.clear();
         tm_init = util::gettime();
         initialize<FillRNDPointsVector>(points);
         tm_start = util::gettime();
         std::cout << "Parallel init time on " << nthreads << " threads: " << util::time_diff(tm_init, tm_start) << "  Points in input: " << points.size() << "\n";
-#endif // !INIT_ONCE
+
         tm_start = util::gettime();
         quickhull(points, hull, false);
         tm_end = util::gettime();
         std::cout << "Time on " << nthreads << " threads: " << util::time_diff(tm_start, tm_end) << "  Points in hull: " << hull.size() << "\n";
-        hull.clear();
     }
 
 #if USECONCVEC 
@@ -606,21 +613,22 @@ int main(int argc, char* argv[]) {
     std::cout << "Starting STL locked buffered version of QUICK HULL algorithm" << std::endl;
 #endif
 
-    for(nthreads=cfg::NUM_THREADS_START; nthreads<=cfg::NUM_THREADS_END;
+    for(nthreads=cfg::threads.first; nthreads<=cfg::threads.last;
         ++nthreads) {
+        pointVec_t      points;
+        pointVec_t      hull;
+
         tbb::task_scheduler_init init(nthreads);
-#if !INIT_ONCE
-        points.clear();
+
         tm_init = util::gettime();
         initialize<FillRNDPointsVector_buf>(points);
         tm_start = util::gettime();
         std::cout << "Init time on " << nthreads << " threads: " << util::time_diff(tm_init, tm_start) << "  Points in input: " << points.size() << "\n";
-#endif // !INIT_ONCE
+
         tm_start = util::gettime();
         quickhull(points, hull, true);
         tm_end = util::gettime();
         std::cout << "Time on " << nthreads << " threads: " << util::time_diff(tm_start, tm_end) << "  Points in hull: " << hull.size() << "\n";
-        hull.clear();
     }    
 
     return 0;
@@ -629,10 +637,10 @@ int main(int argc, char* argv[]) {
 #endif // USETBB
 
 void serial_initialize(pointVec_t &points) {
-    points.resize(cfg::MAXPOINTS);
+    points.reserve(cfg::numberOfPoints);
 
     unsigned int rseed=1;
-    for(size_t i=0, count=0; long(i)<cfg::MAXPOINTS; ++i) {
-        points[i] = util::GenerateRNDPoint<double>(count, rseed);
+    for(size_t i=0, count=0; long(i)<cfg::numberOfPoints; ++i) {
+        points.push_back(util::GenerateRNDPoint<double>(count,&std::rand,RAND_MAX ));
     }
 }

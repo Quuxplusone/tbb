@@ -28,10 +28,22 @@
 
 #include "tbb/concurrent_monitor.h"
 #include "tbb/atomic.h"
+#include "tbb/task_scheduler_init.h"
 #include "tbb/parallel_for.h"
 #include "tbb/blocked_range.h"
 #include "harness.h"
+#if _WIN32||_WIN64
+#include "tbb/dynamic_link.cpp"
+#endif
+
+#include "tbb/semaphore.cpp"
 #include "tbb/concurrent_monitor.cpp"
+
+#if _MSC_VER && !defined(__INTEL_COMPILER)
+    // Workaround for overzealous compiler warnings
+    // Suppress compiler warning about constant conditional expression
+    #pragma warning (disable: 4127)
+#endif
 
 using namespace tbb;
 
@@ -210,7 +222,7 @@ struct Counter {
 };
 
 //! Function object for use with parallel_for.h.
-template<typename C>
+template<typename C, int D>
 struct AddOne: NoAssign {
     C& counter;
     /** Increments counter once for each iteration in the iteration space. */
@@ -218,19 +230,21 @@ struct AddOne: NoAssign {
         for( size_t i=range.begin(); i!=range.end(); ++i ) {
             typename C::mutex_type::ScopedLock lock(counter.mutex);
             counter.value = counter.value+1;
+            if( D>0 )
+                for( int j=0; j<D; ++j ) __TBB_Yield();
         }
     }
     AddOne( C& counter_ ) : counter(counter_) {}
 };
 
-//! Generic test of a TBB mutex type M.
-/** Does not test features specific to reader-writer locks. */
-template<typename M>
-void Test() {
+//! Generic test with TBB mutex type M, max range R, and delay D.
+template<typename M,int R, int D>
+void Test( int p ) {
     Counter<M> counter;
     counter.value = 0;
-    const int n = 100000;
-    tbb::parallel_for(tbb::blocked_range<size_t>(0,n,n/10),AddOne<Counter<M> >(counter));
+    const int n = R;
+    tbb::task_scheduler_init init(p);
+    tbb::parallel_for(tbb::blocked_range<size_t>(0,n,n/10),AddOne<Counter<M>,D>(counter));
     if( counter.value!=n )
         REPORT("ERROR : counter.value=%ld (instead of %ld)\n",counter.value,n);
 }
@@ -239,9 +253,11 @@ int TestMain () {
     for( int p=MinThread; p<=MaxThread; ++p ) {
         REMARK( "testing with %d workers\n", static_cast<int>(p) );
         // test the predicated notify 
-        Test<QueuingMutex>();
+        Test<QueuingMutex,100000,0>( p );
+        Test<QueuingMutex,1000,10000>( p );
         // test the notify_all method
-        Test<SpinMutex>();
+        Test<SpinMutex,100000,0>( p );
+        Test<SpinMutex,1000,10000>( p );
         REMARK( "calling destructor for task_scheduler_init\n" );
     }
     return Harness::Done;

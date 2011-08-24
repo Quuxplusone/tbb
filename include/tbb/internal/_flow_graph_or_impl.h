@@ -29,273 +29,53 @@
 #ifndef __TBB__flow_graph_or_impl_H
 #define __TBB__flow_graph_or_impl_H
 
+#ifndef __TBB_flow_graph_H
+#error Do not #include this internal file directly; use public TBB headers instead.
+#endif
+
+#if TBB_PREVIEW_GRAPH_NODES
+#include "tbb/internal/_flow_graph_types_impl.h"
+
 namespace internal {
 
-    // Output of the or_node is a struct containing a union, and will be of
+    // Output of the or_node is a struct containing a std::tuple, and will be of
     // the form
     //
     //  struct {
     //     size_t indx;
-    //     union {
-    //         T0 result0;
-    //         T1 result1;
-    //         ...
-    //         Tn resultn;
-    //     };
+    //     tuple_types result;
     //  };
     //
     //  where the value of indx will indicate which result was put to the
-    //  successor.  indx == 0 => result0 and so on.
+    //  successor. So if oval is the output to the successor, indx == 0 
+    //  means std::get<0>(oval.result) is the output, and so on.
     //
-    //  The order of the items in the union is determined by the tuple that
-    //  defines the input port types (the same way a join_node's inputs are
-    //  defined.)  So the union ordering corresponds to the ordering of the 
-    //  input ports of the node.
+    //  tuple_types is the tuple that specified the possible outputs (and
+    //  the corresponding inputs to the or_node.)
     //
-    //  the types of each element of the union are represented by tuple_types,
-    //  a typedef in the or_node.  So the 2nd type in the union that is the
+    //  the types of each element are represented by tuple_types, a typedef
+    //  in the or_node.  So the 2nd type in the union that is the
     //  output type for an or_node OrType is
     //
     //      std::tuple_element<1,OrType::tuple_types>::type
 
-    template<int N, typename OutputTuple>
-    struct or_output_type;
-
+    // the struct has an OutputTuple default constructed, with element index assigned
+    // the actual output value.
     template<typename OutputTuple>
-    struct or_output_type<2, OutputTuple> {
+    struct or_output_type {
         typedef OutputTuple tuple_types;
         typedef struct {
             size_t indx;
-            union {
-                typename std::tuple_element<0,OutputTuple>::type result0;
-                typename std::tuple_element<1,OutputTuple>::type result1;
-            };
+            OutputTuple result;
         } type;
     };
 
-    template<typename OutputTuple>
-    struct or_output_type<3, OutputTuple> {
-        typedef struct {
-            typedef OutputTuple tuple_types;
-            size_t indx;
-            union {
-                typename std::tuple_element<0,OutputTuple>::type result0;
-                typename std::tuple_element<1,OutputTuple>::type result1;
-                typename std::tuple_element<2,OutputTuple>::type result2;
-            };
-        } type;
-    };
-
-    template<typename OutputTuple>
-    struct or_output_type<4, OutputTuple> {
-        typedef struct {
-            typedef OutputTuple tuple_types;
-            size_t indx;
-            union {
-                typename std::tuple_element<0,OutputTuple>::type result0;
-                typename std::tuple_element<1,OutputTuple>::type result1;
-                typename std::tuple_element<2,OutputTuple>::type result2;
-                typename std::tuple_element<3,OutputTuple>::type result3;
-            };
-        } type;
-    };
-
-    template<typename OutputTuple>
-    struct or_output_type<5, OutputTuple> {
-        typedef struct {
-            typedef OutputTuple tuple_types;
-            size_t indx;
-            union {
-                typename std::tuple_element<0,OutputTuple>::type result0;
-                typename std::tuple_element<1,OutputTuple>::type result1;
-                typename std::tuple_element<2,OutputTuple>::type result2;
-                typename std::tuple_element<3,OutputTuple>::type result3;
-                typename std::tuple_element<4,OutputTuple>::type result4;
-            };
-        } type;
-    };
-
-    template<typename OutputTuple>
-    struct or_output_type<6, OutputTuple> {
-        typedef struct {
-            typedef OutputTuple tuple_types;
-            size_t indx;
-            union {
-                typename std::tuple_element<0,OutputTuple>::type result0;
-                typename std::tuple_element<1,OutputTuple>::type result1;
-                typename std::tuple_element<2,OutputTuple>::type result2;
-                typename std::tuple_element<3,OutputTuple>::type result3;
-                typename std::tuple_element<4,OutputTuple>::type result4;
-                typename std::tuple_element<5,OutputTuple>::type result5;
-            };
-        } type;
-    };
-
-    template<typename OutputTuple>
-    struct or_output_type<7, OutputTuple> {
-        typedef struct {
-            typedef OutputTuple tuple_types;
-            size_t indx;
-            union {
-                typename std::tuple_element<0,OutputTuple>::type result0;
-                typename std::tuple_element<1,OutputTuple>::type result1;
-                typename std::tuple_element<2,OutputTuple>::type result2;
-                typename std::tuple_element<3,OutputTuple>::type result3;
-                typename std::tuple_element<4,OutputTuple>::type result4;
-                typename std::tuple_element<5,OutputTuple>::type result5;
-                typename std::tuple_element<6,OutputTuple>::type result6;
-            };
-        } type;
-    };
-
-    template<typename OutputTuple>
-    struct or_output_type<8, OutputTuple> {
-        typedef struct {
-            typedef OutputTuple tuple_types;
-            size_t indx;
-            union {
-                typename std::tuple_element<0,OutputTuple>::type result0;
-                typename std::tuple_element<1,OutputTuple>::type result1;
-                typename std::tuple_element<2,OutputTuple>::type result2;
-                typename std::tuple_element<3,OutputTuple>::type result3;
-                typename std::tuple_element<4,OutputTuple>::type result4;
-                typename std::tuple_element<5,OutputTuple>::type result5;
-                typename std::tuple_element<6,OutputTuple>::type result6;
-                typename std::tuple_element<7,OutputTuple>::type result7;
-            };
-        } type;
-    };
-
-    template<typename OutputTuple>
-    struct or_output_type<9, OutputTuple> {
-        typedef struct {
-            typedef OutputTuple tuple_types;
-            size_t indx;
-            union {
-                typename std::tuple_element<0,OutputTuple>::type result0;
-                typename std::tuple_element<1,OutputTuple>::type result1;
-                typename std::tuple_element<2,OutputTuple>::type result2;
-                typename std::tuple_element<3,OutputTuple>::type result3;
-                typename std::tuple_element<4,OutputTuple>::type result4;
-                typename std::tuple_element<5,OutputTuple>::type result5;
-                typename std::tuple_element<6,OutputTuple>::type result6;
-                typename std::tuple_element<7,OutputTuple>::type result7;
-                typename std::tuple_element<8,OutputTuple>::type result8;
-            };
-        } type;
-    };
-
-    template<typename OutputTuple>
-    struct or_output_type<10, OutputTuple> {
-        typedef struct {
-            typedef OutputTuple tuple_types;
-            size_t indx;
-            union {
-                typename std::tuple_element<0,OutputTuple>::type result0;
-                typename std::tuple_element<1,OutputTuple>::type result1;
-                typename std::tuple_element<2,OutputTuple>::type result2;
-                typename std::tuple_element<3,OutputTuple>::type result3;
-                typename std::tuple_element<4,OutputTuple>::type result4;
-                typename std::tuple_element<5,OutputTuple>::type result5;
-                typename std::tuple_element<6,OutputTuple>::type result6;
-                typename std::tuple_element<7,OutputTuple>::type result7;
-                typename std::tuple_element<8,OutputTuple>::type result8;
-                typename std::tuple_element<9,OutputTuple>::type result9;
-            };
-        } type;
-    };
-
-    template<typename TupleTypes, int N>
-        struct or_item_helper;
-
-    // or_item_helper takes 0-9 as its template parameter
-    template<typename TupleTypes>
-    struct or_item_helper<TupleTypes,0> {
+    template<typename TupleTypes,int N>
+    struct or_item_helper {
         template<typename OutputType>
         static inline void create_output_value(OutputType &o, void *v) {
-            o.indx = 0;
-            o.result0 = *(reinterpret_cast<typename std::tuple_element<0,TupleTypes>::type *>(v));
-        }
-    };
-
-    template<typename TupleTypes>
-    struct or_item_helper<TupleTypes,1> {
-        template<typename OutputType>
-        static inline void create_output_value(OutputType &o, void *v) {
-            o.indx = 1;
-            o.result1 = *(reinterpret_cast<typename std::tuple_element<1,TupleTypes>::type *>(v));
-        }
-    };
-
-    template<typename TupleTypes>
-    struct or_item_helper<TupleTypes,2> {
-        template<typename OutputType>
-        static inline void create_output_value(OutputType &o, void *v) {
-            o.indx = 2;
-            o.result2 = *(reinterpret_cast<typename std::tuple_element<2,TupleTypes>::type *>(v));
-        }
-    };
-
-    template<typename TupleTypes>
-    struct or_item_helper<TupleTypes,3> {
-        template<typename OutputType>
-        static inline void create_output_value(OutputType &o, void *v) {
-            o.indx = 3;
-            o.result3 = *(reinterpret_cast<typename std::tuple_element<3,TupleTypes>::type *>(v));
-        }
-    };
-
-    template<typename TupleTypes>
-    struct or_item_helper<TupleTypes,4> {
-        template<typename OutputType>
-        static inline void create_output_value(OutputType &o, void *v) {
-            o.indx = 4;
-            o.result4 = *(reinterpret_cast<typename std::tuple_element<4,TupleTypes>::type *>(v));
-        }
-    };
-
-    template<typename TupleTypes>
-    struct or_item_helper<TupleTypes,5> {
-        template<typename OutputType>
-        static inline void create_output_value(OutputType &o, void *v) {
-            o.indx = 5;
-            o.result5 = *(reinterpret_cast<typename std::tuple_element<5,TupleTypes>::type *>(v));
-        }
-    };
-
-    template<typename TupleTypes>
-    struct or_item_helper<TupleTypes,6> {
-        template<typename OutputType>
-        static inline void create_output_value(OutputType &o, void *v) {
-            o.indx = 6;
-            o.result6 = *(reinterpret_cast<typename std::tuple_element<6,TupleTypes>::type *>(v));
-        }
-    };
-
-    template<typename TupleTypes>
-    struct or_item_helper<TupleTypes,7> {
-        template<typename OutputType>
-        static inline void create_output_value(OutputType &o, void *v) {
-            o.indx = 7;
-            o.result7 = *(reinterpret_cast<typename std::tuple_element<7,TupleTypes>::type *>(v));
-        }
-    };
-
-    template<typename TupleTypes>
-    struct or_item_helper<TupleTypes,8> {
-        template<typename OutputType>
-        static inline void create_output_value(OutputType &o, void *v) {
-            o.indx = 8;
-            o.result8 = *(reinterpret_cast<typename std::tuple_element<8,TupleTypes>::type *>(v));
-        }
-    };
-
-    template<typename TupleTypes>
-    struct or_item_helper<TupleTypes,9> {
-        template<typename OutputType>
-        static inline void create_output_value(OutputType &o, void *v) {
-            o.indx = 9;
-            o.result9 = *(reinterpret_cast<typename std::tuple_element<9,TupleTypes>::type *>(v));
+            o.indx = N;
+            std::get<N>(o.result) = *(reinterpret_cast<typename std::tuple_element<N, TupleTypes>::type *>(v));
         }
     };
 
@@ -345,117 +125,6 @@ namespace internal {
         bool try_put(const T &v) {
             return my_or_node->try_put_with_index(my_index, reinterpret_cast<void *>(const_cast<T*>(&v)));
         }
-    };
-
-    template<size_t N, typename OutputTuple>
-    struct or_input_type;
-
-    template<typename OutputTuple>
-    struct or_input_type<2,OutputTuple> {
-        typedef typename std::tuple<
-            or_input_port<typename std::tuple_element<0,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<1,OutputTuple>::type>
-        > type;
-    };
-
-    template<typename OutputTuple>
-    struct or_input_type<3,OutputTuple> {
-        typedef typename std::tuple<
-            or_input_port<typename std::tuple_element<0,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<1,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<2,OutputTuple>::type>
-        > type;
-    };
-
-    template<typename OutputTuple>
-    struct or_input_type<4,OutputTuple> {
-        typedef typename std::tuple<
-            or_input_port<typename std::tuple_element<0,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<1,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<2,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<3,OutputTuple>::type>
-        > type;
-    };
-
-    template<typename OutputTuple>
-    struct or_input_type<5,OutputTuple> {
-        typedef typename std::tuple<
-            or_input_port<typename std::tuple_element<0,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<1,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<2,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<3,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<4,OutputTuple>::type>
-        > type;
-    };
-
-    template<typename OutputTuple>
-    struct or_input_type<6,OutputTuple> {
-        typedef typename std::tuple<
-            or_input_port<typename std::tuple_element<0,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<1,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<2,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<3,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<4,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<5,OutputTuple>::type>
-        > type;
-    };
-
-    template<typename OutputTuple>
-    struct or_input_type<7,OutputTuple> {
-        typedef typename std::tuple<
-            or_input_port<typename std::tuple_element<0,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<1,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<2,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<3,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<4,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<5,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<6,OutputTuple>::type>
-        > type;
-    };
-
-    template<typename OutputTuple>
-    struct or_input_type<8,OutputTuple> {
-        typedef typename std::tuple<
-            or_input_port<typename std::tuple_element<0,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<1,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<2,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<3,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<4,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<5,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<6,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<7,OutputTuple>::type>
-        > type;
-    };
-
-    template<typename OutputTuple>
-    struct or_input_type<9,OutputTuple> {
-        typedef typename std::tuple<
-            or_input_port<typename std::tuple_element<0,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<1,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<2,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<3,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<4,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<5,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<6,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<7,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<8,OutputTuple>::type>
-        > type;
-    };
-
-    template<typename OutputTuple>
-    struct or_input_type<10,OutputTuple> {
-        typedef typename std::tuple<
-            or_input_port<typename std::tuple_element<0,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<1,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<2,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<3,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<4,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<5,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<6,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<7,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<8,OutputTuple>::type>,
-            or_input_port<typename std::tuple_element<9,OutputTuple>::type>
-        > type;
     };
 
     template<typename InputTuple, typename OutputType, typename StructTypes>
@@ -530,10 +199,8 @@ namespace internal {
                 case try__put:
                     output_type oval;
                     or_helper<tuple_types,N>::create_output(oval,current->indx,current->my_arg);
-                    if(my_successors.try_put(oval)) {
-                            __TBB_store_with_release(current->status, SUCCEEDED);
-                    }
-                    else __TBB_store_with_release(current->status, FAILED);
+                    bool res = my_successors.try_put(oval);
+                    __TBB_store_with_release(current->status, res ? SUCCEEDED : FAILED);
                     break;
                 }
             }
@@ -576,22 +243,15 @@ namespace internal {
     template<typename OutputTuple>
     struct or_types {
         static const int N = std::tuple_size<OutputTuple>::value;
-        typedef typename or_input_type<N,OutputTuple>::type input_ports_tuple_type;
-        typedef typename or_output_type<N, OutputTuple>::type output_type;
+        typedef typename wrap_tuple_elements<N,or_input_port,OutputTuple>::type input_ports_tuple_type;
+        typedef typename or_output_type<OutputTuple>::type output_type;
         typedef internal::or_node_FE<input_ports_tuple_type,output_type,OutputTuple> or_FE_type;
         typedef internal::or_node_base<input_ports_tuple_type, output_type, OutputTuple> or_base_type;
     };
 
-    //! unfolded_or_node : passes input_ports_tuple_type to or_node_base.  We build the input port type
-    //  using tuple_element.  The class PT is the port type (reserving_port, queueing_port, tag_matching_port)
-    //  and should match the graph_buffer_policy.
-    template<typename OutputTuple>
-    class unfolded_or_node;
-
     template<class OutputTuple>
     class unfolded_or_node : public or_types<OutputTuple>::or_base_type {
     public:
-        // static const int N = std::tuple_size<OutputTuple>::value;
         typedef typename or_types<OutputTuple>::input_ports_tuple_type input_ports_tuple_type;
         typedef OutputTuple tuple_types;
         typedef typename or_types<OutputTuple>::output_type output_type;
@@ -603,5 +263,6 @@ namespace internal {
 
 
 } /* namespace internal */
+#endif  // TBB_PREVIEW_GRAPH_NODES
 
 #endif  /* __TBB__flow_graph_or_impl_H */

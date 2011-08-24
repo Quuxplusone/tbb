@@ -59,6 +59,7 @@
 #include "../tbb/spin_rw_mutex.cpp"
 #include "../tbb/spin_mutex.cpp"
 #include "../tbb/private_server.cpp"
+#include "../tbb/semaphore.cpp"
 #include "../rml/client/rml_tbb.cpp"
 
 #endif /* harness_inject_scheduler_H */

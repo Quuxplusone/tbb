@@ -38,128 +38,87 @@
 #include <cstring>
 #include <algorithm>
 #include <functional>
-#include <assert.h>
+#include <cassert>
+#include <climits>
 #include "tbb/tick_count.h"
+#include "tbb/task_scheduler_init.h"
+#include "../../common/utility/utility.h"
+#include "../../common/utility/fast_random.h"
+#include "tbb/blocked_range.h"
 
 using namespace std;
 
 namespace cfg {
-    // convex hull problem parameter defaults
-    const long    NP  = 5000000;  // problem size
-    const int     SNT = 1;        // minimal number of threads
-    const int     ENT = 8;        // maximal number of threads
-
     // convex hull problem user set parameters
-    long   MAXPOINTS         = NP;
-    int    NUM_THREADS_START = SNT;
-    int    NUM_THREADS_END   = ENT;
+    long   numberOfPoints  = 5000000; // problem size
+    utility::thread_number_range threads(tbb::task_scheduler_init::default_num_threads);
 
     // convex hull grain sizes for 3 subproblems. Be sure 16*GS < 512Kb
-    const size_t GENERATE_GS = 25000;
-    const size_t FINDEXT_GS  = 25000;
-    const size_t DIVIDE_GS   = 25000;
+    const size_t generateGrainSize = 25000;
+    const size_t findExtremumGrainSize  = 25000;
+    const size_t divideGrainSize   = 25000;
 };
 
 namespace util {
-    bool                     VERBOSE = false;
+    bool                     silent = false;
+    bool                     verbose = false;
     vector<string> OUTPUT;
 
     // utility functionality
     void ParseInputArgs(int argc, char* argv[]) {
-        int numArgs = 1;
-        if(argc>numArgs) {
-            char delim = ':';
-            if(!strcmp(argv[numArgs], "-h")) {
-                cout << " Program usage is:" << endl
-                    << " " << argv[0] << " [NP] [SNT" << delim << "ENT] [-v]"
-                    << endl << endl
-                    << " where:" << endl
-                    << " NP  - number of points" << endl
-                    << " SNT - start with this number of threads" << endl
-                    << " ENT - end with this number of threads" << endl
-                    << "  -v - turns verbose ON" << endl;
-                exit(0);
-            } else {
-                while(argc>numArgs) {
-                    char* endptr;
-                    if(!strcmp(argv[numArgs], "-v")) {
-                        VERBOSE = true;
-                    } else if(!strchr(argv[numArgs], delim)) {
-                        cfg::MAXPOINTS = strtol(argv[numArgs], &endptr, 0);
-                        if(*endptr!='\0') {
-                            cout << " wrong parameter format for Number of Points" << endl;
-                            exit(1);
-                        }
-                        if(cfg::MAXPOINTS<=0) {
-                            cout
-                                << "  wrong value set for Number of Points" << endl
-                                << "  using default value: " << endl
-                                << "  Number of Points = " << cfg::NP << endl;
-                            cfg::MAXPOINTS = cfg::NP;
-                        }
-                    } else {
-                        cfg::NUM_THREADS_START=(int)strtol(argv[numArgs], &endptr, 0);
-                        if(*endptr==delim) {
-                            cfg::NUM_THREADS_END = (int)strtol(endptr+1, &endptr, 0);
-                        } else {
-                            cout << " wrong parameter format for Number of Threads" << endl;
-                            exit(1);
-                        }
-                        if(*endptr!='\0') {
-                            cout << " wrong parameter format for Number of Threads" << endl;
-                            exit(1);
-                        }    
-                        if((cfg::NUM_THREADS_START<=0)
-                            || (cfg::NUM_THREADS_END<cfg::NUM_THREADS_START)) {
-                                cout
-                                    << "  wrong values set for Number of Threads" << endl
-                                    << "  using default values: " << endl
-                                    << "  start NT = " << cfg::SNT << endl
-                                    << "  end   NT = " << cfg::ENT << endl;
-                                cfg::NUM_THREADS_START=cfg::SNT;
-                                cfg::NUM_THREADS_END  =cfg::ENT;
-                        }
-                    }
-                    ++numArgs;
-                }
-            }
-        }
+        utility::parse_cli_arguments(
+                argc,argv,
+                utility::cli_argument_pack()
+                    //"-h" option for for displaying help is present implicitly
+                    .positional_arg(cfg::threads,"n-of-threads","number of threads to run on; a non-negative integer, or 'auto' to use HW number of threads, or range of the form low:high")
+                    .positional_arg(cfg::numberOfPoints,"n-of-points","number of points")
+                    .arg(silent,"silent","no output except elapsed time")
+                    .arg(verbose,"verbose","turns verbose ON")
+        );
+        //disabling verbose if silent is specified
+        if (silent) verbose = false;;
     }
 
     template <typename T>
     struct point {
         T x;
         T y;
-        point() : x(T()), y(T()) {}
+        //According to subparagraph 4 of paragraph 12.6.2 "Initializing bases and members" [class.base.init]
+        //of ANSI-ISO-IEC C++ 2003 standard, POD members will _not_ be initialized if they are not mentioned
+        //in the base-member initializer list.
+
+        //For more details why this needed please see comment in FillRNDPointsVector_buf
+        point() {}
         point(T _x, T _y) : x(_x), y(_y) {}
-        //why do we need below line? it fails to compile with suncc
-        //point(const point<T>& _P) : x(_P.x), y(_P.y) {} 
     };
 
-    int random(unsigned int& rseed) {
-#if __linux__ || __APPLE__ || __FreeBSD__ || __NetBSD__
-            return rand_r(&rseed);
-#elif _WIN32 || __sun
-            return rand();
-#else
-#error Unknown/unsupported OS?
-#endif // OS selection
+    std::ostream& operator<< (std::ostream& o, point<double> const& p) {
+        return o << "(" << p.x << "," << p.y << ")";
     }
 
-    template < typename T >
-    point<T> GenerateRNDPoint(size_t& count, unsigned int& rseed) {
+    struct rng {
+        static const size_t max_rand = USHRT_MAX;
+        utility::FastRandom my_fast_random;
+        rng (size_t seed):my_fast_random(seed) {}
+        unsigned short operator()(){return my_fast_random.get();}
+        unsigned short operator()(size_t& seed){return my_fast_random.get(seed);}
+    };
+
+
+    template < typename T ,typename rng_functor_type>
+    point<T> GenerateRNDPoint(size_t& count, rng_functor_type random, size_t rand_max) {
         /* generates random points on 2D plane so that the cluster
         is somewhat circle shaped */
         const size_t maxsize=500;
-        T x = random(rseed)*2.0/(double)RAND_MAX - 1;
-        T y = random(rseed)*2.0/(double)RAND_MAX - 1;
+        T x = random()*2.0/(double)rand_max - 1;
+        T y = random()*2.0/(double)rand_max - 1;
         T r = (x*x + y*y);
         if(r>1) {
             count++;
             if(count>10) {
-                if (random(rseed)/(double)RAND_MAX > 0.5)
+                if (random()/(double)rand_max > 0.5)
                     x /= r;
-                if (random(rseed)/(double)RAND_MAX > 0.5)
+                if (random()/(double)rand_max > 0.5)
                     y /= r;
                 count = 0;
             }
@@ -219,18 +178,19 @@ namespace util {
     }
 
     void WriteResults(int nthreads, double initTime, double calcTime) {
-        if(VERBOSE) {
+        if(verbose) {
             cout << " Step by step hull construction:" << endl;
             for(size_t i = 0; i < OUTPUT.size(); ++i)
                 cout << OUTPUT[i] << endl;
         }
-
-        cout
-            << "  Number of nodes:" << cfg::MAXPOINTS
-            << "  Number of threads:" << nthreads 
-            << "  Initialization time:" << setw(10) << setprecision(3) << initTime 
-            << "  Calculation time:" << setw(10) << setprecision(3) << calcTime
-            << endl;
+        if (!silent){
+            cout
+                << "  Number of nodes:" << cfg::numberOfPoints
+                << "  Number of threads:" << nthreads
+                << "  Initialization time:" << setw(10) << setprecision(3) << initTime
+                << "  Calculation time:" << setw(10) << setprecision(3) << calcTime
+                << endl;
+        }
     }
 };
 

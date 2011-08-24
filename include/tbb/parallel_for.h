@@ -29,14 +29,15 @@
 #ifndef __TBB_parallel_for_H
 #define __TBB_parallel_for_H
 
+#include <new>
 #include "task.h"
 #include "partitioner.h"
 #include "blocked_range.h"
-#include <new>
 #include "tbb_exception.h"
 
 namespace tbb {
 
+namespace interface6 {
 //! @cond INTERNAL
 namespace internal {
 
@@ -46,9 +47,10 @@ namespace internal {
     class start_for: public task {
         Range my_range;
         const Body my_body;
-        typename Partitioner::partition_type my_partition;
+        typename Partitioner::task_partition_type my_partition;
         /*override*/ task* execute();
 
+    public:
         //! Constructor for root task.
         start_for( const Range& range, const Body& body, Partitioner& partitioner ) :
             my_range(range),    
@@ -57,19 +59,28 @@ namespace internal {
         {
         }
         //! Splitting constructor used to generate children.
-        /** this becomes left child.  Newly constructed object is right child. */
+        /** parent_ becomes left child.  Newly constructed object is right child. */
         start_for( start_for& parent_, split ) :
-            my_range(parent_.my_range,split()),    
+            my_range(parent_.my_range,split()),
+            my_body(parent_.my_body),
+            my_partition(parent_.my_partition, split())
+        {
+            my_partition.set_affinity(*this);
+        }
+        //! Construct right child from the given range as response to the demand.
+        /** parent_ remains left child.  Newly constructed object is right child. */
+        start_for( start_for& parent_, const Range& r, depth_t d ) :
+            my_range(r),
             my_body(parent_.my_body),
             my_partition(parent_.my_partition,split())
         {
             my_partition.set_affinity(*this);
+            my_partition.align_depth( d );
         }
         //! Update affinity info, if any.
         /*override*/ void note_affinity( affinity_id id ) {
             my_partition.note_affinity( id );
         }
-    public:
         static void run(  const Range& range, const Body& body, const Partitioner& partitioner ) {
             if( !range.empty() ) {
 #if !__TBB_TASK_GROUP_CONTEXT || TBB_JOIN_OUTER_TASK_GROUP
@@ -91,26 +102,45 @@ namespace internal {
             }
         }
 #endif /* __TBB_TASK_GROUP_CONTEXT */
+        //! create a continuation task, serve as callback for partitioner
+        flag_task *create_continuation() {
+            return new( allocate_continuation() ) flag_task();
+        }
+        //! Run body for range
+        void run_body( Range &r ) { my_body( r ); }
     };
 
     template<typename Range, typename Body, typename Partitioner>
     task* start_for<Range,Body,Partitioner>::execute() {
-        if( !my_range.is_divisible() || my_partition.should_execute_range(*this) ) {
-            my_body( my_range );
-            return my_partition.continue_after_execute_range(); 
-        } else {
-            empty_task& c = *new( this->allocate_continuation() ) empty_task;
-            recycle_as_child_of(c);
-            c.set_ref_count(2);
-            bool delay = my_partition.decide_whether_to_delay();
-            start_for& b = *new( c.allocate_child() ) start_for(*this,split());
-            my_partition.spawn_or_delay(delay,b);
-            return this;
-        }
+        my_partition.check_being_stolen( *this );
+        my_partition.execute(*this, my_range);
+        return NULL;
     } 
 } // namespace internal
 //! @endcond
+} // namespace interfaceX
 
+//! @cond INTERNAL
+namespace internal {
+    using interface6::internal::start_for;
+    
+    //! Calls the function with values from range [begin, end) with a step provided
+    template<typename Function, typename Index>
+    class parallel_for_body : internal::no_assign {
+        const Function &my_func;
+        const Index my_begin;
+        const Index my_step; 
+    public:
+        parallel_for_body( const Function& _func, Index& _begin, Index& _step) 
+            : my_func(_func), my_begin(_begin), my_step(_step) {}
+        
+        void operator()( tbb::blocked_range<Index>& r ) const {
+            for( Index i = r.begin(),  k = my_begin + i * my_step; i < r.end(); i++, k = k + my_step)
+                my_func( k );
+        }
+    };
+} // namespace internal
+//! @endcond
 
 // Requirements on Range concept are documented in blocked_range.h
 
@@ -177,26 +207,6 @@ void parallel_for( const Range& range, const Body& body, affinity_partitioner& p
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 //@}
 
-//! @cond INTERNAL
-namespace internal {
-    //! Calls the function with values from range [begin, end) with a step provided
-template<typename Function, typename Index>
-class parallel_for_body : internal::no_assign {
-    const Function &my_func;
-    const Index my_begin;
-    const Index my_step; 
-public:
-    parallel_for_body( const Function& _func, Index& _begin, Index& _step) 
-        : my_func(_func), my_begin(_begin), my_step(_step) {}
-    
-    void operator()( tbb::blocked_range<Index>& r ) const {
-        for( Index i = r.begin(),  k = my_begin + i * my_step; i < r.end(); i++, k = k + my_step)
-            my_func( k );
-    }
-};
-} // namespace internal
-//! @endcond
-
 namespace strict_ppl {
 
 //@{
@@ -246,6 +256,12 @@ void parallel_for(Index first, Index last, const Function& f, tbb::task_group_co
 using strict_ppl::parallel_for;
 
 } // namespace tbb
+
+#if TBB_PREVIEW_SERIAL_SUBSET
+#define __TBB_NORMAL_EXECUTION
+#include "../serial/tbb/parallel_for.h"
+#undef __TBB_NORMAL_EXECUTION
+#endif
 
 #endif /* __TBB_parallel_for_H */
 

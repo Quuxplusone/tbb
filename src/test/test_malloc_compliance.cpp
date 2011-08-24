@@ -26,7 +26,7 @@
     the GNU General Public License.
 */
 
-const int MByte = 1048576; //1MB
+const unsigned MByte = 1048576; //1MB
 bool __tbb_test_errno = false;
 
 /* _WIN32_WINNT should be defined at the very beginning, 
@@ -44,13 +44,13 @@ bool __tbb_test_errno = false;
     #pragma comment(lib, "version.lib")  // to use GetFileVersionInfo*
 #endif
 
-void limitMem( int limit )
+void limitMem( size_t limit )
 {
     static HANDLE hJob = NULL;
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION jobInfo;
 
     jobInfo.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_PROCESS_MEMORY;
-    jobInfo.ProcessMemoryLimit = limit? limit*MByte : 2*1024LL*MByte;
+    jobInfo.ProcessMemoryLimit = limit? limit*MByte : 2*MByte*1024;
     if (NULL == hJob) {
         if (NULL == (hJob = CreateJobObject(NULL, NULL))) {
             REPORT("Can't assign create job object: %ld\n", GetLastError());
@@ -76,7 +76,7 @@ void limitMem( int limit )
 #include <sys/types.h>  // uint64_t on FreeBSD, needed for rlim_t
 #include "harness_report.h"
 
-void limitMem( int limit )
+void limitMem( size_t limit )
 {
     rlimit rlim;
     rlim.rlim_cur = limit? limit*MByte : (rlim_t)RLIM_INFINITY;
@@ -212,9 +212,9 @@ public:
 };
 
 class Limit {
-    int limit;
+    size_t limit;
 public:
-    Limit(int limit) : limit(limit) {}
+    Limit(size_t limit) : limit(limit) {}
     void operator() () const {
         limitMem(limit);
     }

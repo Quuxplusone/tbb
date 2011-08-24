@@ -28,7 +28,7 @@
 # Define rules for making the TBB shared library.
 #------------------------------------------------------------------------------
 
-tbb_root ?= "$(TBB30_INSTALL_DIR)"
+tbb_root ?= "$(TBBROOT)"
 BUILDING_PHASE=1
 include $(tbb_root)/build/common.inc
 DEBUG_SUFFIX=$(findstring _debug,_$(cfg))
@@ -73,6 +73,7 @@ TBB_CPLUS.OBJ = concurrent_hash_map.$(OBJ) \
 		condition_variable.$(OBJ) \
 		tbb_thread.$(OBJ) \
 		concurrent_monitor.$(OBJ) \
+		semaphore.$(OBJ) \
 		private_server.$(OBJ) \
 		rml_tbb.$(OBJ) \
 		task_group_context.$(OBJ) \

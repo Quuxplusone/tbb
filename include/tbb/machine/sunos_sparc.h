@@ -28,7 +28,7 @@
 
 
 #if !defined(__TBB_machine_H) || defined(__TBB_machine_sunos_sparc_H)
-#error Do not include this file directly; include tbb_machine.h instead
+#error Do not #include this internal file directly; use public TBB headers instead.
 #endif
 
 #define __TBB_machine_sunos_sparc_H

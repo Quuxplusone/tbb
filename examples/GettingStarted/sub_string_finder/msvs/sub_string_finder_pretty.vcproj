@@ -43,7 +43,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(TBB30_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="&quot;$(TBBROOT)\include&quot;;&quot;$(SolutionDir)\..\..\..\..\include&quot;;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;TBB_USE_DEBUG"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
@@ -63,7 +63,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb_debug.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\ia32\vc_mt;$(TBB30_INSTALL_DIR)\lib\ia32\vc8"
+				AdditionalLibraryDirectories="$(TBBROOT)\lib\ia32\vc_mt;$(TBBROOT)\lib\ia32\vc8;$(SolutionDir)\..\..\..\..\lib\ia32\vc_mt;$(SolutionDir)\..\..\..\..\lib\ia32\vc8"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				TargetMachine="1"
@@ -93,7 +93,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying DLLs and PDBs"
-				CommandLine="call &quot;$(TBB30_INSTALL_DIR)\examples\common\copy_libraries.bat&quot;  ia32 debug &quot;$(OutDir)&quot;"
+				CommandLine="call &quot;$(SolutionDir)\..\..\..\common\copy_libraries.bat&quot;  ia32 debug &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -122,7 +122,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="$(TBB30_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="&quot;$(TBBROOT)\include&quot;;&quot;$(SolutionDir)\..\..\..\..\include&quot;;"
 				PreprocessorDefinitions="WIN64;_DEBUG;_CONSOLE;TBB_USE_DEBUG"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
@@ -141,7 +141,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb_debug.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\intel64\vc_mt;$(TBB30_INSTALL_DIR)\lib\intel64\vc8"
+				AdditionalLibraryDirectories="$(TBBROOT)\lib\intel64\vc_mt;$(TBBROOT)\lib\intel64\vc8;$(SolutionDir)\..\..\..\..\lib\intel64\vc_mt;$(SolutionDir)\..\..\..\..\lib\intel64\vc8"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				TargetMachine="17"
@@ -171,7 +171,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying DLLs and PDBs"
-				CommandLine="call &quot;$(TBB30_INSTALL_DIR)\examples\common\copy_libraries.bat&quot;  intel64 debug &quot;$(OutDir)&quot;"
+				CommandLine="call &quot;$(SolutionDir)\..\..\..\common\copy_libraries.bat&quot;  intel64 debug &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -198,7 +198,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="$(TBB30_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="&quot;$(TBBROOT)\include&quot;;&quot;$(SolutionDir)\..\..\..\..\include&quot;;"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
@@ -218,7 +218,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\ia32\vc_mt;$(TBB30_INSTALL_DIR)\lib\ia32\vc8"
+				AdditionalLibraryDirectories="$(TBBROOT)\lib\ia32\vc_mt;$(TBBROOT)\lib\ia32\vc8;$(SolutionDir)\..\..\..\..\lib\ia32\vc_mt;$(SolutionDir)\..\..\..\..\lib\ia32\vc8"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"
@@ -250,7 +250,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying DLLs and PDBs"
-				CommandLine="call &quot;$(TBB30_INSTALL_DIR)\examples\common\copy_libraries.bat&quot;  ia32 release &quot;$(OutDir)&quot;"
+				CommandLine="call &quot;$(SolutionDir)\..\..\..\common\copy_libraries.bat&quot;  ia32 release &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 		<Configuration
@@ -278,7 +278,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="$(TBB30_INSTALL_DIR)\include"
+				AdditionalIncludeDirectories="&quot;$(TBBROOT)\include&quot;;&quot;$(SolutionDir)\..\..\..\..\include&quot;;"
 				PreprocessorDefinitions="WIN64;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
@@ -297,7 +297,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="tbb.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="$(TBB30_INSTALL_DIR)\lib\intel64\vc_mt;$(TBB30_INSTALL_DIR)\lib\intel64\vc8"
+				AdditionalLibraryDirectories="$(TBBROOT)\lib\intel64\vc_mt;$(TBBROOT)\lib\intel64\vc8;$(SolutionDir)\..\..\..\..\lib\intel64\vc_mt;$(SolutionDir)\..\..\..\..\lib\intel64\vc8"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"
@@ -329,7 +329,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Copying DLLs and PDBs"
-				CommandLine="call &quot;$(TBB30_INSTALL_DIR)\examples\common\copy_libraries.bat&quot;  intel64 release &quot;$(OutDir)&quot;"
+				CommandLine="call &quot;$(SolutionDir)\..\..\..\common\copy_libraries.bat&quot;  intel64 release &quot;$(OutDir)&quot;"
 			/>
 		</Configuration>
 	</Configurations>

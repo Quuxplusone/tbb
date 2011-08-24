@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------
 Intel(R) Threading Building Blocks - Release Notes
-		  Version 3.0
+		  Version 4.0
 ------------------------------------------------------------------------
 
 
@@ -8,7 +8,7 @@ System Requirements
 -------------------
 
 Intel(R) Threading Building Blocks (Intel(R) TBB) is available
-commercially (see http://www.intel.com/software/products/threading) as a
+commercially (see http://software.intel.com/en-us/intel-tbb) as a
 binary distribution, and in open source, in both source and binary
 forms (see http://threadingbuildingblocks.org).
 
@@ -27,68 +27,60 @@ Hardware - Recommended
 	    or higher
     Linux* Systems
 	Intel(R) Core(TM) 2 Duo processor or Intel(R) Xeon(R) processor
-	    or Intel(R) Itanium(R) processor or higher
+	    or higher
     Mac OS* X Systems
 	Intel(R) Core(TM) 2 Duo processor or higher
 
 Hardware - Supported
 
     Intel(R) Pentium(R) 4 processor family and higher
-    Intel(R) Itanium(R) processor family (Linux* systems only)
     Non Intel(R) processors compatible with the above processors
 
 Software - Minimum Requirements
 
     Supported operating system (see below)
     Supported compiler (see below)
-    Xcode* tool suite 3.1.4 or higher (Mac OS* X systems only)
-    Microsoft* Internet Explorer* 8.0, or other compatible web browser
-    Adobe(R) Reader(R)* 6.0 or higher
+    Adobe(R) Reader(R)* 7.0 or higher
 
 Software - Recommended
 
-    Intel(R) Parallel Studio
-    Intel(R) C++ Compiler 11.1 or higher
-    Intel(R) Thread Checker 3.1 or higher
-    Intel(R) Thread Profiler 3.1 or higher
+    Intel(R) Parallel Studio XE 2011 and higher
+    Intel(R) Parallel Studio 2011 and higher
 
 Software - Supported Operating Systems
 
     Microsoft* Windows* Systems
-	Microsoft* Windows* XP Professional
-	Microsoft* Windows* Server 2003
-	Microsoft* Windows* Vista
-	Microsoft* Windows* Server 2008
 	Microsoft* Windows* 7
+	Microsoft* Windows* Server 2008
+	Microsoft* Windows* Vista
+	Microsoft* Windows* XP Professional
+	Microsoft* Windows* Server 2003 (deprecated)
     Linux* Systems
-	Red Hat* Enterprise Linux* 5, 6, 4 (deprecated)
-	    (when using Red Hat* Enterprise Linux* 4 with Intel(R)
-	    Itanium(R) processors, operating system Update 2 or higher
-	    is recommended)
-	Fedora* 12, 13
-	    (not with Intel(R) Itanium(R) processors)
-	Asianux* 3.0
-	Debian* GNU/Linux* 5.0
-	Ubuntu* 10.04
-	SuSE* Linux* Enterprise Server (SLES) 10, 11
+	Red Hat* Enterprise Linux* 6, 5, 4 (deprecated)
+	Fedora* 15
+	Asianux* 4.0, 3.0
+	Debian* GNU/Linux* 6.0
+	Ubuntu* 11.04, 10.04 LTS
+	SuSE* Linux* Enterprise Server 10, 11SP1
     Mac OS* X Systems
-	Mac OS* X 10.5.8 or higher
+	Mac OS* X 10.6.7 or higher
 
 Software - Supported Compilers
 
-    Microsoft* Visual C++ 8.0 (Microsoft* Visual Studio* 2005,
+    Intel(R) C++ Composer XE 2011 and higher
+    Intel(R) C++ Compiler 11.1
+    Microsoft* Visual C++ 10.0 (Microsoft* Visual Studio* 2010,
 	Windows* systems only)
     Microsoft* Visual C++ 9.0 (Microsoft* Visual Studio* 2008,
 	Windows* systems only)
-    Microsoft* Visual C++ 10.0 (Microsoft* Visual Studio* 2010,
-	Windows* systems only)
-    Intel(R) C++ Compiler 11.1 or higher
+    Microsoft* Visual C++ 8.0 (Microsoft* Visual Studio* 2005,
+	Windows* systems only, deprecated)
     For each supported Linux* operating system, the standard gcc
 	version provided with that operating system is supported,
-	including gcc 3.4 through 4.5
+	including gcc 3.4 through 4.6
     For each supported Mac OS* X operating system, the standard gcc
 	version provided with that operating system is supported,
-	including: 4.0.1 or higher (Xcode* tool suite 3.1.4 or higher)
+	including: 4.0.1 or higher (Xcode* tool suite 3.2.5 or higher)
 
 
 Known Issues
@@ -128,8 +120,7 @@ Library Issues
 ------------------------------------------------------------------------
 Copyright (C) 2005-2011 Intel Corporation.  All Rights Reserved.
 
-Intel, Pentium, Intel Xeon, Itanium, Intel XScale and VTune are
-registered trademarks or trademarks of Intel Corporation or its
-subsidiaries in the United States and other countries.
+Intel, Xeon and Pentium are registered trademarks or trademarks of
+Intel Corporation or its subsidiaries in the United States and other countries.
 
 * Other names and brands may be claimed as the property of others.

@@ -28,7 +28,6 @@
 
 // TO DO: Add overlapping put / receive tests
 
-#define TBB_PREVIEW_GRAPH 1
 #include "tbb/flow_graph.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tick_count.h"

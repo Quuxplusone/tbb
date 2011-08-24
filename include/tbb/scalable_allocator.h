@@ -31,6 +31,9 @@
 /** @file */
 
 #include <stddef.h> /* Need ptrdiff_t and size_t from here. */
+#if !_MSC_VER
+#include <stdint.h> /* Need intptr_t from here. */
+#endif
 
 #if !defined(__cplusplus) && __ICC==1100
     #pragma warning (push)
@@ -90,6 +93,29 @@ size_t __TBB_EXPORTED_FUNC scalable_msize (void* ptr);
 #endif /* __cplusplus */
 
 #ifdef __cplusplus
+
+namespace rml {
+class MemoryPool;
+
+#define MEM_POLICY_DEFINED 1
+typedef void *(*rawAllocType)(intptr_t pool_id, size_t &bytes);
+typedef int   (*rawFreeType)(intptr_t pool_id, void* raw_ptr, size_t raw_bytes);
+
+struct MemPoolPolicy {
+    rawAllocType pAlloc;
+    rawFreeType  pFree;
+    size_t       granularity;   // granularity of pAlloc allocations
+    void        *pReserved;     // reserved for future extensions
+    size_t       szReserved;    // size of pReserved data
+};
+
+MemoryPool *pool_create(intptr_t pool_id, const MemPoolPolicy* memPoolPolicy);
+bool  pool_destroy(MemoryPool* memPool);
+void *pool_malloc(MemoryPool* memPool, size_t size);
+void *pool_realloc(MemoryPool* memPool, void *object, size_t size);
+bool  pool_reset(MemoryPool* memPool);
+bool  pool_free(MemoryPool *memPool, void *object);
+}
 
 #include <new>      /* To use new with the placement argument */
 

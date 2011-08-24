@@ -26,12 +26,8 @@
     the GNU General Public License.
 */
 
-#ifndef __TBB_graph_H
-#define __TBB_graph_H
-
-#if !TBB_PREVIEW_GRAPH
-#error Set TBB_PREVIEW_GRAPH to include graph.h
-#endif
+#ifndef __TBB_flow_graph_H
+#define __TBB_flow_graph_H
 
 #include "tbb_stddef.h"
 #include "atomic.h"
@@ -343,9 +339,7 @@ public:
         
     //! Copy constructor
     source_node( const source_node& src ) :
-#if ( __TBB_GCC_VERSION < 40202 )
         graph_node(), sender<Output>(),
-#endif
         my_root_task( src.my_root_task), my_active(src.init_my_active),
         init_my_active(src.init_my_active), my_body( src.my_body->clone() ),
         my_reserved(false), my_has_cached_item(false)
@@ -479,31 +473,22 @@ public:
     typedef Output output_type;
     typedef sender< input_type > predecessor_type;
     typedef receiver< output_type > successor_type;
+    typedef internal::function_output<output_type> fOutput_type;
         
     //! Constructor
     template< typename Body >
     function_node( graph &g, size_t concurrency, Body body )
     : internal::function_input<input_type,output_type,Allocator>( g, concurrency, body ) {
-        my_successors.set_owner(this);
     }
 
     //! Copy constructor
     function_node( const function_node& src ) : 
-#if ( __TBB_GCC_VERSION < 40202 )
-        graph_node(), 
-#endif
-        internal::function_input<input_type,output_type,Allocator>( src )
-#if ( __TBB_GCC_VERSION < 40202 )
-        , internal::function_output<Output>()
-#endif
-    {
-        my_successors.set_owner(this);
-    }
+        graph_node(), internal::function_input<input_type,output_type,Allocator>( src ),
+        fOutput_type() {}
         
 protected:
 
-    internal::broadcast_cache<output_type> my_successors; 
-    /* override */ internal::broadcast_cache<output_type> &successors () { return my_successors; }
+    /* override */ internal::broadcast_cache<output_type> &successors () { return fOutput_type::my_successors; }
         
 };
 
@@ -516,34 +501,103 @@ public:
     typedef Output output_type;
     typedef sender< input_type > predecessor_type;
     typedef receiver< output_type > successor_type;
+    typedef internal::function_input<input_type,output_type,Allocator> fInput_type;
+    typedef internal::function_input_queue<input_type, Allocator> queue_type;
+    typedef internal::function_output<output_type> fOutput_type;
         
     //! Constructor
     template< typename Body >
-    function_node( graph &g, size_t concurrency, Body body )
-    : internal::function_input< input_type, output_type, Allocator >( g, concurrency, body, new internal::function_input_queue< input_type, Allocator >() ) {
-        my_successors.set_owner(this);
+    function_node( graph &g, size_t concurrency, Body body ) : fInput_type( g, concurrency, body, new queue_type() ) {
     }
 
     //! Copy constructor
     function_node( const function_node& src ) : 
-#if ( __TBB_GCC_VERSION < 40202 )
-        graph_node(), 
-#endif
-        internal::function_input<input_type,output_type,Allocator>( src, new internal::function_input_queue< input_type, Allocator >() )
-#if ( __TBB_GCC_VERSION < 40202 )
-        , internal::function_output<Output>()
-#endif
-    {
-        my_successors.set_owner(this);
-    }
+        graph_node(), fInput_type( src, new queue_type() ) , fOutput_type() { }
 
 protected:
 
-    internal::broadcast_cache<output_type> my_successors; 
-    /* override */ internal::broadcast_cache<output_type> &successors () { return my_successors; }
+    /* override */ internal::broadcast_cache<output_type> &successors () { return fOutput_type::my_successors; }
         
 };
+
+#include "tbb/internal/_flow_graph_types_impl.h"
+
+#if TBB_PREVIEW_GRAPH_NODES
+//! implements a function node that supports Input -> (set of outputs)
+// Output is a tuple of output types.
+template < typename Input, typename Output, graph_buffer_policy = queueing, typename Allocator=cache_aligned_allocator<Input> >
+class multioutput_function_node : 
+    public graph_node, 
+    public internal::multioutput_function_input
+    <  
+        Input, 
+        typename internal::wrap_tuple_elements<
+            std::tuple_size<Output>::value,  // #elements in tuple
+            internal::function_output,  // wrap this around each element
+            Output // the tuple providing the types
+        >::type,
+        Allocator
+    > {
+private:
+    static const int N = std::tuple_size<Output>::value;
+public:
+    typedef Input input_type;
+    typedef typename internal::wrap_tuple_elements<N,internal::function_output, Output>::type ports_type;
+private:
+    typedef typename internal::multioutput_function_input<input_type, ports_type, Allocator> base_type;
+    typedef typename internal::function_input_queue<input_type,Allocator> queue_type;
+public:
+    template<typename Body>
+    multioutput_function_node( graph &g, size_t concurrency, Body body ) : base_type(g,concurrency, body) {}
+    multioutput_function_node( const multioutput_function_node &other) :
+        graph_node(), base_type(other) {}
+    // all the guts are in multioutput_function_input...
+
+};  // multioutput_function_node
         
+template < typename Input, typename Output, typename Allocator >
+class multioutput_function_node<Input,Output,queueing,Allocator> : public graph_node, public internal::multioutput_function_input<Input, 
+    typename internal::wrap_tuple_elements<std::tuple_size<Output>::value, internal::function_output, Output>::type, Allocator> {
+    static const int N = std::tuple_size<Output>::value;
+public:
+    typedef Input input_type;
+    typedef typename internal::wrap_tuple_elements<N, internal::function_output, Output>::type ports_type;
+private:
+    typedef typename internal::multioutput_function_input<input_type, ports_type, Allocator> base_type;
+    typedef typename internal::function_input_queue<input_type,Allocator> queue_type;
+public:
+
+    template<typename Body>
+    multioutput_function_node( graph &g, size_t concurrency, Body body) : base_type(g,concurrency, body, new queue_type()) {}
+    multioutput_function_node( const multioutput_function_node &other) :
+        graph_node(), base_type(other, new queue_type()) {}
+
+};  // multioutput_function_node
+
+//! split_node: accepts a tuple as input, forwards each element of the tuple to its
+//  successors.  The node has unlimited concurrency, so though it is marked as
+//  "rejecting" it does not reject inputs.
+template<typename TupleType, typename Allocator=cache_aligned_allocator<TupleType> >
+class split_node : public multioutput_function_node<TupleType, TupleType, rejecting, Allocator> {
+    static const int N = std::tuple_size<TupleType>::value;
+    typedef multioutput_function_node<TupleType,TupleType,rejecting,Allocator> base_type;
+public:
+    typedef typename base_type::ports_type ports_type;
+private:
+
+    struct splitting_body {
+        void operator()(const TupleType& t, ports_type &p) {
+            internal::emit_element<N>::emit_this(t, p);
+        }
+    };
+public:
+    typedef TupleType input_type;
+    typedef Allocator allocator_type;
+    split_node(graph &g) : base_type(g, unlimited, splitting_body()) { }
+    split_node( const split_node & other) : base_type(other) { }
+};
+#endif  // TBB_PREVIEW_GRAPH_NODES
+
 //! Implements an executable node that supports continue_msg -> Output
 template <typename Output>
 class continue_node : public graph_node, public internal::continue_input<Output>, public internal::function_output<Output> {
@@ -553,12 +607,12 @@ public:
     typedef Output output_type;
     typedef sender< input_type > predecessor_type;
     typedef receiver< output_type > successor_type;
+    typedef internal::function_output<output_type> fOutput_type;
         
      //! Constructor for executable node with continue_msg -> Output
      template <typename Body >
      continue_node( graph &g, Body body )
              : internal::continue_input<output_type>( g, body ) {
-         my_successors.set_owner(this);
      }
         
     //! Constructor for executable node with continue_msg -> Output
@@ -566,26 +620,16 @@ public:
     continue_node( graph &g, int number_of_predecessors, Body body )
         : internal::continue_input<output_type>( g, number_of_predecessors, body )
     {
-        my_successors.set_owner(this);
     }
  
     //! Copy constructor       
     continue_node( const continue_node& src ) :
-#if ( __TBB_GCC_VERSION < 40202 )
-        graph_node(),
-#endif
-        internal::continue_input<output_type>(src)
-#if ( __TBB_GCC_VERSION < 40202 )
-        , internal::function_output<Output>()
-#endif
-    {
-        my_successors.set_owner(this);
-    }
+        graph_node(), internal::continue_input<output_type>(src),
+        internal::function_output<Output>() { }
 
 protected:
         
-    internal::broadcast_cache<output_type> my_successors; 
-    /* override */ internal::broadcast_cache<output_type> &successors () { return my_successors; }
+    /* override */ internal::broadcast_cache<output_type> &successors () { return fOutput_type::my_successors; }
         
 };
         
@@ -604,11 +648,7 @@ public:
 
     // Copy constructor; doesn't take anything from src; default won't work
     overwrite_node( const overwrite_node& ) : 
-#if ( __TBB_GCC_VERSION < 40202 )
-        graph_node(), receiver<T>(), sender<T>(),
-#endif
-        my_buffer_is_valid(false) 
-    {
+        graph_node(), receiver<T>(), sender<T>(), my_buffer_is_valid(false) {
         my_successors.set_owner( this );
     }
         
@@ -718,16 +758,12 @@ public:
     typedef receiver< output_type > successor_type;
         
     broadcast_node( ) {
-       my_successors.set_owner( this ); 
+        my_successors.set_owner( this );
     }
         
     // Copy constructor
-    broadcast_node( const broadcast_node& ) 
-#if ( __TBB_GCC_VERSION < 40202 )
-        : graph_node(), receiver<T>(), sender<T>()
-#endif
-    {
-       my_successors.set_owner( this ); 
+    broadcast_node( const broadcast_node& ) : graph_node(), receiver<T>(), sender<T>() {
+        my_successors.set_owner( this );
     }
         
     //! Adds a successor
@@ -896,16 +932,9 @@ public:
     }
 
     //! Copy constructor
-    buffer_node( const buffer_node& src ) : 
-#if ( __TBB_GCC_VERSION < 40202 )
-        graph_node(), 
-#endif
-        reservable_item_buffer<T>(),
-#if ( __TBB_GCC_VERSION < 40202 )
-        receiver<T>(), sender<T>(),
-#endif
-        my_parent( src.my_parent )  
-    {
+    buffer_node( const buffer_node& src ) :
+        graph_node(), reservable_item_buffer<T>(), receiver<T>(), sender<T>(),
+        my_parent( src.my_parent ) {
         forwarder_busy = false;
         my_successors.set_owner(this);
         my_aggregator.initialize_handler(my_handler(this));
@@ -1352,9 +1381,7 @@ public:
         
     //! Copy constructor
     limiter_node( const limiter_node& src ) : 
-#if ( __TBB_GCC_VERSION < 40202 )
         graph_node(), receiver<T>(), sender<T>(),
-#endif
         my_root_task(src.my_root_task), my_threshold(src.my_threshold), my_count(0), 
         init_decrement_predecessors(src.init_decrement_predecessors), 
         decrement(src.init_decrement_predecessors) 
@@ -1485,6 +1512,7 @@ public:
     join_node(const join_node &other) : unfolded_type(other) {}
 };
 
+#if TBB_PREVIEW_GRAPH_NODES
 // or node
 #include "internal/_flow_graph_or_impl.h"
 
@@ -1493,12 +1521,13 @@ class or_node : public internal::unfolded_or_node<InputTuple> {
 private:
     static const int N = std::tuple_size<InputTuple>::value;
 public:
-    typedef typename internal::or_output_type<N,InputTuple>::type output_type;
+    typedef typename internal::or_output_type<InputTuple>::type output_type;
     typedef typename internal::unfolded_or_node<InputTuple> unfolded_type;
     or_node() : unfolded_type() { }
     // Copy constructor
     or_node( const or_node& /*other*/ ) : unfolded_type() { }
 };
+#endif  // TBB_PREVIEW_GRAPH_NODES
 
 //! Makes an edge between a single predecessor and a single successor
 template< typename T >
@@ -1530,6 +1559,12 @@ Body copy_body( Node &n ) {
 
     using interface6::source_node;
     using interface6::function_node;
+#if TBB_PREVIEW_GRAPH_NODES
+    using interface6::multioutput_function_node;
+    using interface6::split_node;
+    using interface6::internal::output_port;
+    using interface6::or_node;
+#endif
     using interface6::continue_node;
     using interface6::overwrite_node;
     using interface6::write_once_node;
@@ -1541,7 +1576,6 @@ Body copy_body( Node &n ) {
     using interface6::limiter_node;
     using namespace interface6::internal::graph_policy_namespace;
     using interface6::join_node;
-    using interface6::or_node;
     using interface6::input_port;
     using interface6::copy_body; 
     using interface6::make_edge; 
@@ -1549,8 +1583,7 @@ Body copy_body( Node &n ) {
     using interface6::internal::NO_TAG;
     using interface6::internal::tag_value;
 
-} // graph
+} // flow
 } // tbb
 
-#endif
-
+#endif // __TBB_flow_graph_H

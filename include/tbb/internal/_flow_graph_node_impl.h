@@ -26,8 +26,12 @@
     the GNU General Public License.
 */
 
-#ifndef __TBB__graph_node_internal_H
-#define __TBB__graph_node_internal_H
+#ifndef __TBB__flow_graph_node_impl_H
+#define __TBB__flow_graph_node_impl_H
+
+#ifndef __TBB_flow_graph_H
+#error Do not #include this internal file directly; use public TBB headers instead.
+#endif
 
 #include "_flow_graph_item_buffer_impl.h"
 
@@ -50,46 +54,41 @@ namespace internal {
          }
      };
 
-    //! Implements methods for a function node that takes a type T as input
-    template< typename Input, typename Output, typename A >
-    class function_input : public receiver<Input>, tbb::internal::no_assign {
+    //! Input and scheduling for a function node that takes a type Input as input
+    //  The only up-ref is apply_body_impl, which should implement the function 
+    //  call and any handling of the result.
+    template< typename Input, typename A, typename ImplType >
+    class function_input_base : public receiver<Input>, tbb::internal::no_assign {
         typedef sender<Input> predecessor_type;
         enum op_stat {WAIT=0, SUCCEEDED, FAILED};
         enum op_type {reg_pred, rem_pred, app_body, tryput, try_fwd};
-        typedef function_input<Input, Output, A> my_class;
+        typedef function_input_base<Input, A, ImplType> my_class;
         
     public:
 
         //! The input type of this receiver
         typedef Input input_type;
-        //! The output type of this receiver
-        typedef Output output_type;
         
-        //! Constructor for function_input
-        template< typename Body >
-        function_input( graph &g, size_t max_concurrency, Body& body, function_input_queue<input_type,A> *q = NULL )
+        //! Constructor for function_input_base
+        function_input_base( graph &g, size_t max_concurrency, function_input_queue<input_type,A> *q = NULL )
             : my_root_task(g.root_task()), my_max_concurrency(max_concurrency), my_concurrency(0),
-              my_body( new internal::function_body_leaf< input_type, output_type, Body>(body) ),
               my_queue(q), forwarder_busy(false) {
             my_predecessors.set_owner(this);
             my_aggregator.initialize_handler(my_handler(this));
         }
         
         //! Copy constructor
-        function_input( const function_input& src, function_input_queue<input_type,A> *q = NULL ) : 
-#if (__TBB_GCC_VERSION < 40202 )
+        function_input_base( const function_input_base& src, function_input_queue<input_type,A> *q = NULL ) :
             receiver<Input>(), tbb::internal::no_assign(),
-#endif
             my_root_task( src.my_root_task), my_max_concurrency(src.my_max_concurrency),
-            my_concurrency(0), my_body( src.my_body->clone() ), my_queue(q), forwarder_busy(false)
+            my_concurrency(0), my_queue(q), forwarder_busy(false)
         {
             my_predecessors.set_owner(this);
             my_aggregator.initialize_handler(my_handler(this));
         }
 
         //! Destructor
-        virtual ~function_input() { 
-            delete my_body; 
+        virtual ~function_input_base() { 
             if ( my_queue ) delete my_queue;
         }
         
@@ -121,23 +120,14 @@ namespace internal {
             return true;
         }
 
-        template< typename Body >
-        Body copy_function_object() {
-            internal::function_body<input_type, output_type> &body_ref = *this->my_body;
-            return dynamic_cast< internal::function_body_leaf<input_type, output_type, Body> & >(body_ref).get_body(); 
-        } 
-        
     protected:
 
         task *my_root_task;
         const size_t my_max_concurrency;
         size_t my_concurrency;
-        function_body<input_type, output_type> *my_body;
         function_input_queue<input_type, A> *my_queue;
         predecessor_cache<input_type, null_mutex > my_predecessors;
         
-        virtual broadcast_cache<output_type > &successors() = 0;
-
     private:
 
         friend class apply_body_task< my_class, input_type >;
@@ -237,7 +227,7 @@ namespace internal {
         
         //! Applies the body to the provided input
         void apply_body( input_type &i ) {
-            successors().try_put( (*my_body)(i) );
+            static_cast<ImplType *>(this)->apply_body_impl(i);
             if ( my_max_concurrency != 0 ) {
                 my_operation op_data(app_body);
                 my_aggregator.execute(&op_data);
@@ -262,8 +252,130 @@ namespace internal {
        inline void spawn_forward_task() {
            task::enqueue(*new(task::allocate_additional_child_of(*my_root_task)) forward_task< my_class >(*this));
        }
+    };  // function_input_base
+
+    //! Implements methods for a function node that takes a type Input as input and sends
+    //  a type Output to its successors.
+    template< typename Input, typename Output, typename A>
+    class function_input : public function_input_base<Input, A, function_input<Input,Output,A> > {
+    public:
+        typedef Input input_type;
+        typedef Output output_type;
+        typedef function_input<Input,Output,A> my_class;
+        typedef function_input_base<Input, A, my_class> base_type;
+        typedef function_input_queue<input_type, A> input_queue_type;
+
+
+        // constructor
+        template<typename Body>
+        function_input( graph &g, size_t max_concurrency, Body& body, function_input_queue<input_type,A> *q = NULL ) :
+            base_type(g, max_concurrency, q),
+            my_body( new internal::function_body_leaf< input_type, output_type, Body>(body) ) {
+        }
+
+        //! Copy constructor
+        function_input( const function_input& src, input_queue_type *q = NULL ) : 
+                base_type(src, q),
+                my_body( src.my_body->clone() ) {
+        }
+
+        ~function_input() {
+            delete my_body;
+        }
+
+        template< typename Body >
+        Body copy_function_object() {
+            internal::function_body<input_type, output_type> &body_ref = *this->my_body;
+            return dynamic_cast< internal::function_body_leaf<input_type, output_type, Body> & >(body_ref).get_body(); 
+        } 
+
+        void apply_body_impl( const input_type &i) {
+            successors().try_put( (*my_body)(i) );
+        }
+
+    protected:
+        function_body<input_type, output_type> *my_body;
+        virtual broadcast_cache<output_type > &successors() = 0;
+
     };
-        
+
+#if TBB_PREVIEW_GRAPH_NODES
+    //! Implements methods for a function node that takes a type Input as input
+    //  and has a tuple of output ports specified.  
+    template< typename Input, typename OutputPortSet, typename A>
+    class multioutput_function_input : public function_input_base<Input, A, multioutput_function_input<Input,OutputPortSet,A> > {
+    public:
+        typedef Input input_type;
+        typedef OutputPortSet output_ports_type;
+        typedef multioutput_function_input<Input,OutputPortSet,A> my_class;
+        typedef function_input_base<Input, A, my_class> base_type;
+        typedef function_input_queue<input_type, A> input_queue_type;
+
+
+        // constructor
+        template<typename Body>
+        multioutput_function_input( 
+                graph &g, 
+                size_t max_concurrency, 
+                Body& body,
+                function_input_queue<input_type,A> *q = NULL ) :
+            base_type(g, max_concurrency, q),
+            my_body( new internal::multioutput_function_body_leaf<input_type, output_ports_type, Body>(body) ) {
+        }
+
+        //! Copy constructor
+        multioutput_function_input( const multioutput_function_input& src, input_queue_type *q = NULL ) : 
+                base_type(src, q),
+                my_body( src.my_body->clone() ) {
+        }
+
+        ~multioutput_function_input() {
+            delete my_body;
+        }
+
+        template< typename Body >
+        Body copy_function_object() {
+            internal::multioutput_function_body<input_type, output_ports_type> &body_ref = *this->my_body;
+            return dynamic_cast< internal::multioutput_function_body_leaf<input_type, output_ports_type, Body> & >(body_ref).get_body(); 
+        } 
+
+        void apply_body_impl( const input_type &i) {
+            (*my_body)(i, my_output_ports);
+        }
+
+        output_ports_type &output_ports(){ return my_output_ports; }
+
+    protected:
+        multioutput_function_body<input_type, output_ports_type> *my_body;
+        output_ports_type my_output_ports;
+
+    };
+
+    // template to refer to an output port of a multioutput_function_node
+    template<size_t N, typename MOP>
+    typename std::tuple_element<N, typename MOP::output_ports_type>::type &output_port(MOP &op) {
+        return std::get<N>(op.output_ports()); 
+    }
+
+// helper structs for split_node
+    template<int N>
+    struct emit_element {
+        template<typename T, typename P>
+        static void emit_this(const T &t, P &p) {
+            std::get<N-1>(p).put(std::get<N-1>(t));
+            emit_element<N-1>::emit_this(t,p);
+        }
+    };
+
+    template<>
+    struct emit_element<1> {
+        template<typename T, typename P>
+        static void emit_this(const T &t, P &p) {
+            std::get<0>(p).put(std::get<0>(t));
+        }
+    };
+#endif  // TBB_PREVIEW_GRAPH_NODES
+
     //! Implements methods for an executable node that takes continue_msg as input
     template< typename Output >
     class continue_input : public continue_receiver {
@@ -323,7 +435,10 @@ namespace internal {
         
         typedef Output output_type;
         
-        function_output() { }
+        function_output() { my_successors.set_owner(this); }
+        function_output(const function_output & /*other*/) : sender<output_type>() {
+            my_successors.set_owner(this);
+        }
         
         //! Adds a new successor to this node
         /* override */ bool register_successor( receiver<output_type> &r ) {
@@ -336,14 +451,23 @@ namespace internal {
             successors().remove_successor( r );
             return true;
         }
+
+        // for multioutput_function_node.  The function_body that implements
+        // the node will have an input and an output tuple of ports.  To put
+        // an item to a successor, the body should
+        //
+        //    get<I>(output_ports).put(output_value);
+        //
+        // successors must always accept (for instance, a queue_node) or items
+        // may be dropped.
+        void put(const output_type &i) { my_successors.try_put(i); }
           
     protected:
-        
-        virtual broadcast_cache<output_type > &successors() = 0; 
+        broadcast_cache<output_type> my_successors;
+        broadcast_cache<output_type > &successors() { return my_successors; } 
         
     };
 
-}
+}  // internal
 
-#endif
-
+#endif // __TBB__flow_graph_node_impl_H

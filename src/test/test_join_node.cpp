@@ -27,7 +27,6 @@
 */
 
 #include "harness.h"
-#define TBB_PREVIEW_GRAPH 1
 #include "tbb/flow_graph.h"
 #include "tbb/task_scheduler_init.h"
 

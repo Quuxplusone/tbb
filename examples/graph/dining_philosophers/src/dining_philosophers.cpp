@@ -26,7 +26,11 @@
     the GNU General Public License.
 */
 
-#define TBB_PREVIEW_GRAPH 1
+#if _MSC_VER
+    // Suppress "decorated name length exceeded, name was truncated" warning
+    #pragma warning (disable: 4503)
+#endif
+
 #include "tbb/flow_graph.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tick_count.h"
@@ -43,6 +47,26 @@
 #else
 #define SLEEP(a) sleep(a)
 #endif
+
+// Each philosopher is run as a task in the graph, and its first action is to execute
+// a think(), and then call make_my_node().  make_my_node() will
+//
+//     1) allocate a join_node,
+//     2) link the left and right chopstick queues to the join,
+//     3) allocate a function_node with a node_body that calls eat_and_think().
+//     4) link the join_node to the function_node.
+//
+// While the philosopher participates in the game, it will (when eat_and_think() is invoked)
+//
+//     a) eat (the funtion_node will be invoked only when both chopsticks are available)
+//     b) if we are going to eventually eat again, we just try_put() the chopsticks
+//        back into our queues.  If not, we disconnect our join_node from the queues,
+//        and then place the chopsticks back.
+//     c) If we are going to eat again, we think().
+//
+// philosopher_by_ref allows us to pass an object to g.run() that can be copied, but will
+// retain a reference to our original philosopher.  If this wasn't done, g.run() would store a
+// copy of philosopher, and the original wouldn't be used.
 
 const int think_time = 1;
 const int eat_time = 1;
@@ -111,10 +135,15 @@ public:
 
     philosopher( const char *name, tbb::flow::graph &the_graph, chopstick_buffer *left, chopstick_buffer *right ) : 
         my_name(name), my_graph(&the_graph), my_left_chopstick(left), my_right_chopstick(right),
-		my_join(new join_type(the_graph)), my_function_node(NULL), my_count(new int(num_times)) { }
+        my_join(NULL), my_function_node(NULL), my_count(num_times) { }
+
+    ~philosopher() {
+        if(my_join) delete my_join;
+        if(my_function_node) delete my_function_node;
+    }
 
     void operator()();
-    void check();  // deletes heap-allocated fields
+    void check();
 
     void link_left_chopstick() { my_left_chopstick->register_successor( std::get<0>(my_join->inputs()) ); }
     void link_right_chopstick() { my_right_chopstick->register_successor( std::get<1>(my_join->inputs()) ); }
@@ -130,7 +159,7 @@ private:
   chopstick_buffer *my_right_chopstick;
   join_type *my_join;
   tbb::flow::function_node< join_type::output_type, tbb::flow::continue_msg, tbb::flow::rejecting > *my_function_node;
-  int *my_count;
+  int my_count;
 
   friend class node_body;
 
@@ -141,14 +170,23 @@ private:
 
 };
 
+class philosopher_by_ref {
+    philosopher &my_guy;
+public:
+    philosopher_by_ref(philosopher &_my_guy) : my_guy(_my_guy) { }
+    void operator()() {
+        my_guy();
+    };
+};
+
 std::ostream& operator<<(std::ostream& o, philosopher const &p) {
     o << "< philosopher[" << reinterpret_cast<uintptr_t>(const_cast<philosopher *>(&p)) << "] " << p.name() 
-        << ", my_count=" << *(p.my_count);
+        << ", my_count=" << p.my_count;
     return o;
 }
 
 class node_body {
-  philosopher my_philosopher;
+  philosopher& my_philosopher;
 public:
   node_body( philosopher &p ) : my_philosopher(p) { }
   void operator()( philosopher::join_type::output_type ) {
@@ -162,23 +200,20 @@ void philosopher::operator()() {
 } 
 
 void philosopher::check() {
-  if ( *my_count != 0 ) {
-    std::printf("ERROR: philosopher %s still had to run %d more times\n", name(), *my_count);
+  if ( my_count != 0 ) {
+    std::printf("ERROR: philosopher %s still had to run %d more times\n", name(), my_count);
     std::exit(1);
   } else {
     if(verbose) std::printf("%s done.\n", name());
   }
-  delete my_function_node;
-  delete my_join;
-  delete my_count;
 }
 
 void philosopher::eat_and_think( ) { 
   eat();
-  if(*my_count < 0) abort();
-  --(*my_count);
+  if(my_count < 0) abort();
+  --my_count;
 
-  if (*my_count > 0) {
+  if (my_count > 0) {
     my_left_chopstick->try_put( chopstick() );
     my_right_chopstick->try_put( chopstick() );
     think();
@@ -220,6 +255,7 @@ void philosopher::think() {
 }
 
 void philosopher::make_my_node() {
+  my_join = new join_type(*my_graph);
   link_left_chopstick();
   link_right_chopstick();
   my_function_node = 
@@ -228,6 +264,9 @@ void philosopher::make_my_node() {
                                                                          node_body( *this ) );
   tbb::flow::make_edge( *my_join, *my_function_node );
 }
+
+typedef std::vector<philosopher> p_vector;
+typedef std::vector<tbb::flow::queue_node< chopstick > > chopstick_places;
 
 int main(int argc, char *argv[]) {
     int num_threads;
@@ -249,34 +288,30 @@ int main(int argc, char *argv[]) {
         t0 = tbb::tick_count::now();
 
         // create queues of (one) chopstick
-        std::vector< tbb::flow::queue_node< chopstick > * > places;
+        chopstick_places places(num_philosophers, tbb::flow::queue_node<chopstick>(g));
         for ( int i = 0; i < num_philosophers; ++i ) {
-            tbb::flow::queue_node< chopstick > *qn_ptr = new tbb::flow::queue_node<chopstick>(g);
-            qn_ptr->try_put(chopstick());
-            places.push_back( qn_ptr );
+            places[i].try_put(chopstick());
         }
   
-       std::vector< philosopher > philosophers;
+       p_vector philosophers;
+       // must reserve the vector so no reallocation occurs (we're passing references to the vector elements)
+       philosophers.reserve(num_philosophers);
        for ( int i = 0; i < num_philosophers; ++i ) {
-           philosophers.push_back( philosopher( names[i], g, places[i], places[(i+1)%num_philosophers] ) );
+           philosophers.push_back( philosopher( names[i], g, &(places[i]), &(places[(i+1)%num_philosophers]) ) );
            if(verbose) {
                tbb::spin_mutex::scoped_lock lock(my_mutex);
                std::cout << "Built philosopher " << philosophers[i] << std::endl;
            }
-           g.run( philosophers[i] );
+           g.run( philosopher_by_ref(philosophers[i]) );
        }
 
        g.wait_for_all();
 
        tbb::tick_count t1 = tbb::tick_count::now();
-       utility::report_elapsed_time((t1-t0).seconds());
+       if(verbose) utility::report_elapsed_time((t1-t0).seconds());
 
        for ( int i = 0; i < num_philosophers; ++i ) 
            philosophers[i].check();
-
-       for(int i=0; i < num_philosophers; ++i) {
-           delete places[i];
-       }
    }
 
    return 0;

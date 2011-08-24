@@ -26,10 +26,6 @@
     the GNU General Public License.
 */
 
-#ifndef TBB_PREVIEW_CONCURRENT_PRIORITY_QUEUE
-    #define TBB_PREVIEW_CONCURRENT_PRIORITY_QUEUE 1
-#endif
-
 #include "tbb/concurrent_priority_queue.h"
 #include "tbb/atomic.h"
 #include "harness.h"

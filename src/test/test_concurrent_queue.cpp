@@ -397,12 +397,20 @@ bool operator==(const BarEx& bar1, const BarEx& bar2) {
 #endif /* TBB_USE_EXCEPTIONS */
 
 #if TBB_DEPRECATED
+
+#if __INTEL_COMPILER==1200 && _MSC_VER==1600
+// A workaround due to ICL 12.0 with /Qvc10 generating buggy code in TestIterator
+#define CALL_BEGIN(q,i) q.begin()
+#define CALL_END(q,i)   q.end()
+#else
 #define CALL_BEGIN(q,i) (((i)&0x1)?q.begin():q.unsafe_begin())
 #define CALL_END(q,i)   (((i)&0x1)?q.end():q.unsafe_end())
+#endif
+
 #else
 #define CALL_BEGIN(q,i) q.unsafe_begin()
 #define CALL_END(q,i)   q.unsafe_end()
-#endif
+#endif /* TBB_DEPRECATED */
 
 void TestConstructors ()
 {

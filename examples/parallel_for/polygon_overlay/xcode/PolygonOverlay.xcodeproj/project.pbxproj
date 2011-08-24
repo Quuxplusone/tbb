@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -11,7 +11,6 @@
 		6A6DAA980DA2C0B3008D95BD /* polyover.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6A6DAA900DA2C0B3008D95BD /* polyover.cpp */; };
 		6A6DAA9B0DA2C0B3008D95BD /* pover_video.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6A6DAA930DA2C0B3008D95BD /* pover_video.cpp */; };
 		8D0C4E8E0486CD37000505A6 /* main.nib in Resources */ = {isa = PBXBuildFile; fileRef = 02345980000FD03B11CA0E72 /* main.nib */; };
-		A12649490B8392750091D5AD /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1E3E7BC0B3AD4EC007C3AB5 /* OpenGL.framework */; };
 		A126495E0B83936D0091D5AD /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 8D0C4E960486CD37000505A6 /* Info.plist */; };
 		A18D2A340B861B99007D8D2C /* libtbb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A18D2A330B861B99007D8D2C /* libtbb.dylib */; };
 		A1976ADA0DF6A6910032C3EA /* libtbbmalloc.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = A1976AD90DF6A6910032C3EA /* libtbbmalloc.dylib */; };
@@ -65,7 +64,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1E3E7BD0B3AD4EC007C3AB5 /* OpenGL.framework in Frameworks */,
-				A12649490B8392750091D5AD /* OpenGL.framework in Frameworks */,
 				A18D2A340B861B99007D8D2C /* libtbb.dylib in Frameworks */,
 				A1976ADF0DF6A6E10032C3EA /* libtbbmalloc.dylib in Frameworks */,
 				A1A8F41E0B8B4DBE001C55B1 /* AGL.framework in Frameworks */,
@@ -161,9 +159,16 @@
 /* Begin PBXProject section */
 		20286C28FDCF999611CA2CEA /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0410;
+			};
 			buildConfigurationList = C0E91AC908A95435008D54AB /* Build configuration list for PBXProject "PolygonOverlay" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 20286C29FDCF999611CA2CEA /* PolygonOverlay */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -216,17 +221,17 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = "$(HOME)/Applications";
+				GCC_VERSION = "";
 				HEADER_SEARCH_PATHS = ../../../../include;
+				IBC_STRIP_NIBS = NO;
+				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					../../../../lib,
 				);
 				PRODUCT_NAME = PolygonOverlay;
-				GCC_VERSION = 4.0;
 			};
 			name = Debug;
 		};
@@ -235,31 +240,33 @@
 			buildSettings = {
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = "";
-				INSTALL_PATH = "$(HOME)/Applications";
+				GCC_VERSION = "";
 				HEADER_SEARCH_PATHS = ../../../../include;
+				IBC_STRIP_NIBS = NO;
+				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					../../../../lib,
 				);
 				PRODUCT_NAME = PolygonOverlay;
-				GCC_VERSION = 4.0;
 			};
 			name = Release;
 		};
 		C0E91ACA08A95435008D54AB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = i386;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				GCC_AUTO_VECTORIZATION = YES;
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_ENABLE_SSE3_EXTENSIONS = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_VERSION = "";
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+				IBC_STRIP_NIBS = NO;
 				MACH_O_TYPE = mh_execute;
-				PREBINDING = NO;
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
-				GCC_VERSION = 4.0;
+				SDKROOT = macosx10.6;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Debug;
@@ -267,17 +274,18 @@
 		C0E91ACB08A95435008D54AB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = i386;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				GCC_AUTO_VECTORIZATION = YES;
 				GCC_ENABLE_CPP_RTTI = YES;
 				GCC_ENABLE_SSE3_EXTENSIONS = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 3;
+				GCC_VERSION = "";
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+				IBC_STRIP_NIBS = NO;
 				MACH_O_TYPE = mh_execute;
-				PREBINDING = NO;
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
-				GCC_VERSION = 4.0;
+				SDKROOT = macosx10.6;
 				SYMROOT = "/tmp/tbb-$(USER)";
 			};
 			name = Release;
