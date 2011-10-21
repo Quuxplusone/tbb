@@ -42,6 +42,7 @@
 #include "../tbbmalloc/backend.cpp"
 #include "../tbbmalloc/backref.cpp"
 #include "../tbbmalloc/large_objects.cpp"
+#undef __TBB_DYNAMIC_LOAD_ENABLED // to prevent loading dynamic TBBmalloc
 #include "../tbbmalloc/tbbmalloc.cpp"
 
 const int LARGE_MEM_SIZES_NUM = 10;
@@ -485,6 +486,32 @@ void TestBackend()
     pool_destroy(mPool);
 }
 
+void TestBitMask()
+{
+    BitMask<256> mask;
+
+    mask.reset();
+    mask.set(10, 1);
+    mask.set(5, 1);
+    mask.set(1, 1);
+    ASSERT(mask.getMinTrue(2) == 5, NULL);
+
+    mask.reset();
+    mask.set(0, 1);
+    mask.set(64, 1);
+    mask.set(63, 1);
+    mask.set(200, 1);
+    mask.set(255, 1);
+    ASSERT(mask.getMinTrue(0) == 0, NULL);
+    ASSERT(mask.getMinTrue(1) == 63, NULL);
+    ASSERT(mask.getMinTrue(63) == 63, NULL);
+    ASSERT(mask.getMinTrue(64) == 64, NULL);
+    ASSERT(mask.getMinTrue(101) == 200, NULL);
+    ASSERT(mask.getMinTrue(201) == 255, NULL);
+    mask.set(255, 0);
+    ASSERT(mask.getMinTrue(201) == -1, NULL);
+}
+
 int TestMain () {
     // backreference requires that initialization was done
     if(!isMallocInitialized()) doInitialization();
@@ -511,5 +538,6 @@ int TestMain () {
     }
 
     TestObjectRecognition();
+    TestBitMask();
     return Harness::Done;
 }
