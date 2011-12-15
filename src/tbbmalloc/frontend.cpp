@@ -1823,7 +1823,11 @@ bool isLargeObject(void *object)
     LargeObjectHdr *header = (LargeObjectHdr*)object - 1;
     BackRefIdx idx = safer_dereference(&header->backRefIdx);
 
-    return idx.isLargeObject() && getBackRef(idx) == header;
+    return idx.isLargeObject()
+        // in valid LargeObjectHdr memoryBlock points somewhere before header
+        // TODO: more strict check
+        && (uintptr_t)header->memoryBlock < (uintptr_t)header
+        && getBackRef(idx) == header;
 }
 
 static inline bool isSmallObject (void *ptr)

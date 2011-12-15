@@ -69,12 +69,18 @@ public:
     }
 };
 
-class TestLargeObjCache: NoAssign {
+class SimpleBarrier: NoAssign {
+protected:
     static Harness::SpinBarrier barrier;
 public:
-    static int largeMemSizes[LARGE_MEM_SIZES_NUM];
-
     static void initBarrier(unsigned thrds) { barrier.initialize(thrds); }
+};
+
+Harness::SpinBarrier SimpleBarrier::barrier;
+
+class TestLargeObjCache: public SimpleBarrier {
+public:
+    static int largeMemSizes[LARGE_MEM_SIZES_NUM];
 
     TestLargeObjCache( ) {}
 
@@ -118,13 +124,11 @@ public:
     }
 };
 
-Harness::SpinBarrier TestLargeObjCache::barrier;
 int TestLargeObjCache::largeMemSizes[LARGE_MEM_SIZES_NUM];
 
 #if MALLOC_CHECK_RECURSION
 
-class TestStartupAlloc: NoAssign {
-    static Harness::SpinBarrier init_barrier;
+class TestStartupAlloc: public SimpleBarrier {
     struct TestBlock {
         void *ptr;
         size_t sz;
@@ -132,11 +136,10 @@ class TestStartupAlloc: NoAssign {
     static const int ITERS = 100;
 public:
     TestStartupAlloc() {}
-    static void initBarrier(unsigned thrds) { init_barrier.initialize(thrds); }
     void operator()(int) const {
         TestBlock blocks1[ITERS], blocks2[ITERS];
 
-        init_barrier.wait();
+        barrier.wait();
 
         for (int i=0; i<ITERS; i++) {
             blocks1[i].sz = rand() % minLargeObjectSize;
@@ -165,8 +168,6 @@ public:
         }
     }
 };
-
-Harness::SpinBarrier TestStartupAlloc::init_barrier;
 
 #endif /* MALLOC_CHECK_RECURSION */
 
@@ -227,6 +228,48 @@ static void cleanObjectCache()
     defaultMemPool->extMemPool.hardCachesCleanup();
 }
 
+class TestInvalidBackrefs: public SimpleBarrier {
+    static const int BACKREF_GROWTH_ITERS = 200*1024;
+
+    static tbb::atomic<bool> backrefGrowthDone;
+    static void *ptrs[BACKREF_GROWTH_ITERS];
+public:
+    TestInvalidBackrefs() {}
+    void operator()(int id) const {
+
+        if (!id) {
+            backrefGrowthDone = false;
+            barrier.wait();
+
+            for (int i=0; i<BACKREF_GROWTH_ITERS; i++)
+                ptrs[i] = scalable_malloc(minLargeObjectSize);
+            backrefGrowthDone = true;
+            for (int i=0; i<BACKREF_GROWTH_ITERS; i++)
+                scalable_free(ptrs[i]);
+        } else {
+            void *p2 = scalable_malloc(minLargeObjectSize-1);
+            char *p1 = (char*)scalable_malloc(minLargeObjectSize-1);
+            LargeObjectHdr *hdr =
+                (LargeObjectHdr*)(p1+minLargeObjectSize-1 - sizeof(LargeObjectHdr));
+            hdr->backRefIdx.master = 7;
+            hdr->backRefIdx.largeObj = 1;
+            hdr->backRefIdx.offset = 2000;
+
+            barrier.wait();
+
+            while (!backrefGrowthDone) {
+                scalable_free(p2);
+                p2 = scalable_malloc(minLargeObjectSize-1);
+            }
+            scalable_free(p1);
+            scalable_free(p2);
+        }
+    }
+};
+
+tbb::atomic<bool> TestInvalidBackrefs::backrefGrowthDone;
+void *TestInvalidBackrefs::ptrs[BACKREF_GROWTH_ITERS];
+
 void TestBackRef() {
     size_t beforeNumBackRef, afterNumBackRef;
 
@@ -249,6 +292,14 @@ void TestBackRef() {
     NativeParallelFor( 1, FreeBlockPoolHit() );
     afterNumBackRef = allocatedBackRefCount();
     ASSERT(beforeNumBackRef==afterNumBackRef, "backreference leak detected");
+
+    // This is a regression test against race condition between backreference
+    // extension and checking invalid BackRefIdx.
+    // While detecting is object large or small, scalable_free 1st check for
+    // large objects, so there is a chance to prepend small object with
+    // seems valid BackRefIdx for large objects, and thus trigger the bug.
+    TestInvalidBackrefs::initBarrier(MaxThread);
+    NativeParallelFor( MaxThread, TestInvalidBackrefs() );
 }
 
 void *getMem(intptr_t /*pool_id*/, size_t &bytes)
@@ -438,20 +489,18 @@ void TestObjectRecognition() {
     scalable_free(bufferLOH);
 }
 
-class TestBackendWork: NoAssign {
+class TestBackendWork: public SimpleBarrier {
     struct TestBlock {
         intptr_t   data;
         BackRefIdx idx;
     };
     static const int ITERS = 100;
 
-    Harness::SpinBarrier *barrier;
     rml::internal::Backend *backend;
 public:
-    TestBackendWork(rml::internal::Backend *backend, Harness::SpinBarrier *barrier) : 
-        backend(backend), barrier(barrier) {}
+    TestBackendWork(rml::internal::Backend *backend) : backend(backend) {}
     void operator()(int) const {
-        barrier->wait();
+        barrier.wait();
         
         for (int i=0; i<ITERS; i++) {
             BlockI *block16K = backend->get16KBlock(1, /*startup=*/false);
@@ -465,7 +514,6 @@ public:
 void TestBackend()
 {
     rml::MemPoolPolicy pol;
-    Harness::SpinBarrier barrier;
 
     pol.pAlloc = getMallocMem;
     pol.pFree = putMallocMem;
@@ -476,8 +524,8 @@ void TestBackend()
     rml::internal::Backend *backend = &ePool->backend;
 
     for( int p=MaxThread; p>=MinThread; --p ) {
-        barrier.initialize(p);
-        NativeParallelFor( p, TestBackendWork(backend, &barrier) );
+        TestBackendWork::initBarrier(p);
+        NativeParallelFor( p, TestBackendWork(backend) );
     }
 
     BlockI *block = backend->get16KBlock(1, /*startup=*/false);

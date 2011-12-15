@@ -231,7 +231,7 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInst, DWORD callReason, LPVOID )
 #endif //_WIN32 && __TBB_DYNAMIC_LOAD_ENABLED
 
 #if __TBB_ipf
-/* It was found that on ia64 inlining of __TBB_machine_lockbyte leads
+/* It was found that on IPF inlining of __TBB_machine_lockbyte leads
    to serious performance regression with ICC 10.0. So keep it out-of-line.
 
    This code is copy-pasted from tbb_misc.cpp.
