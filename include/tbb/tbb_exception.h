@@ -354,7 +354,11 @@ public:
 
 private:
     tbb_exception_ptr ( const std::exception_ptr& src ) : my_ptr(src) {}
+#if (__cplusplus >= 201103L)
+    tbb_exception_ptr ( const captured_exception& src ) : my_ptr(std::make_exception_ptr(src)) {}
+#else
     tbb_exception_ptr ( const captured_exception& src ) : my_ptr(std::copy_exception(src)) {}
+#endif
 }; // class tbb::internal::tbb_exception_ptr
 
 } // namespace internal

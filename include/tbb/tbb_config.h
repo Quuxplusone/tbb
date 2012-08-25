@@ -163,6 +163,8 @@
     /** By default, use C++0x classes if available **/
     #if __GNUC__==4 && __GNUC_MINOR__>=4 && __GXX_EXPERIMENTAL_CXX0X__
         #define TBB_IMPLEMENT_CPP0X 0
+    #elif __clang__ && __cplusplus >= 201103L
+        #define TBB_IMPLEMENT_CPP0X 0
     #else
         #define TBB_IMPLEMENT_CPP0X 1
     #endif

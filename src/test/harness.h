@@ -91,6 +91,7 @@ int TestMain ();
 #endif
 #endif /* !__SUNPRO_CC */
 
+#include <memory>
 #include <new>
 
 #if __TBB_MIC_NATIVE
