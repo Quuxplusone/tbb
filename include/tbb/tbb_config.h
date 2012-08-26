@@ -276,7 +276,10 @@
     #define __TBB_TEMPLATE_FRIENDS_BROKEN 1
 #endif
 
-#if __GLIBC__==2 && __GLIBC_MINOR__==3 || __MINGW32__ || (__APPLE__ && __INTEL_COMPILER==1200 && !TBB_USE_DEBUG)
+#if (__GLIBC__==2 && __GLIBC_MINOR__==3) || \
+    (__MINGW32__) || \
+    (__APPLE__ && __INTEL_COMPILER==1200 && !TBB_USE_DEBUG) || \
+    (__APPLE__ && __clang__ && __cplusplus >= 201103L)
     //! Macro controlling EH usages in TBB tests
     /** Some older versions of glibc crash when exception handling happens concurrently. **/
     #define __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN 1

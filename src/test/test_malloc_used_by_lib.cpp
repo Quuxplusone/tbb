@@ -118,7 +118,7 @@ struct RunWithLoad : NoAssign {
         if (!id) {
             Harness::LIBRARY_HANDLE lib =
                 Harness::OpenLibrary(TEST_LIBRARY_NAME("test_malloc_used_by_lib"));
-            ASSERT(lib, "Can't load "TEST_LIBRARY_NAME("test_malloc_used_by_lib"));
+            ASSERT(lib, "Can't load " TEST_LIBRARY_NAME("test_malloc_used_by_lib"));
             runPtr = Harness::GetAddress(lib, "callDll");
             unloadCallback.lib = lib;
         }
