@@ -52,16 +52,18 @@ else
     CPLUS_FLAGS = -g -O0 -DTBB_USE_DEBUG
 endif
 
-CPLUS_FLAGS += -DUSE_PTHREAD
+CPLUS_FLAGS += -DUSE_PTHREAD -DTBB_USE_GCC_BUILTINS
 
 ifeq (intel64,$(arch))
     CPLUS_FLAGS += -m64
+    ASM_FLAGS += -arch x86_64
     LINK_FLAGS += -m64
     LIB_LINK_FLAGS += -m64
 endif
 
 ifeq (ia32,$(arch))
     CPLUS_FLAGS += -m32
+    ASM_FLAGS += -arch i386
     LINK_FLAGS += -m32
     LIB_LINK_FLAGS += -m32
 endif
@@ -78,17 +80,18 @@ ifeq (ppc32,$(arch))
     LIB_LINK_FLAGS += -arch ppc
 endif
 
+ifeq (arm,$(arch))
+    CPLUS_FLAGS += -arch armv6 -DTBB_USE_GCC_BUILTINS
+    ASM_FLAGS += -arch armv6
+    LINK_FLAGS += -arch armv6
+    LIB_LINK_FLAGS += -arch armv6
+endif
+
 #------------------------------------------------------------------------------
 # Setting assembler data.
 #------------------------------------------------------------------------------
 
 ASM = as
-ifeq (intel64,$(arch))
-    ASM_FLAGS += -arch x86_64
-endif
-ifeq (ia32,$(arch))
-    ASM_FLAGS += -arch i386
-endif
 ifeq ($(cfg), debug)
     ASM_FLAGS += -g
 endif

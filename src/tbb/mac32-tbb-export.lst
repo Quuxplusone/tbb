@@ -162,7 +162,7 @@ __TBB_SYMBOL( _ZN3tbb17assertion_failureEPKciS1_S1_ )
 __TBB_SYMBOL( _ZN3tbb21set_assertion_handlerEPFvPKciS1_S1_E )
 __TBB_SYMBOL( _ZN3tbb8internal13handle_perrorEiPKc )
 __TBB_SYMBOL( _ZN3tbb8internal15runtime_warningEPKcz )
-#ifndef __POWERPC__
+#if defined(__i386__)
 __TBB_SYMBOL( __TBB_machine_store8_slow_perf_warning )
 __TBB_SYMBOL( __TBB_machine_store8_slow )
 #endif
