@@ -225,7 +225,9 @@ template<> struct atomic_selector<8> {
 
 #elif __APPLE__
 
-    #if __i386__
+    #if (TBB_USE_GCC_BUILTINS && __TBB_GCC_BUILTIN_ATOMICS_PRESENT)
+        #include "machine/gcc_generic.h"
+    #elif __i386__
         #include "machine/linux_ia32.h"
     #elif __x86_64__
         #include "machine/linux_intel64.h"
