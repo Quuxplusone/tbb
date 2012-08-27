@@ -95,9 +95,11 @@
     #define __TBB_DECLSPEC_ALIGN_PRESENT 1
 #endif
 
-/* TODO: change the version back to 4.1.2 once macro __TBB_WORD_SIZE become optional */
+/* TODO: change the version back to 4.1.2 once macro __TBB_WORDSIZE become optional */
 #if (__TBB_GCC_VERSION >= 40306) && !defined(__INTEL_COMPILER)
     /** built-in atomics available in GCC since 4.1.2 **/
+    #define __TBB_GCC_BUILTIN_ATOMICS_PRESENT 1
+#elif __clang__ && (__TBB_GCC_VERSION >= 40201)
     #define __TBB_GCC_BUILTIN_ATOMICS_PRESENT 1
 #endif
 
