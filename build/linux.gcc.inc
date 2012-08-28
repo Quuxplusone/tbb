@@ -110,6 +110,11 @@ ifeq (sparc,$(arch))
     LIB_LINK_FLAGS += -mcpu=v9 -m64
 endif
 
+# automatically generate "IT" instructions when compiling for Thumb ISA
+ifeq (armv7,$(arch))
+    CPLUS_FLAGS    += -Wa,-mimplicit-it=thumb
+endif
+
 #------------------------------------------------------------------------------
 # Setting assembler data.
 #------------------------------------------------------------------------------

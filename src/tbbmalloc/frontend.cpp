@@ -615,7 +615,13 @@ static inline unsigned int highestBitPos(unsigned int n)
 # else
 #   error highestBitPos() not implemented for this platform
 # endif
-
+#elif __arm__
+    __asm__ __volatile__
+    (
+       "clz %0, %1\n"
+       "rsb %0, %0, %2\n"
+       :"=r" (pos) :"r" (n), "I" (31)
+    );
 #else
     static unsigned int bsr[16] = {0/*N/A*/,6,7,7,8,8,8,8,9,9,9,9,9,9,9,9};
     pos = bsr[ n>>6 ];

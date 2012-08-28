@@ -338,7 +338,7 @@ public:
         // Therefore we set the stack size explicitly (as for TBB worker threads).
 // TODO: make a single definition of MByte used by all tests.
         const size_t MByte = 1024*1024;
-#if __i386__||__i386
+#if __i386__||__i386||__arm__
         const size_t stack_size = 1*MByte;
 #elif __x86_64__
         const size_t stack_size = 2*MByte;
