@@ -58,7 +58,11 @@ ifneq (,$(shell gcc -dumpversion | egrep  "^(4\.[2-9]|[5-9])"))
     OPENMP_FLAG = -fopenmp
 endif
 
-ITT_NOTIFY = -DDO_ITT_NOTIFY
+ifeq (arm,$(arch))
+        ITT_NOTIFY =
+else
+        ITT_NOTIFY = -DDO_ITT_NOTIFY
+endif
 ifeq ($(cfg), release)
         CPLUS_FLAGS = $(ITT_NOTIFY) -g -O2 -DUSE_PTHREAD
 endif
