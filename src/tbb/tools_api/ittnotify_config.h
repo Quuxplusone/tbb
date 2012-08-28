@@ -86,7 +86,7 @@
 #  if ITT_PLATFORM==ITT_PLATFORM_WIN
 #    define CDECL __cdecl
 #  else /* ITT_PLATFORM==ITT_PLATFORM_WIN */
-#    if defined _M_X64 || defined _M_AMD64 || defined __x86_64__
+#    if defined _M_X64 || defined _M_AMD64 || defined __x86_64__ || defined __arm__
 #      define CDECL /* not actual on x86_64 platform */
 #    else  /* _M_X64 || _M_AMD64 || __x86_64__ */
 #      define CDECL __attribute__ ((cdecl))
@@ -144,11 +144,17 @@
 #  define ITT_ARCH_IA64  3
 #endif /* ITT_ARCH_IA64 */
 
+#ifndef ITT_ARCH_ARM
+#  define ITT_ARCH_ARM   4
+#endif /* ITT_ARCH_ARM */
+
 #ifndef ITT_ARCH
 #  if defined _M_X64 || defined _M_AMD64 || defined __x86_64__
 #    define ITT_ARCH ITT_ARCH_IA32E
 #  elif defined _M_IA64 || defined __ia64
 #    define ITT_ARCH ITT_ARCH_IA64
+#  elif defined __arm__
+#    define ITT_ARCH ITT_ARCH_ARM
 #  else
 #    define ITT_ARCH ITT_ARCH_IA32
 #  endif
@@ -258,6 +264,30 @@ INLINE int __itt_interlocked_increment(volatile long* ptr)
 #else  /* __INTEL_COMPILER */
 /* TODO: Add Support for not Intel compilers for IA64 */
 #endif /* __INTEL_COMPILER */
+#elif ITT_ARCH==ITT_ARCH_ARM
+#define __TBB_armv7_inner_shareable_barrier() __asm__ __volatile__("dmb ish": : :"memory")
+#define __TBB_full_memory_fence() __TBB_armv7_inner_shareable_barrier()
+INLINE int32_t __TBB_machine_fetchadd4(volatile void* ptr, int32_t addend)
+{
+    unsigned long tmp;
+    int32_t result, tmp2;
+
+    __TBB_full_memory_fence();
+
+    __asm__ __volatile__(
+"1:     ldrex   %0, [%4]\n"
+"       add     %3, %0, %5\n"
+"       strex   %1, %3, [%4]\n"
+"       cmp     %1, #0\n"
+"       bne     1b\n"
+    : "=&r" (result), "=&r" (tmp), "+Qo" (*(volatile int32_t*)ptr), "=&r"(tmp2)
+    : "r" ((int32_t *)ptr), "Ir" (addend)
+    : "cc");
+
+    __TBB_full_memory_fence();
+
+    return result;
+}
 #else /* ITT_ARCH!=ITT_ARCH_IA64 */
 INLINE int __TBB_machine_fetchadd4(volatile void* ptr, long addend)
 {

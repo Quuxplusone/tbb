@@ -128,6 +128,53 @@ static inline int64_t __TBB_machine_cmpswp8(volatile void *ptr, int64_t value, i
     return oldval;
 }
 
+static inline int32_t __TBB_machine_fetchadd4(volatile void* ptr, int32_t addend)
+{
+    unsigned long tmp;
+    int32_t result, tmp2;
+
+    __TBB_full_memory_fence();
+
+    __asm__ __volatile__(
+"1:     ldrex   %0, [%4]\n"
+"       add     %3, %0, %5\n"
+"       strex   %1, %3, [%4]\n"
+"       cmp     %1, #0\n"
+"       bne     1b\n"
+    : "=&r" (result), "=&r" (tmp), "+Qo" (*(volatile int32_t*)ptr), "=&r"(tmp2)
+    : "r" ((int32_t *)ptr), "Ir" (addend)
+    : "cc");
+
+    __TBB_full_memory_fence();
+
+    return result;
+}
+
+static inline int64_t __TBB_machine_fetchadd8(volatile void *ptr, int64_t addend)
+{
+    unsigned long tmp;
+    int64_t result, tmp2;
+
+    __TBB_full_memory_fence();
+
+    __asm__ __volatile__(
+"1:     ldrexd  %0, %H0, [%4]\n"
+"       adds    %3, %0, %5\n"
+"       adc     %H3, %H0, %H5\n"
+"       strexd  %1, %3, %H3, [%4]\n"
+"       cmp     %1, #0\n"
+"       bne     1b"
+    : "=&r" (result), "=&r" (tmp), "+Qo" (*(volatile int64_t*)ptr), "=&r"(tmp2)
+    : "r" ((int64_t *)ptr), "r" (addend)
+    : "cc");
+
+
+    __TBB_full_memory_fence();
+
+    return result;
+}
+
+
 inline void __TBB_machine_pause (int32_t delay )
 {
     while(delay>0)
@@ -169,9 +216,7 @@ namespace internal {
 #define __TBB_USE_GENERIC_PART_WORD_CAS				1
 #define __TBB_USE_GENERIC_PART_WORD_FETCH_ADD			1
 #define __TBB_USE_GENERIC_PART_WORD_FETCH_STORE			1
-#define __TBB_USE_GENERIC_FETCH_ADD				1
 #define __TBB_USE_GENERIC_FETCH_STORE				1
 #define __TBB_USE_GENERIC_HALF_FENCED_LOAD_STORE		1
 #define __TBB_USE_GENERIC_DWORD_LOAD_STORE			1
 #define __TBB_USE_GENERIC_SEQUENTIAL_CONSISTENCY_LOAD_STORE	1
-
