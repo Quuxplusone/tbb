@@ -378,10 +378,12 @@ void spin_wait_until_eq( const volatile T& location, const U value ) {
 //  - The operation assumes that the architecture consistently uses either little-endian or big-endian:
 //      it does not support mixed-endian or page-specific bi-endian architectures.
 // This function is the only use of __TBB_BIG_ENDIAN.
-#if (__TBB_BIG_ENDIAN!=-1)
+#if (__TBB_BIG_ENDIAN==-1)
     #if ( __TBB_USE_GENERIC_PART_WORD_CAS)
         #error generic implementation of part-word CAS was explicitly disabled for this configuration
     #endif
+#endif
+
 template<typename T>
 inline T __TBB_MaskedCompareAndSwap (volatile T * const ptr, const T value, const T comparand ) {
     struct endianness{ static bool is_big_endian(){
@@ -419,7 +421,6 @@ inline T __TBB_MaskedCompareAndSwap (volatile T * const ptr, const T value, cons
         else continue;                                     // CAS failed but the bits of interest left unchanged
     }
 }
-#endif
 template<size_t S, typename T>
 inline T __TBB_CompareAndSwapGeneric (volatile void *ptr, T value, T comparand );
 
