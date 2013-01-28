@@ -1,4 +1,4 @@
-# Copyright 2005-2012 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -62,8 +62,6 @@ CILK_AVAILABLE = yes
 
 TBB_ASM.OBJ=
 MALLOC_ASM.OBJ=
-
-CPLUS_FLAGS += -strict-ansi
 
 ifneq (00,$(lambdas)$(cpp0x))
     CPLUS_FLAGS += $(CPP11_FLAGS)

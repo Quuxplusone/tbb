@@ -1,0 +1,192 @@
+<HTML>
+<body>
+<H2>Instructions for building Intel&reg Threading Building Blocks (Intel&reg TBB) on Android*</H2>
+<H3>Linux*</H3>
+<p>The android_setup.csh script is sourced to initialize the environment to build the Intel TBB library.
+</p>
+<p><b>Note:</b> android_setup.csh has been tested on Android* NDKs from r7.  Future changes in the NDK directory
+structure may require changes in the setup script.</p>
+<p><b>Note:</b> android_setup.csh has not been tested with the android-ndk-r8d.  In particular the LLVM* compiler has not
+been tested.</p>
+<p>The format
+of the arguments are:</p>
+<blockquote>
+<b>source android_setup.csh &lt;-n <i>NDK</i>&gt; &lt;-c <i>cpu-type</i>&gt; &lt;-g <i>version</i>&gt;
+&lt;-p <i>NDK-path</i>&gt;
+&lt;-a <i>abi-level</i>&gt; -d <i>device-id</i> &lt;-v&gt; &lt;-h&gt;
+<p></p>
+source android_setup.csh
+&lt;-p <i>NDK-path</i>&gt;
+-s <i>standalone-toolchain-location</i> -d <i>device-id</i> &lt;-v&gt; &lt;-h&gt;
+<p></p>
+source android_setup.csh
+&lt;-p <i>NDK-path</i>&gt;
+-t <i>prebuilt-toolchain-location</i>
+&lt;-a <i>abi-level</i>&gt; -d <i>device-id</i> &lt;-v&gt; &lt;-h&gt;
+</blockquote>
+</b>
+<p></p>
+<table border="1">
+<tr>
+<th style="width:7%">switch</th>
+<th style="width:7%">default</th>
+<th>description</th>
+</tr>
+<tr>
+<td align="center">-n</td>
+<td align="center">8</td>
+<td>the version of the Android* NDK being built against.  For example, if the NDK is android-ndk-r8b, 
+    specify &quot;-n 8b&quot;</td>
+</tr>
+<tr>
+<td align="center">-c</td>
+<td align="center">x86</td>
+<td>an available cpu type.  Currently-accepted values are &quot;x86&quot; and &quot;arm&quot;.</td>
+</tr>
+<tr>
+<td align="center">-g</td>
+<td align="center">4.4.3</td>
+<td>a version of GCC* available in the NDK.  For example, NDK r8b has &quot;4.4.3&quot; and
+&quot;4.6&quot;.</td>
+</tr>
+<tr>
+<td align="center">-p</td>
+<td align="center">/localdisk</td>
+<td>the location of the NDKs and the default location of the toolchains if not specified by
+absolute path.  For example, if the NDK &quot;android-ndk-r8&quot; was uncompressed in the /tmp directory, then when using
+the &quot;-n 8&quot; switch, specify &quot;-p /tmp&quot;.
+If this switch is specified it must appear before
+any switches affected by it.
+</td>
+</tr>
+<tr>
+<td align="center">-s</td>
+<td align="center"><i>none</i></td>
+<td><p>either an absolute path to the standalone toolchain, or a path relative
+to the &quot;-p NDK-path&quot; location.  If for example the standalone toolchain is in /tmp/my-toolchain, then the path can
+be specified either by &quot;s /tmp/my-toolchain&quot; or &quot;-p /tmp -s my-toolchain&quot;.
+</p>
+<p>
+If the -s switch is specified the
+<i>cpu-type</i>, <i>GCC-version</i>
+and <i>abi-level</i> are derived from the toolchain.
+</p>
+
+</td>
+</tr>
+<tr>
+<td align="center">-t</td>
+<td align="center"><i>none</i></td>
+<td><p>either an absolute path to the prebuilt toolchain, or a path relative to
+the &quot;-p NDK-path&quot; location.  For example, if the NDK is installed in /localdisk, then to specify the x86 compiler
+for GCC* 4.4.3, use &quot;-t /localdisk/android-ndk-r8b/toolchains/x86-4.4.3/prebuilt/linux-x86&quot;.
+</p>
+<p>
+If the -t switch is specified the 
+<i>cpu-type</i> and <i>GCC-version</i> are derived from the toolchain.
+</p>
+</td>
+</tr>
+<tr>
+<td align="center">-a</td>
+<td align="center">14</td>
+<td>a supported ABI level in the NDK.</td>
+</tr>
+<tr>
+<td align="center">-d</td>
+<td align="center"><i>none</i></td>
+<td>the ID returned by &quot;adb devices&quot; on the host machine. Note that some devices do not appear on
+the list but can be connected to. The device must be connected to the host machine for both library build
+and test, so target system information is available.</td>
+</tr>
+<tr>
+<td align="center">-v</td>
+<td align="center"> </td>
+<td>verbose output</td>
+</tr>
+<tr>
+<td align="center">-h</td>
+<td align="center"> </td>
+<td>
+<ul><li>explains the command line syntax,</li>
+<li>if the NDK directory is correct lists the available NDKs,</li>
+<li>executes an &quot;adb devices&quot; to list the available devices.</li>
+</ul>
+To list the NDKs in a different location, specify the location with the &quot;-p&quot; switch prior to
+the &quot;-h&quot; switch.
+</td>
+</tr>
+</table>
+
+Example command lines:
+<ul>
+<li><b>source android_setup.csh -n 8c -g 4.6 -a 14 -c x86 -d mydevice</b><br>
+Use android-ndk-r8c in the NDK directory, the GCC* 4.6 compiler, ABI level 14, the x86 cpu and connect to device
+&quot;mydevice&quot; to build libraries and to build libraries and to execute tests.</li>
+<li><b>source android_setup.csh -s /tmp/my-toolchain -d mydevice</b><br>
+Use the standalone toolchain in &quot;/tmp/my-toolchain&quot;. The values for GCC* level, ABI level and CPU are derived from
+the data in the toolchain.  Connect to &quot;mydevice&quot; to to build libraries and to execute tests.
+</li>
+</ul>
+The environment variables set by the script are:
+<ul>
+<li><b>$ANDROID_SERIAL</b> - the device ID of the Android device connected to the host machine which will execute the
+unit tests.  The device ID may have the port number &quot;:5555&quot; appended if needed.</li>
+<li><b>$CPLUS</b> - the name of the C++ cross-compiler being used.</li>
+<li><b>$CC</b> - the name of the C cross-compiler being used.</li>
+<li><b>$SYSROOT</b> - The location of the /usr/include directory for the attached device.  The value is passed
+to the compiler with the --sysroot switch.</li>
+<li><b>$CPLUS_INCLUDE_PATH</b> - the list of the include paths being used by the compiler.</li>
+<li><b>$CPLUS_LIB_PATH</b> - the location of dynamic library needed by the attached device (libgnustl_shared.so)
+and during the build stage.  The value is used by android.linux.launcher.sh to find the libraries to copy to the
+device prior to execution.</li>
+<li><b>$tbb_tool_prefix</b> - used by the Intel TBB build system.</li>
+<li>The location of the cross-compilers is added to the <b>$PATH</b>.</li>
+<li>For user convenience the environment variable <b>$SETUPARGS</b> is set to the arguments used in
+the last invocation of android_setup.csh in the current shell.</li>
+</ul>
+<p>Once the environment is set up the shared libraries can be built.  The format of the build command is</p>
+<blockquote>
+gmake target=android cpp0x=1 run_cmd=\# <i>&lt;other switches&gt;</i>
+</blockquote>
+Note the &quot;run_cmd=\#&quot; switch.  The &quot;run_cmd&quot; is executed after the build stage is complete; when
+building the library no run step is required.  The &quot;#&quot; just makes this run command a no-op.
+<p>After the libraries are built the unit tests can be performed.  To test:</p>
+<blockquote>
+gmake target=android cpp0x=1 run_cmd=&quot;../android.linux.launcher.sh&quot; test
+</blockquote>
+<H3>The android.linux.launcher.sh script</H3>
+<p>Running an executable on an attached Android* device requires all the shared libraries and data being used be copied
+to the device.  The android.linux.launcher.sh script does this.</p><p><b>Note:</b> The script is tailored to meet
+the needs of the unit test system, and may not be suitable for general use.</p>
+<p>The script will:</p>
+<ul>
+<li>Create a directory on the device to run the test from.  If $ANDROID_TEST_DIRECTORY is not set, the  location of the
+directory is /data/tbb/$(basename $PWD).  All components of the path which do not exist are created.
+</li>
+<li>Transfer the executable file to the directory created on the device.</li>
+<li>Transfer the libgnustl_shared.so in $CPLUS_LIB_PATH to the directory created on the device.</li>
+<li>For each directory in $LD_LIBRARY_PATH, will transfer any files matching the pattern &quot;libtbb*&quot; to the
+directory created on the device.
+($LD_LIBRARY_PATH is set by tbbvars.csh and tbbvars.sh, so one of these scripts must be run before
+android.linux.launcher.sh will work if not used as part of the gmake test command.)</li>
+<li>Where $exeroot is the base name of the executable, transfer any files from the current directory matching the
+patterns &quot;$exeroot*.so&quot; and &quot;$exeroot*.so.*&quot; to the device.</li>
+<li>For each additional argument to the script which is a file, will transfer the file to the device, creating a copy
+of the subdirectory it resides in on the device if necessary.
+</li>
+<li>Launch an adb shell to execute the program on the device, passing any arguments and fetching back the return code.</li>
+<li>Delete the transferred files and the test directory created by the script.
+</li>
+</ul>
+<HR>
+<p></p><small>
+Copyright &copy; 2005-2013 Intel Corporation.  All Rights Reserved.
+<P></P>
+Intel is a registered trademark or trademark of Intel Corporation
+or its subsidiaries in the United States and other countries.
+<p></p>
+* Other names and brands may be claimed as the property of others.
+</small>
+</body>
+</HTML>

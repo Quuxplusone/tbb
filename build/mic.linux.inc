@@ -1,4 +1,4 @@
-# Copyright 2005-2012 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -39,7 +39,7 @@ MAKE_TBBVARS=sh $(tbb_root)/build/generate_tbbvars.sh
 def_prefix=lin64
 
 TEST_LAUNCHER=
-run_cmd ?= ../mic.linux.launcher.sh
+run_cmd ?= bash $(tbb_root)/build/mic.linux.launcher.sh
 
 # detects whether examples are being built.
 ifeq ($(BUILDING_PHASE),0)
