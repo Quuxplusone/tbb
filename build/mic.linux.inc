@@ -29,9 +29,8 @@ ifeq ($(tbb_os),mic)
 endif
 
 ifneq ($(BUILDING_PHASE),1)
-  BUILD_PREFIX = mic_icc
   # The same build prefix should be used in offload.inc
-  tbb_build_prefix?=$(BUILD_PREFIX)
+  tbb_build_prefix?=mic_icc$(CPF_SUFFIX)
 endif
 
 MAKE_VERSIONS=sh $(tbb_root)/build/version_info_linux.sh $(CPLUS) $(CPLUS_FLAGS) $(INCLUDES) >version_string.ver
@@ -39,7 +38,7 @@ MAKE_TBBVARS=sh $(tbb_root)/build/generate_tbbvars.sh
 def_prefix=lin64
 
 TEST_LAUNCHER=
-run_cmd ?= bash $(tbb_root)/build/mic.linux.launcher.sh
+run_cmd ?= bash $(tbb_root)/build/mic.linux.launcher.sh $(largs)
 
 # detects whether examples are being built.
 ifeq ($(BUILDING_PHASE),0)

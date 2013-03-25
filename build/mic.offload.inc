@@ -31,9 +31,9 @@ ifneq (icc,$(compiler))
   $(error Only Intel(R) Compiler is supported for MIC offload compilation)
 endif
 
-tbb_offload_build_prefix?=mic_offload_icc
+tbb_offload_build_prefix?=mic_offload_icc$(CPF_SUFFIX)
 # The same build prefix should be used in mic.linux.inc
-export tbb_mic_build_prefix?=mic_icc
+export tbb_mic_build_prefix?=mic_icc$(CPF_SUFFIX)
 initial_tbb_root:=$(tbb_root)
 
 ifndef BUILDING_PHASE
@@ -55,12 +55,20 @@ tbbmalloc_native:
 	$(MAKE) tbbmalloc target=mic compiler=icc offload= tbb_root=$(initial_tbb_root)
 rml_native:
 	$(MAKE) rml target=mic compiler=icc offload= tbb_root=$(initial_tbb_root)
+tbb_host_debug:
+	$(MAKE) tbb_debug compiler=icc offload= tbb_root=$(initial_tbb_root)
+tbb_host_release:
+	$(MAKE) tbb_release compiler=icc offload= tbb_root=$(initial_tbb_root)
+tbbmalloc_host_debug:
+	$(MAKE) tbbmalloc_debug compiler=icc offload= tbb_root=$(initial_tbb_root)
+tbbmalloc_host_release:
+	$(MAKE) tbbmalloc_release compiler=icc offload= tbb_root=$(initial_tbb_root)
 
 # The work_dir variable can not be set via target-specific variable mechanism
 # since it will affect other targets on which the target depends.
 # So work_dir is set via eval function inside the recipe.
 prepare_test_offload_dir_debug: initial_tbb_build_dir:=$(tbb_build_dir)
-prepare_test_offload_dir_debug: tbb_debug tbbmalloc_debug tbb_native_debug tbbmalloc_native_debug
+prepare_test_offload_dir_debug: tbb_host_debug tbbmalloc_host_debug tbb_native_debug tbbmalloc_native_debug
 	$(eval work_dir=$(initial_tbb_build_dir)$(SLASH)$(tbb_offload_build_prefix))
 	$(shell $(MD) "$(work_dir)_debug$(SLASH)mic" >$(NUL) 2>$(NUL))
 	$(shell $(CP) "$(initial_tbb_build_dir)$(SLASH)$(tbb_build_prefix)_debug$(SLASH)lib"* "$(work_dir)_debug" >$(NUL) 2>$(NUL))
@@ -68,7 +76,7 @@ prepare_test_offload_dir_debug: tbb_debug tbbmalloc_debug tbb_native_debug tbbma
 	$(eval export TEST_COMPILATION=1)
 
 prepare_test_offload_dir_release: initial_tbb_build_dir:=$(tbb_build_dir)
-prepare_test_offload_dir_release: tbb_release tbbmalloc_release tbb_native_release tbbmalloc_native_release
+prepare_test_offload_dir_release: tbb_host_release tbbmalloc_host_release tbb_native_release tbbmalloc_native_release
 	$(eval work_dir=$(initial_tbb_build_dir)$(SLASH)$(tbb_offload_build_prefix))
 	$(shell $(MD) "$(work_dir)_release$(SLASH)mic" >$(NUL) 2>$(NUL))
 	$(shell $(CP) "$(initial_tbb_build_dir)$(SLASH)$(tbb_build_prefix)_release$(SLASH)lib"* "$(work_dir)_release" >$(NUL) 2>$(NUL))
@@ -127,12 +135,14 @@ _clean_mic_debug:
 endif
 
 ifeq ($(TEST_COMPILATION),1)
-  ifdef LD_LIBRARY_PATH
+  ifdef MIC_LD_LIBRARY_PATH
     export MIC_LD_LIBRARY_PATH := ./mic:$(MIC_LD_LIBRARY_PATH)
   else
     export MIC_LD_LIBRARY_PATH := ./mic
   endif
   LINK_TBB.LIB=-offload-option,mic,ld,"./mic/$(TBB.LIB)" $(TBB.LIB)
+  LINK_MALLOC_LIB=-offload-option,mic,ld,"./mic/$(MALLOC.DLL)" $(MALLOC.DLL)
+  LINK_MALLOC_PROXY_LIB=-offload-option,mic,ld,"./mic/$(MALLOCPROXY.DLL)" $(MALLOCPROXY.DLL)
   LINK_FLAGS =
   LIB_LINK_FLAGS += $(DYLIB_KEY)
   # Do not use -Werror because it is too strict for the early offload compiler.
@@ -141,12 +151,16 @@ ifeq ($(TEST_COMPILATION),1)
   tbb_strict=0
   override WARNING_AS_ERROR_KEY = Warning as error
   override WARNING_KEY = -diag-warning 2426 -w0
-  # Offload compiler now has a switch that tells to compile the entire translation unit for offload,
-  # and to skip the 'main' function.
-  CXX_ONLY_FLAGS += -offload-attribute-target=mic
   # Enable mic-specific stuff.
-  CXX_ONLY_FLAGS += -D__TBB_MIC=1
-  CXX_ONLY_FLAGS += -offload-option,mic,compiler,"-D__TBB_MIC=1 -DHARNESS_INCOMPLETE_SOURCES=1 -D__TBB_MIC_NATIVE -DTBB_USE_EXCEPTIONS=0"
+  CXX_MIC_STUFF = -offload-attribute-target=mic -D__TBB_MIC_OFFLOAD=1 \
+          -offload-option,mic,compiler,"-D__TBB_MIC_OFFLOAD=1 -DHARNESS_INCOMPLETE_SOURCES=1 -D__TBB_MIC_NATIVE -DTBB_USE_EXCEPTIONS=0"
+  CPLUS_FLAGS += $(CXX_MIC_STUFF)
+  export OFFLOAD_EXECUTION = 1
+  # Workaround to skip the RML tests in the offload mode
+  TBB_DEP_NON_RML_TEST =
+  TBB_DEP_RML_TEST =
+  RML_TBB_CLIENT.OBJ = 
+  RML_OMP_CLIENT.OBJ =
 endif
 
 # detects whether examples are being built.

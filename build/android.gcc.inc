@@ -65,7 +65,7 @@ ifeq ($(cfg), debug)
     CPLUS_FLAGS = -g -O0 $(DEFINE_KEY)TBB_USE_DEBUG
 endif
 
-CPLUS_FLAGS += $(DEFINE_KEY)USE_PTHREAD
+CPLUS_FLAGS += $(DEFINE_KEY)USE_PTHREAD $(DEFINE_KEY)_GLIBCXX_HAVE_FENV_H
 
 ifneq (,$(findstring $(arch),ia32 intel64))
     CPLUS_FLAGS += $(DEFINE_KEY)DO_ITT_NOTIFY
@@ -73,8 +73,14 @@ endif
 
 ifneq (0, $(dlopen_workaround))
     CPLUS_FLAGS += $(DEFINE_KEY)__TBB_USE_DLOPEN_REENTRANCY_WORKAROUND=1
+    CPLUS_FLAGS += $(DEFINE_KEY)__TBB_USE_DLOPEN_MAIN_PROGRAM_WORKAROUND=1
 else
     CPLUS_FLAGS += $(DEFINE_KEY)__TBB_USE_DLOPEN_REENTRANCY_WORKAROUND=0
+    CPLUS_FLAGS += $(DEFINE_KEY)__TBB_USE_DLOPEN_MAIN_PROGRAM_WORKAROUND=0
+endif
+
+ifeq (0, $(dynamic_load))
+     CPLUS_FLAGS += $(DEFINE_KEY)__TBB_DYNAMIC_LOAD_ENABLED=0
 endif
 
 
@@ -102,7 +108,7 @@ ifeq (intel64,$(arch))
 endif
 
 ifeq (arm,$(findstring arm,$(arch)))
-    CPLUS_FLAGS += -march=armv7-a $(DEFINE_KEY)TBB_USE_GCC_BUILTINS=1 
+    CPLUS_FLAGS += -march=armv7-a $(DEFINE_KEY)TBB_USE_GCC_BUILTINS=1 $(DEFINE_KEY)__TBB_64BIT_ATOMICS=0
 endif
 
 #------------------------------------------------------------------------------

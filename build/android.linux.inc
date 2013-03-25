@@ -29,37 +29,25 @@
 # Must set def_prefix according to target architecture detected above
 ifeq (ia32,$(arch))
     def_prefix = lin32
-    tbb_tool_prefix ?= i686-android-linux-
 endif
 ifeq (arm,$(findstring arm,$(arch)))
     def_prefix = lin32
-    tbb_tool_prefix ?= arm-linux-androideabi-
 endif
 ifeq (64,$(findstring 64,$(arch)))
     def_prefix = lin64
 endif
 
-ifdef tbb_tool_prefix
-    export tbb_tool_prefix
-endif
-
 gcc_version = $(shell $(tbb_tool_prefix)g++ -dumpversion)
 
 ifdef ANDROID_NDK_ROOT
-    export ndk_version:=$(shell echo "$(ANDROID_NDK_ROOT)" | sed -e 's/^.*android-ndk-//')
+    $(warning "NDK version $(ANDROID_NDK_ROOT)")
+    ndk_version:= $(lastword $(subst -, ,$(ANDROID_NDK_ROOT)))
 else
     $(warning "NDK version not set in environment, using \'unknown\' instead.")
     ndk_version:=unknown
 endif
 
-target_os_version:=$(shell adb shell uname -r)
-target_os_kernel_version:=$(shell echo "$(target_os_version)" | sed -e 's/-.*$$//')
-ifeq (,$(shell echo $(target_os_kernel_version) | egrep '[1-9]\.[0-9]\.[0-9]*'))
-    $(warning "Cannot obtain target device kernel version: $(target_os_kernel_version), using \'unknown\' instead.")
-    target_os_kernel_version:=unknown
-endif
-
-export runtime:=$(target)_cc$(gcc_version)_NDK$(ndk_version)_kernel$(target_os_kernel_version)
+export runtime:=$(target)_cc$(gcc_version)_NDK$(ndk_version)_version_$(target_os_version)
 
 AR = $(tbb_tool_prefix)ar
 MAKE_VERSIONS=sh $(tbb_root)/build/version_info_android.sh $(CPLUS) $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(INCLUDES) >version_string.ver
@@ -84,6 +72,7 @@ MALLOCPROXY.DEF = $(MALLOC_ROOT)/$(def_prefix)-proxy-export.def
 MALLOCPROXY.DLL = libtbbmalloc_proxy$(DEBUG_SUFFIX).$(DLL)
 MALLOCPROXY_NO_VERSION.DLL=
 MALLOCPROXY.LIB = $(MALLOCPROXY.DLL)
+LINK_MALLOCPROXY.LIB = $(MALLOCPROXY.LIB)
 
 TEST_LAUNCHER=
-run_cmd ?= -../android.linux.launcher.sh 
+run_cmd ?= -sh $(tbb_root)/build/android.linux.launcher.sh $(largs)

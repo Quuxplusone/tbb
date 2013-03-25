@@ -27,23 +27,31 @@
 # the GNU General Public License.
 
 # Usage:
-# mic.linux.launcher.sh [-v] [-u] [-l <library>] <executable> <arg1> <arg2> <argN>
-#         where: -l <library> specfies the library name to be assigned to LD_PRELOAD
+# mic.linux.launcher.sh [-v] [-s] [-r <repeats>] [-u] [-l <library>] <executable> <arg1> <arg2> <argN>
 #         where: -v enables verbose output
+#         where: -s enables stress testing unless ctrl-c is pressed
+#         where: -r <repeats> specifies number of times to repeat execution
 #         where: -u is ignored
+#         where: -l <library> specifies the library name to be assigned to LD_PRELOAD
 #
 # Libs and executable necessary for testing should be present in the current directory before running.
 # Note: Do not remove the redirections to '/dev/null' in the script, otherwise the nightly test system will fail.
 #
+trap 'echo Error at line $LINENO while executing "$BASH_COMMAND"' ERR #
+trap 'echo -e "\n*** Interrupted ***" && exit 1' SIGINT SIGQUIT #
 # Process the optional arguments if present
 if [ "x$1" = "x-v" ]; then shift 1; else SUPPRESS='>/dev/null'; fi #
+if [ "x$1" = "x-s" ]; then shift 1; echo Doing stress testing. Press Ctrl-C to terminate
+    run_prefix+='rep() { while :; do $*; done; }; rep '; fi #
+if [ "x$1" = "x-r" ]; then #
+    run_prefix+="rep() { for i in \$(seq 1 $2); do echo \$i of $2:; \$*; done; }; rep " #
+    shift 2; fi #
 [ "x$1" = "x-u" ] && shift 1 #
 if [ "x$1" = "x-l" ]; then { #
     ldd_list+="$2 "#
     run_prefix+=" LD_PRELOAD=$2" #
     shift 2 #
 }; fi #
-#
 # Collect the executable name
 fexename="$1" #
 exename=`basename $1` #
@@ -74,7 +82,7 @@ done #
 #
 # Add any libraries built for specific tests.
 exeroot=${exename%\.*} #
-fnamelist+=`ls ${exeroot}*.so ${exeroot}*.so.* 2>/dev/null` #
+fnamelist+=`ls ${exeroot}*.so ${exeroot}*.so.* 2>/dev/null`||: #
 #
 # Transfer collected executable and library files to the target device.
 eval "$RCP $fnamelist mic0:$targetdir/ $SUPPRESS || exit \$?" #
@@ -93,6 +101,11 @@ for fullname in "$@"; do if [ -r $fullname ]; then { #
 #
 args=$* #
 # Run the test on the target device
+kill_interrupt() { #
+echo -e "\n*** Killing remote $exename ***" && $RSH "killall $exename" #
+} # kill target process
+trap 'kill_interrupt' SIGINT SIGQUIT # trap keyboard interrupt (control-c)
+trap - ERR #
 $RSH "cd $targetdir; export LD_LIBRARY_PATH=.:\$LD_LIBRARY_PATH; $run_prefix ./$exename $args" #
 # Return the exit code of the test.
 exit $? #

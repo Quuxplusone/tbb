@@ -36,10 +36,6 @@ ifeq (android,$(findstring android,$(tbb_os)))
     $(error TBB only supports cross-compilation for Android. Specify "target=android" instead.)
 endif
 
-ifneq (linux,$(tbb_os))
-    $(error "No support for $(tbb_os) host when building for target=$(target)"
-endif
-
 ifneq ("command line","$(origin arch)")
     ifeq (icc,$(compiler))
         export COMPILER_VERSION := ICC: $(shell icc -V </dev/null 2>&1 | grep 'Version')
@@ -72,7 +68,10 @@ ifneq (ia32,$(arch))
 endif
 
 
-# Some OS versions (Android 4.0.[0-3] for example) need workaround for dlopen to avoid recursive calls
+# Many OS versions (Android 4.0.[0-3] for example) need workaround for dlopen to avoid non-recursive loader lock hang
 export dlopen_workaround = 1
+
+# Android platform only supported from TBB 4.1 forward
+NO_LEGACY_TESTS = 1
 
 

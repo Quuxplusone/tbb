@@ -54,6 +54,17 @@ endif
 
 CPLUS_FLAGS += -DUSE_PTHREAD
 
+ifeq (libc++,$(stdlib))
+    LIBS += -stdlib=libc++
+    CPLUS_FLAGS += -stdlib=libc++
+endif
+
+CPP11_FLAGS = -std=c++11 -D_TBB_CPP0X
+    
+ifneq (00,$(lambdas)$(cpp0x))
+    CXX_ONLY_FLAGS += $(CPP11_FLAGS)
+endif
+
 ifeq (intel64,$(arch))
     CPLUS_FLAGS += -m64
     LINK_FLAGS += -m64
