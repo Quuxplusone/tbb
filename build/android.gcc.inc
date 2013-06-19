@@ -49,7 +49,7 @@ CONLY = $(tbb_tool_prefix)gcc
 # -soname is necessary for proper linkage to TBB prebuilt libraries when building application with Android SDK
 LIB_LINK_FLAGS = $(DYLIB_KEY) -Wl,-soname=$(BUILDING_LIBRARY)
 
-LINK_FLAGS = -Wl,-rpath-link=.
+LINK_FLAGS = -Wl,-rpath-link=. -rdynamic
 C_FLAGS = $(CPLUS_FLAGS)
 
 # gcc 4.4 and higher support C++11

@@ -70,7 +70,7 @@ endif
 CPLUS_FLAGS += -DHARNESS_INCOMPLETE_SOURCES=1 -D__TBB_MIC_NATIVE -DTBB_USE_EXCEPTIONS=0 -opt-streaming-stores never
 CPLUS += -mmic
 CONLY += -mmic
-LINK_FLAGS = -Wl,-rpath-link=.
+LINK_FLAGS = -Wl,-rpath-link=. -rdynamic
 # Tell the icc to not link against libcilk*. Otherwise icc tries to link and emits a warning message.
 LIB_LINK_LIBS += -no-intel-extensions
 # Do not depend on libirc etc dynamic libs. It makes 'native' execution easier for the users.

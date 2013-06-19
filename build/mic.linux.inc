@@ -34,7 +34,7 @@ ifneq ($(BUILDING_PHASE),1)
 endif
 
 MAKE_VERSIONS=sh $(tbb_root)/build/version_info_linux.sh $(CPLUS) $(CPLUS_FLAGS) $(INCLUDES) >version_string.ver
-MAKE_TBBVARS=sh $(tbb_root)/build/generate_tbbvars.sh
+MAKE_TBBVARS=sh $(tbb_root)/build/generate_tbbvars.sh MIC_ MIC_
 def_prefix=lin64
 
 TEST_LAUNCHER=
