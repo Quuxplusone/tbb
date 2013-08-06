@@ -30,7 +30,7 @@ endif
 
 ifneq ($(BUILDING_PHASE),1)
   # The same build prefix should be used in offload.inc
-  tbb_build_prefix?=mic_icc$(CPF_SUFFIX)
+  export tbb_build_prefix?=mic_icc$(CPF_SUFFIX)
 endif
 
 MAKE_VERSIONS=sh $(tbb_root)/build/version_info_linux.sh $(CPLUS) $(CPLUS_FLAGS) $(INCLUDES) >version_string.ver

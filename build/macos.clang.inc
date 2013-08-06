@@ -55,8 +55,8 @@ endif
 CPLUS_FLAGS += -DUSE_PTHREAD
 
 ifeq (libc++,$(stdlib))
-    LIBS += -stdlib=libc++
-    CPLUS_FLAGS += -stdlib=libc++
+    CPLUS_FLAGS    += -stdlib=libc++
+    LIB_LINK_FLAGS += -stdlib=libc++
 endif
 
 CPP11_FLAGS = -std=c++11 -D_TBB_CPP0X

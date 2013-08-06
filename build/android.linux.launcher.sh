@@ -27,10 +27,13 @@
 # the GNU General Public License.
 
 # Usage:
-# android.linux.launcher.sh [-v] [-u] [-l <library>] <executable> <arg1> <arg2> <argN>
-#         where: -l <library> specfies the library name to be assigned to LD_PRELOAD
-#         where: -v enables verbose output when running the test (where supported)
+# android.linux.launcher.sh [-v] [-q] [-s] [-r <repeats>] [-u] [-l <library>] <executable> <arg1> <arg2> <argN>
+#         where: -v enables verbose output
+#         where: -q enables quiet mode
+#         where: -s runs the test in stress mode (until non-zero exit code or ctrl-c pressed)
+#         where: -r <repeats> specifies number of times to repeat execution
 #         where: -u is ignored on Android
+#         where: -l <library> specifies the library name to be assigned to LD_PRELOAD
 #
 # Libs and executable necessary for testing should be present in the current directory before running.
 # ANDROID_SERIAL must be set to the connected Android target device name for file transfer and test runs.
@@ -51,21 +54,28 @@ do_trap_cleanup()
     exit -1
 }
 
-# Process the optional arguments if present
-if [ "x$1" = "x-v" ]; then {
-    verb="$1"
-    shift 1
-}; fi
-
-if [ "x$1" = "x-u" ]; then {
-    shift 1
-}; fi
-
-if [ "x$1" = "x-l" ]; then {
-    ldpreload="$2"
-    shift 2
-}; fi
-
+while getopts  "qvsr:ul:" flag #
+do case $flag in #
+    s )  # Stress testing mode
+         echo Doing stress testing. Press Ctrl-C to terminate
+         run_env='stressed() { while $*; do :; done; }; ' #
+         run_prefix="$run_prefix stressed" ;; #
+    r )  # Repeats test n times
+         run_env="repeated() { for i in $(seq -s ' ' 1 $OPTARG) ; do echo \$i of $OPTARG:; \$*; done; }; " #
+         run_prefix="$run_prefix repeated" ;; #
+    l )  # Additional library
+         ldpreload="$OPTARG " ;; #
+    u )  # Stack limit
+         ;; # 
+    q )  # Quiet mode, removes 'done' but prepends any other output by test name
+         OUTPUT='2>&1 | sed -e "s/done//;/^[[:space:]]*$/d;s!^!$exename: !"' ;; #
+    v )  # Verbose mode
+         SUPPRESS='' #
+         verbose=1 ;; #
+esac done #
+shift `expr $OPTIND - 1` #
+[ -z "$OUTPUT" ] && OUTPUT='| sed -e "s/\\r$//"'
+[ $verbose ] || SUPPRESS='>/dev/null'
 # Collect the executable name
 exename=$(basename $1)
 shift
@@ -86,27 +96,22 @@ else
 	fnamelist="$fnamelist libgnustl_shared.so"
 fi
 
+# Make ldpreload list
+mallocfiles="$(/bin/ls libtbbmalloc* 2>/dev/null)"
+#TODO: any better workaround instead calling echo 
+#(without echo there is error: /system/bin/sh: libtbbmalloc_proxy.so: not found)
+[ -z "$mallocfiles" ] || ldpreload="$ldpreload `echo $mallocfiles`"
+[ -z "$ldpreload" ] || run_prefix="LD_PRELOAD='$ldpreload' $run_prefix"
+
 # Find the TBB libraries and add them to the list.
 # Add TBB libraries from the current directory that contains libtbb* files
-
 files="$(/bin/ls libtbb* 2> /dev/null)"
-if [ ! -z "$files" ]; then fnamelist="$fnamelist $files"; fi
-
-mallocfiles="$(/bin/ls libtbbmalloc* 2> /dev/null)"
-if [ ! -z "$mallocfiles" ]; then {
-    #TODO: any better workaround instead calling echo 
-    #(without echo there is error: /system/bin/sh: libtbbmalloc_proxy.so: not found)
-    ldpreload="$ldpreload $(echo $mallocfiles)"
-}; fi
-
-if [ ! -z "$ldpreload" ]; then ldpreload="export LD_PRELOAD=$ldpreload;"; fi
+[ -z "$files" ] || fnamelist="$fnamelist $files"
 
 # Add any libraries built for specific tests.
 exeroot=${exename%\.*}
 files="$(/bin/ls ${exeroot}*.so ${exeroot}*.so.* 2> /dev/null)"
-if [ ! -z "$files" ]; then {
-    fnamelist="$fnamelist $files" 
-}; fi
+[ -z "$files" ] || fnamelist="$fnamelist $files"
 
 # TODO: Add extra libraries from the Intel(R) Compiler for certain tests
 # found=$(echo $exename | egrep 'test_malloc_atexit\|test_malloc_lib_unload' 2> /dev/null)
@@ -121,7 +126,8 @@ transfers_ok=1
 for fullname in $fnamelist; do {
     if [ -r $fullname ]; then {
         # Transfer the executable and libraries to top-level target directory
-        adb push $fullname ${targetdir}/$(basename $fullname) > /dev/null 2>&1
+        [ $verbose ] && echo -n "Pushing $fullname: "
+        eval "adb push $fullname ${targetdir}/$(basename $fullname) $SUPPRESS 2>&1"
     }; else {
         echo "Error: required file ${currentdir}/${fullname} for test $exename not available for transfer."
         transfers_ok=0
@@ -145,20 +151,25 @@ for fullname in "$@"; do {
         }; fi
         # Create the target directory to hold input file if necessary
         if [ ! -z $directory ]; then {
-            adb shell "mkdir $directory" > /dev/null 2>&1
+            eval "adb shell 'mkdir $directory' $SUPPRESS 2>&1"
         }; fi
         # Transfer the input file to corresponding directory on target device
-        adb push $fullname ${targetdir}/$fullname > /dev/null 2>&1
+        [ $verbose ] && echo -n "Pushing $fullname: "
+        eval "adb push $fullname ${targetdir}/$fullname $SUPPRESS 2>&1"
     }; fi
 }; done
 
+[ $verbose ] && echo Running $run_prefix ./$exename $*
+run_env="$run_env cd $targetdir; export LD_LIBRARY_PATH=."
+
 # The return_code file is the best way found to return the status of the test execution when using adb shell.
-(adb shell "cd $targetdir; $ldpreload export LD_LIBRARY_PATH=.; ./$exename $verb $*; echo \$? > return_code") | sed -e "s/\\r$//"
+eval 'adb shell "$run_env; $run_prefix ./$exename $* || echo -n \$? >error_code"' "${OUTPUT}" #
 
 # Capture the return code string and remove the trailing \r from the return_code file contents
-exitcode=`(adb shell "cat $targetdir/return_code 2> /dev/null") | sed -e "s/\\r$//"`
+err=`adb shell "cat $targetdir/error_code 2>/dev/null"`
+[ -z $err ] || echo $exename: exited with error $err
 
 do_cleanup
 
 # Return the exit code of the test.
-exit $exitcode
+exit $err

@@ -149,8 +149,8 @@ ifeq ($(TEST_COMPILATION),1)
   # Need to set anything because WARNING_AS_ERROR_KEY should not be empty.
   # Treat #2426 as a warning. Print errors only.
   tbb_strict=0
-  override WARNING_AS_ERROR_KEY = Warning as error
-  override WARNING_KEY = -diag-warning 2426 -w0
+  WARNING_AS_ERROR_KEY = Warning as error
+  WARNING_KEY = -diag-warning 2426 -w0
   # Enable mic-specific stuff.
   CXX_MIC_STUFF = -offload-attribute-target=mic -D__TBB_MIC_OFFLOAD=1 \
           -offload-option,mic,compiler,"-D__TBB_MIC_OFFLOAD=1 -DHARNESS_INCOMPLETE_SOURCES=1 -D__TBB_MIC_NATIVE -DTBB_USE_EXCEPTIONS=0"

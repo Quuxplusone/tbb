@@ -27,11 +27,12 @@
 # the GNU General Public License.
 
 # Usage:
-# mic.linux.launcher.sh [-v] [-s] [-r <repeats>] [-u] [-l <library>] <executable> <arg1> <arg2> <argN>
+# mic.linux.launcher.sh [-v] [-q] [-s] [-r <repeats>] [-u] [-l <library>] <executable> <arg1> <arg2> <argN>
 #         where: -v enables verbose output
-#         where: -s enables stress testing unless ctrl-c is pressed
+#         where: -q enables quiet mode
+#         where: -s runs the test in stress mode (until non-zero exit code or ctrl-c pressed)
 #         where: -r <repeats> specifies number of times to repeat execution
-#         where: -u is ignored
+#         where: -u limits stack size
 #         where: -l <library> specifies the library name to be assigned to LD_PRELOAD
 #
 # Libs and executable necessary for testing should be present in the current directory before running.
@@ -40,18 +41,27 @@
 trap 'echo Error at line $LINENO while executing "$BASH_COMMAND"' ERR #
 trap 'echo -e "\n*** Interrupted ***" && exit 1' SIGINT SIGQUIT #
 # Process the optional arguments if present
-if [ "x$1" = "x-v" ]; then shift 1; else SUPPRESS='>/dev/null'; fi #
-if [ "x$1" = "x-s" ]; then shift 1; echo Doing stress testing. Press Ctrl-C to terminate
-    run_prefix+='rep() { while :; do $*; done; }; rep '; fi #
-if [ "x$1" = "x-r" ]; then #
-    run_prefix+="rep() { for i in \$(seq 1 $2); do echo \$i of $2:; \$*; done; }; rep " #
-    shift 2; fi #
-[ "x$1" = "x-u" ] && shift 1 #
-if [ "x$1" = "x-l" ]; then { #
-    ldd_list+="$2 "#
-    run_prefix+=" LD_PRELOAD=$2" #
-    shift 2 #
-}; fi #
+while getopts  "qvsr:ul:" flag #
+do case $flag in #
+    s )  # Stress testing mode
+         echo Doing stress testing. Press Ctrl-C to terminate
+         run_prefix+='rep() { while $*; do :; done; }; rep ' ;; #
+    r )  # Repeats test n times
+         run_prefix+="rep() { for i in \$(seq 1 $OPTARG); do echo \$i of $OPTARG:; \$*; done; }; rep " ;; #
+    l )  # Additional library
+         ldd_list+="$OPTARG " #
+         run_prefix+=" LD_PRELOAD=$OPTARG" ;; #
+    u )  # Set stack limit
+         run_prefix="ulimit -s 10240; $run_prefix" ;; # 
+    q )  # Quiet mode, removes 'done' but prepends any other output by test name
+         SUPPRESS='>/dev/null' #
+         verbose=1 ;; # TODO: implement a better quiet mode
+    v )  # Verbose mode
+         verbose=1 ;; #
+esac done #
+shift `expr $OPTIND - 1` #
+[ $verbose ] || SUPPRESS='>/dev/null' #
+
 # Collect the executable name
 fexename="$1" #
 exename=`basename $1` #
@@ -100,6 +110,7 @@ for fullname in "$@"; do if [ -r $fullname ]; then { #
 }; fi; done #
 #
 args=$* #
+[ $verbose ] && echo Running ./$exename $args #
 # Run the test on the target device
 kill_interrupt() { #
 echo -e "\n*** Killing remote $exename ***" && $RSH "killall $exename" #
