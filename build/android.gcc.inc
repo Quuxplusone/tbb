@@ -41,8 +41,6 @@ DYLIB_KEY = -shared
 EXPORT_KEY = -Wl,--version-script,
 LIBDL = -ldl
 
-TBB_NOSTRICT = 1
-
 CPLUS = $(tbb_tool_prefix)g++
 CONLY = $(tbb_tool_prefix)gcc
 

@@ -33,12 +33,10 @@ OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -w1
-DYLIB_KEY = -shared
+DYLIB_KEY = -shared -Wl,-soname=$@
 EXPORT_KEY = -Wl,--version-script,
 NOINTRINSIC_KEY = -fno-builtin
 LIBDL = -ldl
-
-TBB_NOSTRICT = 1
 
 CPLUS = icpc
 CONLY = icc
@@ -64,7 +62,7 @@ TBB_ASM.OBJ=
 MALLOC_ASM.OBJ=
 
 ifneq (00,$(lambdas)$(cpp0x))
-    CPLUS_FLAGS += $(CPP11_FLAGS)
+    CXX_ONLY_FLAGS += $(CPP11_FLAGS)
 endif
 
 CPLUS_FLAGS += -DHARNESS_INCOMPLETE_SOURCES=1 -D__TBB_MIC_NATIVE -DTBB_USE_EXCEPTIONS=0 -opt-streaming-stores never
