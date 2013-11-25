@@ -61,7 +61,7 @@ do case $flag in #
 esac done #
 shift `expr $OPTIND - 1` #
 [ $verbose ] || SUPPRESS='>/dev/null' #
-
+#
 # Collect the executable name
 fexename="$1" #
 exename=`basename $1` #
@@ -76,23 +76,21 @@ targetdir=${TEST_DIRECTORY:-/mic0fs/$USER/$currentdir} #
 #
 # Remove leftover target directory on the device
 eval "$RSH \"rm -r $targetdir; mkdir -p $targetdir\" $SUPPRESS 2>&1 || exit \$?" #
-eval "$RCP $fexename mic0:$targetdir/ $SUPPRESS || exit \$?" #
 #
-# Collect the list of files to transfer to the target device, starting with executable itself.
-ldd_list+="libtbbmalloc*.so* `$RSH ldd $targetdir/$exename | grep = | cut -d= -f1 2>/dev/null`" #
+# Transfer the test executable file and its auxiliary libraries (named as {test}_dll.so) to the target device.
+eval "$RCP $fexename `ls ${exename%\.*}*.so 2>/dev/null` mic0:$targetdir/ $SUPPRESS || exit \$?" #
+#
+# Collect all dependencies of the test and its auxiliary libraries to transfer them to the target device.
+ldd_list+="libtbbmalloc*.so* `$RSH ldd $targetdir/* | grep = | cut -d= -f1 2>/dev/null`" #
 fnamelist="" #
 #
 # Find the libraries and add them to the list.
-# For example, go through MIC_LD_LIBRARY_PATH and add TBB libraries from the first 
+# For example, go through MIC_LD_LIBRARY_PATH and add TBB libraries from the first
 # directory that contains tbb files
 mic_dir_list=`echo .:$MIC_LD_LIBRARY_PATH | tr : " "` #
 for name in $ldd_list; do # adds the first matched name in specified dirs
-    fnamelist+="`find $mic_dir_list -name $name -a -readable -print -quit 2>/dev/null` " #
+    fnamelist+="`find $mic_dir_list -name $name -a -readable -print -quit 2>/dev/null` "||: #
 done #
-#
-# Add any libraries built for specific tests.
-exeroot=${exename%\.*} #
-fnamelist+=`ls ${exeroot}*.so ${exeroot}*.so.* 2>/dev/null`||: #
 #
 # Transfer collected executable and library files to the target device.
 eval "$RCP $fnamelist mic0:$targetdir/ $SUPPRESS || exit \$?" #
