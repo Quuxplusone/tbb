@@ -61,13 +61,6 @@ ifneq ("command line","$(origin arch)")
     endif
 endif
 
-ifneq (ia32,$(arch))
-    ifneq (arm,$(findstring arm,$(arch)))
-        $(error "Unsupported architecture for Android target build: arch=$(arch).\nPlease ensure target device is connected via \'adb\' and \'ANDROID_SERIAL\' is set to target device.")
-    endif
-endif
-
-
 # Many OS versions (Android 4.0.[0-3] for example) need workaround for dlopen to avoid non-recursive loader lock hang
 export dlopen_workaround = 1
 
