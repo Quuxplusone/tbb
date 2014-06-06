@@ -45,9 +45,11 @@ while getopts  "qvsr:ul:" flag #
 do case $flag in #
     s )  # Stress testing mode
          echo Doing stress testing. Press Ctrl-C to terminate
-         run_prefix+='rep() { while $*; do :; done; }; rep ' ;; #
+         run_env='stressed() { while $*; do :; done; };' #
+         run_prefix="stressed $run_prefix" ;; #
     r )  # Repeats test n times
-         run_prefix+="rep() { for i in \$(seq 1 $OPTARG); do echo \$i of $OPTARG:; \$*; done; }; rep " ;; #
+         run_env="repeated() { for i in \$(seq 1 $OPTARG); do echo \$i of $OPTARG:; \$*; done; };" #
+         run_prefix="repeated $run_prefix" ;; #
     l )  # Additional library
          ldd_list+="$OPTARG " #
          run_prefix+=" LD_PRELOAD=$OPTARG" ;; #
@@ -117,27 +119,26 @@ fnamelist=`echo $fnamelist` #
 #
 # Transfer input files used by example codes by scanning the executable argument list.
 argfiles= #
-for fullname in "$@"; do if [ -r $fullname ]; then { #
-    directory=$(dirname $fullname) #
-    filename=$(basename $fullname) #
-    # Strip leading "." from fullname if present
-    [ "$directory" = "." ] && directory="" && fullname="$filename" #
-    # Create the target directory to hold input file if necessary
-    [ -n "$directory" ] && eval $RSH "mkdir -p $targetdir/$directory" $SUPPRESS 2>&1 #
-    [ -n "$directory" ] && directory=$directory/
-    argfiles+="$directory$fullname " #
-}; fi; done #
+args= #
+for arg in "$@"; do #
+  if [ -r $arg ]; then #
+    argfiles+="$arg " #
+    args+="$(basename $arg) " #
+  else #
+    args+="$arg " #
+  fi #
+done #
 [ -n "$argfiles" ] && copy_files $argfiles #
 #
 # Get the list of transferred files
 testfiles="`$RSH find $targetdir/ -type f | tr '\n' ' ' 2>/dev/null`" #
 #
-args=$* #
-[ $verbose ] && echo Running ./$exename $args #
+[ $verbose ] && echo Running $run_prefix ./$exename $args #
 # Run the test on the target device
 trap 'kill_interrupt' SIGINT SIGQUIT # trap keyboard interrupt (control-c)
 trap - ERR #
-$RSH "cd $targetdir; export LD_LIBRARY_PATH=.:\$LD_LIBRARY_PATH; $run_prefix ./$exename $args" #
+run_env+="cd $targetdir; export LD_LIBRARY_PATH=.:\$LD_LIBRARY_PATH;" #
+$RSH "$run_env $run_prefix ./$exename $args" #
 #
 # Delete the test files and get the list of output files
 outfiles=`$RSH rm $testfiles 2>/dev/null; find $targetdir/ -type f 2>/dev/null` ||: #

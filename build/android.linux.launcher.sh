@@ -57,10 +57,10 @@ do case $flag in #
     s )  # Stress testing mode
          echo Doing stress testing. Press Ctrl-C to terminate
          run_env='stressed() { while $*; do :; done; }; ' #
-         run_prefix="$run_prefix stressed" ;; #
+         run_prefix="stressed $run_prefix" ;; #
     r )  # Repeats test n times
          run_env="repeated() { for i in $(seq -s ' ' 1 $OPTARG) ; do echo \$i of $OPTARG:; \$*; done; }; " #
-         run_prefix="$run_prefix repeated" ;; #
+         run_prefix="repeated $run_prefix" ;; #
     l )  # Additional library
          ldpreload="$OPTARG " ;; #
     u )  # Stack limit
